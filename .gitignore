@@ -1,0 +1,8 @@
+_agents/*/tools/
+**/secrets.json
+**/*.token
+.telegram_offset.json
+.telegram_poll.lock
+**/oauth*.json
+node_modules/
+

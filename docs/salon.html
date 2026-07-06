@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>프라이빗 살롱 | MAISON MEISTER</title>
+<meta name="robots" content="noindex, nofollow">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,400&family=Noto+Serif+KR:wght@200;300;400;500&family=Noto+Sans+KR:wght@300;400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%E2%97%86%3C/text%3E%3C/svg%3E">
+<script>
+/* 게이트: 초대 없이 접근 시 메인으로 */
+if (!sessionStorage.getItem("meister_salon_pass")) location.replace("index.html");
+</script>
+</head>
+<body>
+
+<header class="nav nav--solid">
+  <div class="nav__inner">
+    <nav class="nav__links nav__links--left">
+      <a href="index.html">메종 홈</a>
+    </nav>
+    <a class="nav__logo" href="salon.html">
+      <span class="nav__logo-mark">◆</span>
+      <span class="nav__logo-word">MAISON&nbsp;MEISTER</span>
+      <span class="nav__logo-sub">PRIVATE SALON</span>
+    </a>
+    <nav class="nav__links nav__links--right">
+      <a href="#" id="salonLogout">나가기</a>
+    </nav>
+  </div>
+</header>
+
+<section class="salon-hero">
+  <span class="salon-hero__badge">INVITATION ONLY</span>
+  <h1 id="salonWelcome">프라이빗 살롱</h1>
+  <p>세상에 단 다섯 점뿐인 메종 마이스터의 하이 주얼리 컬렉션입니다.<br>
+  작품을 선택하시면 전담 컨시어지 예약으로 이어집니다.</p>
+</section>
+
+<main class="salon-grid" id="salonGrid"></main>
+
+<footer class="footer">
+  <div class="footer__logo">MAISON&nbsp;MEISTER</div>
+  <p class="footer__legal">© 2026 Maison Meister · Private Salon</p>
+</footer>
+
+<script src="js/data.js"></script>
+<script src="js/salon.js"></script>
+</body>
+</html>

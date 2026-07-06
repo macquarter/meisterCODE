@@ -1,1 +1,199 @@
-﻿<!doctype html><meta charset=utf-8><title>meisterCODE</title><h1>준비됨 - 시안이 여기에 배포됩니다.</h1>
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MAISON MEISTER | 하이 주얼리</title>
+<meta name="description" content="메종 마이스터 — 세상에서 가장 아름다운 보석을 위한 하이 주얼리 하우스">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,400&family=Noto+Serif+KR:wght@200;300;400;500&family=Noto+Sans+KR:wght@300;400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%E2%97%86%3C/text%3E%3C/svg%3E">
+</head>
+<body>
+
+<!-- ══════════ NAVIGATION ══════════ -->
+<header class="nav" id="nav">
+  <div class="nav__inner">
+    <nav class="nav__links nav__links--left">
+      <a href="#collections">컬렉션</a>
+      <a href="#highjewellery">하이 주얼리</a>
+      <a href="#maison">메종</a>
+    </nav>
+    <a class="nav__logo" href="index.html">
+      <span class="nav__logo-mark">◆</span>
+      <span class="nav__logo-word">MAISON&nbsp;MEISTER</span>
+      <span class="nav__logo-sub">HAUTE JOAILLERIE · SEOUL</span>
+    </a>
+    <nav class="nav__links nav__links--right">
+      <a href="#bridal">브라이덜</a>
+      <a href="#contact">부티크</a>
+      <a href="#" id="navSalonLink" class="nav__salon-link" hidden>프라이빗 살롱</a>
+    </nav>
+  </div>
+</header>
+
+<!-- ══════════ HERO ══════════ -->
+<section class="hero" id="hero">
+  <div class="hero__media">
+    <!-- 시네마틱 켄번즈 슬라이드쇼 (영상 로딩 실패 시에도 항상 동작) -->
+    <div class="hero__slides" id="heroSlides"></div>
+    <!-- 실제 영상 (로드 성공 시 슬라이드 위로 페이드 인) -->
+    <video class="hero__video" id="heroVideo" muted loop playsinline autoplay preload="auto"></video>
+    <canvas class="hero__sparkle" id="sparkleCanvas" aria-hidden="true"></canvas>
+    <div class="hero__scrim"></div>
+  </div>
+  <div class="hero__content">
+    <p class="hero__eyebrow">SINCE 1962 · HAUTE JOAILLERIE</p>
+    <h1 class="hero__title">세상에서 가장 눈부신<br>보석의 하우스</h1>
+    <p class="hero__desc">하나의 원석에서 하나의 걸작으로. 메종 마이스터의 장인들이<br>빚어내는 찬란한 여정을 만나보세요.</p>
+    <a class="btn btn--ghost" href="#collections">컬렉션 살펴보기</a>
+  </div>
+  <div class="hero__scroll" aria-hidden="true"><span></span></div>
+</section>
+
+<!-- ══════════ COLLECTIONS ══════════ -->
+<section class="section" id="collections">
+  <p class="section__eyebrow">COLLECTIONS</p>
+  <h2 class="section__title">시그니처 컬렉션</h2>
+  <div class="collection-grid">
+    <a class="collection-card" href="#highjewellery">
+      <div class="collection-card__img-wrap">
+        <img loading="lazy" alt="다이아몬드 네크리스"
+          src="https://images.unsplash.com/photo-1515562141207-7a88fb7ce338?w=900&q=80&auto=format&fit=crop"
+          data-fallback="네크리스">
+      </div>
+      <h3>네크리스</h3><p>빛의 강, 리비에르</p>
+    </a>
+    <a class="collection-card" href="#highjewellery">
+      <div class="collection-card__img-wrap">
+        <img loading="lazy" alt="에메랄드 링"
+          src="https://images.unsplash.com/photo-1605100804763-247f67b3557e?w=900&q=80&auto=format&fit=crop"
+          data-fallback="링">
+      </div>
+      <h3>링</h3><p>영원을 약속하는 순간</p>
+    </a>
+    <a class="collection-card" href="#highjewellery">
+      <div class="collection-card__img-wrap">
+        <img loading="lazy" alt="사파이어 이어링"
+          src="https://images.unsplash.com/photo-1573408301185-9146fe634ad0?w=900&q=80&auto=format&fit=crop"
+          data-fallback="이어링">
+      </div>
+      <h3>이어링</h3><p>얼굴을 밝히는 별빛</p>
+    </a>
+    <a class="collection-card" href="#highjewellery">
+      <div class="collection-card__img-wrap">
+        <img loading="lazy" alt="루비 브레이슬릿"
+          src="https://images.unsplash.com/photo-1611591437281-460bfbe1220a?w=900&q=80&auto=format&fit=crop"
+          data-fallback="브레이슬릿">
+      </div>
+      <h3>브레이슬릿</h3><p>손목 위의 컬러 스톤</p>
+    </a>
+    <a class="collection-card" href="#highjewellery">
+      <div class="collection-card__img-wrap">
+        <img loading="lazy" alt="다이아몬드 워치"
+          src="https://images.unsplash.com/photo-1547996160-81dfa63595aa?w=900&q=80&auto=format&fit=crop"
+          data-fallback="워치">
+      </div>
+      <h3>워치</h3><p>시간 위에 세팅된 다이아몬드</p>
+    </a>
+  </div>
+</section>
+
+<!-- ══════════ EDITORIAL / MODEL ══════════ -->
+<section class="editorial" id="highjewellery">
+  <div class="editorial__img">
+    <img loading="lazy" alt="주얼리를 착용한 모델"
+      src="https://images.unsplash.com/photo-1617038220319-276d3cfab638?w=1200&q=80&auto=format&fit=crop"
+      data-fallback="에디토리얼">
+  </div>
+  <div class="editorial__text">
+    <p class="section__eyebrow">HIGH JEWELLERY</p>
+    <h2>빛을 조각하는<br>장인의 손끝</h2>
+    <p>메종 마이스터의 하이 주얼리는 단 다섯 점만 존재합니다.
+    세계에서 가장 희귀한 원석을 찾아, 60년의 세공 기술로
+    단 하나뿐인 걸작을 완성합니다. 각 작품은 프라이빗 살롱에서만
+    만나보실 수 있습니다.</p>
+    <a class="btn btn--line" href="#contact">프라이빗 상담 문의</a>
+  </div>
+</section>
+
+<section class="editorial editorial--reverse" id="bridal">
+  <div class="editorial__img">
+    <img loading="lazy" alt="브라이덜 링을 착용한 모델"
+      src="https://images.unsplash.com/photo-1529626455594-4ff0802cfb7e?w=1200&q=80&auto=format&fit=crop"
+      data-fallback="브라이덜">
+  </div>
+  <div class="editorial__text">
+    <p class="section__eyebrow">BRIDAL</p>
+    <h2>일생에 단 한 번,<br>영원히 빛나는 약속</h2>
+    <p>가장 아름다운 순간을 위한 브라이덜 컬렉션.
+    전담 컨시어지가 원석 선택부터 세팅, 인그레이빙까지
+    두 분만의 이야기를 담아 완성해 드립니다.</p>
+    <a class="btn btn--line" href="#contact">브라이덜 컨시어지</a>
+  </div>
+</section>
+
+<!-- ══════════ MAISON ══════════ -->
+<section class="maison" id="maison">
+  <div class="maison__inner">
+    <p class="section__eyebrow section__eyebrow--light">THE MAISON</p>
+    <h2>1962년, 하나의 아틀리에에서<br>시작된 빛의 유산</h2>
+    <p>서울의 작은 공방에서 시작한 메종 마이스터는 3대에 걸쳐
+    최상급 원석만을 고집해 왔습니다. 원석의 발굴부터 커팅, 세팅까지 —
+    모든 과정이 메종 안에서 이루어집니다.</p>
+    <div class="maison__stats">
+      <div><strong>60<span>+</span></strong><em>년의 헤리티지</em></div>
+      <div><strong>27</strong><em>명의 마스터 세공사</em></div>
+      <div><strong>5</strong><em>점의 하이 주얼리</em></div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════ CONTACT ══════════ -->
+<section class="contact section" id="contact">
+  <p class="section__eyebrow">BOUTIQUE</p>
+  <h2 class="section__title">부티크 안내</h2>
+  <div class="contact__grid">
+    <div><h3>서울 플래그십</h3><p>서울시 강남구 청담동 메종 마이스터<br>매일 11:00 – 20:00</p></div>
+    <div><h3>프라이빗 상담</h3><p>concierge@maison-meister.kr<br>+82 2 000 0000</p></div>
+    <div><h3>애프터 서비스</h3><p>평생 무상 세척 · 리세팅 상담<br>전 부티크 이용 가능</p></div>
+  </div>
+</section>
+
+<!-- ══════════ FOOTER (히든 버튼 위치) ══════════ -->
+<footer class="footer">
+  <div class="footer__logo">MAISON&nbsp;MEISTER</div>
+  <nav class="footer__links">
+    <a href="#collections">컬렉션</a><a href="#maison">메종</a><a href="#contact">부티크</a>
+  </nav>
+  <p class="footer__legal">
+    © 2026 Maison Meister. All rights reserved.
+    <!-- 히든 버튼: 다이아몬드 글리프 — 프라이빗 살롱 입장 -->
+    <button class="hidden-gem" id="hiddenGem" aria-label="프라이빗 살롱" title=" ">◆</button>
+  </p>
+</footer>
+
+<!-- ══════════ 히든 로그인 모달 (판도라의 상자) ══════════ -->
+<div class="salon-modal" id="salonModal" hidden>
+  <div class="salon-modal__backdrop" id="salonBackdrop"></div>
+  <div class="salon-modal__box" role="dialog" aria-modal="true" aria-labelledby="salonTitle">
+    <button class="salon-modal__close" id="salonClose" aria-label="닫기">×</button>
+    <div class="salon-modal__gem">◆</div>
+    <p class="salon-modal__eyebrow">INVITATION ONLY</p>
+    <h2 id="salonTitle">프라이빗 살롱</h2>
+    <p class="salon-modal__desc">초대받은 분께만 열리는 문입니다.<br>초대 코드를 입력해 주세요.</p>
+    <form id="salonForm" autocomplete="off">
+      <input type="text" id="salonName" placeholder="성함" required>
+      <input type="password" id="salonCode" placeholder="초대 코드" required>
+      <p class="salon-modal__error" id="salonError" hidden>초대 코드가 올바르지 않습니다.</p>
+      <button type="submit" class="btn btn--gold">입장하기</button>
+    </form>
+    <p class="salon-modal__hint">데모 초대 코드 : <code>MEISTER</code></p>
+  </div>
+</div>
+
+<script src="js/main.js"></script>
+</body>
+</html>

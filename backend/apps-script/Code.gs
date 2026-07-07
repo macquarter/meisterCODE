@@ -1,40 +1,51 @@
 /**
- * MAISON MEISTER 백엔드 — Google Apps Script
+ * MAISON MEISTER 백엔드 — Google Apps Script (설치 자동화 버전)
  *
- * 구글 시트 하나가 백오피스 역할을 합니다.
- *  - "초대코드" 시트: 고객별 개별 초대 코드 발급·중지·만료 관리
- *  - "예약" 시트:   컨시어지 예약이 한 줄씩 쌓이고, 접수 즉시 이메일 발송
+ * 이 스크립트는 첫 요청 때 스스로 준비를 끝냅니다:
+ *  - 구글 드라이브에 "메종 마이스터 운영" 스프레드시트를 자동 생성
+ *  - "초대코드", "예약" 탭과 헤더, 샘플 코드까지 자동 구성
  *
- * 설치 방법은 같은 폴더의 README.md 참고.
+ * 사람이 할 일은 붙여넣기 → 배포 → 권한 허용, 이 세 가지뿐입니다. (README.md 참고)
  */
 
-// 예약 알림을 받을 이메일. 비워두면 이 스프레드시트 소유자(나)의 이메일로 발송됩니다.
+// 예약 알림을 받을 이메일. 비워두면 이 스크립트 소유자(나)의 이메일로 발송됩니다.
 var NOTIFY_EMAIL = "";
 
+var SS_NAME = "메종 마이스터 운영";
 var CODE_SHEET = "초대코드";
 var BOOKING_SHEET = "예약";
 
-/**
- * 최초 1회 실행 — 필요한 시트와 헤더, 샘플 코드를 만듭니다.
- * (Apps Script 편집기에서 함수 선택: setup → 실행)
- */
-function setup() {
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
+/** 운영 스프레드시트 확보 — 없으면 만들고, 탭·헤더가 없으면 채운다 */
+function getSS_() {
+  var props = PropertiesService.getScriptProperties();
+  var id = props.getProperty("SHEET_ID");
+  var ss = null;
+  if (id) {
+    try { ss = SpreadsheetApp.openById(id); } catch (e) { ss = null; }
+  }
+  if (!ss) {
+    ss = SpreadsheetApp.create(SS_NAME);
+    props.setProperty("SHEET_ID", ss.getId());
+  }
 
-  var codes = ss.getSheetByName(CODE_SHEET);
-  if (!codes) {
-    codes = ss.insertSheet(CODE_SHEET);
+  if (!ss.getSheetByName(CODE_SHEET)) {
+    var codes = ss.insertSheet(CODE_SHEET);
     codes.appendRow(["코드", "고객명", "상태", "만료일", "사용횟수", "마지막 사용"]);
     codes.appendRow(["MEISTER-VIP01", "샘플 고객", "활성", "2027-12-31", 0, ""]);
     codes.setFrozenRows(1);
   }
-
-  var book = ss.getSheetByName(BOOKING_SHEET);
-  if (!book) {
-    book = ss.insertSheet(BOOKING_SHEET);
+  if (!ss.getSheetByName(BOOKING_SHEET)) {
+    var book = ss.insertSheet(BOOKING_SHEET);
     book.appendRow(["접수시각", "고객명", "초대코드", "작품", "서비스", "희망 날짜", "시간", "인원", "연락처", "요청사항"]);
     book.setFrozenRows(1);
   }
+  /* 새 문서에 딸려온 빈 기본 시트 제거 */
+  var first = ss.getSheets()[0];
+  if (ss.getSheets().length > 2 && first.getName() !== CODE_SHEET &&
+      first.getName() !== BOOKING_SHEET && first.getLastRow() === 0) {
+    ss.deleteSheet(first);
+  }
+  return ss;
 }
 
 /** 웹 앱 진입점 — 사이트에서 오는 모든 요청 처리 */
@@ -52,10 +63,18 @@ function doPost(e) {
     .setMimeType(ContentService.MimeType.JSON);
 }
 
-/** 브라우저에서 배포 URL을 직접 열었을 때의 상태 확인용 */
+/**
+ * 배포 URL을 브라우저로 열면 상태 확인 + 최초 설치가 실행됩니다.
+ * (배포 직후 한 번 열어보면 운영 시트 주소까지 알려줍니다)
+ */
 function doGet() {
+  var ss = getSS_();
   return ContentService
-    .createTextOutput(JSON.stringify({ ok: true, service: "MAISON MEISTER API" }))
+    .createTextOutput(JSON.stringify({
+      ok: true,
+      service: "MAISON MEISTER API",
+      sheet: ss.getUrl()
+    }))
     .setMimeType(ContentService.MimeType.JSON);
 }
 
@@ -64,9 +83,7 @@ function validateCode(req) {
   var code = String(req.code || "").trim().toUpperCase();
   if (!code) return { ok: false, error: "초대 코드를 입력해 주세요." };
 
-  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(CODE_SHEET);
-  if (!sheet) return { ok: false, error: "서버 준비 중입니다. (setup 미실행)" };
-
+  var sheet = getSS_().getSheetByName(CODE_SHEET);
   var rows = sheet.getDataRange().getValues();
   for (var i = 1; i < rows.length; i++) {
     if (String(rows[i][0]).trim().toUpperCase() !== code) continue;
@@ -94,9 +111,8 @@ function saveBooking(req) {
   if (!String(req.phone || "").trim()) return { ok: false, error: "연락처를 입력해 주세요." };
   if (!req.date || !req.time) return { ok: false, error: "날짜와 시간을 선택해 주세요." };
 
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var ss = getSS_();
   var sheet = ss.getSheetByName(BOOKING_SHEET);
-  if (!sheet) return { ok: false, error: "서버 준비 중입니다. (setup 미실행)" };
 
   sheet.appendRow([
     new Date(),

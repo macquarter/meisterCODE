@@ -3,7 +3,8 @@
   "use strict";
 
   var AUTH_KEY = "meister_salon_pass";
-  var INVITE_CODE = "MEISTER"; // 데모 초대 코드
+  var API_URL = (window.MEISTER_CONFIG || {}).API_URL || "";
+  var INVITE_CODE = "MEISTER"; // 데모 모드(API 미연결) 전용 공용 코드
 
   /* ── 네비게이션: 스크롤 시 배경 ─────────── */
   var nav = document.getElementById("nav");
@@ -151,6 +152,10 @@
     var nameInput = document.getElementById("salonName");
     var codeInput = document.getElementById("salonCode");
     var errEl = document.getElementById("salonError");
+    var hintEl = document.getElementById("salonHint");
+
+    /* 백엔드 연결 시 데모 코드 힌트 숨김 */
+    if (API_URL && hintEl) hintEl.hidden = true;
 
     function openModal() {
       // 이미 입장 이력이 있으면 바로 살롱으로
@@ -175,24 +180,59 @@
       if (e.key === "Escape" && !modal.hidden) closeModal();
     });
 
+    function showError(msg) {
+      errEl.textContent = msg || "초대 코드가 올바르지 않습니다.";
+      errEl.hidden = false;
+      codeInput.focus();
+      var box = modal.querySelector(".salon-modal__box");
+      box.style.animation = "none";
+      void box.offsetWidth; // reflow로 애니메이션 재시작
+      box.style.animation = "";
+    }
+
+    function enterSalon(customerName, code) {
+      sessionStorage.setItem(AUTH_KEY, JSON.stringify({
+        name: customerName || "게스트",
+        code: code,
+        at: new Date().toISOString()
+      }));
+      location.href = "salon.html";
+    }
+
     form.addEventListener("submit", function (e) {
       e.preventDefault();
-      var code = codeInput.value.trim().toUpperCase();
-      if (code === INVITE_CODE) {
-        sessionStorage.setItem(AUTH_KEY, JSON.stringify({
-          name: nameInput.value.trim() || "게스트",
-          at: new Date().toISOString()
-        }));
-        location.href = "salon.html";
-      } else {
-        errEl.hidden = false;
-        codeInput.value = "";
-        codeInput.focus();
-        var box = modal.querySelector(".salon-modal__box");
-        box.style.animation = "none";
-        void box.offsetWidth; // reflow로 애니메이션 재시작
-        box.style.animation = "";
+      var name = nameInput.value.trim();
+      var code = codeInput.value.trim();
+      errEl.hidden = true;
+
+      /* 데모 모드: 백엔드 미연결 시 공용 코드 */
+      if (!API_URL) {
+        if (code.toUpperCase() === INVITE_CODE) enterSalon(name, code.toUpperCase());
+        else { codeInput.value = ""; showError(); }
+        return;
       }
+
+      /* 실서비스 모드: 구글 시트의 고객별 코드를 서버에서 검증 */
+      var btn = form.querySelector("button[type=submit]");
+      btn.disabled = true;
+      btn.textContent = "확인 중…";
+      fetch(API_URL, {
+        method: "POST",
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: JSON.stringify({ action: "validate", code: code, name: name })
+      })
+        .then(function (r) { return r.json(); })
+        .then(function (res) {
+          if (res.ok) enterSalon(res.customer || name, code);
+          else showError(res.error);
+        })
+        .catch(function () {
+          showError("네트워크 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.");
+        })
+        .finally(function () {
+          btn.disabled = false;
+          btn.textContent = "입장하기";
+        });
     });
   }
 })();

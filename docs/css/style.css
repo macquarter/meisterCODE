@@ -355,13 +355,17 @@ button{font-family:inherit;cursor:pointer}
 .booking__note{font-size:.72rem;color:var(--grey);margin:.3rem 0 1.4rem}
 
 .booking label{display:block;font-size:.66rem;letter-spacing:.24em;color:var(--gold);margin:1.1rem 0 .45rem}
-.booking select{
+.booking label .label-opt{color:var(--grey);letter-spacing:.1em}
+.booking select,.booking input,.booking textarea{
   width:100%;background:rgba(246,242,234,.05);
   border:1px solid rgba(246,242,234,.18);
   color:var(--ivory);padding:.75rem .8rem;font-size:.85rem;font-family:var(--sans);
+  resize:vertical;
 }
-.booking select:focus{outline:none;border-color:var(--gold)}
+.booking select:focus,.booking input:focus,.booking textarea:focus{outline:none;border-color:var(--gold)}
 .booking select option{background:#17140f}
+.booking input::placeholder,.booking textarea::placeholder{color:var(--grey)}
+.booking__cta:disabled{opacity:.5;cursor:default}
 
 /* 캘린더 */
 .cal{border:1px solid rgba(246,242,234,.14);padding:.9rem}

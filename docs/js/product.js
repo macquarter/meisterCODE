@@ -2,6 +2,10 @@
 (function () {
   "use strict";
 
+  var API_URL = (window.MEISTER_CONFIG || {}).API_URL || "";
+  var pass = {};
+  try { pass = JSON.parse(sessionStorage.getItem("meister_salon_pass")) || {}; } catch (e) {}
+
   /* ── 상품 로드 ───────────────────────────── */
   var id = new URLSearchParams(location.search).get("id");
   var p = MEISTER_PRODUCTS.find(function (x) { return x.id === id; }) || MEISTER_PRODUCTS[0];
@@ -146,13 +150,22 @@
     e.preventDefault();
     if (!selectedDate) { alert("날짜를 선택해 주세요."); return; }
     if (!selectedSlot) { alert("시간을 선택해 주세요."); return; }
+    var phone = document.getElementById("bPhone").value.trim();
+    if (!phone) { alert("연락처를 입력해 주세요."); return; }
 
+    var service = document.getElementById("bService").value;
     var booking = {
+      action: "booking",
       product: p.name,
-      service: document.getElementById("bService").value,
+      service: service,
+      serviceLabel: SERVICE_LABEL[service],
       date: selectedDate,
       time: selectedSlot,
       guests: document.getElementById("bGuests").value,
+      phone: phone,
+      memo: document.getElementById("bMemo").value.trim(),
+      name: pass.name || "",
+      code: pass.code || "",
       createdAt: new Date().toISOString()
     };
     try {
@@ -161,6 +174,38 @@
       localStorage.setItem("meister_bookings", JSON.stringify(list));
     } catch (err) {}
 
+    /* 백엔드 연결 시: 구글 시트에 저장 + 운영자 이메일 발송 후 확정 화면 */
+    if (API_URL) {
+      var cta = document.querySelector(".booking__cta");
+      cta.disabled = true;
+      cta.textContent = "접수 중…";
+      fetch(API_URL, {
+        method: "POST",
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: JSON.stringify(booking)
+      })
+        .then(function (r) { return r.json(); })
+        .then(function (res) {
+          if (res.ok) showConfirm(booking);
+          else {
+            alert(res.error || "예약 접수에 실패했습니다. 잠시 후 다시 시도해 주세요.");
+            cta.disabled = false;
+            cta.textContent = "컨시어지 예약하기";
+          }
+        })
+        .catch(function () {
+          alert("네트워크 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.");
+          cta.disabled = false;
+          cta.textContent = "컨시어지 예약하기";
+        });
+      return;
+    }
+
+    /* 데모 모드: 브라우저 저장만 하고 확정 화면 */
+    showConfirm(booking);
+  });
+
+  function showConfirm(booking) {
     var card = document.getElementById("bookingCard");
     card.innerHTML =
       '<div class="booking__confirm">' +
@@ -175,5 +220,5 @@
       '<a class="btn btn--gold booking__cta" href="salon.html" style="margin-top:1.4rem">살롱으로 돌아가기</a>' +
       "</div>";
     card.scrollIntoView({ behavior: "smooth", block: "center" });
-  });
+  }
 })();

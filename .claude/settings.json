@@ -1,0 +1,34 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(chmod:*)",
+      "Bash(git clone:*)",
+      "Bash(./setup:*)",
+      "Bash(bash scripts/install-gstack.sh)",
+      "Bash(scripts/install-gstack.sh)"
+    ]
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR/.claude/hooks/gstack-bootstrap.sh\""
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Skill",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR/.claude/hooks/check-gstack.sh\""
+          }
+        ]
+      }
+    ]
+  }
+}

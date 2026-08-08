@@ -1,0 +1,79 @@
+/* ═══════════════════════════════════════════════════
+   MEISTERCODE 디자인 시스템
+   기준: 드라이브 톤앤매너 폴더(기존 상세페이지 1~13, 썸네일) 분석
+   ═══════════════════════════════════════════════════ */
+
+@font-face{font-family:'Pretendard';font-weight:400;font-display:block;src:url('../fonts/Pretendard-Regular.woff2') format('woff2')}
+@font-face{font-family:'Pretendard';font-weight:500;font-display:block;src:url('../fonts/Pretendard-Medium.woff2') format('woff2')}
+@font-face{font-family:'Pretendard';font-weight:600;font-display:block;src:url('../fonts/Pretendard-SemiBold.woff2') format('woff2')}
+@font-face{font-family:'Pretendard';font-weight:700;font-display:block;src:url('../fonts/Pretendard-Bold.woff2') format('woff2')}
+@font-face{font-family:'Pretendard';font-weight:800;font-display:block;src:url('../fonts/Pretendard-ExtraBold.woff2') format('woff2')}
+@font-face{font-family:'Pretendard';font-weight:900;font-display:block;src:url('../fonts/Pretendard-Black.woff2') format('woff2')}
+
+:root{
+  /* 배경 — 순검정에 가깝게. 네이비는 광원으로만 쓴다 */
+  --black:#000000;
+  --ink:#05080F;
+  --deep:#0A1220;
+
+  /* 액센트는 블루 하나. 골드 없음 (레퍼런스 전 이미지에 골드 0회) */
+  --blue:#2E7BF6;
+  --blue-deep:#1B5FD9;
+  --blue-lit:#5AA0FF;
+
+  /* 라이트 밴드 */
+  --paper:#F2F4F8;
+  --paper-blue:#E7F0FE;
+
+  /* 텍스트 */
+  --gray:#8B96A8;        /* 다크 위 본문 */
+  --gray-d:#5A6577;      /* 라이트 위 본문 */
+  --line:rgba(255,255,255,.10);
+
+  --warn:#E5484D;
+}
+
+*{margin:0;padding:0;box-sizing:border-box}
+
+body{
+  font-family:'Pretendard',-apple-system,sans-serif;
+  background:#1a1a1a;
+  -webkit-font-smoothing:antialiased;
+  text-rendering:geometricPrecision;
+}
+
+.canvas{position:relative;overflow:hidden;background:var(--black);color:#fff}
+
+/* ── 밴드: 배경을 반전시켜 리듬을 만든다 ── */
+.band{position:relative}
+.band--dark{background:var(--black);color:#fff}
+.band--paper{background:var(--paper);color:#0A1220}
+.band--pblue{background:var(--paper-blue);color:#0A1220}
+
+/* 다크 밴드의 대각선 블루 광원 */
+.beam{position:absolute;inset:0;pointer-events:none;
+  background:radial-gradient(ellipse 55% 45% at 88% 12%, rgba(46,123,246,.30) 0%, transparent 62%)}
+
+/* ── 타이포 ────────────────────────────
+   레퍼런스 문법: 리드(작게) → 초대형 헤드 → 핵심 반전 단어만 블루 */
+.lead{font-size:26px;font-weight:700;color:#fff;letter-spacing:-.035em;opacity:.92}
+.lead--d{color:#0A1220}
+
+.h-mega{font-size:70px;font-weight:900;line-height:1.14;letter-spacing:-.05em;color:#fff}
+.h-big{font-size:48px;font-weight:900;line-height:1.22;letter-spacing:-.045em;color:#fff}
+.b{color:var(--blue)}          /* 반전 단어 */
+.b-lit{color:var(--blue-lit)}
+
+.body{font-size:18px;font-weight:500;line-height:1.75;color:var(--gray);letter-spacing:-.028em}
+.body--d{color:var(--gray-d)}
+
+/* 좌측 정렬 짧은 룰 — 레퍼런스에 반복 등장 */
+.rule{width:54px;height:3px;background:#fff;border-radius:3px;opacity:.85}
+.rule--b{background:var(--blue);opacity:1}
+
+/* 꽉 찬 블루 바 (CTA·강조 결론) */
+.bar-blue{
+  display:inline-block;background:var(--blue);color:#fff;
+  font-size:21px;font-weight:800;letter-spacing:-.035em;
+  padding:15px 30px;border-radius:10px;
+}

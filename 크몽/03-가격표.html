@@ -1,0 +1,163 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>MEISTERCODE — 상세페이지 가격표 860w</title>
+<link rel="stylesheet" href="css/base.css">
+<style>
+body{display:flex;justify-content:center;align-items:flex-start}
+.canvas{width:860px}
+
+/* ── 밴드 1: 다크 — 헤드 + 공통 사양 ── */
+.b1{padding:72px 62px 66px;position:relative;background:var(--black)}
+.b1 .beam{background:radial-gradient(ellipse 60% 46% at 90% 6%, rgba(46,123,246,.32) 0%, transparent 62%)}
+.b1 .in{position:relative;z-index:2}
+.lead{margin-bottom:10px}
+h2{font-size:58px;font-weight:900;line-height:1.18;letter-spacing:-.05em;color:#fff;
+  margin-bottom:38px}
+
+.inc{border:1px solid rgba(46,123,246,.45);border-radius:14px;overflow:hidden;
+  background:rgba(46,123,246,.07)}
+.inc__h{background:var(--blue);padding:12px 22px;font-size:16px;font-weight:900;
+  letter-spacing:-.025em;color:#fff}
+.inc__g{display:grid;grid-template-columns:repeat(3,1fr);padding:20px 22px 22px;gap:15px 18px}
+.inc__i{display:flex;align-items:center;gap:9px;font-size:16.5px;font-weight:700;
+  color:#fff;letter-spacing:-.03em}
+.inc__i svg{width:17px;height:17px;stroke:var(--blue-lit);fill:none;stroke-width:2.6;
+  stroke-linecap:round;stroke-linejoin:round;flex:0 0 17px}
+.inc__n{margin:16px 22px 0 22px;padding-top:15px;border-top:1px solid rgba(255,255,255,.1);
+  font-size:15px;font-weight:600;color:var(--blue-lit);letter-spacing:-.028em;
+  padding-bottom:20px}
+
+/* ── 밴드 2: 라이트 — 가격 ── */
+.b2{background:var(--paper);padding:64px 62px 60px}
+.b2__h{font-size:34px;font-weight:900;letter-spacing:-.045em;color:#0A1220;margin-bottom:8px}
+.b2__s{font-size:16px;font-weight:600;color:var(--gray-d);letter-spacing:-.028em;
+  margin-bottom:34px}
+
+.p{display:flex;align-items:center;gap:20px;padding:28px 30px;border-radius:14px;
+  background:#fff;border:1px solid #DFE4EC;margin-bottom:14px;position:relative}
+.p--hot{background:var(--blue);border-color:var(--blue);
+  box-shadow:0 16px 42px rgba(46,123,246,.36)}
+.p__l{flex:1;min-width:0}
+.p__n{font-size:26px;font-weight:900;letter-spacing:-.042em;color:#0A1220;margin-bottom:6px}
+.p--hot .p__n{color:#fff}
+.p__n i{font-style:normal;font-size:15px;font-weight:700;color:var(--blue);margin-left:7px}
+.p--hot .p__n i{color:rgba(255,255,255,.85)}
+.p__d{font-size:15.5px;font-weight:500;color:var(--gray-d);letter-spacing:-.028em}
+.p--hot .p__d{color:rgba(255,255,255,.92)}
+.p__day{display:inline-block;margin-top:13px;font-size:13px;font-weight:800;letter-spacing:-.02em;
+  color:var(--blue-deep);background:#E7F0FE;padding:5px 12px;border-radius:6px}
+.p--hot .p__day{color:#fff;background:rgba(255,255,255,.22)}
+.p__r{text-align:right;flex:0 0 auto}
+.p__o{display:block;font-size:15px;font-weight:600;color:#9AA4B4;text-decoration:line-through;
+  text-decoration-thickness:1.5px;margin-bottom:1px}
+.p--hot .p__o{color:rgba(255,255,255,.62)}
+.p__now{font-size:40px;font-weight:900;color:var(--blue);letter-spacing:-.05em;line-height:1.04}
+.p--hot .p__now{color:#fff;font-size:44px}
+.flag{position:absolute;top:-13px;left:30px;background:#0A1220;color:#fff;font-size:12.5px;
+  font-weight:900;letter-spacing:-.02em;padding:5px 13px;border-radius:6px}
+
+/* ── 밴드 3: 다크 — 구독 + 마감 ── */
+.b3{background:var(--black);padding:56px 62px 62px}
+.sub{display:flex;align-items:center;gap:20px;border:1px solid rgba(255,255,255,.14);
+  border-radius:14px;padding:24px 28px;background:rgba(255,255,255,.03)}
+.sub__i{flex:0 0 50px;height:50px;border-radius:12px;background:rgba(46,123,246,.16);
+  border:1px solid rgba(46,123,246,.42);display:flex;align-items:center;justify-content:center}
+.sub__i svg{width:25px;height:25px;stroke:var(--blue-lit);fill:none;stroke-width:1.9;
+  stroke-linecap:round;stroke-linejoin:round}
+.sub__t{font-size:19px;font-weight:800;color:#fff;letter-spacing:-.035em;margin-bottom:4px}
+.sub__t b{color:var(--blue-lit)}
+.sub__d{font-size:15px;font-weight:500;color:var(--gray);letter-spacing:-.026em}
+
+.close{margin-top:34px;text-align:center}
+.close__b{display:inline-block;background:var(--blue);color:#fff;font-size:20px;font-weight:900;
+  letter-spacing:-.035em;padding:16px 34px;border-radius:10px;
+  box-shadow:0 12px 34px rgba(46,123,246,.35)}
+.close__n{margin-top:13px;font-size:13.5px;font-weight:600;color:#6c7889;letter-spacing:-.02em}
+</style>
+
+<div class="canvas">
+
+  <!-- 밴드 1 -->
+  <section class="b1">
+    <div class="beam"></div>
+    <div class="in">
+      <p class="lead">마이스터코드는</p>
+      <h2>옵션으로 안 팝니다.<br><span class="b">전부 기본</span>입니다.</h2>
+
+      <div class="inc">
+        <div class="inc__h">전 패키지 공통 — 추가금 없음</div>
+        <div class="inc__g">
+          <span class="inc__i"><svg viewBox="0 0 24 24"><path d="M4 12.5l5.5 5.5L20 6.5"/></svg>AI챗봇 24시간</span>
+          <span class="inc__i"><svg viewBox="0 0 24 24"><path d="M4 12.5l5.5 5.5L20 6.5"/></svg>호스팅 관리</span>
+          <span class="inc__i"><svg viewBox="0 0 24 24"><path d="M4 12.5l5.5 5.5L20 6.5"/></svg>외국어 1개</span>
+          <span class="inc__i"><svg viewBox="0 0 24 24"><path d="M4 12.5l5.5 5.5L20 6.5"/></svg>관리자 CMS</span>
+          <span class="inc__i"><svg viewBox="0 0 24 24"><path d="M4 12.5l5.5 5.5L20 6.5"/></svg>반응형</span>
+          <span class="inc__i"><svg viewBox="0 0 24 24"><path d="M4 12.5l5.5 5.5L20 6.5"/></svg>소스코드 100% 인도</span>
+        </div>
+        <p class="inc__n">크몽 홈페이지 제작 서비스 중 이 조합을 전부 기본으로 주는 곳은 없습니다</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 밴드 2 -->
+  <section class="b2">
+    <p class="b2__h">필요한 만큼만 고르세요</p>
+    <p class="b2__s">페이지 수만 다릅니다. 위 사양은 세 패키지 모두 동일하게 들어갑니다.</p>
+
+    <div class="p">
+      <div class="p__l">
+        <p class="p__n">원페이지</p>
+        <p class="p__d">랜딩·홍보용 한 장짜리 사이트</p>
+        <span class="p__day">3~5일</span>
+      </div>
+      <div class="p__r">
+        <span class="p__o">45만</span>
+        <span class="p__now">29만원</span>
+      </div>
+    </div>
+
+    <div class="p p--hot">
+      <span class="flag">가장 많이 선택</span>
+      <div class="p__l">
+        <p class="p__n">비즈니스 <i>5p+</i></p>
+        <p class="p__d">회사소개 + 제품 카탈로그</p>
+        <span class="p__day">7~10일</span>
+      </div>
+      <div class="p__r">
+        <span class="p__o">89만</span>
+        <span class="p__now">59만원</span>
+      </div>
+    </div>
+
+    <div class="p">
+      <div class="p__l">
+        <p class="p__n">엔터프라이즈 <i>10p+</i></p>
+        <p class="p__d">다국어 +1, 맞춤 기능 개발</p>
+        <span class="p__day">2~4주</span>
+      </div>
+      <div class="p__r">
+        <span class="p__o">150만</span>
+        <span class="p__now">99만원~</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- 밴드 3 -->
+  <section class="b3">
+    <div class="sub">
+      <span class="sub__i">
+        <svg viewBox="0 0 24 24"><path d="M12 3l2.6 5.5 6 .9-4.3 4.2 1 6-5.3-2.8L6.7 19.6l1-6L3.4 9.4l6-.9z"/></svg>
+      </span>
+      <div>
+        <p class="sub__t">IT팀 구독 <b>월 3만원부터</b> (선택)</p>
+        <p class="sub__d">호스팅·보안·장애감시 + 콘텐츠 수정까지 맡기고 싶을 때</p>
+      </div>
+    </div>
+
+    <div class="close">
+      <span class="close__b">오픈 기념 선착순 10팀 런칭특가</span>
+      <p class="close__n">VAT 별도 · 10팀 마감 후 정가로 전환됩니다</p>
+    </div>
+  </section>
+
+</div>

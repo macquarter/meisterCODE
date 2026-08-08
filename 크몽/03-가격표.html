@@ -1,0 +1,145 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>MEISTERCODE — 상세페이지 가격표 860w</title>
+<link rel="stylesheet" href="fonts/fraunces.css">
+<link rel="stylesheet" href="css/base.css">
+<style>
+body{display:flex;justify-content:center;align-items:flex-start}
+.canvas{
+  width:860px;padding:70px 56px 60px;
+  background:
+    radial-gradient(ellipse 70% 50% at 50% 110%, rgba(31,61,140,.9) 0%, transparent 70%),
+    linear-gradient(168deg,#0A0E1A 0%,#101c3c 58%,#1F3D8C 100%);
+}
+.inner{position:relative;z-index:2}
+
+h2{font-size:42px;font-weight:900;letter-spacing:-.04em;color:#fff;text-align:center;
+  line-height:1.3;margin-bottom:30px}
+
+/* ── 공통 기본 바 ───────────────────── */
+.base{
+  border:1.5px solid var(--gold);border-radius:16px;padding:22px 26px;margin-bottom:36px;
+  background:linear-gradient(180deg,rgba(255,184,0,.12),rgba(255,184,0,.035));
+  box-shadow:0 8px 34px rgba(255,184,0,.13);text-align:center;
+}
+.base__lab{display:inline-block;background:var(--gold);color:#0A0E1A;font-size:11.5px;
+  font-weight:900;letter-spacing:.02em;padding:4px 11px;border-radius:999px;margin-bottom:12px}
+.base__t{font-size:17.5px;font-weight:800;color:#fff;letter-spacing:-.03em;line-height:1.6}
+.base__t em{font-style:normal;color:var(--gold)}
+.base__note{margin-top:11px;font-size:13px;font-weight:600;color:rgba(147,197,253,.85);
+  letter-spacing:-.022em}
+
+/* ── 가격 카드 ──────────────────────── */
+.pcard{
+  display:flex;align-items:center;gap:20px;
+  border:1px solid var(--line);border-radius:16px;padding:26px 28px;margin-bottom:14px;
+  background:rgba(255,255,255,.05);position:relative;
+}
+.pcard--hot{
+  border:1.8px solid var(--gold);background:rgba(255,184,0,.075);
+  box-shadow:0 12px 40px rgba(255,184,0,.20);
+}
+.ribbon{
+  position:absolute;top:-12px;left:28px;background:var(--gold);color:#0A0E1A;
+  font-size:12px;font-weight:900;letter-spacing:-.02em;padding:4.5px 13px;border-radius:999px;
+  box-shadow:0 4px 14px rgba(255,184,0,.4);
+}
+.pcard__l{flex:1;min-width:0}
+.pcard__name{font-size:23px;font-weight:900;color:#fff;letter-spacing:-.035em;margin-bottom:7px}
+.pcard__name span{font-size:14px;font-weight:700;color:var(--sky);letter-spacing:-.02em;
+  margin-left:6px}
+.pcard__desc{font-size:14.5px;font-weight:500;color:rgba(255,255,255,.72);letter-spacing:-.025em}
+.pcard__days{
+  display:inline-block;margin-top:12px;font-size:12.5px;font-weight:700;
+  color:var(--sky);background:rgba(59,130,246,.16);border:1px solid rgba(147,197,253,.24);
+  padding:4px 11px;border-radius:999px;letter-spacing:-.02em;
+}
+.pcard__r{text-align:right;flex:0 0 auto}
+.pcard__old{display:block;font-size:15px;font-weight:500;margin-bottom:2px}
+.pcard__now{font-size:36px;font-weight:900;color:var(--gold);letter-spacing:-.04em;line-height:1.05;
+  text-shadow:0 3px 20px rgba(255,184,0,.3)}
+.pcard--hot .pcard__now{font-size:40px}
+
+/* ── 구독 옵션 ──────────────────────── */
+.sub-bar{
+  display:flex;align-items:center;gap:14px;margin-top:26px;
+  border:1px dashed rgba(147,197,253,.34);border-radius:14px;padding:20px 24px;
+  background:rgba(59,130,246,.09);
+}
+.sub-bar__ico{font-size:24px;line-height:1}
+.sub-bar__t{font-size:16px;font-weight:800;color:#fff;letter-spacing:-.03em}
+.sub-bar__d{font-size:13.5px;font-weight:500;color:rgba(147,197,253,.9);
+  letter-spacing:-.022em;margin-top:4px}
+.sub-bar__t em{font-style:normal;color:var(--gold)}
+
+.foot{margin-top:28px;text-align:center;font-size:14px;font-weight:700;
+  color:rgba(255,255,255,.86);letter-spacing:-.025em}
+.foot em{font-style:normal;color:var(--gold)}
+.foot span{display:block;margin-top:6px;font-size:12px;font-weight:500;
+  color:rgba(255,255,255,.45)}
+</style>
+
+<div class="canvas">
+  <div class="grid-tex"></div>
+  <div class="inner">
+    <h2>필요한 만큼만, 전부 기본 포함으로</h2>
+
+    <div class="base">
+      <span class="base__lab">전 패키지 공통</span>
+      <p class="base__t">
+        AI챗봇 <em>·</em> 호스팅 관리 <em>·</em> 외국어 1개 <em>·</em> 관리자 CMS <em>·</em> 소스코드 100% 인도
+      </p>
+      <p class="base__note">크몽 홈페이지 제작 서비스 중 이 조합을 전부 기본으로 주는 곳은 없습니다</p>
+    </div>
+
+    <div class="pcard">
+      <div class="pcard__l">
+        <p class="pcard__name">원페이지</p>
+        <p class="pcard__desc">랜딩·홍보용 한 장짜리 사이트</p>
+        <span class="pcard__days">3~5일</span>
+      </div>
+      <div class="pcard__r">
+        <span class="pcard__old strike">45만</span>
+        <span class="pcard__now">29만원</span>
+      </div>
+    </div>
+
+    <div class="pcard pcard--hot">
+      <span class="ribbon">⭐ 가장 인기</span>
+      <div class="pcard__l">
+        <p class="pcard__name">비즈니스 <span>5p+</span></p>
+        <p class="pcard__desc">회사소개 + 제품 카탈로그</p>
+        <span class="pcard__days">7~10일</span>
+      </div>
+      <div class="pcard__r">
+        <span class="pcard__old strike">89만</span>
+        <span class="pcard__now">59만원</span>
+      </div>
+    </div>
+
+    <div class="pcard">
+      <div class="pcard__l">
+        <p class="pcard__name">엔터프라이즈 <span>10p+</span></p>
+        <p class="pcard__desc">다국어 +1, 맞춤 기능 개발</p>
+        <span class="pcard__days">2~4주</span>
+      </div>
+      <div class="pcard__r">
+        <span class="pcard__old strike">150만</span>
+        <span class="pcard__now">99만원~</span>
+      </div>
+    </div>
+
+    <div class="sub-bar">
+      <span class="sub-bar__ico">💎</span>
+      <div>
+        <p class="sub-bar__t">IT팀 구독 (선택) — <em>월 3만원부터</em></p>
+        <p class="sub-bar__d">호스팅·보안·장애감시 + 콘텐츠 수정</p>
+      </div>
+    </div>
+
+    <p class="foot">
+      오픈 기념 <em>선착순 10팀</em> 런칭특가
+      <span>VAT 별도</span>
+    </p>
+  </div>
+</div>

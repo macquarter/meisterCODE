@@ -1,0 +1,82 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>MEISTERCODE — 상세페이지 히어로 860w</title>
+<link rel="stylesheet" href="fonts/fraunces.css">
+<link rel="stylesheet" href="css/base.css">
+<style>
+body{display:flex;justify-content:center;align-items:flex-start}
+.canvas{
+  width:860px;padding:76px 60px 68px;
+  background:
+    radial-gradient(ellipse 60% 45% at 50% 0%, rgba(31,61,140,.55) 0%, transparent 65%),
+    #0A0E1A;
+  text-align:center;
+}
+.inner{position:relative;z-index:2}
+
+.badge-gold{font-size:15px;letter-spacing:-.015em;padding:9px 20px;margin-bottom:34px;
+  box-shadow:0 6px 26px rgba(255,184,0,.26)}
+
+h1{font-size:62px;font-weight:900;line-height:1.24;letter-spacing:-.042em;color:#fff;
+  margin-bottom:30px;text-shadow:0 4px 40px rgba(0,0,0,.6)}
+h1 .accent{
+  background:linear-gradient(180deg,#fff 55%,#93C5FD 100%);
+  -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;
+}
+
+.sub{font-size:19.5px;font-weight:500;line-height:1.72;color:var(--sky);
+  letter-spacing:-.025em;margin-bottom:14px}
+.sub strong{color:#fff;font-weight:700}
+
+.rule{width:52px;height:2px;background:var(--gold);margin:36px auto 44px;border-radius:2px;
+  box-shadow:0 0 18px rgba(255,184,0,.5)}
+
+/* 3 카드 */
+.cards{display:flex;gap:18px}
+.card{
+  flex:1;background:var(--card);border:1px solid var(--line);border-radius:18px;
+  padding:30px 22px 28px;text-align:left;position:relative;overflow:hidden;
+}
+.card::before{content:"";position:absolute;inset:0 0 auto 0;height:1px;
+  background:linear-gradient(90deg,transparent,rgba(147,197,253,.5),transparent)}
+.card__ico{font-size:30px;line-height:1;display:block;margin-bottom:16px}
+.card__t{font-size:16px;font-weight:700;line-height:1.55;color:#fff;letter-spacing:-.028em}
+.card__t .arrow{color:var(--blue);font-weight:800}
+.card__note{display:block;margin-top:10px;font-size:12.5px;font-weight:500;
+  color:rgba(147,197,253,.72);letter-spacing:-.02em;line-height:1.5}
+</style>
+
+<div class="canvas">
+  <div class="grid-tex"></div>
+  <div class="glow" style="width:520px;height:340px;background:rgba(59,130,246,.22);left:170px;top:-140px"></div>
+
+  <div class="inner">
+    <span class="badge-gold">제조업·수출기업 전문 웹제작</span>
+
+    <h1>결국엔<br><span class="accent">사람의 손이 닿아야 합니다</span></h1>
+
+    <p class="sub">
+      AI가 빠르게 짓고, 사람이 끝까지 책임집니다.<br>
+      <strong>태승전자·유성에이스</strong>가 선택한 그 팀입니다.
+    </p>
+
+    <div class="rule"></div>
+
+    <div class="cards">
+      <div class="card">
+        <span class="card__ico">🌏</span>
+        <p class="card__t">해외 바이어 새벽 문의<br><span class="arrow">→</span> AI챗봇이 다국어 응대</p>
+      </div>
+      <div class="card">
+        <span class="card__ico">🏭</span>
+        <p class="card__t">제품 카탈로그·인증서<br><span class="arrow">→</span> 제조업 문법 그대로</p>
+      </div>
+      <div class="card">
+        <span class="card__ico">📋</span>
+        <p class="card__t">수출바우처 활용<br>상담 가능
+          <span class="card__note">외국어 홈페이지 지원 항목</span>
+        </p>
+      </div>
+    </div>
+  </div>
+</div>

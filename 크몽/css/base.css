@@ -1,0 +1,63 @@
+/* ═══════════════════════════════════════════════════
+   MEISTERCODE — 크몽 런칭 디자인 시스템
+   브랜드 고정값은 디자인브리프 기준 (변경 금지 항목)
+   ═══════════════════════════════════════════════════ */
+
+@font-face{font-family:'Pretendard';font-weight:400;font-display:block;src:url('../fonts/Pretendard-Regular.woff2') format('woff2')}
+@font-face{font-family:'Pretendard';font-weight:500;font-display:block;src:url('../fonts/Pretendard-Medium.woff2') format('woff2')}
+@font-face{font-family:'Pretendard';font-weight:600;font-display:block;src:url('../fonts/Pretendard-SemiBold.woff2') format('woff2')}
+@font-face{font-family:'Pretendard';font-weight:700;font-display:block;src:url('../fonts/Pretendard-Bold.woff2') format('woff2')}
+@font-face{font-family:'Pretendard';font-weight:800;font-display:block;src:url('../fonts/Pretendard-ExtraBold.woff2') format('woff2')}
+@font-face{font-family:'Pretendard';font-weight:900;font-display:block;src:url('../fonts/Pretendard-Black.woff2') format('woff2')}
+
+:root{
+  --ink:#0A0E1A;          /* Navy Ink */
+  --navy:#1F3D8C;         /* Meister Navy */
+  --blue:#3B82F6;         /* 포인트 블루 */
+  --gold:#FFB800;         /* 가격·특가 강조 전용 */
+  --sky:#93C5FD;          /* 보조 텍스트 */
+  --mute:#64748B;         /* 취소선·비활성 */
+  --line:rgba(147,197,253,.14);
+  --card:rgba(255,255,255,.045);
+}
+
+*{margin:0;padding:0;box-sizing:border-box}
+
+body{
+  font-family:'Pretendard',-apple-system,sans-serif;
+  background:#05070d;
+  -webkit-font-smoothing:antialiased;
+  text-rendering:geometricPrecision;
+}
+
+/* 캔버스 공통 — 고정 폭 이미지 출력용 */
+.canvas{
+  position:relative;
+  overflow:hidden;
+  background:var(--ink);
+  color:#fff;
+}
+
+/* 블루프린트 그리드 — 제조업 톤의 아주 옅은 텍스처 */
+.grid-tex{
+  position:absolute;inset:0;pointer-events:none;
+  background-image:
+    linear-gradient(rgba(147,197,253,.055) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(147,197,253,.055) 1px,transparent 1px);
+  background-size:44px 44px;
+  mask-image:radial-gradient(ellipse 80% 70% at 70% 30%,#000 0%,transparent 75%);
+}
+
+/* 블루 글로우 */
+.glow{position:absolute;pointer-events:none;border-radius:50%;filter:blur(70px)}
+
+/* 골드 배지 — 타겟 선언용 */
+.badge-gold{
+  display:inline-block;background:var(--gold);color:#0A0E1A;
+  font-weight:800;border-radius:999px;white-space:nowrap;
+}
+
+/* 취소선 구가격 */
+.strike{color:var(--mute);text-decoration:line-through;text-decoration-thickness:1.5px}
+
+.fraunces{font-family:'Fraunces',serif}

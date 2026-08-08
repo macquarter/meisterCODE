@@ -6,3 +6,7 @@ _agents/*/tools/
 **/oauth*.json
 node_modules/
 
+
+# 크몽 렌더링용 웹폰트 (fonts/fetch.sh 로 내려받음)
+크몽/fonts/*.woff2
+크몽/fonts/fraunces-src.css

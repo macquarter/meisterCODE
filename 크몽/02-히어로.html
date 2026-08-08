@@ -1,82 +1,103 @@
 <!doctype html>
 <meta charset="utf-8">
 <title>MEISTERCODE — 상세페이지 히어로 860w</title>
-<link rel="stylesheet" href="fonts/fraunces.css">
 <link rel="stylesheet" href="css/base.css">
 <style>
 body{display:flex;justify-content:center;align-items:flex-start}
-.canvas{
-  width:860px;padding:76px 60px 68px;
-  background:
-    radial-gradient(ellipse 60% 45% at 50% 0%, rgba(31,61,140,.55) 0%, transparent 65%),
-    #0A0E1A;
-  text-align:center;
-}
-.inner{position:relative;z-index:2}
+.canvas{width:860px;background:var(--black)}
+.beam{background:
+  radial-gradient(ellipse 62% 40% at 92% 4%, rgba(46,123,246,.34) 0%, transparent 62%),
+  radial-gradient(ellipse 50% 30% at 4% 62%, rgba(46,123,246,.09) 0%, transparent 65%)}
+.inner{position:relative;z-index:2;padding:74px 62px 62px}
 
-.badge-gold{font-size:15px;letter-spacing:-.015em;padding:9px 20px;margin-bottom:34px;
-  box-shadow:0 6px 26px rgba(255,184,0,.26)}
+.tag{display:inline-block;background:var(--blue);color:#fff;font-size:15px;font-weight:800;
+  letter-spacing:-.025em;padding:9px 18px;border-radius:6px;margin-bottom:34px}
 
-h1{font-size:62px;font-weight:900;line-height:1.24;letter-spacing:-.042em;color:#fff;
-  margin-bottom:30px;text-shadow:0 4px 40px rgba(0,0,0,.6)}
-h1 .accent{
-  background:linear-gradient(180deg,#fff 55%,#93C5FD 100%);
-  -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;
-}
+h1{font-size:66px;font-weight:900;line-height:1.16;letter-spacing:-.052em;color:#fff;
+  margin-bottom:30px}
 
-.sub{font-size:19.5px;font-weight:500;line-height:1.72;color:var(--sky);
-  letter-spacing:-.025em;margin-bottom:14px}
-.sub strong{color:#fff;font-weight:700}
+.rule{margin-bottom:26px}
 
-.rule{width:52px;height:2px;background:var(--gold);margin:36px auto 44px;border-radius:2px;
-  box-shadow:0 0 18px rgba(255,184,0,.5)}
+.body{margin-bottom:52px;font-size:19px}
+.body strong{color:#fff;font-weight:700}
 
-/* 3 카드 */
-.cards{display:flex;gap:18px}
-.card{
-  flex:1;background:var(--card);border:1px solid var(--line);border-radius:18px;
-  padding:30px 22px 28px;text-align:left;position:relative;overflow:hidden;
-}
-.card::before{content:"";position:absolute;inset:0 0 auto 0;height:1px;
-  background:linear-gradient(90deg,transparent,rgba(147,197,253,.5),transparent)}
-.card__ico{font-size:30px;line-height:1;display:block;margin-bottom:16px}
-.card__t{font-size:16px;font-weight:700;line-height:1.55;color:#fff;letter-spacing:-.028em}
-.card__t .arrow{color:var(--blue);font-weight:800}
-.card__note{display:block;margin-top:10px;font-size:12.5px;font-weight:500;
-  color:rgba(147,197,253,.72);letter-spacing:-.02em;line-height:1.5}
+/* ── 블루 원형 아이콘 리스트 (레퍼런스 1번 이미지 문법) ── */
+.list{border-top:1px solid rgba(255,255,255,.09)}
+.row{display:flex;align-items:center;gap:22px;padding:26px 2px;
+  border-bottom:1px solid rgba(255,255,255,.09)}
+.ico{flex:0 0 56px;height:56px;border-radius:50%;background:var(--blue);
+  display:flex;align-items:center;justify-content:center;
+  box-shadow:0 8px 24px rgba(46,123,246,.34)}
+.ico svg{width:28px;height:28px;stroke:#fff;fill:none;stroke-width:1.9;
+  stroke-linecap:round;stroke-linejoin:round}
+.row__t{font-size:22px;font-weight:800;color:#fff;letter-spacing:-.038em;margin-bottom:5px}
+.row__d{font-size:16px;font-weight:500;color:var(--gray);letter-spacing:-.028em}
+.row__d b{color:var(--blue-lit);font-weight:700}
+
+/* ── 마감: 대형 워드마크 ── */
+.sign{margin-top:56px}
+.sign__mark{font-size:62px;font-weight:900;letter-spacing:-.035em;color:#fff;line-height:1}
+.sign__mark span{color:var(--blue)}
+.sign__t{margin-top:14px;font-size:20px;font-weight:600;color:var(--gray);letter-spacing:-.032em}
+.sign__t b{color:#fff;font-weight:800}
 </style>
 
 <div class="canvas">
-  <div class="grid-tex"></div>
-  <div class="glow" style="width:520px;height:340px;background:rgba(59,130,246,.22);left:170px;top:-140px"></div>
-
+  <div class="beam"></div>
   <div class="inner">
-    <span class="badge-gold">제조업·수출기업 전문 웹제작</span>
 
-    <h1>결국엔<br><span class="accent">사람의 손이 닿아야 합니다</span></h1>
+    <span class="tag">제조업·수출기업 전문 웹제작</span>
 
-    <p class="sub">
+    <h1>결국엔<br><span class="b">사람의 손</span>이<br>닿아야 합니다</h1>
+
+    <div class="rule rule--b"></div>
+
+    <p class="body">
       AI가 빠르게 짓고, 사람이 끝까지 책임집니다.<br>
       <strong>태승전자·유성에이스</strong>가 선택한 그 팀입니다.
     </p>
 
-    <div class="rule"></div>
+    <div class="list">
+      <div class="row">
+        <span class="ico">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/>
+            <path d="M3 12h18M12 3c2.5 2.7 2.5 15.3 0 18M12 3c-2.5 2.7-2.5 15.3 0 18"/></svg>
+        </span>
+        <div>
+          <p class="row__t">해외 바이어 새벽 문의</p>
+          <p class="row__d">AI챗봇이 <b>다국어로 즉시 응대</b>합니다</p>
+        </div>
+      </div>
 
-    <div class="cards">
-      <div class="card">
-        <span class="card__ico">🌏</span>
-        <p class="card__t">해외 바이어 새벽 문의<br><span class="arrow">→</span> AI챗봇이 다국어 응대</p>
+      <div class="row">
+        <span class="ico">
+          <svg viewBox="0 0 24 24">
+            <path d="M3 20V10l5.5-3v3L14 7v3l5.5-3v13z"/>
+            <path d="M8 20v-4h3v4M15 20v-4h3v4"/></svg>
+        </span>
+        <div>
+          <p class="row__t">제품 카탈로그·인증서</p>
+          <p class="row__d">제조업 <b>문법 그대로</b> 구조를 짭니다</p>
+        </div>
       </div>
-      <div class="card">
-        <span class="card__ico">🏭</span>
-        <p class="card__t">제품 카탈로그·인증서<br><span class="arrow">→</span> 제조업 문법 그대로</p>
-      </div>
-      <div class="card">
-        <span class="card__ico">📋</span>
-        <p class="card__t">수출바우처 활용<br>상담 가능
-          <span class="card__note">외국어 홈페이지 지원 항목</span>
-        </p>
+
+      <div class="row">
+        <span class="ico">
+          <svg viewBox="0 0 24 24">
+            <path d="M5 3h11l4 4v14H5z"/><path d="M15 3v5h5"/>
+            <path d="M9 13h7M9 17h5"/></svg>
+        </span>
+        <div>
+          <p class="row__t">수출바우처 활용 상담</p>
+          <p class="row__d">외국어 홈페이지는 <b>바우처 지원 항목</b>입니다</p>
+        </div>
       </div>
     </div>
+
+    <div class="sign">
+      <p class="sign__mark">MEISTER<span>CODE</span></p>
+      <p class="sign__t">사장님의 <b>수출 담당 IT팀</b>이 되어드립니다.</p>
+    </div>
+
   </div>
 </div>

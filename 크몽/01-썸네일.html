@@ -1,134 +1,105 @@
 <!doctype html>
 <meta charset="utf-8">
 <title>MEISTERCODE — 크몽 썸네일 652×488</title>
-<link rel="stylesheet" href="fonts/fraunces.css">
 <link rel="stylesheet" href="css/base.css">
 <style>
-.canvas{
-  width:652px;height:488px;
-  background:
-    radial-gradient(ellipse 70% 90% at 88% 8%, rgba(31,61,140,.85) 0%, transparent 60%),
-    linear-gradient(132deg,#0A0E1A 0%,#0d1832 42%,#1F3D8C 100%);
-  display:flex;flex-direction:column;
-}
-.main{flex:1;display:flex;align-items:center;padding:0 0 0 38px;position:relative;z-index:2}
+.canvas{width:652px;height:488px;display:flex;flex-direction:column;background:var(--black)}
+.beam{background:
+  radial-gradient(ellipse 60% 55% at 95% 6%, rgba(46,123,246,.42) 0%, transparent 60%),
+  radial-gradient(ellipse 40% 40% at 8% 96%, rgba(46,123,246,.10) 0%, transparent 60%)}
+.main{flex:1;display:flex;align-items:center;padding:0 26px 0 34px;position:relative;z-index:2;gap:16px}
 
-/* ── 좌측 60% ───────────────────────── */
-.left{width:60%;padding-right:14px}
-.badge-gold{font-size:12.5px;letter-spacing:-.015em;padding:6px 13px;margin-bottom:15px;
-  box-shadow:0 4px 16px rgba(255,184,0,.28)}
+/* ── 좌측 ─────────────────────────── */
+.left{width:57%}
+.tag{display:inline-block;background:var(--blue);color:#fff;font-size:12.5px;font-weight:800;
+  letter-spacing:-.02em;padding:5.5px 12px;border-radius:5px;margin-bottom:14px}
 
-h1{
-  font-size:35px;font-weight:900;line-height:1.26;letter-spacing:-.032em;
-  color:#fff;text-shadow:0 2px 20px rgba(0,0,0,.5);margin-bottom:13px;
-}
-.sub{font-size:14px;font-weight:500;color:var(--sky);letter-spacing:-.02em;margin-bottom:22px}
+h1{font-size:35px;font-weight:900;line-height:1.24;letter-spacing:-.048em;color:#fff;
+  margin-bottom:11px}
 
-.price__r1{display:flex;align-items:baseline;gap:8px;margin-bottom:1px}
-.price__old{font-size:14.5px;font-weight:500}
-.price__lab{font-size:12.5px;font-weight:800;color:var(--gold);letter-spacing:-.02em}
-.price__big{display:block;font-size:36px;font-weight:900;color:var(--gold);letter-spacing:-.038em;
-  text-shadow:0 3px 22px rgba(255,184,0,.35);line-height:1.02}
-.price__note{font-size:11px;font-weight:600;color:rgba(255,255,255,.62);margin-top:8px;letter-spacing:-.01em}
+.sub{font-size:13.5px;font-weight:600;color:var(--gray);letter-spacing:-.028em;margin-bottom:17px}
 
-/* ── 우측 40% : 노트북 목업 ──────────── */
-.right{width:40%;position:relative;display:flex;align-items:center;justify-content:center;
-  height:100%;padding-right:26px}
-.laptop{width:206px;position:relative;margin-top:-58px;
-  filter:drop-shadow(0 18px 34px rgba(0,0,0,.55))}
-.laptop svg{display:block;width:100%}
+.p-row{display:flex;align-items:baseline;gap:9px;margin-bottom:1px}
+.p-old{font-size:14px;font-weight:600;color:#57616f;text-decoration:line-through;
+  text-decoration-thickness:1.5px}
+.p-lab{font-size:12.5px;font-weight:800;color:var(--blue-lit);letter-spacing:-.02em}
+.p-big{display:block;font-size:55px;font-weight:900;color:var(--blue);letter-spacing:-.055em;
+  line-height:1;text-shadow:0 0 40px rgba(46,123,246,.55)}
+.p-note{font-size:11.5px;font-weight:600;color:#6c7889;margin-top:9px;letter-spacing:-.015em}
 
-/* 말풍선: 노트북 화면 우하단에 겹쳐 올린다 */
-.bubbles{position:absolute;right:24px;bottom:112px;width:178px;display:flex;
-  flex-direction:column;gap:6px;align-items:flex-end;z-index:3}
-.bub{font-size:10px;font-weight:600;padding:6.5px 10px;border-radius:11px;letter-spacing:-.012em;
-  box-shadow:0 8px 20px rgba(0,0,0,.55);line-height:1.35}
-.bub--them{background:#E2E8F0;color:#1e293b;border-bottom-left-radius:3px;align-self:flex-start}
-.bub--ai{background:linear-gradient(135deg,#3B82F6,#2563EB);color:#fff;
-  border-bottom-right-radius:3px;text-align:left}
-.ai-row{display:flex;align-items:flex-end;gap:6px}
-.bot{font-size:16px;line-height:1;padding-bottom:5px;
-  filter:drop-shadow(0 3px 8px rgba(0,0,0,.6))}
+/* ── 우측: 다크 브라우저 목업 + 채팅 ── */
+.right{width:43%;display:flex;justify-content:flex-end}
+.win{width:100%;max-width:250px;background:#0B1017;border:1px solid rgba(255,255,255,.13);
+  border-radius:10px;overflow:hidden;box-shadow:0 22px 50px rgba(0,0,0,.75),
+  0 0 0 1px rgba(46,123,246,.10), 0 0 60px rgba(46,123,246,.14)}
+.win__bar{height:24px;background:#141B25;display:flex;align-items:center;gap:5px;padding:0 10px;
+  border-bottom:1px solid rgba(255,255,255,.07)}
+.dot{width:7px;height:7px;border-radius:50%}
+.win__url{margin-left:6px;height:9px;flex:1;border-radius:3px;background:rgba(255,255,255,.07)}
+.win__body{padding:13px 12px 14px}
 
-/* ── 하단 바 ─────────────────────────── */
-.footbar{
-  height:42px;flex:0 0 42px;z-index:2;
-  background:rgba(255,255,255,.07);
-  border-top:1px solid rgba(255,255,255,.13);
-  backdrop-filter:blur(6px);
-  display:flex;align-items:center;justify-content:center;gap:11px;
-}
-.footbar__logo{font-size:13.5px;font-weight:900;letter-spacing:.11em;color:#fff}
-.footbar__dot{width:3px;height:3px;border-radius:50%;background:var(--gold)}
-.footbar__tag{font-size:12px;font-weight:600;color:rgba(255,255,255,.78);letter-spacing:-.018em}
+.time{font-size:9.5px;font-weight:700;color:#5b6577;letter-spacing:.03em;
+  text-align:center;margin-bottom:11px}
+
+.msg{width:fit-content;max-width:86%;font-size:10.5px;font-weight:600;line-height:1.4;padding:7px 10px;
+  border-radius:11px;letter-spacing:-.01em;margin-bottom:7px}
+.msg--in{background:#1C2530;color:#D6DEE9;border-bottom-left-radius:3px}
+.msg--out{background:var(--blue);color:#fff;border-bottom-right-radius:3px;margin-left:auto}
+.who{display:flex;align-items:center;gap:5px;margin-bottom:5px}
+.who__d{width:5px;height:5px;border-radius:50%;background:#2ED573}
+.who__t{font-size:9px;font-weight:800;color:#7c8697;letter-spacing:.03em}
+
+/* ── 하단 바 ──────────────────────── */
+.foot{height:44px;flex:0 0 44px;z-index:2;background:#0A0D14;
+  border-top:1px solid rgba(255,255,255,.09);
+  display:flex;align-items:center;justify-content:center;gap:10px}
+.foot__m{font-size:15px;font-weight:900;letter-spacing:.02em;color:#fff}
+.foot__c{color:var(--blue)}
+.foot__s{width:1px;height:13px;background:rgba(255,255,255,.2)}
+.foot__t{font-size:12px;font-weight:600;color:#8d97a6;letter-spacing:-.022em}
 </style>
 
 <div class="canvas">
-  <div class="grid-tex"></div>
-  <div class="glow" style="width:300px;height:300px;background:rgba(59,130,246,.34);right:-70px;top:-90px"></div>
-  <div class="glow" style="width:210px;height:210px;background:rgba(255,184,0,.10);left:-60px;bottom:10px"></div>
+  <div class="beam"></div>
 
   <div class="main">
     <div class="left">
-      <span class="badge-gold">제조업·수출기업 전문</span>
+      <span class="tag">제조업·수출기업 전문</span>
       <h1>해외 바이어 문의,<br>새벽에도<br>AI가 응대합니다</h1>
-      <p class="sub">AI챗봇·다국어·CMS 전부 기본 포함</p>
-      <div>
-        <div class="price__r1">
-          <span class="price__old strike">45만원</span>
-          <span class="price__lab">런칭특가</span>
-        </div>
-        <span class="price__big">29만원~</span>
-        <p class="price__note">선착순 10팀</p>
+      <p class="sub">AI챗봇 · 다국어 · CMS 전부 기본 포함</p>
+      <div class="p-row">
+        <span class="p-old">45만원</span>
+        <span class="p-lab">런칭특가</span>
       </div>
+      <span class="p-big">29만원~</span>
+      <p class="p-note">선착순 10팀</p>
     </div>
 
     <div class="right">
-      <div class="laptop">
-        <svg viewBox="0 0 236 168" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <!-- 화면 베젤 -->
-          <rect x="14" y="2" width="208" height="134" rx="8"
-                fill="#0b1226" stroke="rgba(147,197,253,.30)" stroke-width="1.4"/>
-          <!-- 스크린 -->
-          <rect x="20" y="8" width="196" height="122" rx="4" fill="#0c1529"/>
-          <!-- 상단 네비 -->
-          <rect x="20" y="8" width="196" height="15" rx="4" fill="#101c3a"/>
-          <rect x="27" y="13" width="34" height="4.5" rx="2.25" fill="#3B82F6" opacity=".85"/>
-          <rect x="150" y="13.4" width="17" height="4" rx="2" fill="#93C5FD" opacity=".35"/>
-          <rect x="172" y="13.4" width="17" height="4" rx="2" fill="#93C5FD" opacity=".35"/>
-          <rect x="194" y="13.4" width="15" height="4" rx="2" fill="#FFB800" opacity=".55"/>
-          <!-- 히어로 블록 -->
-          <rect x="27" y="30" width="104" height="8" rx="3" fill="#e2e8f0" opacity=".82"/>
-          <rect x="27" y="42" width="78" height="8" rx="3" fill="#e2e8f0" opacity=".55"/>
-          <rect x="27" y="57" width="46" height="10" rx="5" fill="#3B82F6" opacity=".9"/>
-          <!-- 제품 카드 3개 (카탈로그 암시) -->
-          <rect x="27" y="79" width="55" height="42" rx="4" fill="#152444" stroke="rgba(147,197,253,.20)"/>
-          <rect x="90" y="79" width="55" height="42" rx="4" fill="#152444" stroke="rgba(147,197,253,.20)"/>
-          <rect x="153" y="79" width="55" height="42" rx="4" fill="#152444" stroke="rgba(147,197,253,.20)"/>
-          <rect x="33" y="85" width="30" height="3.5" rx="1.75" fill="#93C5FD" opacity=".45"/>
-          <rect x="96" y="85" width="30" height="3.5" rx="1.75" fill="#93C5FD" opacity=".45"/>
-          <rect x="159" y="85" width="30" height="3.5" rx="1.75" fill="#93C5FD" opacity=".45"/>
-          <rect x="33" y="93" width="42" height="20" rx="2" fill="#0c1529"/>
-          <rect x="96" y="93" width="42" height="20" rx="2" fill="#0c1529"/>
-          <rect x="159" y="93" width="42" height="20" rx="2" fill="#0c1529"/>
-          <!-- 힌지 / 베이스 -->
-          <path d="M2 141 H234 L226 158 H10 Z" fill="#16203c" stroke="rgba(147,197,253,.22)" stroke-width="1.2"/>
-          <rect x="100" y="146" width="36" height="3.4" rx="1.7" fill="rgba(147,197,253,.30)"/>
-        </svg>
-      </div>
-      <div class="bubbles">
-        <span class="bub bub--them">Delivery time?</span>
-        <span class="ai-row">
-          <span class="bot">🤖</span>
-          <span class="bub bub--ai">2-3 weeks. May I have your email?</span>
-        </span>
+      <div class="win">
+        <div class="win__bar">
+          <span class="dot" style="background:#FF5F57"></span>
+          <span class="dot" style="background:#FEBC2E"></span>
+          <span class="dot" style="background:#28C840"></span>
+          <span class="win__url"></span>
+        </div>
+        <div class="win__body">
+          <p class="time">새벽 3:12 AM</p>
+          <div class="msg msg--in">Delivery time?</div>
+          <div class="who">
+            <span class="who__d"></span>
+            <span class="who__t">AI 자동응대</span>
+          </div>
+          <div class="msg msg--out">2-3 weeks. May I have your email?</div>
+          <div class="msg msg--in">buyer@company.com</div>
+        </div>
       </div>
     </div>
   </div>
 
-  <div class="footbar">
-    <span class="footbar__logo">MEISTERCODE</span>
-    <span class="footbar__dot"></span>
-    <span class="footbar__tag">결국엔 사람의 손이 닿아야 합니다</span>
+  <div class="foot">
+    <span class="foot__m">MEISTER<span class="foot__c">CODE</span></span>
+    <span class="foot__s"></span>
+    <span class="foot__t">결국엔 사람의 손이 닿아야 합니다</span>
   </div>
 </div>

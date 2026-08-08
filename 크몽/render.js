@@ -17,7 +17,6 @@ const TARGETS = [
   { file: "01-썸네일.html",      out: "01-썸네일-652x488.png",     width: 652,  scale: 1 },
   { file: "02-히어로.html",      out: "02-히어로-860w.png",        width: 900,  scale: 2 },
   { file: "03-가격표.html",      out: "03-가격표-860w.png",        width: 900,  scale: 2 },
-  { file: "04-수출기업신뢰.html", out: "04-수출기업신뢰-860w.png",  width: 900,  scale: 2 },
 ];
 
 (async () => {

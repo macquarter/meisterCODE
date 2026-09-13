@@ -1,0 +1,11 @@
+{
+  "name": "meistercode-site",
+  "version": "0.0.0",
+  "private": true,
+  "description": "MEISTER 주얼리 정적 사이트(docs/) + Google Apps Script 백엔드",
+  "scripts": {
+    "lint": "node scripts/lint.mjs",
+    "test": "node --test",
+    "serve": "python3 -m http.server 4173 --directory docs"
+  }
+}

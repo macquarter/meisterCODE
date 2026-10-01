@@ -2,10 +2,11 @@
 const { chromium } = require("playwright");
 const fs = require("fs"), path = require("path");
 if (!fs.existsSync(path.join(__dirname, "../fonts", "Pretendard-Black.woff2"))) { console.error("Pretendard 폰트가 없습니다. 먼저 bash fonts/fetch.sh 를 실행하세요."); process.exit(1); }
+const SCALE = process.argv[2] === "1x" ? 1 : 2;
 (async () => {
-  const out = path.join(__dirname, "out"); fs.mkdirSync(out, { recursive: true });
+  const out = path.join(__dirname, SCALE === 1 ? "out/652x488" : "out"); fs.mkdirSync(out, { recursive: true });
   const b = await chromium.launch();
-  const p = await b.newPage({ viewport: { width: 760, height: 900 }, deviceScaleFactor: 2 });
+  const p = await b.newPage({ viewport: { width: 760, height: 900 }, deviceScaleFactor: SCALE });
   await p.goto("file://" + path.join(__dirname, "cards.html"), { waitUntil: "networkidle" });
   await p.evaluate(() => document.fonts.ready);
   // Pretendard 외 폰트가 실제로 쓰이지 않는지 확인

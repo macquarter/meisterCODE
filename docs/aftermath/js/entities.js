@@ -4,11 +4,14 @@
 
 const WEAPONS = {
   pistol:  { key: 'pistol',  name: '권총', slot: 1, rate: 0.40, dmg: 21, spread: 0.028,
-             range: 540, speed: 1300, pellets: 1, ammoKey: null,   kick: 1.8, sfx: 'pistol' },
+             range: 540, speed: 1300, pellets: 1, ammoKey: null,   kick: 1.8, sfx: 'pistol',
+             mag: 12, reload: 1.05 },
   smg:     { key: 'smg',     name: 'SMG',  slot: 2, rate: 0.085, dmg: 17, spread: 0.075,
-             range: 620, speed: 1500, pellets: 1, ammoKey: 'smg',  kick: 2.2, sfx: 'shot' },
+             range: 620, speed: 1500, pellets: 1, ammoKey: 'smg',  kick: 2.2, sfx: 'shot',
+             mag: 30, reload: 1.75 },
   shotgun: { key: 'shotgun', name: '샷건', slot: 3, rate: 0.74, dmg: 15, spread: 0.20,
-             range: 430, speed: 1200, pellets: 8, ammoKey: 'shell', kick: 8, sfx: 'shotgun' }
+             range: 430, speed: 1200, pellets: 8, ammoKey: 'shell', kick: 8, sfx: 'shotgun',
+             mag: 6,  reload: 2.15 }
 };
 const SLOT_ORDER = ['pistol', 'smg', 'shotgun'];
 
@@ -29,8 +32,21 @@ class Player {
     this.hp = this.hpMax = 100;
     this.owned = new Set(level.own);
     this.ammo = { smg: level.startAmmo.smg | 0, shell: level.startAmmo.shell | 0 };
-    this.wpn = this.owned.has('smg') && this.ammo.smg > 0 ? 'smg' : 'pistol';
+    // 무기별 약실. 시작 시 예비탄에서 한 탄창씩 채워 둔다.
+    this.mag = {};
+    for (const k of SLOT_ORDER) {
+      const w = WEAPONS[k];
+      if (!this.owned.has(k)) { this.mag[k] = 0; continue; }
+      if (!w.ammoKey) { this.mag[k] = w.mag; continue; }
+      const take = Math.min(w.mag, this.ammo[w.ammoKey]);
+      this.mag[k] = take; this.ammo[w.ammoKey] -= take;
+    }
+    this.reloadT = 0; this.reloadKey = null; this.reloadSpan = 1; this.dryT = 0;
+    this.wpn = this.owned.has('smg') && this.mag.smg > 0 ? 'smg' : 'pistol';
     this.nades = level.startNades;
+    this.stam = this.stamMax = 100;
+    this.stamCool = 0; this.winded = false;
+    this.meleeCool = 0; this.meleeAnim = 0;
     this.battery = 100;
     this.lightOn = true;
     this.cool = 0; this.nadeCool = 0;
@@ -40,16 +56,114 @@ class Player {
     this.dead = false;
   }
 
-  /** 탄이 떨어진 총은 자동으로 권총으로 되돌아간다 */
+  /** 약실·예비탄이 모두 마른 총은 자동으로 권총으로 되돌아간다 */
   get weapon() {
     const w = WEAPONS[this.wpn];
-    if (w.ammoKey && this.ammo[w.ammoKey] <= 0) return WEAPONS.pistol;
+    if (w.ammoKey && this.ammo[w.ammoKey] <= 0 && (this.mag[w.key] | 0) <= 0) return WEAPONS.pistol;
     return w;
   }
-  ammoOf(w) { return w.ammoKey ? this.ammo[w.ammoKey] : Infinity; }
+  /** 예비 탄약 (권총은 무한) */
+  reserveOf(w) { return w.ammoKey ? this.ammo[w.ammoKey] : Infinity; }
+  /** 약실에 남은 탄 */
+  magOf(w) { return this.mag[w.key] | 0; }
+  ammoOf(w) { return this.reserveOf(w); }
+  get reloading() { return this.reloadT > 0; }
+  /** 재장전 진행률 0→1 (HUD 바) */
+  get reloadProgress() { return this.reloadT > 0 ? 1 - this.reloadT / this.reloadSpan : 0; }
+
+  /** 탄창 교체. auto = 빈 약실에서 자동으로 걸린 것이라 실패음을 내지 않는다 */
+  reload(g, auto) {
+    if (this.dead || this.reloadT > 0) return false;
+    const w = this.weapon;
+    if (this.magOf(w) >= w.mag) { if (!auto) SFX.click(); return false; }
+    if (this.reserveOf(w) <= 0) {
+      if (!auto) { SFX.dry(); if (g) g.toast('예비 탄약이 없다'); }
+      return false;
+    }
+    this.reloadKey = w.key;
+    this.reloadSpan = w.reload;
+    this.reloadT = w.reload;
+    SFX.reload();
+    return true;
+  }
+  cancelReload() { this.reloadT = 0; this.reloadKey = null; }
+  /** 주워서 즉시 손에 드는 경로 — 약실을 공짜로 채워 주지 않고 예비탄에서 당겨 온다 */
+  equip(key) {
+    this.cancelReload();
+    this.wpn = key;
+    const w = WEAPONS[key];
+    const need = w.mag - this.magOf(w);
+    if (need > 0) {
+      const take = w.ammoKey ? Math.min(need, this.ammo[w.ammoKey]) : need;
+      this.mag[key] = this.magOf(w) + take;
+      if (w.ammoKey) this.ammo[w.ammoKey] -= take;
+    }
+  }
+  finishReload() {
+    const w = WEAPONS[this.reloadKey];
+    this.reloadT = 0; this.reloadKey = null;
+    if (!w) return;
+    const need = w.mag - this.magOf(w);
+    const take = w.ammoKey ? Math.min(need, this.ammo[w.ammoKey]) : need;
+    if (take <= 0) return;
+    this.mag[w.key] += take;
+    if (w.ammoKey) this.ammo[w.ammoKey] -= take;
+    SFX.reloadDone();
+  }
+
+  /** 달리기 — 기력을 소모한다. 다 쓰면 숨이 차 한동안 못 달린다 */
+  resolveSprint(want, moving, dt) {
+    // 바닥까지 쓰면 숨이 차고(winded), 기력이 WIND_CLEAR 까지 돌아올 때까지는 못 달린다.
+    // 하한을 0 으로 두어야 0 에서 깔끔히 끊긴다 — 하한이 양수면 달리기가 덜덜 떨린다.
+    this.sprinting = !!(want && moving && !this.dead && this.stam > (this.winded ? Player.WIND_CLEAR : 0));
+    if (this.sprinting) {
+      this.stam = Math.max(0, this.stam - 24 * dt);
+      this.stamCool = 0.5;
+      if (this.stam <= 0 && !this.winded) { this.winded = true; SFX.gasp(); }
+    } else if (this.stamCool > 0) {
+      this.stamCool -= dt;
+    } else {
+      this.stam = Math.min(this.stamMax, this.stam + 20 * dt);
+      if (this.winded && this.stam >= Player.WIND_CLEAR) this.winded = false;
+    }
+    return this.sprinting;
+  }
+
+  /** 근접 밀치기 — 탄이 없거나 몰렸을 때의 마지막 수단 */
+  melee(g) {
+    if (this.dead || this.meleeCool > 0) return false;
+    this.meleeCool = 0.58;
+    this.meleeAnim = 0.2;
+    this.noise = Math.max(this.noise, 0.34);
+    this.cancelReload();
+    this.cool = Math.max(this.cool, 0.22);
+    SFX.melee();
+    let hits = 0;
+    for (const z of g.zombies) {
+      if (z.dead) continue;
+      const dx = z.x - this.x, dy = z.y - this.y;
+      const d = Math.hypot(dx, dy);
+      if (d > 42 + z.r) continue;
+      const a = Math.atan2(dy, dx);
+      let da = a - this.angle;
+      while (da > Math.PI) da -= Math.PI * 2;
+      while (da < -Math.PI) da += Math.PI * 2;
+      if (Math.abs(da) > 1.0) continue;
+      z.hurt(24, a, g);
+      if (!z.dead) {
+        const brute = z.type === 'brute';
+        g.world.slide(z, Math.cos(a) * (brute ? 22 : 56), Math.sin(a) * (brute ? 22 : 56));
+        z.stagger = Math.max(z.stagger, brute ? 0.14 : 0.44);
+      }
+      hits++;
+    }
+    if (hits) { SFX.meleeHit(0); g.shake = Math.min(14, g.shake + 3.6); }
+    return true;
+  }
 
   select(key, g) {
     if (!this.owned.has(key) || this.wpn === key) return;
+    this.cancelReload();
     this.wpn = key;
     SFX.click();
     if (g) g.toast(`${WEAPONS[key].name} 장착`);
@@ -60,7 +174,7 @@ class Player {
     for (let n = 1; n <= list.length; n++) {
       const k = list[(i + n) % list.length];
       const w = WEAPONS[k];
-      if (!w.ammoKey || this.ammo[w.ammoKey] > 0) { this.select(k, g); return; }
+      if (!w.ammoKey || this.ammo[w.ammoKey] > 0 || this.magOf(w) > 0) { this.select(k, g); return; }
     }
   }
 
@@ -78,9 +192,15 @@ class Player {
   }
 
   fire(g) {
-    if (this.cool > 0 || this.dead) return false;
+    if (this.cool > 0 || this.dead || this.reloadT > 0) return false;
     const w = this.weapon;
+    if (this.magOf(w) <= 0) {
+      if (this.dryT <= 0) { SFX.dry(); this.dryT = 0.32; }
+      this.reload(g, true);
+      return false;
+    }
     this.cool = w.rate;
+    this.mag[w.key] = this.magOf(w) - 1;
     for (let i = 0; i < w.pellets; i++) {
       const a = this.angle + (Math.random() - 0.5) * w.spread * 2;
       g.bullets.push(new Bullet(
@@ -88,7 +208,6 @@ class Player {
         this.y + Math.sin(this.angle) * 14,
         a, w.dmg, w.range * (0.85 + Math.random() * 0.3), w.speed));
     }
-    if (w.ammoKey) this.ammo[w.ammoKey] = Math.max(0, this.ammo[w.ammoKey] - 1);
     this.muzzle = w.pellets > 1 ? 0.1 : 0.06;
     this.noise = 1;
     g.shake = Math.min(14, g.shake + w.kick);
@@ -110,6 +229,13 @@ class Player {
     this.cool = Math.max(0, this.cool - dt);
     this.nadeCool = Math.max(0, this.nadeCool - dt);
     this.muzzle = Math.max(0, this.muzzle - dt);
+    this.meleeCool = Math.max(0, this.meleeCool - dt);
+    this.meleeAnim = Math.max(0, this.meleeAnim - dt);
+    this.dryT = Math.max(0, this.dryT - dt);
+    if (this.reloadT > 0) {
+      this.reloadT -= dt;
+      if (this.reloadT <= 0) this.finishReload();
+    }
     this.hurtFlash = Math.max(0, this.hurtFlash - dt * 2.4);
     this.noise = Math.max(0, this.noise - dt * 1.4);
     if (this.lightOn && this.battery > 0) {
@@ -120,6 +246,8 @@ class Player {
 }
 
 /* ── 좀비 ──────────────────────────────────── */
+Player.WIND_CLEAR = 45;   // 숨이 돌아오는 기력 문턱
+
 class Zombie {
   constructor(x, y, type) {
     const t = ZTYPES[type];
@@ -319,8 +447,8 @@ class Pickup {
       case 'battery': p.battery = Math.min(100, p.battery + 55);
                       if (!p.lightOn) p.lightOn = true; break;
       case 'nade':    p.nades += 2; break;
-      case 'wpn_smg':     p.owned.add('smg');     p.ammo.smg += 60;  p.wpn = 'smg'; break;
-      case 'wpn_shotgun': p.owned.add('shotgun'); p.ammo.shell += 12; p.wpn = 'shotgun'; break;
+      case 'wpn_smg':     p.owned.add('smg');     p.ammo.smg += 60;  p.equip('smg'); break;
+      case 'wpn_shotgun': p.owned.add('shotgun'); p.ammo.shell += 12; p.equip('shotgun'); break;
       case 'goal':    g.onGoalItem(); return;
     }
     g.toast(this.p.label);

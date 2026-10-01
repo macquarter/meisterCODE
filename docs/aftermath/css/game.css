@@ -60,7 +60,9 @@ body{
 .gauge__track i{display:block;height:100%;transition:width .12s linear}
 .gauge--health i{background:linear-gradient(90deg,#7c1d17,var(--blood))}
 .gauge--battery i{background:linear-gradient(90deg,#6b5310,var(--amber))}
+.gauge--stam i{background:linear-gradient(90deg,#1d4a52,#56b6c2)}
 .gauge--health.low i{animation:pulse .6s infinite}
+.gauge--stam.low i{background:linear-gradient(90deg,#5a3a12,#c07a22);animation:pulse .5s infinite}
 @keyframes pulse{50%{opacity:.35}}
 
 .ammo{margin-left:auto;display:flex;gap:18px;align-items:flex-end;text-align:right}
@@ -69,6 +71,14 @@ body{
 .ammo__slots span{font-size:10px;letter-spacing:.12em;color:var(--fog);opacity:.4;
   border-right:2px solid transparent;padding-right:6px;white-space:nowrap}
 .ammo__slots span.on{opacity:1;color:var(--bone);border-right-color:var(--amber)}
+.ammo__gun{position:relative}
+.ammo__rounds{display:flex;align-items:baseline;justify-content:flex-end;gap:5px}
+.ammo__gun em{font-size:12px;font-style:normal;letter-spacing:.06em;color:var(--fog);opacity:.6}
+.ammo__reload{position:absolute;left:0;right:0;bottom:-6px;height:2px;
+  background:rgba(255,255,255,.08);overflow:hidden;opacity:0}
+.ammo__gun.reloading .ammo__reload{opacity:1}
+.ammo__reload i{display:block;height:100%;background:var(--amber)}
+.ammo__gun.reloading b{color:var(--amber);opacity:.55}
 .ammo b{display:block;font-size:26px;line-height:1;font-weight:700;
   font-variant-numeric:tabular-nums;text-shadow:0 2px 12px rgba(0,0,0,.9)}
 .ammo span{font-size:9px;letter-spacing:.2em;color:var(--fog);opacity:.65}
@@ -103,6 +113,10 @@ body{
 .tbtn--nade{right:calc(114px + env(safe-area-inset-right));bottom:calc(180px + env(safe-area-inset-bottom));
   width:58px;height:58px;font-size:10px}
 .tbtn--swap{right:calc(26px + env(safe-area-inset-right));bottom:calc(258px + env(safe-area-inset-bottom));
+  width:52px;height:52px;font-size:10px}
+.tbtn--melee{right:calc(116px + env(safe-area-inset-right));bottom:calc(262px + env(safe-area-inset-bottom));
+  width:52px;height:52px;font-size:9px}
+.tbtn--reload{left:calc(26px + env(safe-area-inset-left));bottom:calc(258px + env(safe-area-inset-bottom));
   width:52px;height:52px;font-size:10px}
 .tbtn:active{background:rgba(255,255,255,.18)}
 
@@ -183,8 +197,8 @@ kbd{display:inline-block;min-width:30px;padding:5px 9px;font-family:var(--font);
   gap:12px;padding-bottom:7px;border-bottom:1px solid rgba(255,255,255,.07)}
 
 /* 터치 기기: 게이지와 탄약 표시가 조이스틱과 겹치지 않도록 재배치 */
-body.touch .hud__bottom{margin-bottom:calc(152px + env(safe-area-inset-bottom))}
-body.touch .gauge{width:min(140px,34vw)}
+body.touch .hud__bottom{margin-bottom:calc(152px + env(safe-area-inset-bottom));gap:10px}
+body.touch .gauge{width:min(112px,27vw)}
 body.touch .ammo{position:absolute;top:calc(46px + env(safe-area-inset-top));
   right:max(14px,env(safe-area-inset-right));margin:0;gap:14px}
 body.touch .hud__compass em{top:60px}

@@ -106,6 +106,18 @@ const SFX = (() => {
     explode()   { burst(0.9, 260, 0.7, 0.62, 'lowpass', 0.75); tone(74, 0.55, 0.34, 'sine', 26); },
     nadeThrow() { burst(0.12, 900, 1.2, 0.1, 'bandpass', 0.1); },
 
+    /* 장전 · 근접 — 금속성 짧은 클릭과 둔탁한 타격 */
+    reload()    { burst(0.07, 1800, 2.6, 0.12, 'bandpass', 0.06);
+                  setTimeout(() => burst(0.09, 1150, 2.0, 0.10, 'bandpass', 0.08), 130); },
+    reloadDone(){ burst(0.06, 2700, 3.2, 0.13, 'bandpass', 0.05);
+                  setTimeout(() => tone(640, 0.05, 0.05, 'square'), 55); },
+    melee()     { burst(0.14, 520, 1.1, 0.18, 'lowpass', 0.11); tone(112, 0.09, 0.08, 'square', 52); },
+    meleeHit(d) { burst(0.22, 300, 0.8, 0.26 * near(d), 'lowpass', 0.18);
+                  tone(84, 0.14, 0.12 * near(d), 'square', 38); },
+    /** 기력이 바닥났을 때의 거친 숨 */
+    gasp()      { burst(0.46, 780, 0.7, 0.13, 'bandpass', 0.42);
+                  setTimeout(() => burst(0.3, 620, 0.8, 0.08, 'bandpass', 0.28), 300); },
+
     growl(d)  { const n = near(d); if (n <= 0.02) return;
                 tone(64 + Math.random() * 34, 0.5 + Math.random() * 0.35,
                      0.1 * n, 'sawtooth', 34 + Math.random() * 20);

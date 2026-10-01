@@ -42,9 +42,17 @@
         <div class="gauge__label">배터리</div>
         <div class="gauge__track"><i id="gaugeBattery" style="width:100%"></i></div>
       </div>
+      <div class="gauge gauge--stam">
+        <div class="gauge__label">기력</div>
+        <div class="gauge__track"><i id="gaugeStam" style="width:100%"></i></div>
+      </div>
       <div class="ammo">
         <div class="ammo__slots" id="hudSlots"></div>
-        <div class="ammo__gun"><b id="hudAmmo">120</b><span id="hudWeapon">SMG</span></div>
+        <div class="ammo__gun">
+          <div class="ammo__rounds"><b id="hudAmmo">30</b><em id="hudReserve">/ 120</em></div>
+          <span id="hudWeapon">SMG</span>
+          <div class="ammo__reload"><i id="hudReloadBar" style="width:0%"></i></div>
+        </div>
         <div class="ammo__nade"><b id="hudNades">3</b><span>수류탄</span></div>
       </div>
     </div>
@@ -58,6 +66,8 @@
     <div class="pad pad--move" id="padMove"><i></i></div>
     <div class="pad pad--turn" id="padTurn"><i></i></div>
     <button class="tbtn tbtn--swap" id="btnSwap">무기</button>
+    <button class="tbtn tbtn--melee" id="btnMelee">밀치기</button>
+    <button class="tbtn tbtn--reload" id="btnReload">장전</button>
     <button class="tbtn tbtn--nade" id="btnNade">수류탄</button>
     <button class="tbtn tbtn--fire" id="btnFire">사격</button>
   </div>
@@ -95,14 +105,17 @@
           <div><kbd>마우스</kbd><span>손전등 방향 · 조준</span></div>
           <div><kbd>클릭</kbd><span>사격 (불빛 안의 적은 자동 사격)</span></div>
           <div><kbd>1</kbd><kbd>2</kbd><kbd>3</kbd><kbd>Q</kbd><span>무기 전환 (권총 · SMG · 샷건)</span></div>
+          <div><kbd>R</kbd><span>재장전 (약실이 비면 자동 장전)</span></div>
+          <div><kbd>E</kbd><kbd>우클릭</kbd><span>근접 밀치기 — 달라붙은 적을 떼어낸다</span></div>
           <div><kbd>G</kbd><span>수류탄 투척</span></div>
           <div><kbd>F</kbd><span>손전등 on / off (배터리 절약)</span></div>
-          <div><kbd>Shift</kbd><span>전력 질주</span></div>
+          <div><kbd>Shift</kbd><span>전력 질주 (기력 소모 — 바닥나면 숨이 찬다)</span></div>
           <div><kbd>Esc</kbd><span>일시정지</span></div>
         </div>
         <p class="note">모바일에서는 화면 왼쪽이 이동 스틱, 오른쪽이 조준 스틱입니다.<br>
         원작과 같이 <b>손전등이 비추는 방향으로만 사격</b>되며, 불빛 안에 적이 들어오면 <b>자동 사격</b>합니다.<br>
-        무기는 바닥에 떨어진 <b>발광 아이콘</b>을 밟아 습득합니다.</p>
+        무기는 바닥에 떨어진 <b>발광 아이콘</b>을 밟아 습득합니다.<br>
+        총은 <b>탄창 단위</b>로 작동합니다 — 약실(큰 숫자)과 예비탄(작은 숫자)을 따로 보세요.</p>
         <button class="btn btn--ghost" data-act="back">돌아가기</button>
       </div>
     </section>

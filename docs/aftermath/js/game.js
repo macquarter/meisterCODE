@@ -44,6 +44,8 @@ addEventListener('keydown', e => {
     if (e.code === 'Digit2') G.player.select('smg', G);
     if (e.code === 'Digit3') G.player.select('shotgun', G);
     if (e.code === 'KeyQ')   G.player.cycle(G);
+    if (e.code === 'KeyR')   G.player.reload(G);
+    if (e.code === 'KeyE')   G.player.melee(G);
   }
   if (e.code === 'KeyF' && G.state === 'play') {
     G.player.lightOn = !G.player.lightOn;
@@ -55,7 +57,11 @@ addEventListener('keyup', e => { keys[e.code] = false; });
 addEventListener('blur', () => { for (const k in keys) keys[k] = false; input.firing = false; });
 
 view.addEventListener('mousemove', e => { input.mx = e.clientX; input.my = e.clientY; input.hasMouse = true; });
-view.addEventListener('mousedown', e => { if (e.button === 0) { input.firing = true; SFX.resume(); } });
+view.addEventListener('mousedown', e => {
+  SFX.resume();
+  if (e.button === 0) input.firing = true;
+  else if (e.button === 2 && G.state === 'play') G.player.melee(G);
+});
 addEventListener('mouseup', () => { input.firing = false; });
 view.addEventListener('contextmenu', e => e.preventDefault());
 
@@ -102,6 +108,12 @@ $('btnNade').addEventListener('touchstart', e => {
 }, { passive: false });
 $('btnSwap').addEventListener('touchstart', e => {
   e.preventDefault(); if (G.state === 'play') G.player.cycle(G);
+}, { passive: false });
+$('btnMelee').addEventListener('touchstart', e => {
+  e.preventDefault(); if (G.state === 'play') G.player.melee(G);
+}, { passive: false });
+$('btnReload').addEventListener('touchstart', e => {
+  e.preventDefault(); if (G.state === 'play') G.player.reload(G);
 }, { passive: false });
 
 /* ═══════════ 게임 ═══════════ */
@@ -301,8 +313,8 @@ const G = {
     const ml = Math.hypot(mx, my);
     if (ml > 1) { mx /= ml; my /= ml; }
 
-    p.sprinting = !!(keys.ShiftLeft || keys.ShiftRight) && ml > 0.1;
-    const speed = (p.dead ? 0 : 158) * (p.sprinting ? 1.42 : 1);
+    p.resolveSprint(!!(keys.ShiftLeft || keys.ShiftRight), ml > 0.1, dt);
+    const speed = (p.dead ? 0 : 158) * (p.sprinting ? 1.42 : p.reloading ? 0.78 : 1);
     if (!p.dead && (mx || my)) {
       w.slide(p, mx * speed * dt, my * speed * dt);
       p.walkPhase += dt * (p.sprinting ? 13 : 8) * Math.min(1, ml * 1.6);
@@ -642,11 +654,18 @@ function drawPlayer(p) {
   // 어깨
   ctx.fillStyle = '#39454f';
   ctx.fillRect(-4, -12, 9, 5); ctx.fillRect(-4, 7, 9, 5);
+  // 근접 밀치기 — 총을 앞으로 내지르는 모션
+  const sw = p.meleeAnim > 0 ? Math.sin((1 - p.meleeAnim / 0.2) * Math.PI) : 0;
   // 총 + 손전등
   ctx.fillStyle = '#1a1f25';
-  ctx.fillRect(6, -3, 17, 6);
+  ctx.fillRect(6 + sw * 9, -3, 17, 6);
   ctx.fillStyle = '#f4e2a8';
-  ctx.fillRect(21, -2, 4, 4);
+  ctx.fillRect(21 + sw * 9, -2, 4, 4);
+  if (sw > 0.02) {
+    ctx.strokeStyle = `rgba(226,238,250,${0.3 * sw})`;
+    ctx.lineWidth = 2.5;
+    ctx.beginPath(); ctx.arc(0, 0, 34, -1.0, 1.0); ctx.stroke();
+  }
   ctx.restore();
 }
 
@@ -926,12 +945,18 @@ G.refreshHud = function (force) {
 
   $('gaugeHealth').style.width = (p.hp / p.hpMax * 100) + '%';
   $('gaugeBattery').style.width = p.battery + '%';
+  $('gaugeStam').style.width = (p.stam / p.stamMax * 100) + '%';
   document.querySelector('.gauge--health').classList.toggle('low', p.hp < 30);
+  document.querySelector('.gauge--stam').classList.toggle('low', p.winded);
 
-  const wp = p.weapon, rounds = p.ammoOf(wp);
-  $('hudAmmo').textContent = rounds === Infinity ? '∞' : rounds;
-  $('hudWeapon').textContent = wp.name;
-  document.querySelector('.ammo__gun').classList.toggle('dry', rounds !== Infinity && rounds <= 5);
+  const wp = p.weapon, inMag = p.magOf(wp), spare = p.reserveOf(wp);
+  $('hudAmmo').textContent = inMag;
+  $('hudReserve').textContent = spare === Infinity ? '/ ∞' : '/ ' + spare;
+  $('hudWeapon').textContent = p.reloading ? '장전 중' : wp.name;
+  const gun = document.querySelector('.ammo__gun');
+  gun.classList.toggle('dry', inMag <= Math.max(1, wp.mag * 0.2));
+  gun.classList.toggle('reloading', p.reloading);
+  $('hudReloadBar').style.width = (p.reloadProgress * 100) + '%';
   $('hudNades').textContent = p.nades;
 
   const slots = $('hudSlots');

@@ -8,6 +8,7 @@ const LABEL = {
   B1: "B안-1 · 시안 3개 (겹친 시안 카드)",
   B2: "B안-2 · 시안 3개 (초대형 숫자 3)",
 };
+if (!fs.existsSync(path.join(__dirname, "../fonts", "Pretendard-Black.woff2"))) { console.error("Pretendard 폰트가 없습니다. 먼저 bash fonts/fetch.sh 를 실행하세요."); process.exit(1); }
 (async () => {
   const b = await chromium.launch();
   fs.mkdirSync(path.join(__dirname, "out"), { recursive: true });

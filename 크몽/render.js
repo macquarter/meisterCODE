@@ -19,6 +19,7 @@ const TARGETS = [
   { file: "03-가격표.html",      out: "03-가격표-860w.png",        width: 900,  scale: 2 },
 ];
 
+if (!fs.existsSync(path.join(__dirname, "fonts", "Pretendard-Black.woff2"))) { console.error("Pretendard 폰트가 없습니다. 먼저 bash fonts/fetch.sh 를 실행하세요."); process.exit(1); }
 (async () => {
   const filter = process.argv[2];
   const jobs = TARGETS.filter(

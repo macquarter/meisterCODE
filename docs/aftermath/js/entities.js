@@ -47,6 +47,7 @@ class Player {
     this.stam = this.stamMax = 100;
     this.stamCool = 0; this.winded = false;
     this.meleeCool = 0; this.meleeAnim = 0;
+    this.dmgTaken = 0;           // 전적 집계용
     this.battery = 100;
     this.lightOn = true;
     this.cool = 0; this.nadeCool = 0;
@@ -187,6 +188,7 @@ class Player {
   hurt(dmg) {
     if (this.dead) return;
     this.hp -= dmg;
+    this.dmgTaken += dmg;
     this.hurtFlash = Math.min(1, this.hurtFlash + dmg / 34);
     if (this.hp <= 0) { this.hp = 0; this.dead = true; SFX.death(); }
   }
@@ -201,6 +203,7 @@ class Player {
     }
     this.cool = w.rate;
     this.mag[w.key] = this.magOf(w) - 1;
+    g.shots += w.pellets;
     for (let i = 0; i < w.pellets; i++) {
       const a = this.angle + (Math.random() - 0.5) * w.spread * 2;
       g.bullets.push(new Bullet(
@@ -239,7 +242,7 @@ class Player {
     this.hurtFlash = Math.max(0, this.hurtFlash - dt * 2.4);
     this.noise = Math.max(0, this.noise - dt * 1.4);
     if (this.lightOn && this.battery > 0) {
-      this.battery = Math.max(0, this.battery - (g.level.batteryDrain || 1.25) * dt);
+      this.battery = Math.max(0, this.battery - (g.level.batteryDrain || 1.25) * SETTINGS.mod.battery * dt);
       if (this.battery === 0) g.toast('배터리 방전 — 시야를 잃었다');
     }
   }
@@ -253,7 +256,8 @@ class Zombie {
     const t = ZTYPES[type];
     this.type = type; this.t = t;
     this.x = x; this.y = y; this.r = t.r;
-    this.hp = t.hp; this.hpMax = t.hp;
+    const hp = Math.round(t.hp * SETTINGS.mod.hp);
+    this.hp = hp; this.hpMax = hp;
     this.face = Math.random() * Math.PI * 2;
     this.aggro = false;
     this.steer = 0; this.steerHold = 0;
@@ -334,7 +338,7 @@ class Zombie {
 
     // 접촉 공격
     if (d < this.r + p.r + 3 && !p.dead) {
-      p.hurt(this.t.dmg * dt);
+      p.hurt(this.t.dmg * SETTINGS.mod.dmg * dt);
       g.shake = Math.min(10, g.shake + 14 * dt);
       const push = 46 * dt;
       g.world.slide(p, (p.x - this.x) / d * push, (p.y - this.y) / d * push);
@@ -369,6 +373,7 @@ class Bullet {
         if (z.dead) continue;
         if (Math.hypot(z.x - this.x, z.y - this.y) < z.r + 3) {
           z.hurt(this.dmg, this.ang, g);
+          g.hits++;
           SFX.hitFlesh(Math.hypot(this.x - g.player.x, this.y - g.player.y));
           this.dead = true; return;
         }

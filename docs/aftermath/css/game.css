@@ -187,6 +187,48 @@ kbd{display:inline-block;min-width:30px;padding:5px 9px;font-family:var(--font);
 /* 결과 */
 .screen--result h2{font-size:34px;letter-spacing:.2em;margin-bottom:8px}
 .screen--result.fail h2{color:var(--blood)}
+/* ── 설정 ─────────────────────────────────── */
+.set{display:grid;gap:4px;text-align:left;margin-bottom:20px}
+.set__row{display:flex;align-items:center;justify-content:space-between;gap:16px;
+  padding:11px 2px;border-bottom:1px solid rgba(255,255,255,.06)}
+.set__row--stack{border-bottom:none;padding-bottom:6px}
+.set__label{font-size:13px;color:var(--bone);letter-spacing:.04em;white-space:nowrap}
+.set__label b{color:var(--amber);font-variant-numeric:tabular-nums;margin-left:6px}
+.set__note{font-size:11px;line-height:1.8;color:var(--fog);opacity:.7;margin:0 0 8px;
+  border-bottom:1px solid rgba(255,255,255,.06);padding-bottom:11px}
+
+.set input[type=range]{-webkit-appearance:none;appearance:none;width:min(220px,48vw);height:3px;
+  background:rgba(255,255,255,.14);outline:none;border-radius:2px}
+.set input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;
+  width:15px;height:15px;border-radius:50%;background:var(--amber);cursor:pointer;border:none}
+.set input[type=range]::-moz-range-thumb{width:15px;height:15px;border-radius:50%;
+  background:var(--amber);cursor:pointer;border:none}
+
+.seg{display:flex;gap:0;border:1px solid rgba(255,255,255,.14);border-radius:3px;overflow:hidden}
+.seg button{flex:1 1 auto;white-space:nowrap;padding:9px 16px;background:transparent;border:none;cursor:pointer;
+  color:var(--fog);font-family:var(--font);font-size:12px;letter-spacing:.08em;
+  border-right:1px solid rgba(255,255,255,.1);transition:background .15s,color .15s}
+.seg button:last-child{border-right:none}
+.seg button:hover{background:rgba(255,255,255,.05)}
+.seg button.on{background:rgba(240,180,41,.16);color:var(--amber)}
+
+.tog{width:46px;height:24px;border-radius:12px;cursor:pointer;flex-shrink:0;
+  border:1px solid rgba(255,255,255,.16);background:rgba(255,255,255,.05);
+  position:relative;transition:background .15s,border-color .15s}
+.tog i{position:absolute;top:3px;left:3px;width:16px;height:16px;border-radius:50%;
+  background:var(--fog);opacity:.6;transition:transform .16s,background .16s,opacity .16s}
+.tog[aria-pressed=true]{background:rgba(240,180,41,.2);border-color:rgba(240,180,41,.45)}
+.tog[aria-pressed=true] i{transform:translateX(22px);background:var(--amber);opacity:1}
+
+/* ── 전적 등급 ─────────────────────────────── */
+.result__grade{display:inline-flex;flex-direction:column;align-items:center;gap:2px;margin:6px 0 14px}
+.result__grade b{font-size:52px;line-height:1;font-weight:800;letter-spacing:.04em;
+  color:var(--amber);text-shadow:0 0 30px rgba(240,180,41,.3)}
+.result__grade span{font-size:9px;letter-spacing:.3em;color:var(--fog);opacity:.65}
+.result__grade[data-g=S] b{color:#f5d76e;text-shadow:0 0 36px rgba(245,215,110,.45)}
+.result__grade[data-g=D] b,.result__grade[data-g=C] b{color:#9aa3ad;text-shadow:none}
+.screen--result.fail .result__grade b{color:var(--blood);text-shadow:0 0 30px rgba(201,53,43,.3)}
+
 .result__sub{font-size:13px;color:var(--fog);margin-bottom:26px;line-height:1.9}
 .result__stats{display:grid;grid-template-columns:1fr 1fr;gap:10px 22px;
   margin-bottom:28px;font-size:13px;text-align:left;

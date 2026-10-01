@@ -123,6 +123,7 @@ const G = {
   zombies: [], bullets: [], grenades: [], pickups: [], particles: [],
   decals: [], corpses: [], flashes: [],
   time: 0, shake: 0, kills: 0, score: 0, hurtSfxT: 0, beatT: 0,
+  shots: 0, hits: 0, reloads: 0,
   spawnT: 0, waveScale: 1,
   goalsLeft: 0, goalsTotal: 0, exitOpen: false, surviveLeft: 0,
   lightning: 0, lightningT: 8 + Math.random() * 12,
@@ -158,6 +159,8 @@ const G = {
     this.zombies = []; this.bullets = []; this.grenades = []; this.pickups = [];
     this.particles = []; this.decals = []; this.corpses = []; this.flashes = [];
     this.time = 0; this.shake = 0; this.kills = 0; this.score = 0;
+    this.shots = 0; this.hits = 0;
+    this.difficulty = SETTINGS.difficulty;   // 진입 시점의 난이도로 전적을 기록한다
     this.spawnT = 0; this.waveScale = 1; this.lightning = 0;
     this.lightningT = 6 + Math.random() * 10;
 
@@ -169,7 +172,9 @@ const G = {
 
     // 보급품 배치
     const rng = makeRng(L.seed ^ 0x5bf03635);
+    const loot = n => Math.max(1, Math.round(n * SETTINGS.mod.loot));
     const place = (type, n, minD) => {
+      n = loot(n);
       for (let i = 0; i < n; i++) {
         const p = w.pickPoint(this.player.x, this.player.y, minD, 1e9, rng);
         this.pickups.push(new Pickup(p.x, p.y, type));
@@ -187,7 +192,8 @@ const G = {
     if (ob.type === 'collect') place('goal', ob.count, 420);
 
     // 초기 좀비
-    for (let i = 0; i < L.spawn.initial; i++) this.spawnZombie(560, 1600);
+    const initial = Math.max(2, Math.round(L.spawn.initial * SETTINGS.mod.max));
+    for (let i = 0; i < initial; i++) this.spawnZombie(560, 1600);
 
     // 웅덩이 & 비
     this.puddles = [];
@@ -229,7 +235,7 @@ const G = {
 
   onKill(z) {
     this.kills++;
-    this.score += z.t.score;
+    this.score += Math.round(z.t.score * SETTINGS.mod.score);
     if (this.level.objective.type === 'purge' && !this.exitOpen) {
       this.goalsLeft = Math.max(0, this.goalsTotal - this.kills);
       if (this.goalsLeft === 0) this.openExit('소탕 완료 — 집결지가 표시되었다');
@@ -330,7 +336,7 @@ const G = {
     /* 사격: 수동 + 불빛 안 자동사격 */
     if (!p.dead) {
       let wantFire = input.firing || keys.Space;
-      if (!wantFire) wantFire = !!this.autoTarget();
+      if (!wantFire && SETTINGS.autofire) wantFire = !!this.autoTarget();
       if (wantFire) {
         if (p.cool <= 0) p.fire(this);
       }
@@ -383,8 +389,9 @@ const G = {
     this.spawnT -= dt;
     const sp = this.level.spawn;
     if (this.survival) this.waveScale = 1 + this.time / 55;
-    const rate = sp.rate * this.waveScale;
-    const maxZ = Math.min(sp.max + (this.survival ? Math.floor(this.time / 20) : 0), 60);
+    const rate = sp.rate * this.waveScale * SETTINGS.mod.spawn;
+    const maxZ = Math.min(
+      Math.round((sp.max + (this.survival ? Math.floor(this.time / 20) : 0)) * SETTINGS.mod.max), 60);
     if (this.spawnT <= 0 && this.zombies.length < maxZ) {
       this.spawnT = 1 / Math.max(0.05, rate);
       this.spawnZombie(620, 1500);
@@ -416,7 +423,7 @@ const G = {
     this.lightning = Math.max(0, this.lightning - dt * 2.6);
     if (this.lightningT <= 0) {
       this.lightningT = 14 + Math.random() * 22;
-      this.lightning = 1; SFX.thunder();
+      this.lightning = SETTINGS.flash ? 1 : 0.22; SFX.thunder();
     }
 
     if (p.dead && this.state === 'play') this.finish(false);
@@ -466,7 +473,7 @@ const G = {
     const mx = w.w * TILE - W, my = w.h * TILE - H;
     x = mx > 0 ? clamp(x, 0, mx) : mx / 2;
     y = my > 0 ? clamp(y, 0, my) : my / 2;
-    if (this.shake > 0.1) {
+    if (this.shake > 0.1 && SETTINGS.shake) {
       x += (Math.random() - 0.5) * this.shake;
       y += (Math.random() - 0.5) * this.shake;
     }
@@ -967,8 +974,9 @@ G.refreshHud = function (force) {
       `<span class="${k === wp.key ? 'on' : ''}">${WEAPONS[k].slot} ${WEAPONS[k].name}</span>`).join('');
   }
 
-  $('damageFlash').style.opacity =
-    Math.min(0.62, p.hurtFlash * 0.55 + (p.hp < 28 ? 0.18 + Math.sin(this.time * 5) * 0.05 : 0));
+  $('damageFlash').style.opacity = SETTINGS.flash
+    ? Math.min(0.62, p.hurtFlash * 0.55 + (p.hp < 28 ? 0.18 + Math.sin(this.time * 5) * 0.05 : 0))
+    : Math.min(0.20, p.hurtFlash * 0.18 + (p.hp < 28 ? 0.1 : 0));
 
   // 목표 방향 나침반
   const compass = $('hudCompass');
@@ -998,7 +1006,8 @@ G.refreshHud = function (force) {
 
 /* ═══════════ 화면 전환 ═══════════ */
 const UI = {
-  screens: ['scrTitle', 'scrChapters', 'scrHowto', 'scrBrief', 'scrPause', 'scrResult'],
+  screens: ['scrTitle', 'scrChapters', 'scrHowto', 'scrBrief', 'scrPause', 'scrResult', 'scrSettings'],
+  settingsFrom: 'scrTitle',
   hideScreens() { this.screens.forEach(s => $(s).classList.add('hidden')); },
   show(id) { this.hideScreens(); $(id).classList.remove('hidden'); },
   enterPlay() {
@@ -1038,6 +1047,42 @@ const UI = {
     $('briefGoals').innerHTML = L.goals.map(g => `<li>${g}</li>`).join('');
     this.show('scrBrief');
   },
+  /** 설정 화면을 현재 설정값에 맞춰 그린다 */
+  syncSettings() {
+    $('setVolume').value = SETTINGS.volume;
+    $('setVolVal').textContent = SETTINGS.volume;
+    for (const b of $('setDiff').querySelectorAll('button'))
+      b.classList.toggle('on', b.dataset.val === SETTINGS.difficulty);
+    $('setDiffNote').textContent = `${SETTINGS.mod.name} — ${SETTINGS.mod.note}`;
+    for (const b of document.querySelectorAll('.tog[data-set]'))
+      b.setAttribute('aria-pressed', String(!!SETTINGS.get(b.dataset.set)));
+  },
+
+  /** 플레이 결과를 0‒100 으로 환산하고 등급을 매긴다 */
+  rate(won) {
+    const acc = G.shots ? G.hits / G.shots : 0;
+    const taken = G.player.dmgTaken;
+    const ob = G.level.objective;
+
+    let pts = 0;
+    pts += Math.min(34, acc * 45);                     // 명중률 (75% 에서 만점)
+    pts += Math.max(0, 32 - taken / 6);                // 받은 피해 (192 이상이면 0점)
+    pts += Math.min(20, G.kills * 0.5);                // 처치 (40기에서 만점)
+    // 속도 — 시간이 목표 자체인 모드에는 적용하지 않는다
+    if (ob.type !== 'survive' && ob.type !== 'endless') {
+      const par = 90 + (G.goalsTotal || 1) * 45;
+      pts += Math.max(0, Math.min(14, 14 * par / Math.max(par * 0.4, G.time)));
+    } else {
+      pts += 14 * Math.min(1, G.time / Math.max(30, ob.time || 180));
+    }
+    pts *= DIFFICULTY[G.difficulty].score;             // 난이도 보정
+    if (!won) pts *= 0.45;                             // 사망은 절반 이하로
+
+    const v = Math.max(0, Math.min(100, Math.round(pts)));
+    const grade = v >= 88 ? 'S' : v >= 73 ? 'A' : v >= 57 ? 'B' : v >= 38 ? 'C' : 'D';
+    return { value: v, grade, acc, taken };
+  },
+
   showResult(won) {
     const s = $('scrResult');
     s.classList.toggle('fail', !won);
@@ -1058,12 +1103,21 @@ const UI = {
           : '숨을 고를 시간은 짧다.')
       : '불빛이 꺼졌다.';
 
+    const r = this.rate(won);
+    const gradeEl = $('resultGrade');
+    gradeEl.hidden = false;
+    gradeEl.dataset.g = r.grade;
+    gradeEl.querySelector('b').textContent = r.grade;
+    gradeEl.querySelector('span').textContent = `평가 ${r.value}`;
+
     const t = Math.floor(G.time);
     const rows = [
       ['생존 시간', `${String((t / 60) | 0).padStart(2, '0')}:${String(t % 60).padStart(2, '0')}`],
       ['처치', `${G.kills}기`],
+      ['명중률', G.shots ? `${Math.round(r.acc * 100)}% (${G.hits}/${G.shots})` : '—'],
+      ['받은 피해', `${Math.round(r.taken)}`],
       ['점수', `${G.score}`],
-      ['잔여 체력', `${Math.round(G.player.hp)}`]
+      ['난이도', DIFFICULTY[G.difficulty].name]
     ];
     if (G.survival) rows.push(['최고 기록', `${Math.floor(G.bestSurvival() / 60)}분 ${G.bestSurvival() % 60}초`]);
     $('resultStats').innerHTML = rows.map(r =>
@@ -1086,6 +1140,10 @@ document.addEventListener('click', e => {
     case 'chapters': UI.buildChapters(); UI.show('scrChapters'); break;
     case 'survival': G.start('survival'); break;
     case 'howto':    UI.show('scrHowto'); break;
+    case 'settings':
+      UI.settingsFrom = G.state === 'pause' ? 'scrPause' : 'scrTitle';
+      UI.syncSettings(); UI.show('scrSettings'); break;
+    case 'setback':  UI.show(UI.settingsFrom); break;
     case 'back':     UI.enterMenu(); break;
     case 'start':    G.start(G.pendingLevel); break;
     case 'resume':   G.togglePause(); break;
@@ -1096,6 +1154,23 @@ document.addEventListener('click', e => {
       else { G.state = 'title'; UI.enterMenu(); }
       break;
   }
+});
+
+/* 설정 위젯 배선 */
+$('setVolume').addEventListener('input', e => {
+  SETTINGS.set('volume', +e.target.value);
+  $('setVolVal').textContent = SETTINGS.volume;
+  SFX.applyVolume();
+});
+$('setVolume').addEventListener('change', () => { SFX.init(); SFX.resume(); SFX.beep(); });
+document.addEventListener('click', e => {
+  const b = e.target.closest('[data-set]');
+  if (!b) return;
+  SFX.init(); SFX.resume();
+  if (b.dataset.val) SETTINGS.set(b.dataset.set, b.dataset.val);
+  else SETTINGS.toggle(b.dataset.set);
+  SFX.click();
+  UI.syncSettings();
 });
 
 /* ═══════════ 루프 ═══════════ */
@@ -1157,4 +1232,5 @@ UI.enterMenu();
 requestAnimationFrame(frame);
 
 window.G = G;
+window.UI = UI;
 })();

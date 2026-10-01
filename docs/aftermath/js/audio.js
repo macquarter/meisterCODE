@@ -6,13 +6,19 @@ const SFX = (() => {
   let ctx = null, master = null, rainGain = null, rainSrc = null;
   let noiseBuf = null, enabled = true;
 
+  /** 설정의 0‒100 볼륨을 게인으로. 0 이면 완전 무음 */
+  function masterLevel() {
+    const v = (typeof SETTINGS !== 'undefined' ? SETTINGS.volume : 55) / 100;
+    return enabled ? v * 0.55 : 0;
+  }
+
   function init() {
     if (ctx) return;
     const AC = window.AudioContext || window.webkitAudioContext;
     if (!AC) { enabled = false; return; }
     ctx = new AC();
     master = ctx.createGain();
-    master.gain.value = 0.55;
+    master.gain.value = masterLevel();
     master.connect(ctx.destination);
     noiseBuf = makeNoise(2.0);
   }
@@ -143,6 +149,8 @@ const SFX = (() => {
       setTimeout(() => tone(48, 0.22, v * 0.72, 'sine', 28), 165);
     },
 
-    mute(v) { enabled = !v; if (master) master.gain.value = v ? 0 : 0.55; }
+    mute(v) { enabled = !v; if (master) master.gain.value = masterLevel(); },
+    /** 설정 화면에서 볼륨 슬라이더를 움직일 때 */
+    applyVolume() { if (master) master.gain.value = masterLevel(); }
   };
 })();

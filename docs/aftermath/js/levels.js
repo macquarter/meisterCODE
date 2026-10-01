@@ -31,13 +31,13 @@ const LEVELS = [
   },
   {
     name: '달리는 것들',
-    brief: '느린 것들만 있는 게 아니었다. 어떤 개체는 뛴다. ' +
-           '불빛 밖에서 들리는 발소리가 빨라지면, 이미 늦은 것이다.',
+    brief: '느린 것들만 있는 게 아니었다. 어떤 개체는 뛰고, ' +
+           '어떤 것은 바닥을 기어 불빛 아래로 들어오기 전까지 보이지 않는다.',
     goals: ['집결지까지 돌파'],
     seed: 3319, blocks: 5,
     objective: { type: 'escape' },
     spawn: { initial: 10, rate: 0.4, max: 22 },
-    mix: { walker: 0.6, runner: 0.4, brute: 0 },
+    mix: { walker: 0.55, runner: 0.3, brute: 0, crawler: 0.15 },
     own: ['pistol', 'smg'], drops: ['shotgun'],
     startAmmo: { smg: 100, shell: 4 }, startNades: 3,
     supplies: { ammo: 4, shells: 2, medkit: 2, battery: 3, nade: 2 }
@@ -50,7 +50,7 @@ const LEVELS = [
     seed: 4523, blocks: 5,
     objective: { type: 'collect', count: 4 },
     spawn: { initial: 12, rate: 0.5, max: 26 },
-    mix: { walker: 0.55, runner: 0.4, brute: 0.05 },
+    mix: { walker: 0.45, runner: 0.33, brute: 0.05, crawler: 0.17 },
     own: ['pistol', 'smg', 'shotgun'], drops: [],
     startAmmo: { smg: 110, shell: 10 }, startNades: 3,
     supplies: { ammo: 4, shells: 3, medkit: 2, battery: 3, nade: 2 }
@@ -63,7 +63,7 @@ const LEVELS = [
     seed: 5631, blocks: 4,
     objective: { type: 'survive', time: 90 },
     spawn: { initial: 10, rate: 0.75, max: 30 },
-    mix: { walker: 0.5, runner: 0.45, brute: 0.05 },
+    mix: { walker: 0.4, runner: 0.33, brute: 0.05, crawler: 0.14, spitter: 0.08 },
     own: ['pistol', 'smg', 'shotgun'], drops: [],
     startAmmo: { smg: 130, shell: 14 }, startNades: 3,
     supplies: { ammo: 5, shells: 4, medkit: 3, battery: 3, nade: 3 }
@@ -76,7 +76,7 @@ const LEVELS = [
     seed: 6742, blocks: 5,
     objective: { type: 'purge', count: 40 },
     spawn: { initial: 14, rate: 0.62, max: 28 },
-    mix: { walker: 0.45, runner: 0.4, brute: 0.15 },
+    mix: { walker: 0.35, runner: 0.3, brute: 0.13, crawler: 0.12, spitter: 0.1 },
     own: ['pistol', 'smg', 'shotgun'], drops: [],
     startAmmo: { smg: 140, shell: 16 }, startNades: 4,
     supplies: { ammo: 5, shells: 4, medkit: 3, battery: 3, nade: 3 }
@@ -89,7 +89,7 @@ const LEVELS = [
     seed: 7854, blocks: 6,
     objective: { type: 'collect', count: 5 },
     spawn: { initial: 14, rate: 0.7, max: 32 },
-    mix: { walker: 0.4, runner: 0.45, brute: 0.15 },
+    mix: { walker: 0.3, runner: 0.33, brute: 0.13, crawler: 0.12, spitter: 0.12 },
     own: ['pistol', 'smg', 'shotgun'], drops: [],
     startAmmo: { smg: 120, shell: 12 }, startNades: 4,
     supplies: { ammo: 5, shells: 3, medkit: 3, battery: 2, nade: 3 },
@@ -103,7 +103,7 @@ const LEVELS = [
     seed: 8967, blocks: 6,
     objective: { type: 'escape' },
     spawn: { initial: 18, rate: 0.95, max: 40 },
-    mix: { walker: 0.35, runner: 0.45, brute: 0.2 },
+    mix: { walker: 0.26, runner: 0.32, brute: 0.18, crawler: 0.1, spitter: 0.14 },
     own: ['pistol', 'smg', 'shotgun'], drops: [],
     startAmmo: { smg: 150, shell: 18 }, startNades: 5,
     supplies: { ammo: 6, shells: 5, medkit: 3, battery: 4, nade: 4 }
@@ -118,7 +118,7 @@ const SURVIVAL = {
   seed: 0, blocks: 5,
   objective: { type: 'endless' },
   spawn: { initial: 8, rate: 0.4, max: 46 },
-  mix: { walker: 0.7, runner: 0.3, brute: 0 },
+  mix: { walker: 0.6, runner: 0.25, brute: 0, crawler: 0.15 },
   own: ['pistol', 'smg'], drops: ['shotgun'],
   startAmmo: { smg: 120, shell: 6 }, startNades: 3,
   supplies: { ammo: 6, shells: 4, medkit: 3, battery: 4, nade: 3 }

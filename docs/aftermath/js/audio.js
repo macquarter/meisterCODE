@@ -120,6 +120,13 @@ const SFX = (() => {
     melee()     { burst(0.14, 520, 1.1, 0.18, 'lowpass', 0.11); tone(112, 0.09, 0.08, 'square', 52); },
     meleeHit(d) { burst(0.22, 300, 0.8, 0.26 * near(d), 'lowpass', 0.18);
                   tone(84, 0.14, 0.12 * near(d), 'square', 38); },
+    /* 뱉는 것 — 젖은 토악질과 산이 지글거리는 소리 */
+    spit(d)     { const n = near(d); if (n <= 0.02) return;
+                  burst(0.2, 900, 1.6, 0.16 * n, 'bandpass', 0.16);
+                  tone(210, 0.16, 0.08 * n, 'sawtooth', 90); },
+    spitHit(d)  { const n = near(d); if (n <= 0.02) return;
+                  burst(0.5, 2200, 0.9, 0.14 * n, 'highpass', 0.46); },
+
     /** 기력이 바닥났을 때의 거친 숨 */
     gasp()      { burst(0.46, 780, 0.7, 0.13, 'bandpass', 0.42);
                   setTimeout(() => burst(0.3, 620, 0.8, 0.08, 'bandpass', 0.28), 300); },

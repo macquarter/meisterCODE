@@ -163,7 +163,14 @@ body{
 .chapter__no{font-size:11px;letter-spacing:.14em;color:var(--fog);min-width:26px}
 .chapter__name{font-size:14px;font-weight:600;flex:1}
 .chapter__goal{font-size:11px;color:var(--fog);opacity:.75}
-.chapter__mark{font-size:11px;color:var(--amber);letter-spacing:.1em}
+.chapter__mark{font-size:11px;color:var(--amber);letter-spacing:.1em;
+  display:flex;flex-direction:column;align-items:flex-end;gap:1px;min-width:34px}
+.chapter__grade{font-size:19px;font-weight:800;line-height:1;letter-spacing:.02em;color:var(--amber)}
+.chapter__grade[data-g=S]{color:#f5d76e}
+.chapter__grade[data-g=C],.chapter__grade[data-g=D]{color:#9aa3ad}
+.chapter__score{font-size:9px;letter-spacing:.14em;color:var(--fog);opacity:.6;
+  font-variant-numeric:tabular-nums}
+.result__grade.best b{animation:pulse 1.1s ease-in-out 3}
 
 /* 조작법 */
 .keys{display:grid;gap:11px;text-align:left;margin-bottom:22px}

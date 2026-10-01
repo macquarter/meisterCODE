@@ -21,7 +21,14 @@ const ZTYPES = {
   runner: { hp: 38,  speed: 112, dmg: 12, r: 11, size: 10, hear: 480, score: 18,
             body: '#5a4740', head: '#7d6455' },
   brute:  { hp: 300, speed: 41,  dmg: 36, r: 20, size: 19, hear: 300, score: 60,
-            body: '#3f4a52', head: '#5b6a72' }
+            body: '#3f4a52', head: '#5b6a72' },
+  // 기어다니는 것 — 바닥에 붙어 웅크렸다 튀어나온다. 약하지만 작고 빠르다
+  crawler: { hp: 30, speed: 124, dmg: 11, r: 9,  size: 8,  hear: 300, score: 16,
+             body: '#55483c', head: '#766251', crawl: true },
+  // 뱉는 것 — 거리를 두고 산을 뱉는다. 물러서는 것만으로는 안전하지 않다
+  spitter: { hp: 74, speed: 46, dmg: 9, r: 14, size: 13, hear: 540, score: 38,
+             body: '#44513f', head: '#6d7f52',
+             spit: { range: 310, hold: 215, cool: 2.8, speed: 340, dmg: 15, pool: 4.5 } }
 };
 
 /* ── 플레이어 ──────────────────────────────── */
@@ -267,6 +274,9 @@ class Zombie {
     this.growlT = 1 + Math.random() * 6;
     this.stagger = 0;
     this.lit = 0;
+    this.spitT = 1 + Math.random() * 2;     // 뱉는 것: 첫 사격까지의 여유
+    this.lungeT = Math.random() * 1.2;      // 기어다니는 것: 웅크림↔도약 주기
+    this.lunging = false;
     this.dead = false;
   }
 
@@ -294,7 +304,8 @@ class Zombie {
       const heard = d < this.t.hear * (1 + p.noise * 1.6);
       if ((heard && g.world.los(this.x, this.y, p.x, p.y)) || this.lit > 0.1) {
         this.aggro = true;
-        if (this.type === 'runner') SFX.screech(d); else SFX.growl(d);
+        if (this.type === 'runner' || this.type === 'crawler') SFX.screech(d);
+        else SFX.growl(d);
       }
     }
 
@@ -306,11 +317,38 @@ class Zombie {
 
     if (this.stagger > 0) { this.stagger -= dt; return; }
 
+    // 뱉는 것: 사거리 안이고 시야가 트였으면 멈춰서 산을 뱉는다
+    const sp = this.t.spit;
+    if (sp && this.aggro) {
+      this.spitT -= dt;
+      if (d < sp.range && this.spitT <= 0 && g.world.los(this.x, this.y, p.x, p.y)) {
+        this.spitT = sp.cool * (0.85 + Math.random() * 0.3);
+        const a = Math.atan2(dy, dx);
+        g.spits.push(new Spit(this.x + Math.cos(a) * 16, this.y + Math.sin(a) * 16, a, sp));
+        this.face = a;
+        SFX.spit(d);
+      }
+    }
+
     let speed, target;
     if (this.aggro) {
-      speed = this.t.speed * (this.type === 'runner'
-        ? (0.9 + Math.sin(g.time * 3 + this.phase) * 0.12) : 1);
+      speed = this.t.speed;
+      if (this.type === 'runner') speed *= 0.9 + Math.sin(g.time * 3 + this.phase) * 0.12;
+      if (this.t.crawl) {
+        // 웅크렸다 튀는 리듬 — 일정 속도로 다가오지 않아 거리를 재기 어렵다
+        this.lungeT -= dt;
+        if (this.lungeT <= 0) {
+          this.lunging = !this.lunging;
+          this.lungeT = this.lunging ? 0.45 + Math.random() * 0.3 : 0.5 + Math.random() * 0.45;
+        }
+        speed *= this.lunging ? 1.5 : 0.22;
+      }
+      // 뱉는 것은 거리를 유지한다 — 너무 붙으면 물러난다
       target = Math.atan2(dy, dx);
+      if (sp) {
+        if (d < sp.hold * 0.75) { target += Math.PI; speed *= 0.8; }
+        else if (d < sp.hold) speed = 0;
+      }
     } else {
       this.wanderT -= dt;
       if (this.wanderT <= 0) { this.wanderT = 2 + Math.random() * 4; this.wanderDir = Math.random() * 6.283; }
@@ -423,6 +461,49 @@ class Grenade {
 }
 
 /* ── 보급품 / 무기 / 목표물 ────────────────── */
+/** 뱉는 것의 산 덩이. 벽이나 플레이어에 닿으면 터져 웅덩이를 남긴다 */
+class Spit {
+  constructor(x, y, ang, sp) {
+    this.x = x; this.y = y;
+    this.vx = Math.cos(ang) * sp.speed;
+    this.vy = Math.sin(ang) * sp.speed;
+    this.sp = sp;
+    this.life = sp.range / sp.speed + 0.25;
+    this.phase = Math.random() * 6.28;
+    this.dead = false;
+  }
+  burst(g) {
+    if (this.dead) return;
+    this.dead = true;
+    g.acids.push({ x: this.x, y: this.y, r: 44 + Math.random() * 10,
+                   t: this.sp.pool, max: this.sp.pool, phase: Math.random() * 6.28 });
+    for (let i = 0; i < 9; i++) {
+      const a = Math.random() * 6.283, v = 30 + Math.random() * 90;
+      g.particles.push({ x: this.x, y: this.y, vx: Math.cos(a) * v, vy: Math.sin(a) * v,
+                         life: 0.3 + Math.random() * 0.3, t: 0, col: '#9ad14e', r: 1.6 });
+    }
+    SFX.spitHit(Math.hypot(this.x - g.player.x, this.y - g.player.y));
+  }
+  update(dt, g) {
+    this.life -= dt;
+    this.phase += dt * 14;
+    if (this.life <= 0) { this.burst(g); return; }
+    const steps = 2;
+    for (let i = 0; i < steps; i++) {
+      this.x += this.vx * dt / steps;
+      this.y += this.vy * dt / steps;
+      if (g.world.solid(this.x, this.y)) { this.burst(g); return; }
+      const p = g.player;
+      if (!p.dead && Math.hypot(p.x - this.x, p.y - this.y) < p.r + 5) {
+        p.hurt(this.sp.dmg * SETTINGS.mod.dmg);
+        SFX.hurt();
+        this.burst(g);
+        return;
+      }
+    }
+  }
+}
+
 const PICKUPS = {
   ammo:        { label: 'SMG 탄약 +50',  col: '#d8c48a', icon: 'ammo' },
   shells:      { label: '산탄 +8',       col: '#c08a4a', icon: 'shell' },

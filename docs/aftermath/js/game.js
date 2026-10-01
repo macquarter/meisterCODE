@@ -121,6 +121,7 @@ const G = {
   state: 'title',
   world: null, player: null, level: null, levelIndex: -1, survival: false,
   zombies: [], bullets: [], grenades: [], pickups: [], particles: [],
+  spits: [], acids: [],
   decals: [], corpses: [], flashes: [],
   time: 0, shake: 0, kills: 0, score: 0, hurtSfxT: 0, beatT: 0,
   shots: 0, hits: 0, reloads: 0,
@@ -136,6 +137,22 @@ const G = {
     if (i > this.progress()) localStorage.setItem('aftermath.progress', i);
   },
   bestSurvival() { return +(localStorage.getItem('aftermath.best') || 0); },
+
+  /** 챕터별 최고 평가 {index: 점수} */
+  grades() {
+    try {
+      const o = JSON.parse(localStorage.getItem('aftermath.grades') || '{}');
+      return o && typeof o === 'object' ? o : {};
+    } catch (e) { return {}; }
+  },
+  saveGrade(i, value) {
+    if (i < 0) return false;
+    const all = this.grades();
+    if ((all[i] | 0) >= value) return false;
+    all[i] = value;
+    try { localStorage.setItem('aftermath.grades', JSON.stringify(all)); } catch (e) { return false; }
+    return true;
+  },
 
   toast(msg) {
     const el = $('toast');
@@ -157,6 +174,7 @@ const G = {
     const w = this.world;
     this.player = new Player(w.spawn.x, w.spawn.y, L);
     this.zombies = []; this.bullets = []; this.grenades = []; this.pickups = [];
+    this.spits = []; this.acids = [];
     this.particles = []; this.decals = []; this.corpses = []; this.flashes = [];
     this.time = 0; this.shake = 0; this.kills = 0; this.score = 0;
     this.shots = 0; this.hits = 0;
@@ -216,9 +234,13 @@ const G = {
   /* ── 좀비 소환 ── */
   pickType() {
     const mix = this.level.mix;
-    let r = Math.random(), acc = 0;
-    for (const k of ['runner', 'brute', 'walker']) {
-      acc += mix[k] || 0;
+    let total = 0;
+    for (const k in mix) if (ZTYPES[k]) total += Math.max(0, mix[k]);
+    if (total <= 0) return 'walker';
+    let r = Math.random() * total, acc = 0;
+    for (const k in mix) {
+      if (!ZTYPES[k]) continue;
+      acc += Math.max(0, mix[k]);
       if (r <= acc) return k;
     }
     return 'walker';
@@ -347,11 +369,28 @@ const G = {
     this.separate(dt);
     for (const b of this.bullets) b.update(dt, this);
     for (const gr of this.grenades) gr.update(dt, this);
+    for (const sp of this.spits) sp.update(dt, this);
+
+    // 산 웅덩이 — 밟고 있으면 계속 닳는다.
+    // 겹친 웅덩이는 더하지 않고 가장 진한 쪽만 적용한다. 더하면 두 겹에 들어선 순간 즉사한다.
+    let acidDps = 0;
+    for (let i = this.acids.length - 1; i >= 0; i--) {
+      const a = this.acids[i];
+      a.t -= dt;
+      if (a.t <= 0) { this.acids.splice(i, 1); continue; }
+      if (!p.dead && Math.hypot(p.x - a.x, p.y - a.y) < a.r)
+        acidDps = Math.max(acidDps, 13 * Math.min(1, a.t / a.max + 0.3));   // 식을수록 약해진다
+    }
+    if (acidDps > 0) {
+      p.hurt(acidDps * SETTINGS.mod.dmg * dt);
+      if (this.hurtSfxT <= 0) { this.hurtSfxT = 0.75; SFX.hurt(); }
+    }
     for (const pk of this.pickups) pk.update(dt, this);
 
     this.zombies = this.zombies.filter(z => !z.dead);
     this.bullets = this.bullets.filter(b => !b.dead);
     this.grenades = this.grenades.filter(g => !g.dead);
+    this.spits = this.spits.filter(sp => !sp.dead);
     this.pickups = this.pickups.filter(p2 => !p2.dead);
 
     /* 파티클 */
@@ -398,8 +437,13 @@ const G = {
     }
     if (this.survival && this.time > 30) {
       const t = this.time;
-      this.level.mix = { walker: Math.max(0.2, 0.7 - t / 400), runner: Math.min(0.5, 0.3 + t / 500),
-                         brute: Math.min(0.3, Math.max(0, (t - 60) / 500)) };
+      this.level.mix = {
+        walker:  Math.max(0.18, 0.7 - t / 400),
+        runner:  Math.min(0.45, 0.28 + t / 520),
+        brute:   Math.min(0.28, Math.max(0, (t - 60) / 520)),
+        crawler: Math.min(0.26, Math.max(0, (t - 35) / 420)),
+        spitter: Math.min(0.20, Math.max(0, (t - 90) / 600))
+      };
       if (this.pickups.length < 6 && Math.random() < dt * 0.35) {
         const types = ['ammo', 'ammo', 'shells', 'medkit', 'battery', 'nade'];
         const q = this.world.pickPoint(p.x, p.y, 300, 1400);
@@ -505,12 +549,32 @@ function render() {
   }
   ctx.globalAlpha = 1;
 
+  /* 산 웅덩이 */
+  for (const a of g.acids) {
+    const k = Math.min(1, a.t / a.max);
+    const wob = 1 + Math.sin(g.time * 3 + a.phase) * 0.04;
+    ctx.globalAlpha = 0.30 * k + 0.08;
+    ctx.fillStyle = '#4e7a1e';
+    ctx.beginPath(); ctx.ellipse(a.x, a.y, a.r * wob, a.r * 0.78 * wob, 0, 0, 6.283); ctx.fill();
+    ctx.globalAlpha = 0.22 * k;
+    ctx.fillStyle = '#8fd13c';
+    ctx.beginPath(); ctx.ellipse(a.x, a.y, a.r * 0.52, a.r * 0.4, 0, 0, 6.283); ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+
   /* 시체 */
   for (const c of g.corpses) drawCorpse(c);
 
   for (const pk of g.pickups) drawPickup(pk, g.time);
   for (const gr of g.grenades) drawGrenade(gr);
   for (const z of g.zombies) drawZombie(z);
+  for (const sp of g.spits) {
+    const r = 4.5 + Math.sin(sp.phase) * 0.9;
+    ctx.fillStyle = '#7fbf33';
+    ctx.beginPath(); ctx.arc(sp.x, sp.y, r, 0, 6.283); ctx.fill();
+    ctx.fillStyle = 'rgba(190,240,130,.75)';
+    ctx.beginPath(); ctx.arc(sp.x - sp.vx * 0.004, sp.y - sp.vy * 0.004, r * 0.5, 0, 6.283); ctx.fill();
+  }
   if (!p.dead) drawPlayer(p);
   else drawCorpse({ x: p.x, y: p.y, a: p.angle, type: 'player', age: 2 });
 
@@ -678,19 +742,38 @@ function drawPlayer(p) {
 
 function drawZombie(z) {
   const sway = Math.sin(z.phase) * (z.aggro ? 3.2 : 1.6);
+  const S = z.t.size;
   ctx.save();
   ctx.translate(z.x, z.y);
   ctx.rotate(z.face);
   ctx.fillStyle = 'rgba(0,0,0,.42)';
-  ctx.beginPath(); ctx.ellipse(0, 3, z.t.size + 3, z.t.size, 0, 0, 6.283); ctx.fill();
-  ctx.fillStyle = z.t.body;
-  ctx.beginPath(); ctx.arc(0, 0, z.t.size, 0, 6.283); ctx.fill();
-  // 팔 — 앞으로 뻗은
-  ctx.fillStyle = z.t.head;
-  ctx.fillRect(2, -z.t.size + 1 + sway * 0.4, z.t.size + 4, 4);
-  ctx.fillRect(2, z.t.size - 5 - sway * 0.4, z.t.size + 4, 4);
-  // 머리
-  ctx.beginPath(); ctx.arc(z.t.size * 0.42, sway * 0.3, z.t.size * 0.52, 0, 6.283); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(0, 3, S + 3, S, 0, 0, 6.283); ctx.fill();
+
+  if (z.t.crawl) {
+    // 기어다니는 것 — 바닥에 눌린 납작한 실루엣, 팔은 옆으로 넓게
+    ctx.fillStyle = z.t.body;
+    ctx.beginPath(); ctx.ellipse(0, 0, S * 1.5, S * 0.78, 0, 0, 6.283); ctx.fill();
+    ctx.fillStyle = z.t.head;
+    const reach = S * (z.lunging ? 1.9 : 1.2);
+    ctx.fillRect(S * 0.5, -S - 1 + sway * 0.5, reach, 3);
+    ctx.fillRect(S * 0.5, S - 2 - sway * 0.5, reach, 3);
+    ctx.beginPath(); ctx.arc(S * 1.1, sway * 0.2, S * 0.5, 0, 6.283); ctx.fill();
+  } else {
+    ctx.fillStyle = z.t.body;
+    ctx.beginPath(); ctx.arc(0, 0, S, 0, 6.283); ctx.fill();
+    // 팔 — 앞으로 뻗은
+    ctx.fillStyle = z.t.head;
+    ctx.fillRect(2, -S + 1 + sway * 0.4, S + 4, 4);
+    ctx.fillRect(2, S - 5 - sway * 0.4, S + 4, 4);
+    // 머리
+    ctx.beginPath(); ctx.arc(S * 0.42, sway * 0.3, S * 0.52, 0, 6.283); ctx.fill();
+    // 뱉는 것 — 등에 부푼 산 주머니
+    if (z.t.spit) {
+      const pulse = 0.82 + Math.sin(z.phase * 1.4) * 0.14;
+      ctx.fillStyle = `rgba(126,186,48,${z.spitT < 0.5 ? 0.95 : 0.6})`;
+      ctx.beginPath(); ctx.ellipse(-S * 0.5, 0, S * 0.62 * pulse, S * 0.52 * pulse, 0, 0, 6.283); ctx.fill();
+    }
+  }
   // 피해 표시
   if (z.hp < z.hpMax) {
     ctx.globalAlpha = clamp(1 - z.hp / z.hpMax, 0, 1) * 0.5;
@@ -841,6 +924,23 @@ function drawGlow(cam, g, p, w) {
     gr.addColorStop(0.5, 'rgba(226,210,170,.085)');
     gr.addColorStop(1, 'rgba(180,190,200,0)');
     ctx.fillStyle = gr; ctx.fill();
+  }
+
+  // 산 웅덩이와 날아오는 산 — 어둠 속에서 스스로 빛나 경고가 된다
+  for (const a of g.acids) {
+    const k = Math.min(1, a.t / a.max);
+    const gr = ctx.createRadialGradient(a.x, a.y, 0, a.x, a.y, a.r * 1.5);
+    gr.addColorStop(0, `rgba(118,200,44,${0.17 * k})`);
+    gr.addColorStop(1, 'rgba(70,140,20,0)');
+    ctx.fillStyle = gr;
+    ctx.beginPath(); ctx.arc(a.x, a.y, a.r * 1.5, 0, 6.283); ctx.fill();
+  }
+  for (const sp of g.spits) {
+    const gr = ctx.createRadialGradient(sp.x, sp.y, 0, sp.x, sp.y, 26);
+    gr.addColorStop(0, 'rgba(150,230,70,.30)');
+    gr.addColorStop(1, 'rgba(90,170,30,0)');
+    ctx.fillStyle = gr;
+    ctx.beginPath(); ctx.arc(sp.x, sp.y, 26, 0, 6.283); ctx.fill();
   }
 
   // 어둠 속의 눈 — 접근을 알아챌 수 있는 유일한 단서
@@ -1025,15 +1125,21 @@ const UI = {
   buildChapters() {
     const list = $('chapterList');
     const unlocked = G.progress();
+    const grades = G.grades();
     list.innerHTML = '';
     LEVELS.forEach((L, i) => {
       const locked = i > unlocked;
       const el = document.createElement('div');
       el.className = 'chapter' + (locked ? ' chapter--locked' : '');
+      const best = grades[i] | 0;
+      const mark = locked ? '잠김'
+        : best ? `<b class="chapter__grade" data-g="${UI.letter(best)}">${UI.letter(best)}</b>` +
+                 `<span class="chapter__score">${best}</span>`
+        : i < unlocked ? '클리어' : '▶';
       el.innerHTML =
         `<span class="chapter__no">${String(i + 1).padStart(2, '0')}</span>` +
         `<span class="chapter__name">${L.name}<br><span class="chapter__goal">${L.goals[0]}</span></span>` +
-        `<span class="chapter__mark">${locked ? '잠김' : i < unlocked ? '클리어' : '▶'}</span>`;
+        `<span class="chapter__mark">${mark}</span>`;
       if (!locked) el.addEventListener('click', () => { SFX.click(); UI.brief(i); });
       list.appendChild(el);
     });
@@ -1047,6 +1153,9 @@ const UI = {
     $('briefGoals').innerHTML = L.goals.map(g => `<li>${g}</li>`).join('');
     this.show('scrBrief');
   },
+  /** 평가 점수를 등급 문자로. rate() 와 같은 경계를 쓴다 */
+  letter(v) { return v >= 88 ? 'S' : v >= 73 ? 'A' : v >= 57 ? 'B' : v >= 38 ? 'C' : 'D'; },
+
   /** 설정 화면을 현재 설정값에 맞춰 그린다 */
   syncSettings() {
     $('setVolume').value = SETTINGS.volume;
@@ -1079,8 +1188,7 @@ const UI = {
     if (!won) pts *= 0.45;                             // 사망은 절반 이하로
 
     const v = Math.max(0, Math.min(100, Math.round(pts)));
-    const grade = v >= 88 ? 'S' : v >= 73 ? 'A' : v >= 57 ? 'B' : v >= 38 ? 'C' : 'D';
-    return { value: v, grade, acc, taken };
+    return { value: v, grade: this.letter(v), acc, taken };
   },
 
   showResult(won) {
@@ -1104,11 +1212,13 @@ const UI = {
       : '불빛이 꺼졌다.';
 
     const r = this.rate(won);
+    const best = won && !G.survival ? G.saveGrade(G.levelIndex, r.value) : false;
     const gradeEl = $('resultGrade');
     gradeEl.hidden = false;
     gradeEl.dataset.g = r.grade;
     gradeEl.querySelector('b').textContent = r.grade;
-    gradeEl.querySelector('span').textContent = `평가 ${r.value}`;
+    gradeEl.querySelector('span').textContent = best ? `최고 기록 ${r.value}` : `평가 ${r.value}`;
+    gradeEl.classList.toggle('best', best);
 
     const t = Math.floor(G.time);
     const rows = [

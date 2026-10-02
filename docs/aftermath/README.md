@@ -152,6 +152,11 @@ python3 -m http.server 8080 --directory docs
 
 GitHub Pages(`docs/` 발행)에서는 `/aftermath/` 경로로 접근한다.
 
+실제 배포 형태(HTTP 서빙)에서도 확인했다 — 자원 8개 전부 200,
+`localStorage` 의 설정·진행도·챕터 평가가 새로고침 후 복원되고,
+타이틀 → 챕터 선택 → 브리핑 → 진입 → 키 입력 이동까지 동작하며,
+WebAudio 합성과 60 FPS, 콘솔 오류 0건. `file://` 과 동작 차이가 없다.
+
 ## 구현 메모
 
 - **조명**: 오프스크린 캔버스를 검게 채우고 `destination-out`으로 손전등 원뿔을 지운다.

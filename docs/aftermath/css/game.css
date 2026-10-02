@@ -253,6 +253,7 @@ kbd{display:inline-block;min-width:30px;padding:5px 9px;font-family:var(--font);
 .ending__title{font-size:clamp(28px,7vw,44px);font-weight:800;letter-spacing:.1em;margin-bottom:18px;
   text-shadow:0 0 38px rgba(201,53,43,.3)}
 .ending__text{font-size:13px;line-height:2.1;color:var(--fog);margin-bottom:26px}
+.pause__where{font-size:12px;letter-spacing:.1em;color:var(--fog);opacity:.8;margin-bottom:20px}
 
 .result__sub{font-size:13px;color:var(--fog);margin-bottom:26px;line-height:1.9}
 .result__stats{display:grid;grid-template-columns:1fr 1fr;gap:10px 22px;

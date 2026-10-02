@@ -349,7 +349,7 @@ const G = {
   },
 
   togglePause() {
-    if (this.state === 'play') { this.state = 'pause'; UI.show('scrPause'); }
+    if (this.state === 'play') { this.state = 'pause'; UI.showPause(); }
     else if (this.state === 'pause') { this.state = 'play'; UI.hideScreens(); }
   },
 
@@ -1288,6 +1288,34 @@ const UI = {
     $('briefGoals').innerHTML = L.goals.map(g => `<li>${g}</li>`).join('');
     this.show('scrBrief');
   },
+  /** 일시정지 중 현재 판의 전황 — 멈춘 김에 상황을 보라고 */
+  showPause() {
+    const p = G.player, ob = G.level.objective;
+    const t = Math.floor(G.time);
+    const acc = G.shots ? Math.round(G.hits / G.shots * 100) : null;
+    $('pauseWhere').textContent = G.survival
+      ? `서바이벌 · ${DIFFICULTY[G.difficulty].name}`
+      : `CHAPTER ${G.levelIndex + 1} — ${G.level.name} · ${DIFFICULTY[G.difficulty].name}`;
+
+    const wp = p.weapon;
+    const rows = [
+      ['경과', `${String((t / 60) | 0).padStart(2, '0')}:${String(t % 60).padStart(2, '0')}`],
+      ['처치', `${G.kills}기`],
+      ['명중률', acc === null ? '—' : `${acc}%`],
+      ['받은 피해', `${Math.round(p.dmgTaken)}`],
+      ['체력 · 배터리', `${Math.round(p.hp)} · ${Math.round(p.battery)}`],
+      ['장비', `${wp.name} ${p.magOf(wp)}${p.reserveOf(wp) === Infinity ? '' : '/' + p.reserveOf(wp)}`]
+    ];
+    if (ob.type === 'collect') rows.push(['보급 상자', `${G.goalsTotal - G.goalsLeft}/${G.goalsTotal}`]);
+    if (ob.type === 'survive') rows.push(['남은 시간', `${Math.ceil(G.surviveLeft)}초`]);
+    if (ob.type === 'purge') rows.push(['소탕', `${G.kills}/${G.goalsTotal}`]);
+    if (ob.type === 'boss') rows.push(['그것', G.boss && !G.boss.dead
+      ? `${Math.max(0, Math.round(G.boss.hp / G.boss.hpMax * 100))}%` : '처치']);
+    $('pauseStats').innerHTML = rows.map(r =>
+      `<div><dt>${r[0]}</dt><dd>${r[1]}</dd></div>`).join('');
+    this.show('scrPause');
+  },
+
   /** 전역을 끝낸 뒤의 마무리 화면 — 챕터별 평가를 모아 보여 준다 */
   showEnding() {
     const grades = G.grades();
@@ -1422,7 +1450,7 @@ document.addEventListener('click', e => {
       UI.settingsFrom = G.state === 'pause' ? 'scrPause' : 'scrTitle';
       UI.syncSettings(); UI.show('scrSettings'); break;
     case 'setback':
-      if (UI.settingsFrom === 'scrPause') UI.show('scrPause');
+      if (UI.settingsFrom === 'scrPause') UI.showPause();
       else UI.enterMenu();
       break;
     case 'back':     UI.enterMenu(); break;

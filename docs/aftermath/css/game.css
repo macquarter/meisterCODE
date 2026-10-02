@@ -141,9 +141,22 @@ body.touch #hint{top:calc(150px + env(safe-area-inset-top));font-size:12px}
   width:52px;height:52px;font-size:10px}
 .tbtn--melee{right:calc(116px + env(safe-area-inset-right));bottom:calc(262px + env(safe-area-inset-bottom));
   width:52px;height:52px;font-size:9px}
-.tbtn--reload{left:calc(26px + env(safe-area-inset-left));bottom:calc(258px + env(safe-area-inset-bottom));
-  width:52px;height:52px;font-size:10px}
+/* 왼쪽 줄: 장전 · 질주 · 손전등. 오른쪽 밀치기 버튼과 360px 폭까지 겹치지 않는다 */
+.tbtn--reload{left:calc(22px + env(safe-area-inset-left));bottom:calc(258px + env(safe-area-inset-bottom));
+  width:48px;height:48px;font-size:10px}
+.tbtn--sprint{left:calc(78px + env(safe-area-inset-left));bottom:calc(258px + env(safe-area-inset-bottom));
+  width:48px;height:48px;font-size:10px}
+.tbtn--light{left:calc(134px + env(safe-area-inset-left));bottom:calc(258px + env(safe-area-inset-bottom));
+  width:48px;height:48px;font-size:9px;letter-spacing:.04em}
 .tbtn:active{background:rgba(255,255,255,.18)}
+/* 켜짐은 색으로, 꺼짐·불가는 흐림으로 — 글자를 바꾸지 않아 엄지 기억이 흔들리지 않게 */
+.tbtn.on{background:rgba(86,182,194,.24);border-color:rgba(86,182,194,.75);color:#bfe8ee}
+.tbtn.dim{opacity:.4}
+.tbtn--light{border-color:rgba(240,180,41,.45)}
+.tbtn--light.off{border-color:rgba(255,255,255,.12);color:var(--fog);opacity:.55}
+@media (max-width:357px){
+  .tbtn--light{left:calc(22px + env(safe-area-inset-left));bottom:calc(316px + env(safe-area-inset-bottom))}
+}
 
 /* ── 스크린 ───────────────────────────────── */
 #screens{position:absolute;inset:0;pointer-events:none}

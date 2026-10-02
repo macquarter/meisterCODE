@@ -32,7 +32,9 @@ if (isTouch) document.body.classList.add('touch');
 
 /* ═══════════ 입력 ═══════════ */
 const keys = Object.create(null);
-const input = { mx: W / 2, my: H / 2, firing: false, moveX: 0, moveY: 0, aimTouch: null, hasMouse: !isTouch };
+const input = { mx: W / 2, my: H / 2, firing: false, moveX: 0, moveY: 0, aimTouch: null, hasMouse: !isTouch,
+                // 터치 질주는 누르고 있는 버튼이 아니라 걸쇠다 — 두 엄지가 이미 스틱 위에 있어서
+                sprintLatch: false, idleT: 0 };
 
 addEventListener('keydown', e => {
   keys[e.code] = true;
@@ -47,11 +49,7 @@ addEventListener('keydown', e => {
     if (e.code === 'KeyR')   G.player.reload(G);
     if (e.code === 'KeyE')   G.player.melee(G);
   }
-  if (e.code === 'KeyF' && G.state === 'play') {
-    G.player.lightOn = !G.player.lightOn;
-    SFX.click();
-    G.toast(G.player.lightOn ? '손전등 ON' : '손전등 OFF — 배터리 절약');
-  }
+  if (e.code === 'KeyF' && G.state === 'play') G.toggleLight();
 });
 addEventListener('keyup', e => { keys[e.code] = false; });
 addEventListener('blur', () => { for (const k in keys) keys[k] = false; input.firing = false; });
@@ -115,6 +113,16 @@ $('btnMelee').addEventListener('touchstart', e => {
 $('btnReload').addEventListener('touchstart', e => {
   e.preventDefault(); if (G.state === 'play') G.player.reload(G);
 }, { passive: false });
+$('btnSprint').addEventListener('touchstart', e => {
+  e.preventDefault();
+  if (G.state !== 'play') return;
+  if (!input.sprintLatch && G.player.winded) { SFX.dry(); return; }   // 숨이 찼으면 걸리지 않는다
+  input.sprintLatch = !input.sprintLatch; input.idleT = 0;
+  SFX.click();
+}, { passive: false });
+$('btnLight').addEventListener('touchstart', e => {
+  e.preventDefault(); if (G.state === 'play') G.toggleLight();
+}, { passive: false });
 
 /* ═══════════ 도움말 ═══════════ */
 /* 처음 마주치는 순간에 한 번만 뜨는 한 줄 설명. 본 것은 기억해 두고 다시 띄우지 않는다. */
@@ -133,10 +141,10 @@ const Hints = (() => {
       : [isTouch ? '사격' : '클릭', '사격 — 손전등이 비추는 쪽으로만 나간다'],
     reload:   () => [isTouch ? '장전' : 'R', '재장전 — 탄창이 비면 자동으로도 갈아 끼운다'],
     melee:    () => [isTouch ? '밀치기' : 'E · 우클릭', '달라붙은 적을 밀쳐낸다'],
-    sprint:   () => ['Shift', '질주 — 빠르지만 발소리가 커서 멀리서도 깨운다'],
+    sprint:   () => isTouch ? ['질주', '한 번 누르면 계속 달린다 · 발소리가 커서 멀리서도 깨운다']
+                            : ['Shift', '질주 — 빠르지만 발소리가 커서 멀리서도 깨운다'],
     pickup:   () => ['', '빛나는 물건은 밟으면 줍는다'],
-    battery:  () => isTouch ? ['', '배터리가 떨어져 간다 — 노란 상자로 채운다']
-                            : ['F', '손전등을 꺼서 배터리를 아낀다 · 노란 상자로 채운다'],
+    battery:  () => [isTouch ? '손전등' : 'F', '손전등을 꺼서 배터리를 아낀다 · 노란 상자로 채운다'],
     nade:     () => [isTouch ? '수류탄' : 'G', '무리가 몰렸다 — 수류탄'],
     runner:   () => ['달리는 것', '약하지만 빠르다. 멀리 있을 때 끊어 쏘자'],
     brute:    () => ['거대한 것', '잘 밀리지 않는다. 수류탄을 아끼지 말 것'],
@@ -181,7 +189,7 @@ const Hints = (() => {
 
       if (g.time > 0.6) push('move');
       if (g.time > 6) push('autofire');
-      if (!isTouch && g.time > 24) push('sprint');
+      if (g.time > 24) push('sprint');
       const w = p.weapon;
       if (!p.reloading && p.magOf(w) <= Math.ceil(w.mag * 0.34)) push('reload');
       if (p.battery < 30 && p.lightOn) push('battery');
@@ -271,6 +279,7 @@ const G = {
     this.particles = []; this.decals = []; this.corpses = []; this.flashes = [];
     this.time = 0; this.shake = 0; this.kills = 0; this.score = 0;
     this.shots = 0; this.hits = 0; this.hitMark = 0;
+    input.sprintLatch = false; input.idleT = 0;
     Hints.begin(this);
     this.difficulty = SETTINGS.difficulty;   // 진입 시점의 난이도로 전적을 기록한다
     this.spawnT = 0; this.waveScale = 1; this.lightning = 0;
@@ -380,6 +389,15 @@ const G = {
     const d = Math.hypot(p.x - this.player.x, p.y - this.player.y);
     if (da < 0.5 && d < this.player.lightRange + 90) return;
     this.zombies.push(new Zombie(p.x, p.y, this.pickType()));
+  },
+
+  /** 손전등 켜고 끄기 — F 키와 터치 버튼이 같이 쓴다 */
+  toggleLight() {
+    const p = this.player;
+    p.lightOn = !p.lightOn;
+    SFX.click();
+    this.toast(p.lightOn ? '손전등 ON' : '손전등 OFF — 배터리 절약');
+    this.refreshHud();
   },
 
   /** 명중 확인 — 조준선에 짧은 X 표시와 확인음. 산탄이 한꺼번에 맞아도 소리는 한 번 */
@@ -505,7 +523,14 @@ const G = {
     const ml = Math.hypot(mx, my);
     if (ml > 1) { mx /= ml; my /= ml; }
 
-    p.resolveSprint(!!(keys.ShiftLeft || keys.ShiftRight), ml > 0.1, dt);
+    const moving = ml > 0.1;
+    p.resolveSprint(!!(keys.ShiftLeft || keys.ShiftRight) || input.sprintLatch, moving, dt);
+    // 걸쇠는 숨이 차거나 0.6초 넘게 멈추면 스스로 풀린다 — 서 있는 동안 켜져 있다가
+    // 다시 움직일 때 의도치 않게 질주(=소음)하지 않도록
+    if (input.sprintLatch) {
+      input.idleT = moving ? 0 : input.idleT + dt;
+      if (p.winded || input.idleT > 0.6 || p.dead) input.sprintLatch = false;
+    }
     const speed = (p.dead ? 0 : 158) * (p.sprinting ? 1.42 : p.reloading ? 0.78 : 1);
     if (!p.dead && (mx || my)) {
       const before = p.walkPhase;
@@ -1372,6 +1397,11 @@ G.refreshHud = function (force) {
   gun.classList.toggle('reloading', p.reloading);
   $('hudReloadBar').style.width = (p.reloadProgress * 100) + '%';
   $('hudNades').textContent = p.nades;
+  if (isTouch) {
+    $('btnSprint').classList.toggle('on', input.sprintLatch);
+    $('btnSprint').classList.toggle('dim', p.winded);
+    $('btnLight').classList.toggle('off', !p.lightOn || p.battery <= 0);
+  }
 
   const slots = $('hudSlots');
   const sig = SLOT_ORDER.filter(k => p.owned.has(k)).join(',') + '|' + wp.key;

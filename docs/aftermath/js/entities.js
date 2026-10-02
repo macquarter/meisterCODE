@@ -28,7 +28,12 @@ const ZTYPES = {
   // 뱉는 것 — 거리를 두고 산을 뱉는다. 물러서는 것만으로는 안전하지 않다
   spitter: { hp: 74, speed: 46, dmg: 9, r: 14, size: 13, hear: 540, score: 38,
              body: '#44513f', head: '#6d7f52',
-             spit: { range: 310, hold: 215, cool: 2.8, speed: 340, dmg: 15, pool: 4.5 } }
+             spit: { range: 310, hold: 215, cool: 2.8, speed: 340, dmg: 15, pool: 4.5 } },
+  // 그것 — 마지막 다리를 막아선 개체. 한 마리뿐이고, 죽어야 길이 열린다
+  behemoth: { hp: 1500, speed: 40, dmg: 44, r: 24, size: 26, hear: 1600, score: 500,
+              body: '#2f3a42', head: '#4a5a64', boss: true,
+              charge: { wind: 0.85, dash: 1.15, cool: 4.2, mul: 3.4, min: 190, max: 700, dmg: 42 },
+              roar: { cool: 9, spawn: 3, kind: 'crawler' } }
 };
 
 /* ── 플레이어 ──────────────────────────────── */
@@ -158,7 +163,7 @@ class Player {
       while (da < -Math.PI) da += Math.PI * 2;
       if (Math.abs(da) > 1.0) continue;
       z.hurt(24, a, g);
-      if (!z.dead) {
+      if (!z.dead && !z.t.boss) {
         const brute = z.type === 'brute';
         g.world.slide(z, Math.cos(a) * (brute ? 22 : 56), Math.sin(a) * (brute ? 22 : 56));
         z.stagger = Math.max(z.stagger, brute ? 0.14 : 0.44);
@@ -274,6 +279,10 @@ class Zombie {
     this.growlT = 1 + Math.random() * 6;
     this.stagger = 0;
     this.lit = 0;
+    this.chargeT = 2.5;                     // 그것: 다음 돌진까지
+    this.chargePhase = '';                  // '' | 'wind' | 'dash'
+    this.chargeDir = 0;
+    this.roarT = 4;
     this.spitT = 1 + Math.random() * 2;     // 뱉는 것: 첫 사격까지의 여유
     this.lungeT = Math.random() * 1.2;      // 기어다니는 것: 웅크림↔도약 주기
     this.lunging = false;
@@ -283,7 +292,7 @@ class Zombie {
   hurt(dmg, ang, g) {
     this.hp -= dmg;
     this.aggro = true;
-    if (this.type !== 'brute') this.stagger = 0.09;
+    if (this.type !== 'brute' && !this.t.boss) this.stagger = 0.09;
     g.spawnBlood(this.x, this.y, ang, this.type === 'brute' ? 10 : 6);
     if (this.hp <= 0 && !this.dead) {
       this.dead = true;
@@ -316,6 +325,58 @@ class Zombie {
     }
 
     if (this.stagger > 0) { this.stagger -= dt; return; }
+
+    // ── 그것: 포효로 무리를 부르고, 직선으로 돌진한다 ──
+    if (this.t.boss && this.aggro) {
+      const rr = this.t.roar, ch = this.t.charge;
+
+      this.roarT -= dt;
+      if (this.roarT <= 0) {
+        this.roarT = rr.cool;
+        SFX.roar(d);
+        g.shake = Math.min(18, g.shake + 7);
+        for (const o of g.zombies) if (o !== this) o.aggro = true;   // 전부 깨운다
+        g.summon(this, rr.kind, rr.spawn);
+        g.toast('포효 — 무리가 몰려온다');
+      }
+
+      if (this.chargePhase === 'wind') {
+        this.chargeT -= dt;
+        this.face = Math.atan2(dy, dx);
+        this.chargeDir = this.face;
+        if (this.chargeT <= 0) { this.chargePhase = 'dash'; this.chargeT = ch.dash; SFX.charge(d); }
+        this.phase += dt * 14;
+        return;                                   // 선딜 동안은 제자리 — 피할 틈을 준다
+      }
+      if (this.chargePhase === 'dash') {
+        this.chargeT -= dt;
+        const step = this.t.speed * ch.mul * dt;
+        const nx = Math.cos(this.chargeDir) * step, ny = Math.sin(this.chargeDir) * step;
+        if (g.world.hits(this.x + nx, this.y + ny, this.r)) {
+          // 벽에 박으면 스스로 비틀거린다 — 유일한 안정적 반격 창구
+          this.chargePhase = ''; this.chargeT = ch.cool * 0.6;
+          this.stagger = 1.1; g.shake = Math.min(22, g.shake + 14);
+          SFX.slam(d);
+          return;
+        }
+        this.x += nx; this.y += ny;
+        if (!p.dead && Math.hypot(p.x - this.x, p.y - this.y) < this.r + p.r + 4) {
+          p.hurt(ch.dmg * SETTINGS.mod.dmg);
+          g.world.slide(p, Math.cos(this.chargeDir) * 54, Math.sin(this.chargeDir) * 54);
+          g.shake = Math.min(24, g.shake + 16);
+          SFX.hurt();
+          this.chargePhase = ''; this.chargeT = ch.cool;
+        }
+        if (this.chargeT <= 0) { this.chargePhase = ''; this.chargeT = ch.cool; }
+        this.phase += dt * 12;
+        return;
+      }
+      this.chargeT -= dt;
+      if (this.chargeT <= 0 && d > ch.min && d < ch.max && g.world.los(this.x, this.y, p.x, p.y)) {
+        this.chargePhase = 'wind'; this.chargeT = ch.wind;
+        SFX.growl(d);
+      }
+    }
 
     // 뱉는 것: 사거리 안이고 시야가 트였으면 멈춰서 산을 뱉는다
     const sp = this.t.spit;

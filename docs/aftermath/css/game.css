@@ -61,6 +61,17 @@ body{
 .gauge--health i{background:linear-gradient(90deg,#7c1d17,var(--blood))}
 .gauge--battery i{background:linear-gradient(90deg,#6b5310,var(--amber))}
 .gauge--stam i{background:linear-gradient(90deg,#1d4a52,#56b6c2)}
+
+/* ── 그것 체력 바 ───────────────────────────── */
+.boss{position:absolute;top:calc(74px + env(safe-area-inset-top));left:50%;transform:translateX(-50%);
+  width:min(420px,72vw);text-align:center}
+.boss__name{font-size:10px;letter-spacing:.42em;color:var(--blood);opacity:.9;margin-bottom:5px}
+.boss__track{height:5px;background:rgba(255,255,255,.07);
+  border:1px solid rgba(201,53,43,.3);overflow:hidden}
+.boss__track i{display:block;height:100%;transition:width .14s linear;
+  background:linear-gradient(90deg,#5d140f,var(--blood))}
+.boss.winding .boss__track{border-color:rgba(240,180,41,.8);animation:pulse .28s infinite}
+body.touch .boss{top:calc(96px + env(safe-area-inset-top));width:min(300px,62vw)}
 .gauge--health.low i{animation:pulse .6s infinite}
 .gauge--stam.low i{background:linear-gradient(90deg,#5a3a12,#c07a22);animation:pulse .5s infinite}
 @keyframes pulse{50%{opacity:.35}}
@@ -235,6 +246,13 @@ kbd{display:inline-block;min-width:30px;padding:5px 9px;font-family:var(--font);
 .result__grade[data-g=S] b{color:#f5d76e;text-shadow:0 0 36px rgba(245,215,110,.45)}
 .result__grade[data-g=D] b,.result__grade[data-g=C] b{color:#9aa3ad;text-shadow:none}
 .screen--result.fail .result__grade b{color:var(--blood);text-shadow:0 0 30px rgba(201,53,43,.3)}
+
+/* ── 엔딩 ─────────────────────────────────── */
+.screen--ending{background:radial-gradient(ellipse at 50% 42%,rgba(26,12,10,.9),rgba(3,4,6,.985))}
+.ending__kicker{font-size:10px;letter-spacing:.44em;color:var(--blood);opacity:.85;margin-bottom:10px}
+.ending__title{font-size:clamp(28px,7vw,44px);font-weight:800;letter-spacing:.1em;margin-bottom:18px;
+  text-shadow:0 0 38px rgba(201,53,43,.3)}
+.ending__text{font-size:13px;line-height:2.1;color:var(--fog);margin-bottom:26px}
 
 .result__sub{font-size:13px;color:var(--fog);margin-bottom:26px;line-height:1.9}
 .result__stats{display:grid;grid-template-columns:1fr 1fr;gap:10px 22px;

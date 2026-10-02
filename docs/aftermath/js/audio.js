@@ -6,6 +6,9 @@ const SFX = (() => {
   let ctx = null, master = null, rainGain = null, rainSrc = null;
   let noiseBuf = null, enabled = true;
 
+  /** 이 아래로는 들리지도 않고, exponentialRampToValueAtTime 이 0 을 거부한다 */
+  const SILENT = 0.0005;
+
   /** 설정의 0‒100 볼륨을 게인으로. 0 이면 완전 무음 */
   function masterLevel() {
     const v = (typeof SETTINGS !== 'undefined' ? SETTINGS.volume : 55) / 100;
@@ -44,6 +47,7 @@ const SFX = (() => {
   /** 노이즈 한 번 재생 (타격감·폭발·발소리용) */
   function burst(dur, freq, q, gain, type = 'lowpass', decay) {
     if (!enabled || !ctx) return;
+    if (!(gain > SILENT)) return;
     const src = ctx.createBufferSource();
     src.buffer = noiseBuf;
     src.playbackRate.value = 0.8 + Math.random() * 0.5;
@@ -60,6 +64,7 @@ const SFX = (() => {
   /** 사인/톱니 톤 (짐승 울음·UI음) */
   function tone(freq, dur, gain, type = 'sine', slideTo) {
     if (!enabled || !ctx) return;
+    if (!(gain > SILENT)) return;        // 들리지도 않는 소리에 노드를 만들지 않는다
     const o = ctx.createOscillator();
     const g = ctx.createGain();
     const t = ctx.currentTime;
@@ -120,6 +125,18 @@ const SFX = (() => {
     melee()     { burst(0.14, 520, 1.1, 0.18, 'lowpass', 0.11); tone(112, 0.09, 0.08, 'square', 52); },
     meleeHit(d) { burst(0.22, 300, 0.8, 0.26 * near(d), 'lowpass', 0.18);
                   tone(84, 0.14, 0.12 * near(d), 'square', 38); },
+    /* 그것 — 포효 · 돌진 · 벽 충돌 */
+    roar(d)     { const n = Math.max(0.35, near(d));
+                  tone(42, 1.5, 0.3 * n, 'sawtooth', 24);
+                  tone(63, 1.2, 0.17 * n, 'square', 31);
+                  burst(1.4, 240, 0.7, 0.26 * n, 'lowpass', 1.3); },
+    charge(d)   { const n = Math.max(0.3, near(d));
+                  burst(0.6, 420, 0.8, 0.3 * n, 'lowpass', 0.55);
+                  tone(96, 0.5, 0.14 * n, 'sawtooth', 58); },
+    slam(d)     { const n = Math.max(0.3, near(d));
+                  burst(0.8, 180, 0.6, 0.46 * n, 'lowpass', 0.7);
+                  tone(54, 0.6, 0.26 * n, 'square', 22); },
+
     /* 뱉는 것 — 젖은 토악질과 산이 지글거리는 소리 */
     spit(d)     { const n = near(d); if (n <= 0.02) return;
                   burst(0.2, 900, 1.6, 0.16 * n, 'bandpass', 0.16);

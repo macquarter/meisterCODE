@@ -98,10 +98,10 @@ const LEVELS = [
   {
     name: '마지막 다리',
     brief: '강 건너에 불빛이 보인다. 진짜 사람의 불빛이다. ' +
-           '도시 전체가 그 사실을 아는 것처럼 움직이고 있다. 마지막 구간이다.',
-    goals: ['도시를 가로질러 다리에 도달'],
+           '그런데 다리 앞에 무언가가 서 있다. 저것은 걷지 않는다 — 기다리고 있다.',
+    goals: ['그것을 쓰러뜨리고 다리를 건너라'],
     seed: 8967, blocks: 6,
-    objective: { type: 'escape' },
+    objective: { type: 'boss' },
     spawn: { initial: 18, rate: 0.95, max: 40 },
     mix: { walker: 0.26, runner: 0.32, brute: 0.18, crawler: 0.1, spitter: 0.14 },
     own: ['pistol', 'smg', 'shotgun'], drops: [],

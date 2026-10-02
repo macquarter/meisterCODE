@@ -126,7 +126,7 @@ const G = {
   time: 0, shake: 0, kills: 0, score: 0, hurtSfxT: 0, beatT: 0,
   shots: 0, hits: 0, reloads: 0,
   spawnT: 0, waveScale: 1,
-  goalsLeft: 0, goalsTotal: 0, exitOpen: false, surviveLeft: 0,
+  goalsLeft: 0, goalsTotal: 0, exitOpen: false, surviveLeft: 0, boss: null,
   lightning: 0, lightningT: 8 + Math.random() * 12,
   rain: [], puddles: [],
   toastT: 0,
@@ -185,6 +185,7 @@ const G = {
     // 목표 설정
     const ob = L.objective;
     this.exitOpen = (ob.type === 'escape');
+    this.boss = null;
     this.goalsTotal = this.goalsLeft = ob.count || 0;
     this.surviveLeft = ob.time || 0;
 
@@ -212,6 +213,37 @@ const G = {
     // 초기 좀비
     const initial = Math.max(2, Math.round(L.spawn.initial * SETTINGS.mod.max));
     for (let i = 0; i < initial; i++) this.spawnZombie(560, 1600);
+
+    // 그것 — 탈출점 쪽에 자리잡는다. 길을 뚫으려면 지나야 한다
+    if (ob.type === 'boss') {
+      const e = w.exit, br = ZTYPES.behemoth.r;
+      // pickPoint 는 범위를 못 맞추면 아무 도달 가능 타일이나 돌려준다.
+      // 그대로 쓰면 보스가 지도 반대편에 떨어져 "다리를 막아선다"는 설계가 무너진다.
+      const tryBand = (minD, maxD, tries) => {
+        for (let i = 0; i < tries; i++) {
+          const q = w.pickPoint(e.x, e.y, minD, maxD, rng);
+          const d = Math.hypot(q.x - e.x, q.y - e.y);
+          if (d < minD || d > maxD) continue;
+          if (w.hits(q.x, q.y, br + 2)) continue;
+          return q;
+        }
+        return null;
+      };
+      let spot = tryBand(140, 520, 220) || tryBand(90, 760, 220);
+      if (!spot) {
+        // 그래도 없으면 탈출점에서 가장 가까운, 몸이 들어가는 타일을 직접 고른다
+        let bd = Infinity;
+        for (const idx of w.reach) {
+          const q = w.tileCenter(idx);
+          const d = Math.hypot(q.x - e.x, q.y - e.y);
+          if (d >= bd || w.hits(q.x, q.y, br + 2)) continue;
+          bd = d; spot = q;
+        }
+      }
+      if (!spot) spot = { x: e.x, y: e.y };
+      this.boss = new Zombie(spot.x, spot.y, 'behemoth');
+      this.zombies.push(this.boss);
+    }
 
     // 웅덩이 & 비
     this.puddles = [];
@@ -255,9 +287,31 @@ const G = {
     this.zombies.push(new Zombie(p.x, p.y, this.pickType()));
   },
 
+  /** 보스의 포효 — 주변에 새 개체를 떨어뜨린다 */
+  summon(src, kind, n) {
+    let placed = 0;
+    // 좁은 골목에서 포효하면 자리가 잘 안 나온다 — 한 번씩만 시도하면 0마리가 된다
+    for (let tries = 0; tries < 60 && placed < n; tries++) {
+      const a = Math.random() * 6.283, r = 50 + Math.random() * 130;
+      const x = src.x + Math.cos(a) * r, y = src.y + Math.sin(a) * r;
+      if (this.world.hits(x, y, ZTYPES[kind].r + 2)) continue;
+      const z = new Zombie(x, y, kind);
+      z.aggro = true;
+      this.zombies.push(z);
+      placed++;
+    }
+    return placed;
+  },
+
   onKill(z) {
     this.kills++;
     this.score += Math.round(z.t.score * SETTINGS.mod.score);
+    if (z.t.boss) {
+      this.boss = null;
+      this.shake = Math.min(26, this.shake + 20);
+      SFX.explode();
+      if (!this.exitOpen) this.openExit('그것이 쓰러졌다 — 다리가 열렸다');
+    }
     if (this.level.objective.type === 'purge' && !this.exitOpen) {
       this.goalsLeft = Math.max(0, this.goalsTotal - this.kills);
       if (this.goalsLeft === 0) this.openExit('소탕 완료 — 집결지가 표시되었다');
@@ -567,6 +621,19 @@ function render() {
 
   for (const pk of g.pickups) drawPickup(pk, g.time);
   for (const gr of g.grenades) drawGrenade(gr);
+  // 그것의 돌진 예고선 — 선딜 동안만 보이고, 비키라는 신호다
+  if (g.boss && !g.boss.dead && g.boss.chargePhase === 'wind') {
+    const b = g.boss, len = w.ray(b.x, b.y, b.chargeDir, 820);
+    ctx.save();
+    ctx.strokeStyle = `rgba(214,60,42,${0.3 + Math.sin(g.time * 22) * 0.16})`;
+    ctx.lineWidth = b.r * 1.8;
+    ctx.beginPath();
+    ctx.moveTo(b.x, b.y);
+    ctx.lineTo(b.x + Math.cos(b.chargeDir) * len, b.y + Math.sin(b.chargeDir) * len);
+    ctx.stroke();
+    ctx.restore();
+  }
+
   for (const z of g.zombies) drawZombie(z);
   for (const sp of g.spits) {
     const r = 4.5 + Math.sin(sp.phase) * 0.9;
@@ -749,7 +816,21 @@ function drawZombie(z) {
   ctx.fillStyle = 'rgba(0,0,0,.42)';
   ctx.beginPath(); ctx.ellipse(0, 3, S + 3, S, 0, 0, 6.283); ctx.fill();
 
-  if (z.t.crawl) {
+  if (z.t.boss) {
+    // 그것 — 굽은 등과 비대한 팔. 돌진 선딜에는 몸이 부풀어 오른다
+    const w = z.chargePhase === 'wind' ? 1 + Math.sin(z.phase * 2) * 0.09 : 1;
+    ctx.fillStyle = z.t.body;
+    ctx.beginPath(); ctx.ellipse(0, 0, S * 1.12 * w, S * w, 0, 0, 6.283); ctx.fill();
+    ctx.fillStyle = z.t.head;
+    ctx.fillRect(S * 0.2, -S - 2 + sway * 0.6, S * 1.5, 8);
+    ctx.fillRect(S * 0.2, S - 6 - sway * 0.6, S * 1.5, 8);
+    ctx.beginPath(); ctx.arc(S * 0.72, sway * 0.3, S * 0.46, 0, 6.283); ctx.fill();
+    // 등줄기
+    ctx.fillStyle = 'rgba(16,20,24,.55)';
+    for (let i = -2; i <= 2; i++) {
+      ctx.beginPath(); ctx.ellipse(-S * 0.45, i * S * 0.3, S * 0.2, S * 0.12, 0, 0, 6.283); ctx.fill();
+    }
+  } else if (z.t.crawl) {
     // 기어다니는 것 — 바닥에 눌린 납작한 실루엣, 팔은 옆으로 넓게
     ctx.fillStyle = z.t.body;
     ctx.beginPath(); ctx.ellipse(0, 0, S * 1.5, S * 0.78, 0, 0, 6.283); ctx.fill();
@@ -1043,6 +1124,7 @@ G.refreshHud = function (force) {
   else if (ob.type === 'collect') obj = `보급 상자 ${this.goalsTotal - this.goalsLeft}/${this.goalsTotal} 확보`;
   else if (ob.type === 'survive') obj = `${Math.ceil(this.surviveLeft)}초 버텨라`;
   else if (ob.type === 'purge') obj = `감염체 ${this.kills}/${this.goalsTotal} 소탕`;
+  else if (ob.type === 'boss') obj = '그것을 쓰러뜨려라';
   else obj = '탈출로를 찾아라';
   $('hudObjective').textContent = obj;
 
@@ -1074,6 +1156,13 @@ G.refreshHud = function (force) {
       `<span class="${k === wp.key ? 'on' : ''}">${WEAPONS[k].slot} ${WEAPONS[k].name}</span>`).join('');
   }
 
+  const bossBar = $('bossBar');
+  if (this.boss && !this.boss.dead) {
+    bossBar.hidden = false;
+    $('bossFill').style.width = (this.boss.hp / this.boss.hpMax * 100) + '%';
+    bossBar.classList.toggle('winding', this.boss.chargePhase === 'wind');
+  } else bossBar.hidden = true;
+
   $('damageFlash').style.opacity = SETTINGS.flash
     ? Math.min(0.62, p.hurtFlash * 0.55 + (p.hp < 28 ? 0.18 + Math.sin(this.time * 5) * 0.05 : 0))
     : Math.min(0.20, p.hurtFlash * 0.18 + (p.hp < 28 ? 0.1 : 0));
@@ -1085,6 +1174,7 @@ G.refreshHud = function (force) {
   else {
     compass.style.display = '';
     if (this.exitOpen) { tx = this.world.exit.x; ty = this.world.exit.y; }
+    else if (ob.type === 'boss' && this.boss && !this.boss.dead) { tx = this.boss.x; ty = this.boss.y; }
     else {
       let best = null, bd = 1e9;
       for (const pk of this.pickups) {
@@ -1106,7 +1196,8 @@ G.refreshHud = function (force) {
 
 /* ═══════════ 화면 전환 ═══════════ */
 const UI = {
-  screens: ['scrTitle', 'scrChapters', 'scrHowto', 'scrBrief', 'scrPause', 'scrResult', 'scrSettings'],
+  screens: ['scrTitle', 'scrChapters', 'scrHowto', 'scrBrief', 'scrPause', 'scrResult',
+            'scrSettings', 'scrEnding'],
   settingsFrom: 'scrTitle',
   hideScreens() { this.screens.forEach(s => $(s).classList.add('hidden')); },
   show(id) { this.hideScreens(); $(id).classList.remove('hidden'); },
@@ -1153,6 +1244,35 @@ const UI = {
     $('briefGoals').innerHTML = L.goals.map(g => `<li>${g}</li>`).join('');
     this.show('scrBrief');
   },
+  /** 전역을 끝낸 뒤의 마무리 화면 — 챕터별 평가를 모아 보여 준다 */
+  showEnding() {
+    const grades = G.grades();
+    const done = LEVELS.map((L, i) => grades[i] | 0).filter(v => v > 0);
+    const sum = done.reduce((a, b) => a + b, 0);
+    const avg = done.length ? Math.round(sum / done.length) : 0;
+
+    const rows = [
+      ['클리어', `${LEVELS.length}개 챕터`],
+      ['평가 남긴 챕터', `${done.length}/${LEVELS.length}`],
+      ['평균 평가', done.length ? `${UI.letter(avg)} (${avg})` : '—'],
+      ['최고 평가', done.length ? `${UI.letter(Math.max(...done))} (${Math.max(...done)})` : '—'],
+      ['난이도', DIFFICULTY[G.difficulty] ? DIFFICULTY[G.difficulty].name : '—'],
+      ['마지막 처치', `${G.kills}기`]
+    ];
+    $('endingStats').innerHTML = rows.map(r =>
+      `<div><dt>${r[0]}</dt><dd>${r[1]}</dd></div>`).join('');
+    $('endingNote').textContent = done.length < LEVELS.length
+      ? '아직 평가가 남지 않은 챕터가 있다. 챕터 선택에서 다시 들어갈 수 있다.'
+      : '모든 챕터에 기록을 남겼다. 더 높은 난이도가 기다린다.';
+
+    G.state = 'title';
+    SFX.rain(false);
+    SFX.win();
+    $('hud').classList.add('hidden');
+    $('touch').classList.add('hidden');
+    this.show('scrEnding');
+  },
+
   /** 평가 점수를 등급 문자로. rate() 와 같은 경계를 쓴다 */
   letter(v) { return v >= 88 ? 'S' : v >= 73 ? 'A' : v >= 57 ? 'B' : v >= 38 ? 'C' : 'D'; },
 
@@ -1201,7 +1321,7 @@ const UI = {
       nextBtn.textContent = `다음 챕터 — ${LEVELS[G.levelIndex + 1].name}`;
     } else if (won && !G.survival) {
       nextBtn.classList.remove('hidden');
-      nextBtn.textContent = '엔딩 — 타이틀로';
+      nextBtn.textContent = '엔딩 보기';
     } else nextBtn.classList.add('hidden');
 
     $('resultSub').textContent = won
@@ -1261,7 +1381,7 @@ document.addEventListener('click', e => {
     case 'quit':     G.state = 'title'; SFX.rain(false); UI.enterMenu(); break;
     case 'next':
       if (G.levelIndex + 1 < LEVELS.length) UI.brief(G.levelIndex + 1);
-      else { G.state = 'title'; UI.enterMenu(); }
+      else UI.showEnding();
       break;
   }
 });

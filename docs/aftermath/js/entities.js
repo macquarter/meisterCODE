@@ -234,14 +234,22 @@ class Player {
     return true;
   }
 
+  /** 형제 동작(fire·melee·reload)과 같이 성공 여부를 돌려준다 */
   throwNade(g) {
-    if (this.nades <= 0 || this.nadeCool > 0 || this.dead) return;
+    if (this.nades <= 0 || this.nadeCool > 0 || this.dead) {
+      if (this.nades <= 0 && !this.dead && this.nadeCool <= 0) {
+        this.nadeCool = 0.35;          // 빈 손으로 연타해도 소리가 겹치지 않게
+        SFX.dry();
+      }
+      return false;
+    }
     this.nades--; this.nadeCool = 0.7;
     g.grenades.push(new Grenade(
       this.x + Math.cos(this.angle) * 16,
       this.y + Math.sin(this.angle) * 16,
       this.angle));
     SFX.nadeThrow();
+    return true;
   }
 
   update(dt, g) {

@@ -139,6 +139,10 @@ class Player {
       this.stam = Math.min(this.stamMax, this.stam + 20 * dt);
       if (this.winded && this.stam >= Player.WIND_CLEAR) this.winded = false;
     }
+    // 발소리도 좀비를 부른다. 질주는 빠른 대신 멀리까지 들린다 —
+    // 기력은 "달릴 수 있는가"를, 이 소리는 "달려도 되는가"를 묻는다.
+    const step = this.sprinting ? Player.NOISE_SPRINT : (moving && !this.dead ? Player.NOISE_WALK : 0);
+    if (step > this.noise) this.noise = step;
     return this.sprinting;
   }
 
@@ -261,7 +265,9 @@ class Player {
 }
 
 /* ── 좀비 ──────────────────────────────────── */
-Player.WIND_CLEAR = 45;   // 숨이 돌아오는 기력 문턱
+Player.WIND_CLEAR = 45;     // 숨이 돌아오는 기력 문턱
+Player.NOISE_SPRINT = 0.38; // 질주 중 발소리 (청각 범위 ×1.6)
+Player.NOISE_WALK = 0.1;    // 걸을 때 (×1.16)
 
 class Zombie {
   constructor(x, y, type) {

@@ -180,6 +180,7 @@ const G = {
     this.shots = 0; this.hits = 0;
     this.difficulty = SETTINGS.difficulty;   // 진입 시점의 난이도로 전적을 기록한다
     this.spawnT = 0; this.waveScale = 1; this.lightning = 0;
+    this.nextBossT = 120;
     this.lightningT = 6 + Math.random() * 10;
 
     // 목표 설정
@@ -310,7 +311,8 @@ const G = {
       this.boss = null;
       this.shake = Math.min(26, this.shake + 20);
       SFX.explode();
-      if (!this.exitOpen) this.openExit('그것이 쓰러졌다 — 다리가 열렸다');
+      if (this.level.objective.type === 'endless') this.toast('그것을 쓰러뜨렸다');
+      else if (!this.exitOpen) this.openExit('그것이 쓰러졌다 — 다리가 열렸다');
     }
     if (this.level.objective.type === 'purge' && !this.exitOpen) {
       this.goalsLeft = Math.max(0, this.goalsTotal - this.kills);
@@ -398,8 +400,12 @@ const G = {
     p.resolveSprint(!!(keys.ShiftLeft || keys.ShiftRight), ml > 0.1, dt);
     const speed = (p.dead ? 0 : 158) * (p.sprinting ? 1.42 : p.reloading ? 0.78 : 1);
     if (!p.dead && (mx || my)) {
+      const before = p.walkPhase;
       w.slide(p, mx * speed * dt, my * speed * dt);
       p.walkPhase += dt * (p.sprinting ? 13 : 8) * Math.min(1, ml * 1.6);
+      // 보폭이 반 바퀴 돌 때마다 한 걸음
+      if (Math.floor(p.walkPhase / Math.PI) !== Math.floor(before / Math.PI))
+        SFX.step(p.sprinting, this.onPuddle(p.x, p.y));
     }
 
     /* 조준 */
@@ -489,6 +495,35 @@ const G = {
       this.spawnT = 1 / Math.max(0.05, rate);
       this.spawnZombie(620, 1500);
     }
+    // 서바이벌: 120초마다 그것이 한 마리씩. 이미 있으면 겹쳐 보내지 않는다.
+    // 타이머는 "실제로 내려보냈을 때"만 다음으로 넘긴다 — 자리를 못 찾았다고
+    // 시간을 흘려보내면 웨이브가 통째로 사라진다.
+    if (this.survival && this.time >= this.nextBossT) {
+      if (this.boss && !this.boss.dead) {
+        this.nextBossT = this.time + 60;
+      } else {
+        const br = ZTYPES.behemoth.r;
+        let spot = null;
+        for (let i = 0; i < 120 && !spot; i++) {
+          const q = this.world.pickPoint(p.x, p.y, 700, 1500);
+          // pickPoint 는 범위를 못 맞추면 아무 타일이나 준다 — 거리를 직접 검산한다
+          if (Math.hypot(q.x - p.x, q.y - p.y) < 600) continue;
+          if (this.world.hits(q.x, q.y, br + 2)) continue;
+          spot = q;
+        }
+        if (spot) {
+          this.boss = new Zombie(spot.x, spot.y, 'behemoth');
+          this.boss.aggro = true;
+          this.zombies.push(this.boss);
+          SFX.roar(0);
+          this.toast('무언가 큰 것이 내려왔다');
+          this.nextBossT = this.time + 150;
+        } else {
+          this.nextBossT = this.time + 15;    // 자리가 없으면 곧 다시 본다
+        }
+      }
+    }
+
     if (this.survival && this.time > 30) {
       const t = this.time;
       this.level.mix = {
@@ -528,6 +563,15 @@ const G = {
   },
 
   /** 불빛 안의 가장 가까운 적 — 원작처럼 비추면 자동 사격 */
+  /** 발밑이 젖어 있는지 — 발소리 음색을 바꾼다 */
+  onPuddle(x, y) {
+    for (const q of this.puddles) {
+      const dx = (x - q.x) / q.rx, dy = (y - q.y) / q.ry;
+      if (dx * dx + dy * dy <= 1) return true;
+    }
+    return false;
+  },
+
   autoTarget() {
     const p = this.player, range = Math.max(p.lightRange, 190);
     let best = null, bd = 1e9;
@@ -1369,11 +1413,18 @@ document.addEventListener('click', e => {
     case 'campaign': UI.brief(Math.min(G.progress(), LEVELS.length - 1)); break;
     case 'chapters': UI.buildChapters(); UI.show('scrChapters'); break;
     case 'survival': G.start('survival'); break;
-    case 'howto':    UI.show('scrHowto'); break;
+    // 조작법·설정은 일시정지에서도 열리므로 돌아갈 화면을 기억해 둔다
+    case 'howto':
+    case 'keys':
+      UI.settingsFrom = G.state === 'pause' ? 'scrPause' : 'scrTitle';
+      UI.show('scrHowto'); break;
     case 'settings':
       UI.settingsFrom = G.state === 'pause' ? 'scrPause' : 'scrTitle';
       UI.syncSettings(); UI.show('scrSettings'); break;
-    case 'setback':  UI.show(UI.settingsFrom); break;
+    case 'setback':
+      if (UI.settingsFrom === 'scrPause') UI.show('scrPause');
+      else UI.enterMenu();
+      break;
     case 'back':     UI.enterMenu(); break;
     case 'start':    G.start(G.pendingLevel); break;
     case 'resume':   G.togglePause(); break;

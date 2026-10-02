@@ -125,6 +125,13 @@ const SFX = (() => {
     melee()     { burst(0.14, 520, 1.1, 0.18, 'lowpass', 0.11); tone(112, 0.09, 0.08, 'square', 52); },
     meleeHit(d) { burst(0.22, 300, 0.8, 0.26 * near(d), 'lowpass', 0.18);
                   tone(84, 0.14, 0.12 * near(d), 'square', 38); },
+    /* 발소리 — 젖은 아스팔트와 마른 보도를 구분한다 */
+    step(sprint, wet) {
+      const g = (sprint ? 0.055 : 0.032) * (wet ? 1.35 : 1);
+      if (wet) burst(0.13, 2600, 1.4, g, 'bandpass', 0.1);
+      else     burst(0.08, 900, 1.1, g, 'lowpass', 0.06);
+    },
+
     /* 그것 — 포효 · 돌진 · 벽 충돌 */
     roar(d)     { const n = Math.max(0.35, near(d));
                   tone(42, 1.5, 0.3 * n, 'sawtooth', 24);

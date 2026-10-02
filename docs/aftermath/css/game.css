@@ -105,6 +105,20 @@ body.touch .boss{top:calc(96px + env(safe-area-inset-top));width:min(300px,62vw)
   opacity:0;transition:opacity .25s;white-space:nowrap;max-width:86vw;text-align:center}
 #toast.show{opacity:1}
 
+/* ── 도움말 — 처음 마주칠 때 한 번 ─────────────── */
+#hint{position:absolute;left:50%;top:calc(118px + env(safe-area-inset-top));
+  transform:translate(-50%,-6px);display:flex;align-items:center;gap:10px;
+  width:max-content;max-width:min(560px,calc(100vw - 32px));padding:9px 14px;
+  background:rgba(7,9,12,.8);border:1px solid rgba(240,180,41,.26);border-radius:3px;
+  font-size:12.5px;line-height:1.5;color:var(--bone);
+  opacity:0;transition:opacity .25s ease,transform .25s ease;pointer-events:none}
+#hint.show{opacity:1;transform:translate(-50%,0)}
+#hint b{flex:none;font-size:11px;font-weight:600;letter-spacing:.06em;color:var(--amber);
+  padding:2px 7px;border:1px solid rgba(240,180,41,.45);border-radius:2px;white-space:nowrap}
+#hint span{min-width:0}
+body.touch #hint{top:calc(150px + env(safe-area-inset-top));font-size:12px}
+@media (prefers-reduced-motion:reduce){#hint{transition:opacity .2s;transform:translate(-50%,0)}}
+
 /* ── 터치 컨트롤 ──────────────────────────── */
 #touch{position:absolute;inset:0;pointer-events:none}
 .pad{position:absolute;bottom:calc(16px + env(safe-area-inset-bottom));
@@ -212,6 +226,12 @@ kbd{display:inline-block;min-width:30px;padding:5px 9px;font-family:var(--font);
 .set__row--stack{border-bottom:none;padding-bottom:6px}
 .set__label{font-size:13px;color:var(--bone);letter-spacing:.04em;white-space:nowrap}
 .set__label b{color:var(--amber);font-variant-numeric:tabular-nums;margin-left:6px}
+.set__link{justify-self:start;margin:2px 0 6px;padding:4px 0;background:none;border:none;
+  font-family:var(--font);font-size:11px;letter-spacing:.04em;color:var(--amber);
+  cursor:pointer;text-decoration:underline;text-underline-offset:3px;opacity:.85}
+.set__link:hover{opacity:1}
+.set__link:disabled{color:var(--fog);opacity:.5;cursor:default;text-decoration:none}
+.set__link:focus-visible{outline:1px solid var(--amber);outline-offset:3px}
 .set__note{font-size:11px;line-height:1.8;color:var(--fog);opacity:.7;margin:0 0 8px;
   border-bottom:1px solid rgba(255,255,255,.06);padding-bottom:11px}
 

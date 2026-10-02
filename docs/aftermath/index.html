@@ -64,6 +64,7 @@
 
     <div id="damageFlash"></div>
     <div id="toast"></div>
+    <div id="hint" role="status" aria-live="polite"><b></b><span></span></div>
   </div>
 
   <!-- ══════════ TOUCH CONTROLS ══════════ -->
@@ -186,6 +187,12 @@
             </div>
           </div>
           <p class="set__note" id="setDiffNote"></p>
+
+          <div class="set__row">
+            <div class="set__label">도움말</div>
+            <button type="button" class="tog" data-set="hints" aria-pressed="true"><i></i></button>
+          </div>
+          <button type="button" class="set__link" id="hintsReset" data-act="hintsreset">처음부터 다시 보기</button>
 
           <div class="set__row">
             <div class="set__label">자동 사격</div>

@@ -155,7 +155,7 @@ class Player {
     this.cancelReload();
     this.cool = Math.max(this.cool, 0.22);
     SFX.melee();
-    let hits = 0;
+    let hits = 0, killed = false;
     for (const z of g.zombies) {
       if (z.dead) continue;
       const dx = z.x - this.x, dy = z.y - this.y;
@@ -167,6 +167,7 @@ class Player {
       while (da < -Math.PI) da += Math.PI * 2;
       if (Math.abs(da) > 1.0) continue;
       z.hurt(24, a, g);
+      if (z.dead) killed = true;
       if (!z.dead && !z.t.boss) {
         const brute = z.type === 'brute';
         g.world.slide(z, Math.cos(a) * (brute ? 22 : 56), Math.sin(a) * (brute ? 22 : 56));
@@ -174,7 +175,7 @@ class Player {
       }
       hits++;
     }
-    if (hits) { SFX.meleeHit(0); g.shake = Math.min(14, g.shake + 3.6); }
+    if (hits) { SFX.meleeHit(0); g.shake = Math.min(14, g.shake + 3.6); g.onHit(killed); }
     return true;
   }
 
@@ -487,6 +488,7 @@ class Bullet {
         if (Math.hypot(z.x - this.x, z.y - this.y) < z.r + 3) {
           z.hurt(this.dmg, this.ang, g);
           g.hits++;
+          g.onHit(z.dead);
           SFX.hitFlesh(Math.hypot(this.x - g.player.x, this.y - g.player.y));
           this.dead = true; return;
         }

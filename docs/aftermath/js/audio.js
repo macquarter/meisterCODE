@@ -4,6 +4,7 @@
    ═══════════════════════════════════════════ */
 const SFX = (() => {
   let ctx = null, master = null, rainGain = null, rainSrc = null;
+  let drone = null;                   // { oscs, filt, gain, lfo } — 낮게 깔리는 위협음
   let noiseBuf = null, enabled = true;
 
   /** 이 아래로는 들리지도 않고, exponentialRampToValueAtTime 이 0 을 거부한다 */
@@ -125,6 +126,57 @@ const SFX = (() => {
     melee()     { burst(0.14, 520, 1.1, 0.18, 'lowpass', 0.11); tone(112, 0.09, 0.08, 'square', 52); },
     meleeHit(d) { burst(0.22, 300, 0.8, 0.26 * near(d), 'lowpass', 0.18);
                   tone(84, 0.14, 0.12 * near(d), 'square', 38); },
+    /**
+     * 바닥에 깔리는 저음 드론. 살짝 어긋난 두 톱니파를 저역 통과시키고,
+     * 느린 LFO 로 필터를 흔들어 숨 쉬듯 움직이게 한다. 긴장도에 따라 열린다.
+     */
+    drone(on) {
+      if (!enabled || !ctx) return;
+      const t = ctx.currentTime;
+      if (on && !drone) {
+        const filt = ctx.createBiquadFilter();
+        filt.type = 'lowpass'; filt.frequency.value = 140; filt.Q.value = 3;
+        const gain = ctx.createGain(); gain.gain.value = 0.0001;
+        const oscs = [[41.2, 'sawtooth'], [41.6, 'sawtooth'], [61.8, 'sine']].map(([f, type]) => {
+          const o = ctx.createOscillator(); o.type = type; o.frequency.value = f;
+          o.connect(filt); o.start(); return o;
+        });
+        const lfo = ctx.createOscillator(), lfoAmt = ctx.createGain();
+        lfo.frequency.value = 0.07; lfoAmt.gain.value = 45;
+        lfo.connect(lfoAmt); lfoAmt.connect(filt.frequency); lfo.start();
+        filt.connect(gain); gain.connect(master);
+        gain.gain.exponentialRampToValueAtTime(0.05, t + 4);
+        drone = { oscs, filt, gain, lfo };
+      } else if (!on && drone) {
+        const d = drone; drone = null;
+        d.gain.gain.cancelScheduledValues(t);
+        d.gain.gain.setValueAtTime(Math.max(0.0001, d.gain.gain.value), t);
+        d.gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.8);
+        setTimeout(() => { for (const o of [...d.oscs, d.lfo]) try { o.stop(); } catch (e) {} }, 950);
+      }
+    },
+    /**
+     * 긴장도 0‒1 → 드론의 밝기와 크기. 매 프레임 불려도 되지만, AudioParam 자동화는
+     * 부를 때마다 이벤트가 쌓이므로 값이 눈에 띄게 바뀌었거나 0.25초가 지났을 때만 넘긴다.
+     */
+    droneLevel(k) {
+      if (!drone || !ctx) return;
+      const t = ctx.currentTime;
+      if (Math.abs(k - (drone.k ?? -1)) < 0.04 && t - (drone.kt ?? 0) < 0.25) return;
+      drone.k = k; drone.kt = t;
+      drone.filt.frequency.setTargetAtTime(140 + k * 520, t, 0.6);
+      drone.gain.gain.setTargetAtTime(0.05 + k * 0.07, t, 0.8);
+    },
+    /** 판 하나의 배경음 전체 — 비와 드론을 함께 켜고 끈다 */
+    ambience(on) { this.rain(on); this.drone(on); },
+    get droneOn() { return !!drone; },
+
+    /** 명중 · 처치 확인음 — 짧고 높게, 귀에 거슬리지 않게 */
+    hitTick(kill) {
+      if (kill) { tone(1320, 0.07, 0.05, 'triangle', 880); }
+      else      { burst(0.03, 4200, 4, 0.035, 'bandpass', 0.025); }
+    },
+
     /* 발소리 — 젖은 아스팔트와 마른 보도를 구분한다 */
     step(sprint, wet) {
       const g = (sprint ? 0.055 : 0.032) * (wet ? 1.35 : 1);

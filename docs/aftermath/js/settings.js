@@ -20,7 +20,8 @@ const SETTINGS = (() => {
     difficulty: 'normal',
     flash: true,           // 피격 섬광 · 번개 · 총구 화염
     shake: true,           // 화면 흔들림
-    autofire: true         // 불빛 안의 적 자동 사격
+    autofire: true,        // 불빛 안의 적 자동 사격
+    hints: true            // 처음 마주치는 조작·적에 대한 한 줄 도움말
   };
 
   const state = Object.assign({}, DEF);
@@ -42,6 +43,7 @@ const SETTINGS = (() => {
     get flash()      { return state.flash; },
     get shake()      { return state.shake; },
     get autofire()   { return state.autofire; },
+    get hints()      { return state.hints; },
     /** 현재 난이도의 배수 묶음 */
     get mod()        { return DIFFICULTY[state.difficulty]; },
 

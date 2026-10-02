@@ -116,6 +116,99 @@ $('btnReload').addEventListener('touchstart', e => {
   e.preventDefault(); if (G.state === 'play') G.player.reload(G);
 }, { passive: false });
 
+/* ═══════════ 도움말 ═══════════ */
+/* 처음 마주치는 순간에 한 번만 뜨는 한 줄 설명. 본 것은 기억해 두고 다시 띄우지 않는다. */
+const Hints = (() => {
+  const KEY = 'aftermath.hints';
+  let seen = {};
+  try { seen = JSON.parse(localStorage.getItem(KEY) || '{}') || {}; } catch (e) { seen = {}; }
+  const save = () => { try { localStorage.setItem(KEY, JSON.stringify(seen)); } catch (e) { /* 저장 불가여도 진행 */ } };
+
+  // [키 표시, 설명]. 데스크톱과 터치가 다르면 그 자리에서 고른다.
+  const TEXT = {
+    move:     () => isTouch ? ['왼쪽 스틱', '이동 · 오른쪽 스틱으로 손전등을 돌린다']
+                            : ['WASD', '이동 · 마우스로 손전등을 비춘다'],
+    autofire: () => SETTINGS.autofire
+      ? [isTouch ? '사격' : '클릭', '불빛 안에 들어온 적은 자동으로 쏜다. 직접 쏠 수도 있다']
+      : [isTouch ? '사격' : '클릭', '사격 — 손전등이 비추는 쪽으로만 나간다'],
+    reload:   () => [isTouch ? '장전' : 'R', '재장전 — 탄창이 비면 자동으로도 갈아 끼운다'],
+    melee:    () => [isTouch ? '밀치기' : 'E · 우클릭', '달라붙은 적을 밀쳐낸다'],
+    sprint:   () => ['Shift', '질주 — 빠르지만 발소리가 커서 멀리서도 깨운다'],
+    pickup:   () => ['', '빛나는 물건은 밟으면 줍는다'],
+    battery:  () => isTouch ? ['', '배터리가 떨어져 간다 — 노란 상자로 채운다']
+                            : ['F', '손전등을 꺼서 배터리를 아낀다 · 노란 상자로 채운다'],
+    nade:     () => [isTouch ? '수류탄' : 'G', '무리가 몰렸다 — 수류탄'],
+    runner:   () => ['달리는 것', '약하지만 빠르다. 멀리 있을 때 끊어 쏘자'],
+    brute:    () => ['거대한 것', '잘 밀리지 않는다. 수류탄을 아끼지 말 것'],
+    crawler:  () => ['기어다니는 것', '웅크렸다 튄다. 일정하게 다가오지 않는다'],
+    spitter:  () => ['뱉는 것', '거리를 두고 산을 뱉는다. 초록 웅덩이는 밟지 말 것'],
+    behemoth: () => ['그것', '붉은 선이 뜨면 옆으로 비켜라. 벽에 박으면 비틀거린다']
+  };
+  // 지금 당장 알아야 하는 것은 줄 앞으로 끼워 넣는다
+  const URGENT = new Set(['melee', 'reload', 'nade', 'runner', 'brute', 'crawler', 'spitter', 'behemoth']);
+
+  const queue = [];
+  let cur = null, t = 0, gap = 0;
+
+  function push(id) {
+    if (!SETTINGS.hints || seen[id] || cur === id || queue.includes(id)) return;
+    if (URGENT.has(id)) queue.unshift(id); else queue.push(id);
+  }
+  function show(id) {
+    const [key, msg] = TEXT[id]();
+    const el = $('hint'), k = el.querySelector('b');
+    k.textContent = key; k.hidden = !key;
+    el.querySelector('span').textContent = msg;
+    el.classList.add('show');
+    cur = id;
+    t = id in { runner: 1, brute: 1, crawler: 1, spitter: 1, behemoth: 1 } ? 4.6 : 3.8;
+    seen[id] = 1; save();
+  }
+  function hide() { $('hint').classList.remove('show'); cur = null; gap = 0.5; }
+
+  return {
+    /** 판을 시작할 때 — 대기열만 비우고, 본 기록은 유지한다 */
+    begin() { queue.length = 0; if (cur) hide(); gap = 0; },
+    /** 설정의 '처음부터 다시 보기' */
+    reset() { seen = {}; save(); },
+    get seenCount() { return Object.keys(seen).length; },
+    has: id => !!seen[id],
+
+    update(dt, g) {
+      if (!SETTINGS.hints) { if (cur) hide(); queue.length = 0; return; }
+      const p = g.player;
+      if (p.dead) return;
+
+      if (g.time > 0.6) push('move');
+      if (g.time > 6) push('autofire');
+      if (!isTouch && g.time > 24) push('sprint');
+      const w = p.weapon;
+      if (!p.reloading && p.magOf(w) <= Math.ceil(w.mag * 0.34)) push('reload');
+      if (p.battery < 30 && p.lightOn) push('battery');
+
+      let close = 0, adjacent = false;
+      for (const z of g.zombies) {
+        if (z.dead) continue;
+        const d = Math.hypot(z.x - p.x, z.y - p.y);
+        if (d < z.r + p.r + 26) adjacent = true;
+        if (z.aggro && d < 320) close++;
+        if (z.lit > 0.5 && z.type !== 'walker') push(z.type);
+      }
+      if (g.boss && !g.boss.dead && g.boss.aggro &&
+          Math.hypot(g.boss.x - p.x, g.boss.y - p.y) < 700) push('behemoth');
+      if (adjacent) push('melee');
+      if (close >= 4 && p.nades > 0) push('nade');
+      for (const pk of g.pickups)
+        if (Math.hypot(pk.x - p.x, pk.y - p.y) < 240) { push('pickup'); break; }
+
+      if (cur) { t -= dt; if (t <= 0) hide(); }
+      else if (gap > 0) gap -= dt;
+      else if (queue.length) show(queue.shift());
+    }
+  };
+})();
+window.Hints = Hints;
+
 /* ═══════════ 게임 ═══════════ */
 const G = {
   state: 'title',
@@ -124,7 +217,7 @@ const G = {
   spits: [], acids: [],
   decals: [], corpses: [], flashes: [],
   time: 0, shake: 0, kills: 0, score: 0, hurtSfxT: 0, beatT: 0,
-  shots: 0, hits: 0, reloads: 0,
+  shots: 0, hits: 0, reloads: 0, hitMark: 0, hitKill: false,
   spawnT: 0, waveScale: 1,
   goalsLeft: 0, goalsTotal: 0, exitOpen: false, surviveLeft: 0, boss: null,
   lightning: 0, lightningT: 8 + Math.random() * 12,
@@ -177,7 +270,8 @@ const G = {
     this.spits = []; this.acids = [];
     this.particles = []; this.decals = []; this.corpses = []; this.flashes = [];
     this.time = 0; this.shake = 0; this.kills = 0; this.score = 0;
-    this.shots = 0; this.hits = 0;
+    this.shots = 0; this.hits = 0; this.hitMark = 0;
+    Hints.begin(this);
     this.difficulty = SETTINGS.difficulty;   // 진입 시점의 난이도로 전적을 기록한다
     this.spawnT = 0; this.waveScale = 1; this.lightning = 0;
     this.nextBossT = 120;
@@ -258,7 +352,7 @@ const G = {
       this.rain.push({ x: Math.random() * (W + 400) - 200, y: Math.random() * H,
         v: 900 + Math.random() * 500, len: 12 + Math.random() * 16, a: 0.1 + Math.random() * 0.22 });
 
-    SFX.rain(true);
+    SFX.ambience(true);
     this.state = 'play';
     UI.enterPlay();
     this.refreshHud(true);
@@ -286,6 +380,17 @@ const G = {
     const d = Math.hypot(p.x - this.player.x, p.y - this.player.y);
     if (da < 0.5 && d < this.player.lightRange + 90) return;
     this.zombies.push(new Zombie(p.x, p.y, this.pickType()));
+  },
+
+  /** 명중 확인 — 조준선에 짧은 X 표시와 확인음. 산탄이 한꺼번에 맞아도 소리는 한 번 */
+  onHit(killed) {
+    const fresh = this.hitMark < 0.06;
+    if (killed) { this.hitMark = 0.24; this.hitKill = true; }
+    else {
+      if (fresh) this.hitKill = false;
+      this.hitMark = Math.max(this.hitMark, 0.11);
+    }
+    if (killed || fresh) SFX.hitTick(killed);
   },
 
   /** 보스의 포효 — 주변에 새 개체를 떨어뜨린다 */
@@ -355,7 +460,7 @@ const G = {
 
   finish(won) {
     this.state = 'result';
-    SFX.rain(false);
+    SFX.ambience(false);
     if (won) {
       SFX.win();
       if (!this.survival) this.saveProgress(this.levelIndex + 1);
@@ -377,6 +482,9 @@ const G = {
     for (const z of this.zombies)
       if (z.aggro && Math.hypot(z.x - this.player.x, z.y - this.player.y) < 260) near++;
     const tension = Math.min(1, near / 5 + (this.player.hp < 35 ? 0.45 : 0));
+    SFX.droneLevel(tension);
+    this.hitMark = Math.max(0, this.hitMark - dt);
+    Hints.update(dt, this);
     this.beatT -= dt;
     if (tension > 0.15 && this.beatT <= 0) {
       SFX.heartbeat(tension);
@@ -609,12 +717,17 @@ const G = {
   camera() {
     const p = this.player, w = this.world;
     const lead = 62;
+    // 플레이어를 놓을 화면 위치. 터치는 아래 40%를 스틱·버튼이, 위 10%를 HUD 가 덮으므로
+    // 그 사이 트인 띠의 가운데쯤(40%)에 둔다 — 화면 정중앙이면 지도 끝에서 버튼 밑에 깔린다.
+    const fy = isTouch ? H * 0.40 : H / 2;
     let x = p.x + Math.cos(p.angle) * lead - W / 2;
-    let y = p.y + Math.sin(p.angle) * lead - H / 2;
-    // 지도 밖 허공이 보이지 않게 가둔다
+    let y = p.y + Math.sin(p.angle) * lead - fy;
+    // 지도 밖 허공이 보이지 않게 가둔다. 단, 위아래 UI 띠가 어차피 가리는 만큼은 넘어가도 된다
+    // — 그래야 지도 끝에서도 플레이어가 탄약·게이지 밑에 깔리지 않는다.
+    const over0 = isTouch ? H * 0.10 : 70, over1 = isTouch ? H * 0.40 : 130;
     const mx = w.w * TILE - W, my = w.h * TILE - H;
     x = mx > 0 ? clamp(x, 0, mx) : mx / 2;
-    y = my > 0 ? clamp(y, 0, my) : my / 2;
+    y = my > 0 ? clamp(y, -over0, my + over1) : my / 2;
     if (this.shake > 0.1 && SETTINGS.shake) {
       x += (Math.random() - 0.5) * this.shake;
       y += (Math.random() - 0.5) * this.shake;
@@ -627,6 +740,7 @@ const G = {
 function render() {
   const g = G, p = g.player, w = g.world;
   const cam = g.camera();
+  placeCompass(p.x - cam.x, p.y - cam.y);
 
   ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
   ctx.fillStyle = '#05070a';
@@ -709,6 +823,73 @@ function render() {
   drawGlow(cam, g, p, w);
   drawRain(g);
   drawVignette();
+  drawCrosshair(g, p);
+}
+
+/**
+ * 목표 나침반은 플레이어 둘레를 돈다. 카메라가 지도 끝에 막히면 플레이어가 화면
+ * 중앙에서 벗어나므로, 화면 중앙이 아니라 실제 플레이어 화면 위치에 매 프레임 붙인다.
+ */
+let compassX = -1, compassY = -1;
+function placeCompass(sx, sy) {
+  sx = Math.round(sx); sy = Math.round(sy);
+  if (sx === compassX && sy === compassY) return;
+  compassX = sx; compassY = sy;
+  const el = $('hudCompass');
+  el.style.left = sx + 'px';
+  el.style.top = sy + 'px';
+}
+
+/**
+ * 데스크톱 조준선 — 시스템 커서 대신 그린다. 탄 퍼짐만큼 벌어지고,
+ * 장전 중엔 진행 고리가 돌며, 맞히면 X(처치는 붉게)가 잠깐 뜬다.
+ */
+let cursorHidden = false;
+function drawCrosshair(g, p) {
+  const want = G.state === 'play' && input.hasMouse && !isTouch && !p.dead;
+  if (want !== cursorHidden) { view.style.cursor = want ? 'none' : ''; cursorHidden = want; }
+  if (!want) return;
+
+  const x = input.mx, y = input.my, w = p.weapon;
+  const gapR = 6 + w.spread * 55 + (p.cool > w.rate * 0.6 ? 3 : 0);
+  ctx.save();
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  ctx.lineCap = 'round';
+
+  // 어두운 테두리를 먼저 깔아 밝은 바닥에서도 보이게
+  for (const [col, lw] of [['rgba(0,0,0,.55)', 3.4], ['rgba(232,230,224,.9)', 1.5]]) {
+    ctx.strokeStyle = col; ctx.lineWidth = lw;
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      ctx.beginPath();
+      ctx.moveTo(x + dx * gapR, y + dy * gapR);
+      ctx.lineTo(x + dx * (gapR + 6), y + dy * (gapR + 6));
+      ctx.stroke();
+    }
+  }
+  ctx.fillStyle = 'rgba(232,230,224,.9)';
+  ctx.fillRect(x - 1, y - 1, 2, 2);
+
+  if (p.reloading) {
+    const r = gapR + 11;
+    ctx.strokeStyle = 'rgba(255,255,255,.12)'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(x, y, r, 0, 6.283); ctx.stroke();
+    ctx.strokeStyle = 'rgba(240,180,41,.95)';
+    ctx.beginPath(); ctx.arc(x, y, r, -Math.PI / 2, -Math.PI / 2 + p.reloadProgress * 6.283); ctx.stroke();
+  }
+
+  if (g.hitMark > 0) {
+    const k = clamp(g.hitMark / (g.hitKill ? 0.24 : 0.11), 0, 1);
+    const r0 = gapR + 2, r1 = gapR + (g.hitKill ? 13 : 9);
+    ctx.strokeStyle = g.hitKill ? `rgba(222,64,48,${k})` : `rgba(255,255,255,${k * 0.95})`;
+    ctx.lineWidth = g.hitKill ? 2.4 : 1.7;
+    for (const a of [0.785, 2.356, 3.927, 5.498]) {
+      ctx.beginPath();
+      ctx.moveTo(x + Math.cos(a) * r0, y + Math.sin(a) * r0);
+      ctx.lineTo(x + Math.cos(a) * r1, y + Math.sin(a) * r1);
+      ctx.stroke();
+    }
+  }
+  ctx.restore();
 }
 
 function drawGround(cam, w) {
@@ -1338,7 +1519,7 @@ const UI = {
       : '모든 챕터에 기록을 남겼다. 더 높은 난이도가 기다린다.';
 
     G.state = 'title';
-    SFX.rain(false);
+    SFX.ambience(false);
     SFX.win();
     $('hud').classList.add('hidden');
     $('touch').classList.add('hidden');
@@ -1357,6 +1538,9 @@ const UI = {
     $('setDiffNote').textContent = `${SETTINGS.mod.name} — ${SETTINGS.mod.note}`;
     for (const b of document.querySelectorAll('.tog[data-set]'))
       b.setAttribute('aria-pressed', String(!!SETTINGS.get(b.dataset.set)));
+    const n = Hints.seenCount;
+    $('hintsReset').disabled = n === 0;
+    $('hintsReset').textContent = n ? `본 도움말 ${n}개 — 처음부터 다시 보기` : '아직 본 도움말이 없다';
   },
 
   /** 플레이 결과를 0‒100 으로 환산하고 등급을 매긴다 */
@@ -1449,6 +1633,8 @@ document.addEventListener('click', e => {
     case 'settings':
       UI.settingsFrom = G.state === 'pause' ? 'scrPause' : 'scrTitle';
       UI.syncSettings(); UI.show('scrSettings'); break;
+    case 'hintsreset':
+      Hints.reset(); UI.syncSettings(); break;
     case 'setback':
       if (UI.settingsFrom === 'scrPause') UI.showPause();
       else UI.enterMenu();
@@ -1457,7 +1643,7 @@ document.addEventListener('click', e => {
     case 'start':    G.start(G.pendingLevel); break;
     case 'resume':   G.togglePause(); break;
     case 'restart':  G.start(G.survival ? 'survival' : G.levelIndex); break;
-    case 'quit':     G.state = 'title'; SFX.rain(false); UI.enterMenu(); break;
+    case 'quit':     G.state = 'title'; SFX.ambience(false); UI.enterMenu(); break;
     case 'next':
       if (G.levelIndex + 1 < LEVELS.length) UI.brief(G.levelIndex + 1);
       else UI.showEnding();

@@ -14,6 +14,7 @@ const DIFFICULTY = {
 };
 
 const AIM_MODES = ['turn', 'drag', 'stick'];
+const QUALITY_MODES = ['auto', 'high', 'low'];
 
 const SETTINGS = (() => {
   const KEY = 'aftermath.settings';
@@ -26,7 +27,9 @@ const SETTINGS = (() => {
     autofire: true,        // 불빛 안의 적 자동 사격
     aim: 'turn',           // 터치 조준: turn = 회전 스틱(원작) · drag = 화면 드래그(원작 1.1) · stick = 방향 스틱
     hints: true,           // 처음 마주치는 조작·적에 대한 한 줄 도움말
-    music: true            // 긴장도에 따라 변하는 음악
+    music: true,           // 긴장도에 따라 변하는 음악
+    quality: 'auto',       // 그리기 해상도: auto = 프레임에 맞춰 스스로 낮추고 올린다 · high · low
+    fps: false             // 화면 구석에 FPS · 해상도 표시
   };
 
   const state = Object.assign({}, DEF);
@@ -36,6 +39,7 @@ const SETTINGS = (() => {
   } catch (e) { /* 손상된 저장값은 기본값으로 */ }
   if (!DIFFICULTY[state.difficulty]) state.difficulty = DEF.difficulty;
   if (!AIM_MODES.includes(state.aim)) state.aim = DEF.aim;
+  if (!QUALITY_MODES.includes(state.quality)) state.quality = DEF.quality;
   state.volume = Math.max(0, Math.min(100, state.volume | 0));
   state.brightness = Math.max(0, Math.min(100, state.brightness | 0));
 
@@ -54,6 +58,8 @@ const SETTINGS = (() => {
     get hints()      { return state.hints; },
     get aim()        { return state.aim; },
     get music()      { return state.music; },
+    get quality()    { return state.quality; },
+    get fps()        { return state.fps; },
     /** 현재 난이도의 배수 묶음 */
     get mod()        { return DIFFICULTY[state.difficulty]; },
 
@@ -63,6 +69,7 @@ const SETTINGS = (() => {
       if (k === 'volume' || k === 'brightness') v = Math.max(0, Math.min(100, v | 0));
       if (k === 'difficulty' && !DIFFICULTY[v]) return;
       if (k === 'aim' && !AIM_MODES.includes(v)) return;
+      if (k === 'quality' && !QUALITY_MODES.includes(v)) return;
       if (typeof DEF[k] === 'boolean') v = !!v;
       if (state[k] === v) return;
       state[k] = v; save();

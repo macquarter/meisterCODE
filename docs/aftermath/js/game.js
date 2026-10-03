@@ -13,19 +13,58 @@ const ctx = view.getContext('2d');
 const mask = document.createElement('canvas');
 const mctx = mask.getContext('2d');
 
-let W = 0, H = 0, DPR = 1;
-function resize() {
-  DPR = Math.min(window.devicePixelRatio || 1, 2);
-  W = window.innerWidth; H = window.innerHeight;
-  for (const c of [view, mask]) {
-    c.width = Math.floor(W * DPR); c.height = Math.floor(H * DPR);
-    c.style.width = W + 'px'; c.style.height = H + 'px';
-  }
+/* ═══════════ 해상도 ═══════════
+   프레임 비용은 화면 픽셀 수에 거의 비례한다 — 어둠 막 · 불빛 · 비 · 바닥이 모두 화면 전체를 칠하기 때문이다.
+   레티나 1440×900(2880×1800, 518만 픽셀)에서 17fps, 같은 장면 1280×800(102만)에서 59fps.
+   그래서 기기 배율을 그대로 쓰지 않고 픽셀 예산 안에서 고르고(DPR), '자동'이면 실제 프레임을 보고
+   해상도를 계단식으로 낮추거나 올린다. 어둠 막은 어차피 부드러운 빛이라 절반 해상도로 그린다. */
+let W = 0, H = 0, DPR = 1, MDPR = 0.5;
+const BUDGET = { high: 3.6e6, auto: 2.2e6, low: 0.85e6 };
+const RES = { max: 1, ema: 16.7, holdT: 0, okT: 0, ceil: 9 };
+function maxDPR() {
+  const dev = Math.min(window.devicePixelRatio || 1, 2);
+  const cap = Math.sqrt(BUDGET[SETTINGS.quality] / Math.max(1, W * H));
+  return Math.max(0.5, Math.min(dev, cap));
+}
+function applyScale(s) {
+  DPR = s; MDPR = s * 0.5;
+  view.width = Math.max(1, Math.floor(W * DPR)); view.height = Math.max(1, Math.floor(H * DPR));
+  mask.width = Math.max(1, Math.ceil(W * MDPR)); mask.height = Math.max(1, Math.ceil(H * MDPR));
+  view.style.width = W + 'px'; view.style.height = H + 'px';
   ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
-  mctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  mctx.setTransform(MDPR, 0, 0, MDPR, 0, 0);
+}
+function resize() {
+  W = window.innerWidth; H = window.innerHeight;
+  RES.max = maxDPR(); RES.ceil = 9; RES.holdT = 1;
+  applyScale(RES.max);
+}
+/** 자동 화질 — 프레임 간격(ms)의 이동 평균(약 1초)이 22ms 를 넘으면 18% 낮추고,
+    4초 동안 60fps 를 지키면 10% 올린다. 올렸다가 다시 떨어진 높이는 기억해 그 아래에서 멈춘다 */
+function adaptRes(ms) {
+  if (SETTINGS.quality !== 'auto' || G.state !== 'play') { RES.ema = 16.7; RES.okT = 0; return; }
+  ms = Math.min(ms, 100);
+  RES.ema += (ms - RES.ema) * 0.03;
+  RES.holdT -= ms / 1000;
+  if (RES.holdT > 0) return;
+  // 무리가 몰려오는 순간의 짧은 끊김에는 반응하지 않는다. 1배 밑으로는 정말 버거울 때만
+  if (RES.ema > 22 && DPR > 0.55 && (DPR > 1.01 || RES.ema > 27)) {
+    RES.ceil = Math.min(RES.ceil, DPR * 0.97);
+    applyScale(Math.max(0.5, DPR * 0.82));
+    RES.ema = 16.7; RES.holdT = 1.2; RES.okT = 0;
+  } else if (RES.ema < 18) {
+    RES.okT += ms / 1000;
+    const up = Math.min(RES.max, RES.ceil, DPR * 1.1);
+    if (RES.okT > 4 && up > DPR + 0.02) { applyScale(up); RES.holdT = 1.2; RES.okT = 0; }
+  } else RES.okT = 0;
 }
 window.addEventListener('resize', resize);
 resize();
+// 앱을 내리거나 탭을 바꾸면 멈춘다 — 돌아왔을 때 이미 물려 있지 않게
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden && typeof G !== 'undefined' && G.state === 'play') G.togglePause();
+});
+SETTINGS.onChange(k => { if (k === 'quality' || k === null) resize(); });
 
 const isTouch = matchMedia('(hover:none) and (pointer:coarse)').matches;
 if (isTouch) document.body.classList.add('touch');
@@ -294,9 +333,32 @@ const VH = () => H / TILT;
 /** 세계 좌표 → 화면 좌표 (CSS px) */
 function toScreen(cam, x, y) { return [x - cam.x, (y - cam.y) * TILT]; }
 /** 세계 그리기용 변환을 건다 (DPR 포함) */
-function worldTransform(c, cam) { c.setTransform(DPR, 0, 0, DPR * TILT, -cam.x * DPR, -cam.y * DPR * TILT); }
+function worldTransform(c, cam, s = DPR) { c.setTransform(s, 0, 0, s * TILT, -cam.x * s, -cam.y * s * TILT); }
 /** 입체 모형용 — 세로를 줄이지 않은 화면 공간(cam 만큼만 옮김). 모형이 y·sin60 − z·cos60 를 스스로 계산한다 */
 function screenTransform(c, cam) { c.setTransform(DPR, 0, 0, DPR, -cam.x * DPR, -cam.y * DPR * TILT); }
+
+const CITY_NAME = { seoul: '서울', tokyo: '도쿄', bangkok: '방콕' };
+/** 처음 손전등이 벽이 아니라 갈 길을 비추도록 — 출구 쪽으로 몇 칸 따라간 곳과 트인 거리를 함께 본다 */
+function openingAngle(w, p) {
+  let tx = Math.floor(p.x / TILE), ty = Math.floor(p.y / TILE);
+  for (let k = 0; k < 7 && w.toExit; k++) {
+    let best = null, bd = w.toExit[w.idx(tx, ty)];
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      const d = w.toExit[w.idx(tx + dx, ty + dy)];
+      if (d >= 0 && d < bd) { bd = d; best = [tx + dx, ty + dy]; }
+    }
+    if (!best) break;
+    [tx, ty] = best;
+  }
+  const goal = Math.atan2((ty + 0.5) * TILE - p.y, (tx + 0.5) * TILE - p.x);
+  let bestA = goal, bestS = -1e9;
+  for (let i = 0; i < 24; i++) {
+    const a = i / 24 * Math.PI * 2;
+    const s = Math.min(480, w.ray(p.x, p.y, a, 480, true)) + 260 * Math.cos(a - goal);
+    if (s > bestS) { bestS = s; bestA = a; }
+  }
+  return bestA;
+}
 
 /** 레벨 데이터 → 도시 생성 옵션 */
 const cityOpts = L => ({ theme: L.city, river: !!L.river, landmarks: L.landmarks || [], goal: L.goal });
@@ -368,6 +430,8 @@ const G = {
 
     const w = this.world;
     this.player = new Player(w.spawn.x, w.spawn.y, L);
+    this.player.angle = openingAngle(w, this.player);
+    this.hitDirs = [];
     this.zombies = []; this.bullets = []; this.grenades = []; this.pickups = [];
     this.spits = []; this.acids = [];
     this.particles = []; this.decals = []; this.corpses = []; this.flashes = [];
@@ -840,6 +904,13 @@ const G = {
     if (key) this.player.select(key, this);
   },
 
+  /** 어디서 맞았는가 — 화면 가장자리 쪽 붉은 호로 0.9초 보여 준다 (같은 쪽이면 갱신) */
+  hitFrom(x, y) {
+    const p = this.player, a = Math.atan2(y - p.y, x - p.x);
+    if (!this.hitDirs) this.hitDirs = [];
+    for (const h of this.hitDirs) if (Math.abs(Math.atan2(Math.sin(h.a - a), Math.cos(h.a - a))) < 0.45) { h.a = a; h.t = 0.9; return; }
+    if (this.hitDirs.length < 6) this.hitDirs.push({ a, t: 0.9 });
+  },
   togglePause() {
     if (this.state === 'play') { this.state = 'pause'; UI.showPause(); }
     else if (this.state === 'pause') { this.state = 'play'; UI.hideScreens(); }
@@ -1191,10 +1262,7 @@ function render() {
   const cam = g.camera();
   placeCompass(...toScreen(cam, p.x, p.y));
 
-  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
-  ctx.fillStyle = '#05070a';
-  ctx.fillRect(0, 0, W, H);
-
+  // 바닥 타일이 화면을 빈틈없이 덮으므로 배경을 따로 칠하지 않는다 (화면 전체 한 겹 절약)
   ctx.save();
   worldTransform(ctx, cam);
 
@@ -1297,9 +1365,9 @@ function render() {
   drawDarkness(cam, g, p, w);
   drawGlow(cam, g, p, w);
   drawRain(g);
-  drawVignette();
   if (p.bile > 0) drawBile(p.bile);
   drawHordeCue(cam, g, p);
+  drawHitDirs(cam, g, p, g.state === 'play' ? 1 / 60 : 0);
   drawCrosshair(g, p);
 }
 
@@ -1352,6 +1420,29 @@ function placeCompass(sx, sy) {
  * 장전 중엔 진행 고리가 돌며, 맞히면 X(처치는 붉게)가 잠깐 뜬다.
  */
 let cursorHidden = false;
+/** 피격 방향 — 플레이어 둘레의 붉은 호. 어둠 속에서 무엇이 어디서 무는지 알 수 있게 */
+function drawHitDirs(cam, g, p, dt) {
+  if (!g.hitDirs || !g.hitDirs.length) return;
+  const [sx, sy] = toScreen(cam, p.x, p.y), R = Math.min(W, H) * 0.16 + 30;
+  ctx.save();
+  ctx.lineCap = 'round';
+  for (let i = g.hitDirs.length - 1; i >= 0; i--) {
+    const h = g.hitDirs[i];
+    h.t -= dt;
+    if (h.t <= 0) { g.hitDirs.splice(i, 1); continue; }
+    const k = Math.min(1, h.t / 0.5);
+    // 화면에서의 방향 (세로 축소 반영)
+    const a = Math.atan2(Math.sin(h.a) * TILT, Math.cos(h.a));
+    ctx.strokeStyle = `rgba(220,48,36,${0.75 * k})`;
+    ctx.lineWidth = 7;
+    ctx.beginPath(); ctx.arc(sx, sy - 12, R, a - 0.32, a + 0.32); ctx.stroke();
+    ctx.strokeStyle = `rgba(255,140,120,${0.5 * k})`;
+    ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(sx, sy - 12, R - 7, a - 0.2, a + 0.2); ctx.stroke();
+  }
+  ctx.restore();
+}
+
 function drawCrosshair(g, p) {
   const want = G.state === 'play' && input.hasMouse && !isTouch && !p.dead;
   if (want !== cursorHidden) { view.style.cursor = want ? 'none' : ''; cursorHidden = want; }
@@ -2188,7 +2279,7 @@ function darkLevel(g) {
 function drawDarkness(cam, g, p, w) {
   const dark = darkLevel(g);
   const E = eyeOf(cam);
-  mctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  mctx.setTransform(MDPR, 0, 0, MDPR, 0, 0);
   mctx.globalCompositeOperation = 'source-over';
   mctx.clearRect(0, 0, W, H);
   mctx.fillStyle = `rgba(3,4,6,${dark})`;
@@ -2196,7 +2287,7 @@ function drawDarkness(cam, g, p, w) {
 
   mctx.globalCompositeOperation = 'destination-out';
   mctx.save();
-  worldTransform(mctx, cam);
+  worldTransform(mctx, cam, MDPR);
 
   // 주변 미광 (손전등이 꺼져도 남는 최소 시야)
   const amb = p.lightOn && p.battery > 0 ? 128 : 92;
@@ -2247,9 +2338,16 @@ function drawDarkness(cam, g, p, w) {
     mctx.beginPath(); mctx.arc(p.x, p.y, r, 0, 6.283); mctx.fill();
   }
   mctx.restore();
+  // 비네트 — 화면 가장자리를 한 겹 더 어둡게. 따로 화면 전체를 칠하지 않고 절반 해상도의 막에 얹는다
+  mctx.globalCompositeOperation = 'source-over';
+  const vg = mctx.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.32, W / 2, H / 2, Math.max(W, H) * 0.78);
+  vg.addColorStop(0, 'rgba(0,0,0,0)');
+  vg.addColorStop(1, 'rgba(0,0,0,.55)');
+  mctx.fillStyle = vg;
+  mctx.fillRect(0, 0, W, H);
 
   ctx.setTransform(1, 0, 0, 1, 0, 0);
-  ctx.drawImage(mask, 0, 0);
+  ctx.drawImage(mask, 0, 0, view.width, view.height);
   ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
 }
 
@@ -2520,6 +2618,8 @@ G.refreshHud = function (force) {
 
   $('gaugeHealth').style.width = (p.hp / p.hpMax * 100) + '%';
   $('gaugeBattery').style.width = p.battery + '%';
+  $('valHealth').textContent = Math.ceil(p.hp);
+  $('valBattery').textContent = Math.ceil(p.battery);
   $('gaugeStam').style.width = (p.stam / p.stamMax * 100) + '%';
   document.querySelector('.gauge--health').classList.toggle('low', p.hp < 30);
   document.querySelector('.gauge--stam').classList.toggle('low', p.winded);
@@ -2629,7 +2729,7 @@ const UI = {
         : i < unlocked ? '클리어' : '▶';
       el.innerHTML =
         `<span class="chapter__no">${String(i + 1).padStart(2, '0')}</span>` +
-        `<span class="chapter__name">${L.name}<br><span class="chapter__goal">${L.goals[0]}</span></span>` +
+        `<span class="chapter__name">${L.name}<span class="chapter__city">${CITY_NAME[L.city] || ''}</span><br><span class="chapter__goal">${L.goals[0]}</span></span>` +
         `<span class="chapter__mark">${mark}</span>`;
       if (!locked) el.addEventListener('click', () => { SFX.click(); UI.brief(i); });
       list.appendChild(el);
@@ -2889,9 +2989,21 @@ function drawAttract(dt) {
 }
 
 let last = performance.now();
+const fpsEl = $('fpsMeter');
+let fpsN = 0, fpsT = 0;
 function frame(now) {
-  const dt = Math.min(0.05, (now - last) / 1000);
+  const ms = now - last;
+  const dt = Math.min(0.05, ms / 1000);
   last = now;
+  adaptRes(ms);
+  if (SETTINGS.fps) {
+    fpsN++; fpsT += ms;
+    if (fpsT >= 500) {
+      fpsEl.hidden = false;
+      fpsEl.textContent = `${Math.round(fpsN * 1000 / fpsT)} fps · ${(W * DPR | 0)}×${(H * DPR | 0)}${SETTINGS.quality === 'auto' ? ' 자동' : ''}`;
+      fpsN = 0; fpsT = 0;
+    }
+  } else if (!fpsEl.hidden) fpsEl.hidden = true;
 
   if (G.state === 'play' && G.freezeT > 0) {
     G.freezeT -= dt;                                   // 처치 직후의 짧은 정지 — 그림만 그린다

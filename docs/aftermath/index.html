@@ -42,11 +42,11 @@
 
     <div class="hud__bottom">
       <div class="gauge gauge--health">
-        <div class="gauge__label">체력</div>
+        <div class="gauge__label">체력 <b id="valHealth">100</b></div>
         <div class="gauge__track"><i id="gaugeHealth" style="width:100%"></i></div>
       </div>
       <div class="gauge gauge--battery">
-        <div class="gauge__label">배터리</div>
+        <div class="gauge__label">배터리 <b id="valBattery">100</b></div>
         <div class="gauge__track"><i id="gaugeBattery" style="width:100%"></i></div>
       </div>
       <div class="gauge gauge--stam">
@@ -65,6 +65,7 @@
     </div>
 
     <div id="damageFlash"></div>
+    <div id="fpsMeter" hidden></div>
     <div id="toast"></div>
     <div id="hint" role="status" aria-live="polite"><b></b><span></span></div>
   </div>
@@ -95,7 +96,7 @@
       <div class="screen__inner">
         <h1 class="logo">AFTERMATH<em>잔존</em></h1>
         <p class="tagline">감염된 도시. 비는 그치지 않는다.<br>손전등이 닿는 곳까지만, 세상은 존재한다.</p>
-        <div class="menu">
+        <div class="menu screen__side">
           <button class="btn btn--primary" data-act="campaign">전역 시작</button>
           <button class="btn" data-act="chapters">챕터 선택</button>
           <button class="btn" data-act="survival" id="btnSurvival">서바이벌</button>
@@ -147,10 +148,14 @@
         <h2 id="briefTitle">첫 번째 밤</h2>
         <p class="brief__text" id="briefText"></p>
         <ul class="brief__goals" id="briefGoals"></ul>
-        <figure class="brief__map"><canvas id="briefMap" width="220" height="220" aria-label="구역 지도"></canvas>
-          <figcaption><i class="dot dot--start"></i>진입 <i class="dot dot--exit"></i>집결지</figcaption></figure>
-        <button class="btn btn--primary" data-act="start">진입</button>
-        <button class="btn btn--ghost" data-act="back">돌아가기</button>
+        <div class="screen__side">
+          <figure class="brief__map"><canvas id="briefMap" width="220" height="220" aria-label="구역 지도"></canvas>
+            <figcaption><i class="dot dot--start"></i>진입 <i class="dot dot--exit"></i>집결지</figcaption></figure>
+          <div class="screen__actions">
+            <button class="btn btn--primary" data-act="start">진입</button>
+            <button class="btn btn--ghost" data-act="back">돌아가기</button>
+          </div>
+        </div>
       </div>
     </section>
 
@@ -171,11 +176,13 @@
         <h2>일시정지</h2>
         <p class="pause__where" id="pauseWhere"></p>
         <dl class="result__stats" id="pauseStats"></dl>
-        <button class="btn btn--primary" data-act="resume">계속하기</button>
-        <button class="btn" data-act="restart">재시작</button>
-        <button class="btn btn--ghost" data-act="settings">설정</button>
-        <button class="btn btn--ghost" data-act="keys">조작법</button>
-        <button class="btn btn--ghost" data-act="quit">타이틀로</button>
+        <div class="screen__side screen__actions">
+          <button class="btn btn--primary" data-act="resume">계속하기</button>
+          <button class="btn" data-act="restart">재시작</button>
+          <button class="btn btn--ghost" data-act="settings">설정</button>
+          <button class="btn btn--ghost" data-act="keys">조작법</button>
+          <button class="btn btn--ghost" data-act="quit">타이틀로</button>
+        </div>
       </div>
     </section>
 
@@ -189,8 +196,10 @@
         </p>
         <dl class="result__stats" id="endingStats"></dl>
         <p class="note" id="endingNote"></p>
-        <button class="btn btn--primary" data-act="survival">서바이벌로</button>
-        <button class="btn btn--ghost" data-act="quit">타이틀로</button>
+        <div class="screen__side screen__actions">
+          <button class="btn btn--primary" data-act="survival">서바이벌로</button>
+          <button class="btn btn--ghost" data-act="quit">타이틀로</button>
+        </div>
       </div>
     </section>
 
@@ -221,6 +230,21 @@
           </div>
           <p class="set__note">회전 스틱은 원작의 방식 — 오른쪽 스틱을 좌우로 민 만큼 손전등이 돈다.
             화면 드래그는 오른쪽 화면 어디든 좌우로 끌어 돌린다.</p>
+
+          <div class="set__row set__row--stack">
+            <div class="set__label">화질</div>
+            <div class="seg" id="setQuality">
+              <button type="button" data-set="quality" data-val="auto">자동</button>
+              <button type="button" data-set="quality" data-val="high">선명하게</button>
+              <button type="button" data-set="quality" data-val="low">가볍게</button>
+            </div>
+          </div>
+          <p class="set__note">자동은 프레임이 떨어지면 그리는 해상도를 스스로 낮추고, 여유가 생기면 다시 올린다.
+            화면이 큰 기기(레티나 모니터·태블릿)에서 끊기면 가볍게로 두세요.</p>
+          <div class="set__row">
+            <div class="set__label">FPS 표시</div>
+            <button type="button" class="tog" data-set="fps" aria-pressed="false"><i></i></button>
+          </div>
 
           <div class="set__row set__row--stack">
             <div class="set__label">난이도</div>
@@ -268,9 +292,11 @@
         <div class="result__grade" id="resultGrade" hidden><b></b><span>평가</span></div>
         <p class="result__sub" id="resultSub"></p>
         <dl class="result__stats" id="resultStats"></dl>
-        <button class="btn btn--primary" data-act="next">계속</button>
-        <button class="btn" data-act="restart">재시도</button>
-        <button class="btn btn--ghost" data-act="quit">타이틀로</button>
+        <div class="screen__side screen__actions">
+          <button class="btn btn--primary" data-act="next">계속</button>
+          <button class="btn" data-act="restart">재시도</button>
+          <button class="btn btn--ghost" data-act="quit">타이틀로</button>
+        </div>
       </div>
     </section>
 

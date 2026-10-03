@@ -54,7 +54,11 @@ body{
 /* 하단 게이지 */
 .hud__bottom{display:flex;align-items:flex-end;gap:14px;flex-wrap:wrap}
 .gauge{width:min(160px,26vw)}
-.gauge__label{font-size:9px;letter-spacing:.2em;color:var(--fog);opacity:.65;margin-bottom:4px}
+.gauge__label{font-size:10px;letter-spacing:.18em;color:var(--fog);opacity:.8;margin-bottom:4px;
+  display:flex;justify-content:space-between;align-items:baseline}
+.gauge__label b{font-size:11px;font-weight:600;letter-spacing:.02em;color:var(--bone);opacity:.85;
+  font-variant-numeric:tabular-nums}
+.gauge--health.low .gauge__label b{color:#ff7a6e;opacity:1}
 .gauge__track{height:7px;background:rgba(255,255,255,.08);
   border:1px solid rgba(255,255,255,.12);overflow:hidden}
 .gauge__track i{display:block;height:100%;transition:width .12s linear}
@@ -176,7 +180,8 @@ body.touch .minimap{right:auto;left:max(14px,env(safe-area-inset-left));top:calc
 @media (orientation:portrait){
   body.touch .minimap{top:calc(64px + env(safe-area-inset-top))}
   /* 세로: 게이지를 왼쪽에 세로로 쌓아 오른쪽 수류탄 버튼 자리를 비운다 */
-  body.touch .hud__bottom{flex-direction:column;align-items:flex-start;gap:7px}
+  body.touch .hud__bottom{flex-direction:column;align-items:flex-start;gap:4px}
+  body.touch .gauge__label{margin-bottom:2px}
   body.touch .gauge{width:min(120px,32vw)}
 }
 
@@ -218,11 +223,12 @@ body.touch .minimap{right:auto;left:max(14px,env(safe-area-inset-left));top:calc
 
 /* ── 스크린 ───────────────────────────────── */
 #screens{position:absolute;inset:0;pointer-events:none}
-.screen{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
-  pointer-events:auto;padding:24px;overflow-y:auto;
+.screen{position:absolute;inset:0;display:flex;align-items:flex-start;justify-content:center;
+  pointer-events:auto;padding:24px;overflow-y:auto;overscroll-behavior:contain;
+  padding-top:max(24px,env(safe-area-inset-top));padding-bottom:max(24px,env(safe-area-inset-bottom));
   background:radial-gradient(ellipse at 50% 40%,rgba(18,22,28,.94),rgba(4,5,8,.985))}
 .screen--title{background:radial-gradient(ellipse at 50% 38%,rgba(10,13,18,.5),rgba(4,5,8,.9))}
-.screen__inner{width:min(560px,100%);text-align:center;
+.screen__inner{width:min(560px,100%);text-align:center;margin:auto;
   animation:rise .5s cubic-bezier(.16,.84,.44,1) both}
 @keyframes rise{from{opacity:0;transform:translateY(14px)}}
 
@@ -387,3 +393,54 @@ body.touch .hud__compass em{top:60px}
   .tbtn--sprint{left:calc(160px + env(safe-area-inset-left));bottom:calc(76px + env(safe-area-inset-bottom))}
   .tbtn--light{left:calc(160px + env(safe-area-inset-left));bottom:calc(134px + env(safe-area-inset-bottom))}
 }
+
+/* FPS · 해상도 표시 (설정에서 켠다) */
+#fpsMeter {
+  position: absolute; left: 50%; top: calc(6px + env(safe-area-inset-top));
+  transform: translateX(-50%);
+  font: 600 11px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: #9fb0c0; background: rgba(5,7,10,.6);
+  padding: 4px 8px; border-radius: 4px; pointer-events: none; z-index: 5;
+  letter-spacing: .02em;
+}
+
+/* ── 짧은 가로 화면(휴대폰 가로) — 메뉴 화면을 두 단으로: 내용은 왼쪽, 버튼은 오른쪽.
+   세로로 쌓으면 390px 높이에서 '계속하기' · '진입' 이 화면 밖으로 밀려났다 ── */
+.screen__actions{display:flex;flex-direction:column;align-items:center}
+@media (orientation:landscape) and (max-height:520px){
+  .screen{padding:12px max(20px,env(safe-area-inset-right)) 12px max(20px,env(safe-area-inset-left))}
+  .screen--title .screen__inner,.screen--pause .screen__inner,.screen--result .screen__inner,
+  .screen--brief .screen__inner,.screen--ending .screen__inner{
+    width:min(900px,100%);display:grid;grid-template-columns:minmax(0,1fr) 250px;
+    column-gap:36px;align-items:center;text-align:left}
+  .screen__inner>*{grid-column:1}
+  .screen__inner>.screen__side{grid-column:2;grid-row:1 / span 12;align-self:center}
+  .screen__side .btn,.screen__actions .btn{width:100%}
+  .btn{padding:10px 16px}
+  .screen .btn{margin-top:7px}
+  .screen h2{margin-bottom:12px}
+  .logo{font-size:52px}
+  .logo em{text-indent:0;margin-top:10px}
+  .tagline{margin:16px 0 0;line-height:1.8}
+  .record{margin-top:16px}
+  .result__stats{margin:0;max-width:none}
+  .result__grade{margin:0 0 8px;justify-self:start;align-items:flex-start}
+  .result__sub{margin-bottom:14px}
+  .screen--result h2{font-size:28px}
+  .brief__text{line-height:1.75;margin-bottom:12px;padding-bottom:12px}
+  .brief__goals{margin-bottom:0}
+  .screen--brief h2{margin:6px 0 10px;font-size:24px}
+  .brief__map{width:150px;margin-bottom:6px}
+  .pause__where{margin-bottom:12px}
+  .ending__text{margin-bottom:14px}
+  /* 챕터 목록은 두 줄로 */
+  .screen--list .screen__inner{width:min(900px,100%)}
+  .chapters{grid-template-columns:1fr 1fr}
+  .chapter{padding:9px 12px}
+  .keys{grid-template-columns:1fr 1fr;gap:8px 18px}
+  .screen--howto .screen__inner,.screen--settings .screen__inner{width:min(760px,100%)}
+}
+
+/* 챕터의 도시 */
+.chapter__city{display:inline-block;margin-left:8px;padding:1px 6px;border-radius:2px;vertical-align:2px;
+  font-size:9.5px;font-weight:500;letter-spacing:.12em;color:var(--fog);border:1px solid rgba(255,255,255,.14)}

@@ -467,6 +467,7 @@ class Zombie {
         this.x += nx; this.y += ny;
         if (!p.dead && Math.hypot(p.x - this.x, p.y - this.y) < this.r + p.r + 4) {
           p.hurt(ch.dmg * SETTINGS.mod.dmg);
+          g.hitFrom(this.x, this.y);
           g.world.slide(p, Math.cos(this.chargeDir) * 54, Math.sin(this.chargeDir) * 54);
           g.shake = Math.min(24, g.shake + 16);
           SFX.hurt();
@@ -549,6 +550,7 @@ class Zombie {
       p.grabN = (p.grabN || 0) + (this.t.boss ? 0 : 1);
       // 여럿이 붙어도 피해는 덜 늘어난다 — 포위의 무서움은 피해보다 발이 묶이는 데서 온다
       p.hurt(this.t.dmg * SETTINGS.mod.dmg * dt / (1 + 0.3 * Math.max(0, (p.grabbed || 0) - 1)));
+      g.hitFrom(this.x, this.y);
       g.shake = Math.min(10, g.shake + 14 * dt);
       const push = 46 * dt;
       g.world.slide(p, (p.x - this.x) / d * push, (p.y - this.y) / d * push);
@@ -680,6 +682,7 @@ class Spit {
       const p = g.player;
       if (!p.dead && Math.hypot(p.x - this.x, p.y - this.y) < p.r + 5) {
         p.hurt(this.sp.dmg * SETTINGS.mod.dmg);
+        g.hitFrom(this.x, this.y);
         SFX.hurt();
         this.burst(g);
         return;

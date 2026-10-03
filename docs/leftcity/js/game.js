@@ -3147,6 +3147,11 @@ const GUN_LIFT = 20 * 1.12 * ZK * MODELS.HK, SPIT_LIFT = 17 * ZK * MODELS.HK;
 const WALLS = ['#262e39', '#2f2b29', '#2a3131', '#34302c', '#29313a', '#30343a'];
 const lotHash = (w, x, y) => Math.imul(w.lot[w.idx(x, y)] || (x * 7 + y * 13), 2246822519) >>> 0;
 
+/** 한 줄의 창을 색마다 모으는 경로 — 칠하는 순서대로 */
+let WIN = null;
+const WIN_COLS = [['frame', 'rgba(190,186,170,.30)'], ['lit', 'rgba(201,154,82,.75)'], ['broken', '#040506'], ['glass', '#0f141a'],
+                  ['glare', 'rgba(150,180,210,.12)'], ['mull', 'rgba(160,156,140,.28)'], ['sill', 'rgba(210,206,190,.34)'],
+                  ['under', 'rgba(0,0,0,.3)'], ['band', 'rgba(0,0,0,.28)']];
 /** 건물 한 줄 — 남쪽 벽면(창문·가게 앞) → 지붕(난간·옥상 설비).
     한 줄씩 북쪽부터 그리고 그 사이사이에 서 있는 것들을 끼워 넣어, 남쪽 건물이 북쪽의 사람을 가린다 */
 function buildingRow(w, r, x0, x1) {
@@ -3178,6 +3183,8 @@ function buildingRow(w, r, x0, x1) {
     const mat = wallMat(w, lh);
     // 층마다 창 두 개. 1층은 셔터 내린 가게나 유리문
     const hp = h * 480, hsp = hs * 480, nf = Math.floor(hp / FLOOR + 0.25);
+    if (!WIN) WIN = { frame: new Path2D(), lit: new Path2D(), broken: new Path2D(), glass: new Path2D(), glare: new Path2D(),
+                      mull: new Path2D(), sill: new Path2D(), under: new Path2D(), band: new Path2D() };
     for (let f = 0; f < nf; f++) {
       const zb = f * FLOOR, zt = Math.min(hp - 5, zb + FLOOR);
       if (zt <= hsp + 2) continue;
@@ -3200,21 +3207,24 @@ function buildingRow(w, r, x0, x1) {
       if (v1 <= v0) continue;
       for (const [wx, k] of [[px + 6, 0], [px + 28, 1]]) {
         const q = (wh >> (k * 7)) & 127, wy = base - v1 * ZK, wh2 = (v1 - v0) * ZK;
-        // 창틀(밝은 테) → 유리 → 십자 창살 → 창턱. 원작의 벽처럼 창이 벽에서 도드라진다
-        ctx.fillStyle = 'rgba(190,186,170,.30)'; ctx.fillRect(wx - 1.5, wy - 1.5, 17, wh2 + 3);
-        ctx.fillStyle = q < 2 ? 'rgba(201,154,82,.75)' : q < 9 ? '#07090b' : '#0f141a';
-        ctx.fillRect(wx, wy, 14, wh2);
-        if (q >= 9) { ctx.fillStyle = 'rgba(150,180,210,.12)'; ctx.fillRect(wx, wy, 14, wh2 * 0.35); }
-        else if (q >= 2) { ctx.fillStyle = 'rgba(0,0,0,.6)'; ctx.fillRect(wx, wy, 14, wh2); }   // 깨진 창 — 더 깊은 어둠
-        ctx.fillStyle = 'rgba(160,156,140,.28)'; ctx.fillRect(wx + 6.4, wy, 1.2, wh2); ctx.fillRect(wx, wy + wh2 * 0.45, 14, 1.1);
-        ctx.fillStyle = 'rgba(210,206,190,.34)'; ctx.fillRect(wx - 2.5, wy + wh2 + 0.5, 19, 2);
-        ctx.fillStyle = 'rgba(0,0,0,.3)'; ctx.fillRect(wx - 2.5, wy + wh2 + 2.5, 19, 1.5);
+        // 창틀(밝은 테) → 유리 → 십자 창살 → 창턱. 원작의 벽처럼 창이 벽에서 도드라진다.
+        // 창은 서로 겹치지 않으므로 색마다 한 경로에 모았다가 줄 끝에서 한 번씩 칠한다 (창 하나에 일곱 번 칠하던 것)
+        WIN.frame.rect(wx - 1.5, wy - 1.5, 17, wh2 + 3);
+        (q < 2 ? WIN.lit : q < 9 ? WIN.broken : WIN.glass).rect(wx, wy, 14, wh2);
+        if (q >= 9) WIN.glare.rect(wx, wy, 14, wh2 * 0.35);
+        WIN.mull.rect(wx + 6.4, wy, 1.2, wh2); WIN.mull.rect(wx, wy + wh2 * 0.45, 14, 1.1);
+        WIN.sill.rect(wx - 2.5, wy + wh2 + 0.5, 19, 2);
+        WIN.under.rect(wx - 2.5, wy + wh2 + 2.5, 19, 1.5);
       }
-      ctx.fillStyle = 'rgba(0,0,0,.28)'; ctx.fillRect(px, base - zb * ZK - 1, TILE, 1.6);       // 층 띠
+      WIN.band.rect(px, base - zb * ZK - 1, TILE, 1.6);                                           // 층 띠
     }
     // 바닥 쪽 그늘 · 처마 밝은 선
     if (!hs) { ctx.fillStyle = 'rgba(0,0,0,.3)'; ctx.fillRect(px, base - 5 * ZK, TILE, 5 * ZK); }
     ctx.fillStyle = 'rgba(255,255,255,.06)'; ctx.fillRect(px, top, TILE, 2);
+  }
+  if (WIN) {
+    for (const [k, col] of WIN_COLS) { ctx.fillStyle = col; ctx.fill(WIN[k]); }
+    WIN = null;
   }
   // 지붕 — 필지마다 색과 높이. 방수층 무늬는 바탕을 다 칠한 뒤 한 번에 (아래 난간 · 설비는 그 위에)
   const roofPath = new Path2D();
@@ -3318,7 +3328,8 @@ function drawRoof(x) {
 const PATS = { road: [288, 288, drawRoad], side: [96, 96, drawSide], brick: [96, 48, drawBrick], stucco: [96, 96, drawStucco], roof: [96, 96, drawRoof] };
 const patCache = {};
 function bakedPattern(key) {
-  const R = Math.max(0.5, Math.min(4, DPR));
+  // 자동 화질이 배율을 조금씩 바꿀 때마다 다시 굽지 않게 1/4 단위로 묶는다 (그 정도 차이는 눈에 띄지 않는다)
+  const R = Math.max(0.5, Math.min(4, Math.round(DPR * 4) / 4));
   const hit = patCache[key];
   if (hit && hit.R === R) return hit.p;
   const [Sw, Sh, draw] = PATS[key];
@@ -4794,6 +4805,7 @@ function step(now) {
   }
 }
 
+G.migrateSaves();                // 저장 배치를 먼저 맞춘 뒤에 타이틀을 그린다
 UI.enterMenu();
 requestAnimationFrame(frame);
 
@@ -4803,7 +4815,6 @@ G.toScreen = (x, y) => toScreen(G.camera(), x, y).map(v => v * ZOOM);   // CSS p
 G.buzz = buzz;
 /** 현재 어둠 농도 (0‒1) — 밝기 설정 확인용 */
 G.darkLevel = () => darkLevel(G);
-G.migrateSaves();
 window.G = G;
 window.UI = UI;
 window.Records = Records;

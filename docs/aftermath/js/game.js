@@ -129,6 +129,7 @@ function applyTouchLayout() {
   document.body.classList.toggle('nofire', SETTINGS.autofire);
 }
 SETTINGS.onChange(applyTouchLayout);
+SETTINGS.onChange(k => { if (k === 'music') SFX.music(G.state === 'play' || G.state === 'pause' || G.state === 'arms'); });
 applyTouchLayout();
 
 /* drag — 원작 1.1 의 선택 조작: 화면 오른쪽 절반 어디든 좌우로 끌어 돈다 */
@@ -831,6 +832,18 @@ const G = {
       if (z.aggro && Math.hypot(z.x - this.player.x, z.y - this.player.y) < 260) near++;
     const tension = Math.min(1, near / 5 + (this.player.hp < 35 ? 0.45 : 0));
     SFX.droneLevel(tension);
+    // 음악에 연출 상태를 넘긴다 — 긴장도 · 단계 · 그것 · 무리 · 우는 것과의 거리
+    {
+      const D = this.dir, pl = this.player;
+      let weep = 0, hordeNear = false;
+      for (const z of this.zombies) {
+        const d = Math.hypot(z.x - pl.x, z.y - pl.y);
+        if (z.t.weeper && !z.rage && d < 520) weep = Math.max(weep, 1 - d / 520);
+        if (z.horde && d < 700) hordeNear = true;
+      }
+      SFX.musicState({ intensity: D ? D.intensity : 0, phase: D ? D.phase : 'build',
+        boss: !!(this.boss && !this.boss.dead && this.boss.aggro), horde: !!(D && D.pending) || hordeNear, weeper: weep });
+    }
     this.hitMark = Math.max(0, this.hitMark - dt);
     Hints.update(dt, this);
     this.beatT -= dt;

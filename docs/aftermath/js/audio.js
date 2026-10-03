@@ -79,6 +79,88 @@ const SFX = (() => {
     o.start(t); o.stop(t + dur + 0.03);
   }
 
+  /* ── 적응형 음악 ──────────────────────────
+     Dead Space 의 "공포 발신기"·L4D 의 무리 음악처럼, 연출가의 긴장도에 따라 층을 쌓는다.
+       숨 고르기 — 드문드문 떨어지는 피아노 음 (가라앉은 단조 분산화음)
+       긴장     — 베이스 오스티나토, 긴장도만큼 빠르고 크게 (60→120 BPM)
+       정점     — 떨리는 현(트레몰로)이 얹힌다
+       무리     — 낮은 북이 박자를 친다
+       그것     — 반음 내려간 무거운 걸음과 금관 같은 찌르는 화음
+       우는 것  — 가까우면 다른 층을 줄여 흐느낌이 들리게 한다 (Alien: Isolation 식 정적)
+     음표는 50ms 마다 0.25초 앞까지 미리 예약한다. */
+  const music = { on: false, bus: null, timer: null, next: 0, step: 0,
+    st: { intensity: 0, phase: 'build', boss: false, horde: false, weeper: 0 }, lv: {} };
+  const SCALE = [0, 3, 5, 7, 10];                 // 단조 5음 (A 기준 반음)
+  const hz = semi => 55 * Math.pow(2, semi / 12);
+  function note(t, freq, dur, gain, type, filt, out) {
+    if (!(gain > SILENT)) return;
+    const o = ctx.createOscillator(), g = ctx.createGain();
+    o.type = type; o.frequency.setValueAtTime(freq, t);
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(gain, t + Math.min(0.02, dur * 0.2));
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    let node = o;
+    if (filt) { const f = ctx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = filt; o.connect(f); node = f; }
+    node.connect(g); g.connect(out || music.bus);
+    o.start(t); o.stop(t + dur + 0.05);
+  }
+  function drum(t, gain, freq = 70) {
+    if (!(gain > SILENT)) return;
+    const o = ctx.createOscillator(), g = ctx.createGain();
+    o.type = 'sine'; o.frequency.setValueAtTime(freq * 2.2, t); o.frequency.exponentialRampToValueAtTime(freq, t + 0.12);
+    g.gain.setValueAtTime(gain, t); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.35);
+    o.connect(g); g.connect(music.bus); o.start(t); o.stop(t + 0.4);
+  }
+  function tremolo(t, dur, freq, gain) {
+    if (!(gain > SILENT)) return;
+    const o1 = ctx.createOscillator(), o2 = ctx.createOscillator(), f = ctx.createBiquadFilter();
+    const amp = ctx.createGain(), lfo = ctx.createOscillator(), lg = ctx.createGain(), env = ctx.createGain();
+    o1.type = o2.type = 'sawtooth'; o1.frequency.value = freq; o2.frequency.value = freq * 1.006;
+    f.type = 'bandpass'; f.frequency.value = freq * 2; f.Q.value = 0.9;
+    lfo.frequency.value = 9; lg.gain.value = 0.5; amp.gain.value = 0.5;
+    lfo.connect(lg); lg.connect(amp.gain);
+    env.gain.setValueAtTime(0.0001, t); env.gain.exponentialRampToValueAtTime(gain, t + dur * 0.4); env.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o1.connect(f); o2.connect(f); f.connect(amp); amp.connect(env); env.connect(music.bus);
+    for (const o of [o1, o2, lfo]) { o.start(t); o.stop(t + dur + 0.05); }
+  }
+  function musicTick() {
+    if (!music.on || !ctx) return;
+    const S = music.st;
+    const k = Math.max(0, Math.min(1, S.intensity / 100));
+    const duck = 1 - Math.min(0.8, S.weeper);                    // 우는 것 곁에서는 음악이 숨을 죽인다
+    const bpm = S.boss ? 96 : 60 + k * 60 + (S.horde ? 16 : 0);
+    const beat = 60 / bpm / 2;                                    // 8분음표
+    const now = ctx.currentTime;
+    if (music.next < now) music.next = now + 0.05;
+    while (music.next < now + 0.25) {
+      const t = music.next, i = music.step++;
+      if (S.phase === 'relax' && !S.boss) {
+        // 숨 고르기 — 4박에 한 번 떨어지는 피아노 음
+        if (i % 6 === 0 && Math.random() < 0.7) {
+          const sc = SCALE[(Math.random() * SCALE.length) | 0];
+          note(t, hz(sc + 36), 2.4, 0.045 * duck, 'sine', 0, null);
+          note(t, hz(sc + 48), 1.6, 0.015 * duck, 'triangle', 0, null);
+        }
+      } else if (S.boss) {
+        // 그것 — 반음 아래 무거운 걸음과 찌르는 화음
+        if (i % 2 === 0) drum(t, 0.22 * duck, 48);
+        const bass = [0, 0, -1, 0, 0, 0, -1, 1][i % 8];
+        note(t, hz(bass + 12), beat * 0.9, 0.09 * duck, 'sawtooth', 300);
+        if (i % 16 === 0) { for (const iv of [0, 1, 6]) note(t, hz(iv + 24), beat * 3, 0.05 * duck, 'square', 900); }
+        if (i % 16 === 8) tremolo(t, beat * 8, hz(25), 0.05 * duck);
+      } else {
+        // 긴장 — 베이스 오스티나토 (긴장도가 오를수록 크고 빠르게)
+        const pat = [0, 0, 3, 0, 7, 0, 5, 3];
+        const g0 = (0.02 + 0.07 * k) * duck;
+        if (k > 0.08 || S.horde) note(t, hz(pat[i % 8] + 12), beat * 0.8, g0, 'sawtooth', 220 + k * 500);
+        if (k > 0.5 && i % 16 === 0) tremolo(t, beat * 16, hz(SCALE[(i / 16 | 0) % 5] + 36), 0.035 * (k - 0.4) * duck);
+        if (S.horde && i % 2 === 0) drum(t, (i % 8 === 0 ? 0.2 : 0.1) * duck);
+        if (S.horde && i % 4 === 2) note(t, hz(48 + 7), beat * 0.5, 0.02 * duck, 'square', 1800);
+      }
+      music.next += beat;
+    }
+  }
+
   /* 거리에 따른 감쇠 — 화면 밖 소리는 작게 */
   const near = d => Math.max(0, 1 - d / 900);
 
@@ -171,7 +253,7 @@ const SFX = (() => {
       drone.gain.gain.setTargetAtTime(0.05 + k * 0.07, t, 0.8);
     },
     /** 판 하나의 배경음 전체 — 비와 드론을 함께 켜고 끈다 */
-    ambience(on) { this.rain(on); this.drone(on); },
+    ambience(on) { this.rain(on); this.drone(on); this.music(on); },
     get droneOn() { return !!drone; },
 
     /** 명중 · 처치 확인음 — 짧고 높게, 귀에 거슬리지 않게 */
@@ -299,6 +381,27 @@ const SFX = (() => {
       tone(56, 0.17, v, 'sine', 34);
       setTimeout(() => tone(48, 0.22, v * 0.72, 'sine', 28), 165);
     },
+
+    /** 음악 켜고 끄기 — 설정의 '음악' 을 따른다 */
+    music(on) {
+      if (!enabled || !ctx) return;
+      on = on && (typeof SETTINGS === 'undefined' || SETTINGS.music);
+      if (on && !music.on) {
+        music.bus = ctx.createGain(); music.bus.gain.value = 0.0001; music.bus.connect(master);
+        music.bus.gain.exponentialRampToValueAtTime(0.9, ctx.currentTime + 2);
+        music.on = true; music.next = 0; music.step = 0;
+        music.timer = setInterval(musicTick, 50);
+      } else if (!on && music.on) {
+        music.on = false; clearInterval(music.timer);
+        const bus = music.bus, t = ctx.currentTime;
+        bus.gain.cancelScheduledValues(t); bus.gain.setValueAtTime(Math.max(0.0001, bus.gain.value), t);
+        bus.gain.exponentialRampToValueAtTime(0.0001, t + 0.8);
+        setTimeout(() => { try { bus.disconnect(); } catch (e) {} }, 1000);
+      }
+    },
+    /** 매 프레임 연출 상태를 넘긴다 */
+    musicState(st) { Object.assign(music.st, st); },
+    get musicOn() { return music.on; },
 
     mute(v) { enabled = !v; if (master) master.gain.value = masterLevel(); },
     /** 설정 화면에서 볼륨 슬라이더를 움직일 때 */

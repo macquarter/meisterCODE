@@ -689,7 +689,7 @@ class Spit {
 }
 
 const PICKUPS = {
-  ammo:        { label: 'SMG 탄약 +50',  col: '#d8c48a', icon: 'ammo' },
+  ammo:        { label: 'SMG 탄약 +35',  col: '#d8c48a', icon: 'ammo' },
   shells:      { label: '산탄 +8',       col: '#c08a4a', icon: 'shell' },
   medkit:      { label: '구급킷 +40',    col: '#e05a4f', icon: 'med' },
   battery:     { label: '배터리 +55',    col: '#f0b429', icon: 'bat' },
@@ -713,7 +713,7 @@ class Pickup {
     this.dead = true;
     SFX.pickup();
     switch (this.type) {
-      case 'ammo':    p.ammo.smg += 50; break;
+      case 'ammo':    p.ammo.smg += 35; break;           // 결핍이 선택을 무겁게 한다 (RE)
       case 'shells':  p.ammo.shell += 8; break;
       case 'medkit':  p.hp = Math.min(p.hpMax, p.hp + 40); break;
       case 'battery': p.battery = Math.min(100, p.battery + 55);

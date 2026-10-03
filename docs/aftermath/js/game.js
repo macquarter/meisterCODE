@@ -641,7 +641,10 @@ const G = {
     if (!engaged) D.intensity = Math.max(0, D.intensity - 7 * dt);
     D.engaged = engaged;
 
-    if (D.phase === 'build') {
+    // 그것과 싸우는 동안은 무리·추적자를 보내지 않는다 (L4D: 보스전은 적응형 연출의 바깥)
+    const bossFight = this.boss && !this.boss.dead && this.boss.aggro && Math.hypot(this.boss.x - p.x, this.boss.y - p.y) < 900;
+    D.bossFight = bossFight;
+    if (D.phase === 'build' && !bossFight) {
       // 등 뒤의 추적자 — 조용한 시간에도 완전히 안전하지는 않다
       D.stalkT -= dt;
       if (D.stalkT <= 0 && this.zombies.length < 58) {

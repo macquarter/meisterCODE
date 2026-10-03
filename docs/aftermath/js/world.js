@@ -46,6 +46,7 @@ class World {
     this.landmarks = []; this.signs = []; this.props = []; this.decor = [];
 
     this.layout(rng, blocks, opts);
+    this.connectLandmarks();
     this.placeProps(rng, blocks);
     this.markSidewalks();
     this.pickEndpoints(opts.goal);
@@ -186,7 +187,10 @@ class World {
       const L = LANDMARKS[id];
       if (!L) continue;
       if (L.junction) {                                   // 대로 교차로에 붙는 것 (스크램블 · 로터리)
-        const bv = vs.filter(v => v.blvd), bh = hs.filter(h => h.blvd);
+        // 대로끼리의 교차로가 없으면(강 때문에 대로가 빠진 경우 등) 간선 교차로라도 쓴다
+        let bv = vs.filter(v => v.blvd), bh = hs.filter(h => h.blvd);
+        if (!bv.length) bv = vs.slice();
+        if (!bh.length) bh = hs.filter(h => !h.bank);
         if (!bv.length || !bh.length) continue;
         const v = bv[ids.indexOf(id) % bv.length], h = bh[(ids.indexOf(id) + 1) % bh.length];
         const lm = L.stamp(this, v, h, rng);
@@ -196,15 +200,22 @@ class World {
         }
         continue;
       }
-      // 발자국이 들어가는 블록 중 지도 중심에 가까운 것
-      const fit = blocksList.filter(b => !b.used && b.w >= L.w && b.h >= L.h)
-        .sort((a, b) => Math.hypot(a.x + a.w / 2 - cx, a.y + a.h / 2 - cy) - Math.hypot(b.x + b.w / 2 - cx, b.y + b.h / 2 - cy));
+      // 발자국이 들어가는 블록 중 — 구경거리는 도심 가까이, 집결지(목적지)는 외곽 쪽에 두어
+      // 반대편에서 출발하는 길이 도시를 가로지르게 한다
+      const isGoal = id === opts.goal;
+      const dc = b => Math.hypot(b.x + b.w / 2 - cx, b.y + b.h / 2 - cy);
+      // 지도 테두리에 붙은 블록은 쓰지 않는다 — 문이 바깥 벽을 향하면 들어갈 수 없다
+      const fit = blocksList.filter(b => !b.used && b.w >= L.w && b.h >= L.h && b.x > 1 && b.y > 1 && b.x + b.w < W - 1 && b.y + b.h < H - 1)
+        .sort((a, b) => isGoal ? dc(b) - dc(a) : dc(a) - dc(b));
       let blk = fit[Math.min(fit.length - 1, Math.floor(rng() * Math.min(3, fit.length)))];
-      // 맞는 블록이 없으면 도시 한가운데를 밀어 자리를 낸다 — 궁궐이 길을 끊듯 길이 그 앞에서 끝난다
-      if (!blk) blk = this.clearSite(L.w, L.h);
+      // 맞는 블록이 없으면 자리를 밀어 낸다 — 궁궐이 길을 끊듯 길이 그 앞에서 끝난다
+      if (!blk) blk = isGoal ? this.clearSite(L.w, L.h, W * (rng() < 0.5 ? 0.24 : 0.76), H * (rng() < 0.5 ? 0.24 : 0.76)) : this.clearSite(L.w, L.h);
       if (!blk) continue;
       blk.used = true;
       this.fill(blk.x, blk.y, blk.w, blk.h, T_ROAD, L.ground);
+      for (let y = blk.y; y < blk.y + blk.h; y++) for (let x = blk.x; x < blk.x + blk.w; x++) {
+        const i = y * W + x; this.dirm[i] = 0; this.mark[i] = 0; this.cross[i] = 0;   // 경내는 차도가 아니다
+      }
       const ox = blk.x + Math.floor((blk.w - L.w) / 2), oy = blk.y + Math.floor((blk.h - L.h) / 2);
       const lm = L.stamp(this, ox, oy, rng, blk);
       if (lm) this.landmarks.push(Object.assign(lm, { id, name: L.name, block: blk }));
@@ -214,7 +225,7 @@ class World {
     let lotId = 1;
     for (const b of blocksList) {
       if (b.used === true) continue;               // 'edge' (교차로 랜드마크 옆) 은 건물로 채운다
-      const r = rng();
+      const r = b.used === 'edge' ? 1 : rng();
       if (r < 0.1 && b.w >= 6 && b.h >= 6) { this.park(b, rng); b.kind = 'park'; continue; }
       if (r < 0.16) { this.fill(b.x, b.y, b.w, b.h, T_ROAD, D_PLAZA); b.kind = 'plaza'; continue; }
       if (r < 0.24) { this.fill(b.x, b.y, b.w, b.h, T_ROAD, D_ASPHALT); b.kind = 'lot'; continue; }
@@ -262,6 +273,42 @@ class World {
     return id + 1;
   }
 
+  /**
+   * 랜드마크 집결 지점이 도로망과 끊겨 있으면(지도 가장자리에 붙어 문이 벽을 향하는 등)
+   * 건물을 가로질러 가장 짧은 길을 낸다. 랜드마크 구조물·물·지도 바깥 테두리는 뚫지 않는다.
+   */
+  connectLandmarks() {
+    const W = this.w, H = this.h;
+    let main = -1;
+    for (const v of this.vlines || []) if (v.blvd) { main = Math.floor(H / 4) * W + v.p; break; }
+    if (main < 0 || this.grid[main] !== T_ROAD) return;
+    for (const lm of this.landmarks) {
+      if (!lm.rally) continue;
+      const reach = this.bfs(main).dist;
+      const ri = lm.rally.ty * W + lm.rally.tx;
+      if (reach[ri] >= 0) continue;
+      // 집결 지점에서, 건물을 지날 수 있는 BFS 로 도로망까지 — 가장 먼저 닿는 도로 칸까지의 경로를 판다
+      const prev = new Int32Array(W * H).fill(-1), q = [ri];
+      prev[ri] = ri;
+      let hit = -1;
+      for (let h = 0; h < q.length && hit < 0; h++) {
+        const c = q[h], x = c % W, y = (c - x) / W;
+        for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+          const nx = x + dx, ny = y + dy, n = ny * W + nx;
+          if (nx < 1 || ny < 1 || nx >= W - 1 || ny >= H - 1 || prev[n] >= 0) continue;
+          if (this.grid[n] === T_WATER || this.deco[n] === D_LANDMARK) continue;
+          prev[n] = c;
+          if (reach[n] >= 0) { hit = n; break; }
+          q.push(n);
+        }
+      }
+      for (let c = hit; c >= 0 && c !== ri; c = prev[c]) {
+        if (this.grid[c] !== T_ROAD) { this.grid[c] = T_ROAD; this.deco[c] = D_ASPHALT; this.lot[c] = 0; }
+      }
+      this.decor = this.decor.filter(d => !(d.kind === 'tree' && this.grid[Math.floor(d.y / TILE) * W + Math.floor(d.x / TILE)] === T_ROAD));
+    }
+  }
+
   /** 공원 — 잔디와 나무, 가운데로 산책로 */
   park(b, rng) {
     this.fill(b.x, b.y, b.w, b.h, T_ROAD, D_GRASS);
@@ -282,8 +329,8 @@ class World {
   }
 
   /** 지도 가운데부터 나선으로 돌며, 강·다른 랜드마크와 겹치지 않는 자리를 비운다 (둘레 1칸은 길) */
-  clearSite(fw, fh) {
-    const W = this.w, H = this.h, cx = Math.floor(W / 2 - fw / 2), cy = Math.floor(H / 2 - fh / 2);
+  clearSite(fw, fh, px = this.w / 2, py = this.h / 2) {
+    const W = this.w, H = this.h, cx = Math.floor(px - fw / 2), cy = Math.floor(py - fh / 2);
     const ok = (x, y) => {
       if (x < 3 || y < 3 || x + fw + 3 > W || y + fh + 3 > H) return false;
       if (this.river && y + fh + 3 > this.river.y0 - 2 && y - 3 < this.river.y1 + 2) return false;
@@ -310,9 +357,10 @@ class World {
   placeProps(rng, blocks) {
     const T = this.theme;
     const BOX_COLS = ['#7a3129', '#2b5a72', '#6b5a24', '#3f6b45'];
+    const onStreet = d => d === D_ASPHALT || d === D_SIDEWALK || d === D_BRIDGE;   // 광장 · 공원 · 경내에는 차를 두지 않는다
     const freeRoad = (x, y) =>
       this.at(x, y) === T_ROAD && this.roadNeighbours(x, y) >= 5 && this.dirm[y * this.w + x] && this.dirm[y * this.w + x] < 3 &&
-      this.deco[y * this.w + x] !== D_LANDMARK && !this.cross[y * this.w + x];
+      onStreet(this.deco[y * this.w + x]) && !this.cross[y * this.w + x];
     const put = (x, y, pr) => {
       for (const [tx, ty] of pr.tiles) { this.grid[ty * this.w + tx] = T_WALL; this.deco[ty * this.w + tx] = D_PROP; }
       this.props.push(pr);

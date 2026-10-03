@@ -133,7 +133,7 @@ const LANDMARKS = {
       }
       const cx = x0 + (n >> 1) - 1, cy = y0 + (m >> 1) - 1;
       lmSolid(wd, cx, cy, 2, 2);
-      return { kind: 'monument', x: x0, y: y0, w: n, h: m, cx: cx + 1, cy: cy + 1, rally: { tx: x0, ty: y0 } };
+      return { kind: 'monument', x: x0, y: y0, w: n, h: m, cx: cx + 1, cy: cy + 1, rally: { tx: cx - 1, ty: cy + 1 } };   // 탑 바로 옆 둘레길
     }
   },
   /* 방콕 — 줄지어 선 노점과 머리 위 전구 줄. 통로가 격자로 난다 */

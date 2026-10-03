@@ -7,7 +7,7 @@ const SHELL = [
   './', './index.html', './css/game.css', './manifest.webmanifest',
   './js/settings.js', './js/i18n.js', './js/story.js', './js/levels.js', './js/audio.js', './js/world.js', './js/themes.js',
   './js/entities.js', './js/models.js', './js/game.js',
-  './3d.html', './js/r3d.js', './vendor/three.module.min.js',
+  './3d.html', './js/r3d.js', './vendor/three.module.min.js', './vendor/addons/EffectComposer.js', './vendor/addons/Pass.js', './vendor/addons/ShaderPass.js', './vendor/addons/MaskPass.js', './vendor/addons/RenderPass.js', './vendor/addons/UnrealBloomPass.js', './vendor/addons/OutputPass.js', './vendor/addons/CopyShader.js', './vendor/addons/LuminosityHighPassShader.js', './vendor/addons/OutputShader.js',
   './icons/icon-192.png', './icons/icon-512.png', './icons/favicon-32.png', './privacy.html'
 ];
 self.addEventListener('install', e => {

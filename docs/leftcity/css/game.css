@@ -483,6 +483,7 @@ body.touch .hud__meter{bottom:calc(20px + env(safe-area-inset-bottom))}
     left:max(14px,env(safe-area-inset-left));margin:0;flex-wrap:nowrap;gap:10px}
   body.touch .gauge{width:min(92px,15vw)}
   body.touch .ammo{position:fixed;top:calc(40px + env(safe-area-inset-top))}
+  body.touch .ammo__icon,body.touch .ammo__pips,body.touch .ammo__nadeIcon{display:none}   /* 낮은 가로 화면 — 근접 버튼과 겹치지 않게 */
   body.touch .boss{top:calc(100px + env(safe-area-inset-top))}
   body.touch #hint{top:calc(124px + env(safe-area-inset-top))}
   .tbtn--nade{right:calc(160px + env(safe-area-inset-right));bottom:calc(18px + env(safe-area-inset-bottom))}

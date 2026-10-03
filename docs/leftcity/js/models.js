@@ -60,6 +60,8 @@ const MODELS = (() => {
     draw(ctx, over) {
       const P = this.parts.sort((a, b) => a.k - b.k);
       ctx.lineCap = 'round';
+      // 빛 방향(화면) — 손전등 안이면 손전등 쪽, 아니면 위 왼쪽의 희미한 하늘빛. 밝은 면이 빛을 향한다
+      const lx = api.light.x, ly = api.light.y, lit = api.light.k;
       if (api.lod) {
         // 많이 보일 때 — 그늘 층을 빼고 한 번씩만 칠한다
         for (const q of P) {
@@ -69,23 +71,36 @@ const MODELS = (() => {
         }
         return;
       }
+      // 윤곽 — 어두운 테를 먼저 한 번. 밝은 바닥 위에서도 몸이 또렷하게 떨어진다
+      if (!over) {
+        ctx.fillStyle = ctx.strokeStyle = 'rgba(6,7,9,.85)';
+        for (const q of P) {
+          if (q.t === 0) { ctx.beginPath(); ctx.arc(q.X, q.Y, q.r + 0.8, 0, 6.283); ctx.fill(); }
+          else { ctx.lineWidth = q.r * 2 + 1.6; ctx.beginPath(); ctx.moveTo(q.X, q.Y); ctx.lineTo(q.X2, q.Y2); ctx.stroke(); }
+        }
+      }
+      const hi = 1.18 + lit * 0.22;
       for (const q of P) {
         const col = over || q.col;
         if (q.t === 0) {
-          ctx.fillStyle = tone(col, 0.58);
+          ctx.fillStyle = tone(col, 0.55);
           ctx.beginPath(); ctx.arc(q.X, q.Y, q.r, 0, 6.283); ctx.fill();
           ctx.fillStyle = col;
-          ctx.beginPath(); ctx.arc(q.X - q.r * 0.12, q.Y - q.r * 0.17, q.r * 0.8, 0, 6.283); ctx.fill();
+          ctx.beginPath(); ctx.arc(q.X + lx * q.r * 0.16, q.Y + ly * q.r * 0.18, q.r * 0.8, 0, 6.283); ctx.fill();
           if (q.hl && q.r > 2.4) {
-            ctx.fillStyle = tone(col, 1.22);
-            ctx.beginPath(); ctx.arc(q.X - q.r * 0.3, q.Y - q.r * 0.4, q.r * 0.36, 0, 6.283); ctx.fill();
+            ctx.fillStyle = tone(col, hi);
+            ctx.beginPath(); ctx.arc(q.X + lx * q.r * 0.4, q.Y + ly * q.r * 0.42, q.r * 0.36, 0, 6.283); ctx.fill();
           }
         } else {
-          ctx.strokeStyle = tone(col, 0.58); ctx.lineWidth = q.r * 2;
+          ctx.strokeStyle = tone(col, 0.55); ctx.lineWidth = q.r * 2;
           ctx.beginPath(); ctx.moveTo(q.X, q.Y); ctx.lineTo(q.X2, q.Y2); ctx.stroke();
           ctx.strokeStyle = col; ctx.lineWidth = q.r * 1.25;
-          const o = q.r * 0.3;
-          ctx.beginPath(); ctx.moveTo(q.X - o * 0.4, q.Y - o); ctx.lineTo(q.X2 - o * 0.4, q.Y2 - o); ctx.stroke();
+          const ox = lx * q.r * 0.34, oy = ly * q.r * 0.34;
+          ctx.beginPath(); ctx.moveTo(q.X + ox, q.Y + oy); ctx.lineTo(q.X2 + ox, q.Y2 + oy); ctx.stroke();
+          if (lit > 0.3 && q.r > 1.2) {                      // 손전등을 받은 쪽 가장자리 빛
+            ctx.strokeStyle = tone(col, hi); ctx.lineWidth = q.r * 0.45;
+            ctx.beginPath(); ctx.moveTo(q.X + ox * 1.7, q.Y + oy * 1.7); ctx.lineTo(q.X2 + ox * 1.7, q.Y2 + oy * 1.7); ctx.stroke();
+          }
         }
       }
     }
@@ -115,9 +130,9 @@ const MODELS = (() => {
       R.chain(hip, knee, ank, 2.05 * B, 1.75 * B, pn, pn);
       R.ball(fx + 1.2, sd * 2.7 * B, 0.9 + fz, 1.55, sh, false);
     }
-    // 몸통
+    // 몸통 — 골반 공 위로 허리에서 가슴까지 매끈한 원통, 어깨
     R.ball(L * 0.25, 0, 13.2 + bob, 3.6 * B, pn);
-    R.ball(L * 0.55, 0, 16.4 + bob, 3.9 * B, top);
+    R.limb([L * 0.4, 0, 14.6 + bob], [L * 0.9, 0, 19.2 + bob], 4.1 * B, top);
     R.ball(L, 0, 19.8 + bob, 4.5 * B, top);
     for (const sd of [-1, 1]) R.ball(L, sd * 3.9 * B, 21 + bob, 2.5 * B, top, false);
     // 머리 — 머리카락이 정수리와 뒤통수를 덮는다
@@ -125,6 +140,10 @@ const MODELS = (() => {
     const hx = L * 1.2 + 0.8 + (hd.dx || 0), hy = hd.dy || 0, hz = 25 + bob + (hd.dz || 0), hr = hd.r || 3.3;
     R.ball(hx, hy, hz, hr, sk);
     if (o.hair) R.ball(hx - 1.3, hy, hz + 0.6, hr * 0.9, o.hair, false);
+    if (o.faceCol) {                                  // 얼굴 — 꺼진 눈두덩 둘과 벌어진 입 (돌아서면 머리에 가려진다)
+      for (const sd of [-1, 1]) R.ball(hx + hr * 0.78, hy + sd * hr * 0.34, hz + hr * 0.1, hr * 0.15, o.faceCol, false);
+      R.ball(hx + hr * 0.82, hy, hz - hr * 0.44, hr * 0.17, '#33100d', false);
+    }
     if (o.helmet) {                                   // 철모 — 머리보다 넓고 낮게 얹힌다
       R.ball(hx - 0.4, hy, hz + 1.1, hr * 1.18, o.helmet);
       R.ball(hx + hr * 0.5, hy, hz + 0.2, hr * 0.5, tone(o.helmet, 0.7), false);
@@ -300,7 +319,8 @@ const MODELS = (() => {
             extra(R2, bob, L) { if (k.blood) blood(R2, L + 4.4, 19.5 + bob, 1.5); } };
       shadow(ctx, z.x, z.y, 11);
     }
-    if (k.hazmat && !t.boss && !t.bloat && !t.spit && !t.scream && t.size < 18) { o.hood = '#e2e0d6'; o.sleeve = k.top; }
+    if (!o.hood) o.faceCol = '#241513';
+    if (k.hazmat && !t.boss && !t.bloat && !t.spit && !t.scream && t.size < 18) { o.hood = '#e2e0d6'; o.sleeve = k.top; o.faceCol = null; }
     if (k.helmet && o.head) { o.helmet = '#3d4330'; o.sleeve = k.top; }
     o.x = z.x; o.y = z.y; o.face = z.face; o.ph = ph; o.sway = o.sway ?? sway;
     R = humanRig(o);
@@ -655,7 +675,8 @@ const MODELS = (() => {
 
   /* 화면에서 높이 h(세계 px)는 세계 y 로 h·UP/TL 만큼 위 */
   const ZK = UP / TL;
-  const api = { zombie, player, corpse, prop, decor, STANDING, headZ, box, tone, ZK, TL, UP, CS, HK, lod: 0, military: false };
+  const api = { zombie, player, corpse, prop, decor, STANDING, headZ, box, tone, ZK, TL, UP, CS, HK, lod: 0, military: false,
+                light: { x: -0.55, y: -0.8, k: 0 } };   // 그릴 인형의 빛 방향(화면 단위) · 손전등을 받는 정도
   return api;
 })();
 window.MODELS = MODELS;

@@ -12,6 +12,9 @@ const view = $('view');
 const ctx = view.getContext('2d');
 const mask = document.createElement('canvas');
 const mctx = mask.getContext('2d');
+/* 손전등 빛 층 — 어둠 막과 같은 절반 해상도. 빛을 여기 그리고 그림자 자리를 지운 뒤 화면에 더한다 */
+const glowCv = document.createElement('canvas');
+const gctx = glowCv.getContext('2d');
 
 /* ═══════════ 해상도 ═══════════
    프레임 비용은 화면 픽셀 수에 거의 비례한다 — 어둠 막 · 불빛 · 비 · 바닥이 모두 화면 전체를 칠하기 때문이다.
@@ -36,6 +39,7 @@ function applyScale(s) {
   window.AFT_SCALE = DPR;          // 모형이 미리 그려 두는 그림(시체)의 해상도
   view.width = Math.max(1, Math.floor(W * DPR)); view.height = Math.max(1, Math.floor(H * DPR));
   mask.width = Math.max(1, Math.ceil(W * MDPR)); mask.height = Math.max(1, Math.ceil(H * MDPR));
+  glowCv.width = mask.width; glowCv.height = mask.height;
   view.style.width = innerWidth + 'px'; view.style.height = innerHeight + 'px';
   ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
   mctx.setTransform(MDPR, 0, 0, MDPR, 0, 0);
@@ -861,7 +865,7 @@ const G = {
     this.hitDirs = [];
     this.zombies = []; this.bullets = []; this.grenades = []; this.pickups = [];
     this.spits = []; this.acids = [];
-    this.particles = []; this.decals = []; this.corpses = []; this.flashes = [];
+    this.particles = []; this.splashes = []; this.decals = []; this.corpses = []; this.flashes = [];
     this.time = 0; this.shake = 0; this.kills = 0; this.score = 0; this.spitGapT = 0; this.fromCheckpoint = false;
     this.nonPistol = false; this.weeperWoke = false; this.screams = 0;
     this.shots = 0; this.hits = 0; this.hitMark = 0;
@@ -1984,6 +1988,7 @@ function focusY() { return isTouch && H > W ? H * 0.40 : H / 2; }
 /* ═══════════ 렌더 ═══════════ */
 function render() {
   const g = G, p = g.player, w = g.world;
+  g.frameNo = (g.frameNo || 0) + 1;                   // 프레임마다 한 번 만드는 것들(그림자)의 열쇠
   const cam = g.camera();
   placeCompass(...toScreen(cam, p.x, p.y));
 
@@ -2117,7 +2122,7 @@ function render() {
 
   drawDarkness(cam, g, p, w);
   drawGlow(cam, g, p, w);
-  drawRain(g);
+  drawRain(g, cam, p);
   if (p.bile > 0) drawBile(p.bile);
   drawHordeCue(cam, g, p);
   drawScreamCue(cam, g, p);
@@ -2324,11 +2329,20 @@ function drawGround(cam, w) {
   // 그 위의 표시 — 색마다 한 경로로 모아 한 번씩
   const P = () => new Path2D();
   const curb = P(), shadow = P(), yellow = P(), zebra = P(), park = P(), hole = P(), holeTop = P(), trash = P();
+  const ao1 = P(), ao2 = P(), ao3 = P();
+  const bld = (x, y) => w.deco[w.idx(x, y)] === D_BUILDING;
+  // 벽 밑의 그늘(앰비언트 오클루전) — 건물에 맞닿은 바닥이 벽 쪽으로 갈수록 어두워진다. 세 겹의 띠
+  const ao = (x, y, px, py) => {
+    if (bld(x, y - 1)) { ao1.rect(px, py, TILE, 5); ao2.rect(px, py + 5, TILE, 7); ao3.rect(px, py + 12, TILE, 10); }
+    if (bld(x - 1, y)) { ao1.rect(px, py, 4, TILE); ao2.rect(px + 4, py, 5, TILE); }
+    if (bld(x + 1, y)) { ao1.rect(px + TILE - 4, py, 4, TILE); ao2.rect(px + TILE - 9, py, 5, TILE); }
+  };
   const sw = (x, y) => w.deco[w.idx(x, y)] === D_SIDEWALK;
   const rd = (x, y) => { const j = w.idx(x, y); return w.grid[j] === T_ROAD && (w.deco[j] === D_ASPHALT || w.deco[j] === D_PROP || w.deco[j] === D_RUBBLE); };
   for (let k = 0; k < detail.length; k += 4) {
     const i = detail[k], x = detail[k + 1], y = detail[k + 2], px = x * TILE, py = y * TILE;
     const h2 = ((x * 2654435761) ^ (y * 40503)) >>> 0;
+    ao(x, y, px, py);
     if (detail[k + 3] === 1) {
       // 보도 가장자리 — 차도 쪽은 높은 연석
       if (rd(x, y + 1)) curb.rect(px, py + TILE - 4, TILE, 4);
@@ -2364,6 +2378,9 @@ function drawGround(cam, w) {
     }
     if (h2 % 5 === 0) litter(trash, px, py, h2);
   }
+  ctx.fillStyle = 'rgba(0,0,0,.30)'; ctx.fill(ao1);
+  ctx.fillStyle = 'rgba(0,0,0,.17)'; ctx.fill(ao2);
+  ctx.fillStyle = 'rgba(0,0,0,.08)'; ctx.fill(ao3);
   ctx.fillStyle = 'rgba(205,200,180,.20)'; ctx.fill(curb);
   ctx.fillStyle = 'rgba(0,0,0,.32)'; ctx.fill(shadow);
   ctx.fillStyle = 'rgba(214,180,70,.32)'; ctx.fill(yellow);
@@ -3158,6 +3175,35 @@ const GUN_LIFT = 20 * 1.12 * ZK * MODELS.HK, SPIT_LIFT = 17 * ZK * MODELS.HK;
 const WALLS = ['#262e39', '#2f2b29', '#2a3131', '#34302c', '#29313a', '#30343a'];
 const lotHash = (w, x, y) => Math.imul(w.lot[w.idx(x, y)] || (x * 7 + y * 13), 2246822519) >>> 0;
 
+/** 옥상 설비 배치 — 필지(같은 건물)마다 한 번 정한다. 칸마다 해시로 고르면 큰 지붕에 계단실이 바둑판처럼 늘어섰다.
+    1 계단실(필지마다 하나) 2 실외기 3 물탱크 4 태양광 5 텃밭 6 안테나 7 환기구 8 물웅덩이 */
+function roofFeat(w) {
+  if (w._roof) return w._roof;
+  const f = w._roof = new Uint8Array(w.w * w.h), lots = new Map();
+  const isB = (x, y) => w.deco[w.idx(x, y)] === D_BUILDING;
+  for (let y = 0; y < w.h; y++) for (let x = 0; x < w.w; x++) {
+    const i = y * w.w + x, lot = w.lot[i];
+    if (!isB(x, y) || !lot) continue;
+    if (!(isB(x + 1, y) && w.lot[w.idx(x + 1, y)] === lot && isB(x, y + 1) && w.lot[w.idx(x, y + 1)] === lot)) continue;
+    if (!lots.has(lot)) lots.set(lot, []);
+    lots.get(lot).push(i);
+  }
+  for (const [lot, tiles] of lots) {
+    let h = Math.imul(lot, 2654435761) >>> 0;
+    const next = () => (h = Math.imul(h ^ (h >>> 15), 2246822519) >>> 0);
+    const take = code => { for (let t = 0; t < 6; t++) { const i = tiles[next() % tiles.length]; if (!f[i]) { f[i] = code; return; } } };
+    take(1);
+    const n = tiles.length;
+    for (let k = 0; k < Math.max(1, n / 11); k++) take(2);
+    for (let k = 0; k < n / 14; k++) take(7);
+    if (next() % 3 === 0) take(3);
+    if (next() % 5 === 0) take(4);
+    if (next() % 4 === 0) take(5);
+    if (next() % 6 === 0) take(6);
+    if (next() % 3 === 0) take(8);
+  }
+  return f;
+}
 /** 한 줄의 창을 색마다 모으는 경로 — 칠하는 순서대로 */
 let WIN = null;
 const WIN_COLS = [['frame', 'rgba(190,186,170,.30)'], ['lit', 'rgba(201,154,82,.75)'], ['broken', '#040506'], ['glass', '#0f141a'],
@@ -3270,20 +3316,67 @@ function buildingRow(w, r, x0, x1) {
     ctx.fillStyle = 'rgba(0,0,0,.22)';
     if (!same(0, -1)) ctx.fillRect(px, py + 3.5, TILE, 3);
     if (!same(-1, 0)) ctx.fillRect(px + 3.5, py, 3, TILE);
-    // 옥상 설비 — 실외기 · 물탱크
-    if (same(1, 0) && same(0, 1)) {
-      const hh = ((x * 2654435761) ^ (r * 40503)) >>> 0;
-      if (hh % 9 === 0) {
-        const ux = px + 10 + (hh >> 4) % 16, uy = py + 10 + (hh >> 8) % 16;
-        ctx.fillStyle = 'rgba(0,0,0,.45)'; ctx.fillRect(ux + 3, uy + 4, 22, 16);
-        ctx.fillStyle = '#2a323c'; ctx.fillRect(ux, uy, 22, 16);
-        ctx.fillStyle = 'rgba(0,0,0,.35)'; ctx.beginPath(); ctx.arc(ux + 11, uy + 8, 5, 0, 6.283); ctx.fill();
-      } else if (hh % 41 === 1 && w.theme === THEMES.seoul) {   // 서울 옥상의 물탱크
+    ctx.fillStyle = 'rgba(0,0,0,.1)';                                   // 난간 안쪽 그늘 (두 겹 — 깊이)
+    if (!same(0, -1)) ctx.fillRect(px, py + 6.5, TILE, 5);
+    if (!same(-1, 0)) ctx.fillRect(px + 6.5, py, 5, TILE);
+    // 옥상 설비 — 계단실 · 실외기 · 환기구 · 물탱크 · 태양광 · 안테나 · 옥상 텃밭. 높이가 있어 남쪽 면과 윗면이 보인다
+    const feat = roofFeat(w)[i];
+    if (feat) {
+      const hh = ((x * 2654435761) ^ (r * 40503)) >>> 0, T = w.theme.key;
+      const rbox = (X, Y, Wd, Dp, e, side, top) => {
+        ctx.fillStyle = 'rgba(0,0,0,.38)'; ctx.fillRect(X + 3, Y + 3, Wd, Dp);              // 지붕에 진 그늘
+        ctx.fillStyle = side; ctx.fillRect(X, Y + Dp - e, Wd, e);
+        ctx.fillStyle = top; ctx.fillRect(X, Y - e, Wd, Dp);
+        ctx.fillStyle = 'rgba(255,255,255,.07)'; ctx.fillRect(X, Y - e, Wd, 1.2);             // 윗면 모서리 빛
+      };
+      if (feat === 1) {                                                 // 계단실 — 한 층 높이의 작은 집, 남쪽에 문
+        const ux = px + 6 + (hh >> 4) % 10, uy = py + 8 + (hh >> 8) % 10, mat = wallMat(w, lotHash(w, x, r));
+        rbox(ux, uy, 30, 22, 18, shade(mat[0], 0.8), shade(roofs[k], 1.35));
+        ctx.fillStyle = '#0d1014'; ctx.fillRect(ux + 18, uy + 22 - 13, 8, 12);
+        if ((hh >> 12) % 4 === 0) { ctx.fillStyle = 'rgba(214,170,96,.7)'; ctx.fillRect(ux + 20, uy + 22 - 16, 4, 2); }   // 문 위 등
+      } else if (feat === 2) {                                          // 실외기 둘
+        for (let q = 0; q < 2; q++) {
+          const ux = px + 6 + q * 20 + (hh >> 4) % 4, uy = py + 12 + (hh >> 8) % 12;
+          rbox(ux, uy, 17, 12, 7, '#3a424c', '#59626c');
+          ctx.fillStyle = 'rgba(0,0,0,.45)'; ctx.beginPath(); ctx.arc(ux + 8.5, uy - 1, 4, 0, 6.283); ctx.fill();
+        }
+      } else if (feat === 3 && T === 'seoul') {                         // 서울 옥상의 파란 물탱크
         const ux = px + 14 + (hh >> 5) % 12, uy = py + 14 + (hh >> 9) % 12;
         ctx.fillStyle = 'rgba(0,0,0,.45)'; ctx.beginPath(); ctx.arc(ux + 4, uy + 5, 9, 0, 6.283); ctx.fill();
         ctx.fillStyle = '#3d5a6a'; ctx.beginPath(); ctx.arc(ux, uy - 4, 9, 0, 6.283); ctx.fill();
         ctx.fillRect(ux - 9, uy - 4, 18, 8);
         ctx.fillStyle = '#4c6e80'; ctx.beginPath(); ctx.arc(ux, uy - 8, 9, 0, 6.283); ctx.fill();
+      } else if (feat === 3) {                                          // 다리 위 원통 물탱크
+        const ux = px + 16 + (hh >> 5) % 12, uy = py + 18 + (hh >> 9) % 8;
+        ctx.fillStyle = 'rgba(0,0,0,.4)'; ctx.beginPath(); ctx.ellipse(ux + 4, uy + 4, 11, 8, 0, 0, 6.283); ctx.fill();
+        ctx.strokeStyle = '#3a3c3e'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(ux - 7, uy); ctx.lineTo(ux - 7, uy - 10); ctx.moveTo(ux + 7, uy); ctx.lineTo(ux + 7, uy - 10); ctx.stroke();
+        ctx.fillStyle = '#6a6458'; ctx.fillRect(ux - 10, uy - 24, 20, 14);
+        ctx.fillStyle = '#857e70'; ctx.beginPath(); ctx.ellipse(ux, uy - 24, 10, 5, 0, 0, 6.283); ctx.fill();
+      } else if (feat === 4) {                                          // 태양광 판
+        for (let q = 0; q < 3; q++) for (let j = 0; j < 2; j++) {
+          const ux = px + 5 + q * 13, uy = py + 8 + j * 16;
+          ctx.fillStyle = 'rgba(0,0,0,.35)'; ctx.fillRect(ux + 2, uy + 2, 11, 13);
+          ctx.fillStyle = '#1d2c44'; ctx.fillRect(ux, uy - 3, 11, 13);
+          ctx.fillStyle = 'rgba(140,170,220,.22)'; ctx.fillRect(ux, uy + 1, 11, 0.8); ctx.fillRect(ux + 5, uy - 3, 0.8, 13);
+          ctx.fillStyle = 'rgba(200,220,255,.12)'; ctx.fillRect(ux, uy - 3, 11, 1.2);
+        }
+      } else if (feat === 5 && (T === 'seoul' || T === 'bangkok')) {    // 옥상 텃밭 — 화분과 상자
+        for (let q = 0; q < 5; q++) {
+          const ux = px + 8 + ((hh >> (q * 3)) % 30), uy = py + 8 + ((hh >> (q * 3 + 5)) % 30);
+          ctx.fillStyle = '#3a2c22'; ctx.fillRect(ux - 4, uy - 2, 9, 6);
+          ctx.fillStyle = q % 2 ? '#2f4a2a' : '#3e5a30'; ctx.beginPath(); ctx.arc(ux, uy - 4, 4.5, 0, 6.283); ctx.fill();
+        }
+      } else if (feat === 6) {                                          // 접시 안테나
+        const ux = px + 20 + (hh >> 5) % 10, uy = py + 22 + (hh >> 9) % 10;
+        ctx.strokeStyle = '#555a60'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(ux, uy); ctx.lineTo(ux, uy - 10); ctx.stroke();
+        ctx.fillStyle = '#9a9ea4'; ctx.beginPath(); ctx.ellipse(ux - 2, uy - 13, 7, 5, -0.5, 0, 6.283); ctx.fill();
+        ctx.fillStyle = 'rgba(0,0,0,.25)'; ctx.beginPath(); ctx.ellipse(ux - 1, uy - 12, 4, 3, -0.5, 0, 6.283); ctx.fill();
+      } else if (feat === 7) {                                          // 환기구
+        const ux = px + 10 + (hh >> 4) % 22, uy = py + 12 + (hh >> 8) % 20;
+        rbox(ux, uy, 8, 8, 6, '#2e3236', '#4c5258');
+        ctx.fillStyle = 'rgba(0,0,0,.5)'; ctx.fillRect(ux + 2, uy - 4, 4, 4);
+      } else if (feat === 8) {                                          // 지붕의 물웅덩이
+        ctx.fillStyle = 'rgba(140,165,190,.07)'; ctx.beginPath(); ctx.ellipse(px + 24, py + 26, 14, 7, 0.3, 0, 6.283); ctx.fill();
       }
     }
   }
@@ -3470,7 +3563,14 @@ function drawZombie(z) {
   if (vis <= 0.01) return;
   if (z.hp < z.hpMax * 0.5 && z.look) z.look.blood = true;
   ctx.globalAlpha = clamp(vis, 0, 1);
+  // 손전등을 받으면 밝은 면이 플레이어 쪽을 향한다 (화면 좌표의 방향)
+  const L = MODELS.light;
+  if (z.lit > 0.05 && p.lightRange > 0) {
+    const dx = p.x - z.x, dy = (p.y - z.y) * TILT, n = Math.hypot(dx, dy) || 1;
+    L.x = dx / n; L.y = dy / n - 0.25; L.k = z.lit;
+  } else { L.x = -0.55; L.y = -0.8; L.k = 0; }
   MODELS.zombie(ctx, z, z.flash > 0 ? '#f4f1ea' : null);    // 맞은 순간 하얗게 번쩍인다
+  L.x = -0.55; L.y = -0.8; L.k = 0;
   ctx.globalAlpha = 1;
 }
 
@@ -3672,6 +3772,64 @@ function darkLevel(g) {
   return clamp(base - g.lightning * (SETTINGS.flash ? 0.72 : 0.25), 0.06, 0.985);
 }
 
+/** 손전등 그림자 — 불빛 안의 사람 · 탈것이 빛 반대쪽으로 길게 그림자를 드리운다.
+    원작은 그림자가 발밑 원 하나뿐이었다. 세계 좌표 다각형 { pts, bx, by, ex, ey } 목록을 프레임마다 한 번 만든다.
+    · 사람: 빛 쪽 반대로 사다리꼴. 서 있는 몸이 화면에서 위(북)로 솟으므로, 그림자가 북쪽으로 갈 때는
+      몸이 가리는 만큼(머리 높이) 떨어진 데서 시작한다 — 제 몸을 제 그림자가 덮지 않게
+    · 탈것: 빛을 등진 모서리마다 빛 반대로 늘인 사각형 (몸체 안쪽은 칠하지 않는다) */
+let SHADOWS = [], shadowFrame = -1;
+function lightShadows(g, p, w, range) {
+  if (shadowFrame === g.frameNo) return SHADOWS;
+  shadowFrame = g.frameNo;
+  const out = SHADOWS = [];
+  if (range <= 0 || p.dead) return out;
+  const ca = Math.cos(p.angle), sa = Math.sin(p.angle), cosH = Math.cos(CONE_HALF + 0.14);
+  const inBeam = (x, y, pad) => {
+    const dx = x - p.x, dy = y - p.y, d = Math.hypot(dx, dy);
+    if (d < 16 || d > range + pad) return 0;
+    return (dx * ca + dy * sa) / d >= cosH ? d : 0;
+  };
+  for (const z of g.zombies) {
+    if (z.dead) continue;
+    const d = inBeam(z.x, z.y, 10);
+    if (!d) continue;
+    const ux = (z.x - p.x) / d, uy = (z.y - p.y) / d, nx = -uy, ny = ux;
+    const r = (z.t.crawl ? 9 : Math.min(16, 6 + z.t.size * 0.45)) * MODELS.CS;
+    const s0 = r * 0.4 + Math.max(0, -uy) * MODELS.headZ(z) * ZK * 0.92;
+    const L = Math.min(range - d + 40, 60 + d * 0.5);
+    if (L <= s0 + 8) continue;
+    const r1 = r * (1.2 + L / 300);
+    const bx = z.x + ux * s0, by = z.y + uy * s0, ex = z.x + ux * L, ey = z.y + uy * L;
+    out.push({ pts: [bx + nx * r, by + ny * r, ex + nx * r1, ey + ny * r1, ex - nx * r1, ey - ny * r1, bx - nx * r, by - ny * r], bx, by, ex, ey });
+  }
+  for (const pr of w.props) {
+    const d = inBeam(pr.x, pr.y, 60);
+    if (!d) continue;
+    const c = Math.cos(pr.a), s = Math.sin(pr.a), hx = pr.w / 2, hy = pr.h / 2;
+    const C = [[-hx, -hy], [hx, -hy], [hx, hy], [-hx, hy]].map(([u, v]) => [pr.x + u * c - v * s, pr.y + u * s + v * c]);
+    const L = Math.min(range - d + 80, 140 + d * 0.4);
+    const lift = (pr.kind === 'bus' || pr.kind === 'truck' || pr.kind === 'mtruck' || pr.kind === 'wagon' ? 30 : 20) * ZK;
+    const ux0 = (pr.x - p.x) / d, uy0 = (pr.y - p.y) / d, off = Math.max(0, -uy0) * lift;
+    for (let i = 0; i < 4; i++) {
+      const a = C[i], b = C[(i + 1) % 4];
+      const mx = (a[0] + b[0]) / 2 - pr.x, my = (a[1] + b[1]) / 2 - pr.y;
+      if (mx * (a[0] + b[0] - 2 * p.x) + my * (a[1] + b[1] - 2 * p.y) <= 0) continue;     // 빛을 향한 모서리
+      const da = Math.hypot(a[0] - p.x, a[1] - p.y), db = Math.hypot(b[0] - p.x, b[1] - p.y);
+      const ua = [(a[0] - p.x) / da, (a[1] - p.y) / da], ub = [(b[0] - p.x) / db, (b[1] - p.y) / db];
+      const a0 = [a[0] + ua[0] * off, a[1] + ua[1] * off], b0 = [b[0] + ub[0] * off, b[1] + ub[1] * off];
+      out.push({ pts: [a0[0], a0[1], b0[0], b0[1], b[0] + ub[0] * L, b[1] + ub[1] * L, a[0] + ua[0] * L, a[1] + ua[1] * L],
+                 bx: (a0[0] + b0[0]) / 2, by: (a0[1] + b0[1]) / 2, ex: pr.x + ux0 * L, ey: pr.y + uy0 * L });
+    }
+  }
+  return out;
+}
+function shadowPath(c, sh) {
+  const q = sh.pts;
+  c.beginPath(); c.moveTo(q[0], q[1]);
+  for (let i = 2; i < q.length; i += 2) c.lineTo(q[i], q[i + 1]);
+  c.closePath();
+}
+
 function drawDarkness(cam, g, p, w) {
   const dark = darkLevel(g);
   const E = eyeOf(cam);
@@ -3714,6 +3872,17 @@ function drawDarkness(cam, g, p, w) {
     }
   }
 
+  // 손전등 그림자 — 열린 빛을 그림자 자리만 다시 어둡게 (끝으로 갈수록 옅게)
+  if (range > 0 && SETTINGS.quality !== 'low') {
+    mctx.globalCompositeOperation = 'source-over';
+    for (const sh of lightShadows(g, p, w, range)) {
+      const gr = mctx.createLinearGradient(sh.bx, sh.by, sh.ex, sh.ey);
+      gr.addColorStop(0, `rgba(4,6,10,${dark * 0.62})`); gr.addColorStop(1, 'rgba(4,6,10,0)');
+      mctx.fillStyle = gr; shadowPath(mctx, sh); mctx.fill();
+    }
+    mctx.globalCompositeOperation = 'destination-out';
+  }
+
   // 폭발 섬광
   for (const f of g.flashes) {
     const k = 1 - f.t / f.life;
@@ -3747,6 +3916,55 @@ function drawDarkness(cam, g, p, w) {
   ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
 }
 
+/** 손전등 빛 — 절반 해상도 층에 그려 그림자 자리를 지우고 화면에 더한다.
+    · 가장자리가 부드럽게: 폭이 다른 두 겹(넓고 옅은 것 + 좁고 짙은 것)
+    · 가운데 '핫스폿': 실제 손전등처럼 조금 앞에서 가장 밝다
+    · 젖은 아스팔트의 번들거림: 빛줄기 방향으로 길게 늘어난 옅은 반사
+    · 그림자: 사람 · 탈것 뒤의 빛을 지운다 (겹친 그림자도 한 번만) */
+function drawBeam(cam, g, p, w, range) {
+  const E = eyeOf(cam);
+  gctx.setTransform(1, 0, 0, 1, 0, 0);
+  gctx.globalCompositeOperation = 'source-over';
+  gctx.clearRect(0, 0, glowCv.width, glowCv.height);
+  worldTransform(gctx, cam, MDPR);
+  const layer = (half, rays, stops) => {
+    const poly = liftPoly(w.conePoly(p.x, p.y, p.angle, half, range, rays), w, E);
+    gctx.beginPath(); gctx.moveTo(poly[0], poly[1]);
+    for (let i = 2; i < poly.length; i += 2) gctx.lineTo(poly[i], poly[i + 1]);
+    gctx.closePath();
+    const gr = gctx.createRadialGradient(p.x, p.y, 8, p.x, p.y, range);
+    for (const [k, c] of stops) gr.addColorStop(k, c);
+    gctx.fillStyle = gr; gctx.fill();
+  };
+  // 원작의 손전등은 노랗지 않고 거의 흰빛이다. 넓은 겹이 가장자리를, 좁은 겹이 핫스폿을 만든다
+  layer(CONE_HALF * 1.02, 56, [[0, 'rgba(230,228,222,.24)'], [0.5, 'rgba(200,202,206,.10)'], [1, 'rgba(180,190,200,0)']]);
+  layer(CONE_HALF * 0.6, 40, [[0, 'rgba(240,236,228,.12)'], [0.16, 'rgba(250,246,238,.36)'], [0.42, 'rgba(225,226,228,.16)'], [1, 'rgba(200,205,210,0)']]);
+  // 젖은 길의 번들거림 — 빛줄기 가운데를 따라 길쭉한 반사 (벽에 막힌 곳까지만)
+  if (texOn()) {
+    const reach = Math.min(range * 0.62, w.ray(p.x, p.y, p.angle, range));
+    const cx = p.x + Math.cos(p.angle) * reach * 0.62, cy = p.y + Math.sin(p.angle) * reach * 0.62;
+    gctx.save(); gctx.translate(cx, cy); gctx.rotate(p.angle);
+    const gr = gctx.createRadialGradient(0, 0, 0, 0, 0, reach * 0.55);
+    gr.addColorStop(0, 'rgba(200,215,230,.16)'); gr.addColorStop(1, 'rgba(200,215,230,0)');
+    gctx.scale(1, 0.22); gctx.fillStyle = gr;
+    gctx.beginPath(); gctx.arc(0, 0, reach * 0.55, 0, 6.283); gctx.fill();
+    gctx.restore();
+  }
+  // 그림자 — 빛을 지운다
+  gctx.globalCompositeOperation = 'destination-out';
+  for (const sh of lightShadows(g, p, w, range)) {
+    const gr = gctx.createLinearGradient(sh.bx, sh.by, sh.ex, sh.ey);
+    gr.addColorStop(0, 'rgba(0,0,0,.92)'); gr.addColorStop(0.7, 'rgba(0,0,0,.6)'); gr.addColorStop(1, 'rgba(0,0,0,0)');
+    gctx.fillStyle = gr; shadowPath(gctx, sh); gctx.fill();
+  }
+  gctx.globalCompositeOperation = 'source-over';
+  ctx.save();
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.globalCompositeOperation = 'lighter';
+  ctx.drawImage(glowCv, 0, 0, view.width, view.height);
+  ctx.restore();
+}
+
 /* 가산 발광 레이어: 불빛의 따뜻함, 눈, 목표 지점 */
 function drawGlow(cam, g, p, w) {
   ctx.save();
@@ -3755,17 +3973,44 @@ function drawGlow(cam, g, p, w) {
 
   const range = p.lightRange;
   if (range > 0) {
-    const poly = liftPoly(w.conePoly(p.x, p.y, p.angle, CONE_HALF * 0.96, range, 64), w, eyeOf(cam));
-    ctx.beginPath();
-    ctx.moveTo(poly[0], poly[1]);
-    for (let i = 2; i < poly.length; i += 2) ctx.lineTo(poly[i], poly[i + 1]);
-    ctx.closePath();
-    const gr = ctx.createRadialGradient(p.x, p.y, 8, p.x, p.y, range);
-    // 원작의 손전등은 노랗지 않고 거의 흰빛(밝은 픽셀 평균 RGB ≈ 145,138,138)이다
-    gr.addColorStop(0, 'rgba(236,232,226,.42)');
-    gr.addColorStop(0.45, 'rgba(205,205,208,.17)');
-    gr.addColorStop(1, 'rgba(180,190,200,0)');
-    ctx.fillStyle = gr; ctx.fill();
+    if (SETTINGS.quality === 'low') {
+      const poly = liftPoly(w.conePoly(p.x, p.y, p.angle, CONE_HALF * 0.96, range, 64), w, eyeOf(cam));
+      ctx.beginPath();
+      ctx.moveTo(poly[0], poly[1]);
+      for (let i = 2; i < poly.length; i += 2) ctx.lineTo(poly[i], poly[i + 1]);
+      ctx.closePath();
+      const gr = ctx.createRadialGradient(p.x, p.y, 8, p.x, p.y, range);
+      // 원작의 손전등은 노랗지 않고 거의 흰빛(밝은 픽셀 평균 RGB ≈ 145,138,138)이다
+      gr.addColorStop(0, 'rgba(236,232,226,.42)');
+      gr.addColorStop(0.45, 'rgba(205,205,208,.17)');
+      gr.addColorStop(1, 'rgba(180,190,200,0)');
+      ctx.fillStyle = gr; ctx.fill();
+    } else {
+      ctx.restore();
+      drawBeam(cam, g, p, w, range);
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      worldTransform(ctx, cam);
+    }
+  }
+
+  // 빗방울이 떨어진 자리 — 손전등 빛 안에서만 보이는 작은 물결 (젖은 길)
+  if (range > 0 && SETTINGS.quality !== 'low') {
+    const S = g.splashes || (g.splashes = []), reach = w.ray(p.x, p.y, p.angle, range);
+    for (let i = 0; i < 2; i++) {
+      const a = p.angle + (Math.random() - 0.5) * CONE_HALF * 1.6, d = 30 + Math.random() * Math.min(range * 0.8, reach + 30);
+      S.push({ x: p.x + Math.cos(a) * d, y: p.y + Math.sin(a) * d, t: 0 });
+    }
+    ctx.lineWidth = 0.9;
+    const P1 = new Path2D(), P2 = new Path2D();
+    for (let i = S.length - 1; i >= 0; i--) {
+      const q = S[i]; q.t += 1 / 60;
+      if (q.t > 0.26 || w.solid(q.x, q.y)) { S.splice(i, 1); continue; }
+      const rr = 1 + q.t * 22, P = q.t < 0.1 ? P1 : P2;
+      P.moveTo(q.x + rr, q.y); P.ellipse(q.x, q.y, rr, rr * 0.55, 0, 0, 6.283);
+    }
+    ctx.strokeStyle = 'rgba(210,222,236,.2)'; ctx.stroke(P1);
+    ctx.strokeStyle = 'rgba(210,222,236,.07)'; ctx.stroke(P2);
   }
 
   // 폭발 — 원작 예고편의 노랗고 흰 별 모양 섬광. 짧게 뻗었다가 사그라든다
@@ -3907,23 +4152,32 @@ function drawGlow(cam, g, p, w) {
 }
 
 let rainT = 0;
-function drawRain(g) {
+function drawRain(g, cam, p) {
   const dt = 1 / 60;
   rainT += dt;
   ctx.strokeStyle = 'rgba(180,200,225,1)';
   // 빗줄기는 화면 단위다 — 카메라를 당겨도 굵기 · 길이가 실제 화면에서 같도록 확대만큼 줄인다
   const zk = 1 / ZOOM;
   ctx.lineWidth = Math.max(0.45, 1.1 * zk);
+  // 손전등 빛줄기 안의 빗방울은 반짝인다 — 따로 모아 밝게 한 번 더
+  const range = p && !p.dead ? p.lightRange : 0, ca = Math.cos(p ? p.angle : 0), sa = Math.sin(p ? p.angle : 0), cosH = Math.cos(CONE_HALF);
+  const lit = range > 0 && SETTINGS.quality !== 'low' ? new Path2D() : null;
   ctx.beginPath();
   for (const r of g.rain) {
     r.y += r.v * dt * zk; r.x -= r.v * 0.22 * dt * zk;
     if (r.y > H) { r.y = -20; r.x = Math.random() * (W + 400) - 100; }
     if (r.x < -60) r.x = W + 40;
+    const x2 = r.x - r.len * 0.22 * zk, y2 = r.y + r.len * zk;
+    if (lit) {
+      const dx = cam.x + r.x - p.x, dy = cam.y + y2 / TILT - p.y, d = Math.hypot(dx, dy);
+      if (d < range * 0.85 && d > 20 && (dx * ca + dy * sa) / d > cosH) { lit.moveTo(r.x, r.y); lit.lineTo(x2, y2); continue; }
+    }
     ctx.globalAlpha = r.a;
-    ctx.moveTo(r.x, r.y); ctx.lineTo(r.x - r.len * 0.22 * zk, r.y + r.len * zk);
+    ctx.moveTo(r.x, r.y); ctx.lineTo(x2, y2);
   }
   ctx.stroke();
   ctx.globalAlpha = 1;
+  if (lit) { ctx.strokeStyle = 'rgba(225,232,242,.55)'; ctx.stroke(lit); }
 
   if (g.lightning > 0.01) {
     // 원작의 번개는 화면 전체를 순간적으로 밝힌다(평균 밝기 22 → 120). 섬광을 끈 설정에선 약하게

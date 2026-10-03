@@ -17,7 +17,7 @@ const I18N = (() => {
     '전역 시작': 'Campaign',
     '챕터 선택': 'Chapters',
     '서바이벌': 'Survival',
-    '서바이벌 — 8장 완수 시 개방 ({n}/{t})': 'Survival — unlocks after chapter 8 ({n}/{t})',
+    '서바이벌 — 9장 완수 시 개방 ({n}/{t})': 'Survival — unlocks after chapter 9 ({n}/{t})',
     '기록 보관함': 'Records', '기록 보관함 {n}/{t}': 'Records {n}/{t}',
     '조작법': 'Controls',
     '설정': 'Settings',
@@ -27,7 +27,7 @@ const I18N = (() => {
     '{m}분 {s}초': '{m}m {s}s',
     '잠김': 'Locked',
     '클리어': 'Cleared',
-    '서울': 'Seoul', '도쿄': 'Tokyo', '방콕': 'Bangkok', '싱가포르': 'Singapore', '싱가포르강': 'Singapore River',
+    '서울': 'Seoul', '도쿄': 'Tokyo', '방콕': 'Bangkok', '싱가포르': 'Singapore', '싱가포르강': 'Singapore River', '대피 기지': 'Evac Base', '한강 하구': 'Han Estuary', '대피 기지 본영': 'Base HQ',
     '대피 검문소': 'Evacuation Checkpoint', '화물 철로': 'Freight Yard', '주유소': 'Gas Station',
     '호커 센터': 'Hawker Centre', '수직 정원': 'Vertical Garden', '항만': 'Container Port',
     '항만 · 수직 정원 · 호커 센터 · 싱가포르강': 'Container Port · Vertical Garden · Hawker Centre · Singapore River',
@@ -56,6 +56,12 @@ const I18N = (() => {
     '배는 한강 건너 선착장에 있다. 다리 위에는 버려진 차들뿐. 하루가 경고했다 — 느린 것들만 있는 게 아니라고. 어떤 것은 뛰고, 어떤 것은 바닥을 기어 불빛 아래로 들어오기 전까지 보이지 않는다.':
       'The boat is at a pier across the Han. Only abandoned cars on the bridge. Haru warned you — they aren\'t all slow. Some run, and some crawl along the ground, unseen until they slide under your light.',
     '한강을 건너 집결지까지 돌파': 'Cross the Han and break through to the rally point',
+    '마지막 수송': 'The Last Transport',
+    '김 선장의 어선이 한강 하구의 대피 기지에 닿았다. 바다를 건너기엔 기름이 모자라고, 기지의 연료고는 잠겨 있다. 출입 카드 세 장이 막사와 창고에 흩어져 있다. 대피를 지휘하던 곳이다 — 무엇이 이곳을 끝냈는지는 곧 보게 된다.':
+      'Captain Kim\'s boat put in at the evacuation base on the Han estuary. There isn\'t enough fuel to cross the sea, and the base depot is locked. Three key cards are scattered through the barracks and sheds. This is where the evacuation was run from — you\'re about to see what ended it.',
+    '출입 카드 3장 확보': 'Find 3 key cards',
+    '본영 헬기장으로 이동': 'Head to the helipad at HQ',
+    '출입 카드': 'Key card',
     '발전소 구역': 'The Generator',
     '도쿄. 배는 스미다강 하구에 닿았다. 하루의 무선국은 아사쿠사의 셔터 내린 전파상 안에 있다. 발전기 연료가 떨어져 송신이 곧 끊긴다. 연료통 네 개. 발전기 소음은 저들을 부를 것이다.':
       'Tokyo. The boat made the mouth of the Sumida. Haru\'s station is inside a shuttered electronics shop in Asakusa. The generator is out of fuel and the signal is about to die. Four fuel cans. The generator\'s noise will call them in.',
@@ -239,7 +245,7 @@ const I18N = (() => {
     '음량': 'Volume', '밝기': 'Brightness',
     '밤의 어둠 농도. 화면이 너무 어둡거나 밝은 곳에서 하면 조절하세요.': 'How dark the night is. Adjust if your screen is too dark or you\'re playing somewhere bright.',
     '터치 조준': 'Touch aim', '자동 조준': 'Auto-aim', '조준 스틱': 'Aim stick', '회전(원작)': 'Turn (original)', '드래그': 'Drag',
-    '화질': 'Quality', '자동': 'Auto', '선명하게': 'Sharp', '가볍게': 'Light',
+    '카메라 거리': 'Camera', '가까이': 'Close', '멀리': 'Far', '화질': 'Quality', '자동': 'Auto', '선명하게': 'Sharp', '가볍게': 'Light',
     '자동은 프레임이 떨어지면 그리는 해상도를 스스로 낮추고, 여유가 생기면 다시 올린다. 화면이 큰 기기(레티나 모니터·태블릿)에서 끊기면 가볍게로 두세요.':
       'Auto lowers the render resolution when frames drop and raises it again when there\'s room. If it stutters on a big screen (Retina display, tablet), choose Light.',
     'FPS 표시': 'Show FPS', '손전등 방향': 'Flashlight aim', '마우스': 'Mouse',

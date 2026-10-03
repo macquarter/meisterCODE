@@ -11,6 +11,7 @@ const THEMES = {
     signCols: ['#4fc3f7', '#ff6f61', '#ffd54f', '#81c784', '#ba68c8', '#ff8a65'],
     carCols: ['#d9822b', '#c7c9cc', '#2f4a63', '#3a3d42', '#5c2c28', '#e0e0e0'],   // 주황 택시가 섞인다
     busCol: '#2f7d4f', small: null,
+    walls: [['#5a2f26', 1], ['#4c3024', 1], ['#46423c', 0], ['#3a3d40', 0], ['#5b5446', 0], ['#61372b', 1]],
     roofs: ['#1b2129', '#181d24', '#1f252d', '#22262b'],
     streetDecor: ['parasol', 'bin']
   },
@@ -20,6 +21,7 @@ const THEMES = {
     signCols: ['#ff5252', '#ffeb3b', '#40c4ff', '#69f0ae', '#ff80ab', '#ffffff'],
     carCols: ['#1d1f24', '#c9ccd1', '#3b4a5c', '#7a1f1f', '#d8d2c4', '#2d3a2e'],    // 검은 택시
     busCol: '#c8d3db', small: null,
+    walls: [['#57534a', 0], ['#4a4c4e', 0], ['#3d4044', 0], ['#5e3a2e', 1], ['#625c50', 0], ['#454038', 0]],
     roofs: ['#1c1f26', '#1a1d23', '#20232b', '#191b20'],
     streetDecor: ['vending', 'vending', 'bike', 'bin']
   },
@@ -29,6 +31,7 @@ const THEMES = {
     signCols: ['#ffca28', '#ff7043', '#26c6da', '#ec407a', '#9ccc65', '#ffffff'],
     carCols: ['#e85d75', '#3e8e41', '#d9c13b', '#2f4a63', '#c9ccd1', '#5a3e2b'],    // 분홍·초록 택시
     busCol: '#b5452d', small: 'tuktuk',
+    walls: [['#5c5440', 0], ['#4e5a52', 0], ['#5a3c33', 1], ['#5e4a3c', 0], ['#4a4438', 0], ['#5b5e55', 0]],
     roofs: ['#211d1b', '#1d1b1a', '#24201c', '#1b1a19'],
     streetDecor: ['cart', 'shrine', 'bin']
   },
@@ -38,8 +41,22 @@ const THEMES = {
     signCols: ['#4dd0e1', '#ff8a65', '#ffee58', '#a5d6a7', '#f48fb1', '#ffffff'],
     carCols: ['#2f6fb5', '#c9ccd1', '#1d1f24', '#e2c13a', '#8b2b2b', '#3e8e41'],   // 파란 택시
     busCol: '#6b2f7a', small: null,
+    walls: [['#5e5640', 0], ['#4b5a5e', 0], ['#5c3e3a', 0], ['#5a3328', 1], ['#545a4a', 0], ['#4e4652', 0]],
     roofs: ['#1c2125', '#1a1f22', '#20262a', '#1b2023'],
     streetDecor: ['parasol', 'bike', 'vending', 'bin']
+  }
+  ,
+  /* 한강 하구의 군 대피 기지 — 대피를 지휘하던 곳. 붉은 벽돌 막사와 창고, 군용차가 도로를 메운다.
+     군용차 · 컨테이너 · 철망은 이 챕터에만 둔다 (도시 챕터는 도시답게) */
+  base: {
+    key: 'base', name: '대피 기지', river: '한강 하구', military: true,
+    signs: ['막사', '보급', '정비', '식당', 'PX', '의무대', '통신', '탄약고', '본부', '창고', '세탁', '대기소'],
+    signCols: ['#c9b26a', '#9fb88a', '#d0d0c8', '#c98a5a', '#8ab0c0', '#e0d8b0'],
+    carCols: ['#4a5236', '#5b5a3c', '#8a7a5a', '#3e4430', '#6a6a5a', '#c7c9cc'],
+    busCol: '#4a5236', small: null,
+    walls: [['#5a2f26', 1], ['#61372b', 1], ['#553026', 1], ['#4f4a3c', 0], ['#46423c', 0], ['#5b5446', 0]],
+    roofs: ['#232620', '#1f221d', '#262920', '#1c1e1a'],
+    streetDecor: ['bin']
   }
 };
 
@@ -186,6 +203,32 @@ const LANDMARKS = {
       const runs = [[x0, y0, 11, 1], [x0, y0 + 1, 1, 8], [x0 + 10, y0 + 1, 1, 8], [x0 + 1, y0 + 8, 3, 1], [x0 + 7, y0 + 8, 3, 1]];
       return { kind: 'checkpoint', x: x0, y: y0, w: 11, h: 9, rally: { tx: x0 + 5, ty: y0 + 5 }, bags, runs, cabins,
         tent: { x: x0 + 7, y: y0 + 3 }, pole: [x0 + 5.5, y0 + 1.5], blocks: [[x0 + 3, y0 + 7], [x0 + 7, y0 + 7]] };
+    }
+  },
+  /* 대피 기지 본영 — 철망 울타리 안에 겹겹이 쌓인 컨테이너, 조립식 막사, 헬기장, 군용차와 트럭.
+     북쪽과 양옆은 철망(빛과 총알은 지나가고 사람은 못 지나간다), 남쪽 가운데가 정문. 집결지는 헬기장 */
+  evacbase: {
+    name: '대피 기지 본영', w: 13, h: 11, ground: D_ASPHALT,
+    stamp(wd, x0, y0, rng) {
+      const fence = (x, y, w, h) => wd.fill(x, y, w, h, T_WATER, D_LANDMARK);
+      fence(x0, y0, 13, 1); fence(x0, y0 + 1, 1, 9); fence(x0 + 12, y0 + 1, 1, 9);
+      // 컨테이너 — [x, y, 길이, 단 수]
+      const boxes = [[1, 1, 2, 2], [1, 3, 2, 1], [10, 1, 2, 2], [10, 3, 2, 2], [4, 1, 2, 1]];
+      for (const [dx, dy, n] of boxes) lmSolid(wd, x0 + dx, y0 + dy, n, 1);
+      const cabins = [[x0 + 7, y0 + 1], [x0 + 1, y0 + 6]];
+      for (const [x, y] of cabins) lmSolid(wd, x, y, 2, 1);
+      lmSolid(wd, x0 + 11, y0 + 6, 1, 1);                                          // 투광등 기둥
+      lmSolid(wd, x0 + 9, y0 + 8, 2, 1);                                           // 천막
+      lmProp(wd, 'humvee', [[x0 + 3, y0 + 4]], { col: '#5b5a3c', w: 42, h: 24, a: (rng() - 0.5) * 0.3 });
+      lmProp(wd, 'mtruck', [[x0 + 7, y0 + 3], [x0 + 8, y0 + 3]], { col: '#4a5236', w: 2 * TILE - 12, h: 30, a: (rng() - 0.5) * 0.12 });
+      lmProp(wd, 'humvee', [[x0 + 10, y0 + 5]], { col: '#8a7a5a', w: 42, h: 24, a: Math.PI / 2 + (rng() - 0.5) * 0.3 });
+      // 정문 양옆 모래주머니
+      const runs = [[x0, y0 + 10, 4, 1], [x0 + 9, y0 + 10, 4, 1]];
+      for (const [x, y, w] of runs) lmSolid(wd, x, y, w, 1);
+      return { kind: 'base', x: x0, y: y0, w: 13, h: 11, rally: { tx: x0 + 6, ty: y0 + 7 },
+        fence: [[x0, y0, 13, 1], [x0, y0 + 1, 1, 9], [x0 + 12, y0 + 1, 1, 9]],
+        boxes: boxes.map(([dx, dy, n, k]) => [x0 + dx, y0 + dy, n, k]), cabins, runs, blocks: [],
+        tent: { x: x0 + 9, y: y0 + 8 }, pole: [x0 + 11.5, y0 + 6.5], pad: [x0 + 6.5, y0 + 7.5] };
     }
   },
   /* 화물 철로 — 블록을 가로지르는 두 가닥 선로와 멈춰 선 화차, 붉은 신호등 */

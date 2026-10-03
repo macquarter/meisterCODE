@@ -30,9 +30,9 @@ const STORY = {
 
   /** 도시가 바뀌는 장 앞의 여정 지도 — 어느 장 앞에서, 어디서 어디로, 어떻게 */
   journey: {
-    3: { from: 'seoul', to: 'tokyo', how: ['김 선장의 어선 · 바다 위의 이틀', 'Captain Kim\'s fishing boat · two days at sea'] },
-    6: { from: 'tokyo', to: 'bangkok', how: ['남쪽으로 가는 화물선 · 엿새', 'A freighter heading south · six days'] },
-    8: { from: 'bangkok', to: 'singapore', how: ['진료소 트럭으로 반도를 따라 · 사흘', 'The clinic\'s truck down the peninsula · three days'] }
+    4: { from: 'seoul', to: 'tokyo', how: ['김 선장의 어선 · 바다 위의 이틀', 'Captain Kim\'s fishing boat · two days at sea'] },
+    7: { from: 'tokyo', to: 'bangkok', how: ['남쪽으로 가는 화물선 · 엿새', 'A freighter heading south · six days'] },
+    9: { from: 'bangkok', to: 'singapore', how: ['진료소 트럭으로 반도를 따라 · 사흘', 'The clinic\'s truck down the peninsula · three days'] }
   },
   /** 지도 위 도시 (경도, 위도) */
   cities: { seoul: [127.0, 37.55], tokyo: [139.7, 35.68], bangkok: [100.5, 13.75], singapore: [103.82, 1.35] },
@@ -66,7 +66,16 @@ const STORY = {
       },
       outro: ['작은 어선이 어둠 속으로 미끄러졌다. 서울의 불 꺼진 윤곽이 빗속에서 지워졌다.', 'A small fishing boat slid into the dark. The unlit outline of Seoul dissolved in the rain.']
     },
-    { // 4 발전소 구역 — 도쿄
+    { // 4 마지막 수송 — 한강 하구의 대피 기지
+      radio: {
+        start: [['haru', '김 선장이 기지 부두에 배를 댔대. 기름을 넣으려면 연료고를 열어야 해. 출입 카드가 막사 어딘가에 있을 거야.', 'Captain Kim tied up at the base pier. To refuel you need the depot open. The key cards should be somewhere in the barracks.']],
+        mid: [['doha', '여기 군인들… 다 저것들이에요. 철모를 쓴 채로.', 'The soldiers here… they\'re all like that. Still wearing their helmets.'],
+              ['haru', '대피를 끝까지 돌리던 사람들이야. …눈 마주치지 마. 그냥 지나가.', 'They kept the evacuation running to the end. …Don\'t look at their faces. Just keep moving.']],
+        done: [['haru', '카드 다 모았으면 본영 헬기장으로. 거기서 연료고가 열려. 김 선장이 시동 걸고 있어.', 'If you have all the cards, go to the helipad at headquarters. The depot opens from there. Kim\'s starting the engine.']]
+      },
+      outro: ['연료고 문이 열렸다. 기지 게시판의 마지막 공지는 손글씨였다 — "22시 수송 취소. 남은 인원은 각자 남쪽으로."', 'The depot door opened. The last notice on the base board was handwritten: "22:00 transport cancelled. Everyone left, head south on your own."']
+    },
+    { // 5 발전소 구역 — 도쿄
       radio: {
         start: [['haru', '도착했구나. 진짜로 왔어. …미안, 반가워서. 연료통 네 개만 부탁해. 송신기가 곧 꺼져.', 'You made it. You actually came. …Sorry, I\'m just glad. Four fuel cans, please. The transmitter\'s about to die.']],
         mid: [['haru', '두 개! 송신기 바늘이 살아나고 있어.', 'Two! The needle on the transmitter is coming back.']],
@@ -74,7 +83,7 @@ const STORY = {
       },
       outro: ['하루는 생각보다 어렸다. 벽에는 몇 주간 교신한 사람들의 이름이 빼곡했고, 절반에는 줄이 그어져 있었다.', 'Haru was younger than the voice. The wall was covered with names from weeks of calls. Half of them were crossed out.']
     },
-    { // 5 버텨라
+    { // 6 버텨라
       radio: {
         start: [['haru', '차단문 여는 중. 90초만 버텨. 나는 여기서 다 보고 있어.', 'Opening the gate. Hold out for ninety seconds. I can see everything from here.']],
         mid: [['haru', '절반 지났어. 숨 쉬어. 쏘는 건 그다음이야.', 'Halfway. Breathe. Shooting comes second.']],
@@ -82,7 +91,7 @@ const STORY = {
       },
       outro: ['차단문 너머에서 화물선의 기적이 울렸다. 남쪽으로 가는 배였다. 출항은 내일 밤.', 'Past the gate a freighter sounded its horn. It was bound south. It sails tomorrow night.']
     },
-    { // 6 거대한 것
+    { // 7 거대한 것
       radio: {
         start: [['haru', '타워 주변을 비워 줘. 내가 올라가서 안테나만 걸면, 내 목소리가 남쪽 끝까지 닿아.', 'Clear the area around the tower. If I can hang the antenna up top, my voice reaches all the way south.']],
         mid: [['haru', '큰 거 조심해! 붙지 말고, 돌면서 쏴.', 'Watch the big one! Don\'t let it close in. Circle and shoot.']],
@@ -90,7 +99,7 @@ const STORY = {
       },
       outro: ['화물선이 부두를 떠났다. 무전기 속 하루의 목소리가 작아지다가, 다시 또렷해졌다. "들려? 계속 말할게."', 'The freighter left the dock. Haru\'s voice faded on the radio, then came back clear. "Hear me? I\'ll keep talking."']
     },
-    { // 7 정전 — 방콕
+    { // 8 정전 — 방콕
       radio: {
         start: [['nok', '하루가 말한 서울 사람? 저는 녹, 강 건너 진료소 간호사예요. 배터리 다섯 개만요. 우리 손전등도 거의 꺼졌어요.', 'The one from Seoul Haru told me about? I\'m Nok, a nurse at the clinic across the river. Five batteries, please. Our flashlights are nearly dead too.']],
         mid: [['nok', '반 넘었어요. 시장 한가운데는 피해요. 거긴 소리가 너무 울려요.', 'More than halfway. Stay out of the middle of the market. Sound carries there.']],
@@ -98,7 +107,7 @@ const STORY = {
       },
       outro: ['녹이 강 건너에서 손전등을 세 번 깜빡였다. 도하도 세 번 깜빡여 답했다.', 'Across the river, Nok blinked a flashlight three times. Doha blinked back three.']
     },
-    { // 8 기다리는 것
+    { // 9 기다리는 것
       radio: {
         start: [['nok', '그게 다리를 막고 있어요. 며칠째 그 자리에서 움직이질 않아요. 소리를 기다리는 것 같아요.', 'It\'s blocking the bridge. It hasn\'t moved from that spot in days. Like it\'s waiting for a sound.']],
         mid: [['nok', '흔들려요! 조금만 더!', 'It\'s staggering! A little more!']],
@@ -106,7 +115,7 @@ const STORY = {
       },
       outro: ['진료소에는 열두 명이 있었다. 녹이 지도를 펼쳤다. 남쪽 끝 싱가포르, 새벽호. 사흘 뒤 마지막으로 떠난다.', 'Twelve people were at the clinic. Nok spread out a map. The far south: Singapore, the ship Dawn. It leaves for the last time in three days.']
     },
-    { // 9 남쪽의 신호 — 싱가포르
+    { // 10 남쪽의 신호 — 싱가포르
       radio: {
         start: [['nok', '중계기는 켜지는 데 시간이 걸려요. 그동안 곁을 떠나면 안 돼요. 소리가 나니까 몰려올 거예요.', 'The relays take time to power up. Don\'t leave their side while they do. They make noise, so expect company.']],
         mid: [['haru', '…도하? 도하 맞지? 잡음 너머로 들려!', '…Doha? Is that you? I can hear you through the static!']],
@@ -115,7 +124,7 @@ const STORY = {
       },
       outro: ['새벽호의 선장은 메이라고 했다. 무전 너머로 엔진 예열 소리가 들렸다.', 'The Dawn\'s captain said her name was May. Behind her voice, engines were warming up.']
     },
-    { // 10 새벽호
+    { // 11 새벽호
       radio: {
         start: [['may', '접안 준비 중입니다. 부두에 닿으면 알려요.', 'Preparing to dock. Tell me when you reach the pier.']],
         hold: [['may', '보입니다. 접안까지 60초. 갑판에서 보급품을 던질게요. 그 자리를 지켜요.', 'I see you. Sixty seconds to dock. We\'re throwing supplies down from the deck. Hold that position.'],
@@ -141,17 +150,18 @@ const STORY = {
   achievements: [
     { id: 'night1',   t: ['첫 밤을 넘기다', 'Through the First Night'], d: ['1장을 마친다', 'Finish chapter 1'] },
     { id: 'seoul',    t: ['서울을 떠나다', 'Leaving Seoul'], d: ['3장을 마친다', 'Finish chapter 3'] },
-    { id: 'tokyo',    t: ['계속 말할게', 'I\'ll Keep Talking'], d: ['6장을 마친다', 'Finish chapter 6'] },
-    { id: 'bangkok',  t: ['세 번 깜빡임', 'Three Blinks'], d: ['8장을 마친다', 'Finish chapter 8'] },
-    { id: 'dawn',     t: ['새벽호', 'The Dawn'], d: ['10장을 마치고 배에 오른다', 'Finish chapter 10 and board the ship'] },
-    { id: 'harddawn', t: ['절멸의 밤', 'Night of Extinction'], d: ['절멸 난이도로 10장을 마친다', 'Finish chapter 10 on the hardest difficulty'] },
+    { id: 'camp',     t: ['마지막 수송', 'The Last Transport'], d: ['4장을 마친다', 'Finish chapter 4'] },
+    { id: 'tokyo',    t: ['계속 말할게', 'I\'ll Keep Talking'], d: ['7장을 마친다', 'Finish chapter 7'] },
+    { id: 'bangkok',  t: ['세 번 깜빡임', 'Three Blinks'], d: ['9장을 마친다', 'Finish chapter 9'] },
+    { id: 'dawn',     t: ['새벽호', 'The Dawn'], d: ['11장을 마치고 배에 오른다', 'Finish chapter 11 and board the ship'] },
+    { id: 'harddawn', t: ['절멸의 밤', 'Night of Extinction'], d: ['절멸 난이도로 11장을 마친다', 'Finish chapter 11 on the hardest difficulty'] },
     { id: 'gradeS',   t: ['흠잡을 데 없이', 'Flawless'], d: ['어느 챕터에서든 S 평가', 'Earn an S grade in any chapter'] },
     { id: 'untouched',t: ['털끝 하나', 'Not a Scratch'], d: ['피해를 받지 않고 챕터를 마친다', 'Finish a chapter without taking damage'] },
     { id: 'pistol',   t: ['권총 한 자루', 'Just a Pistol'], d: ['1장을 권총만 쏘며 마친다', 'Finish chapter 1 firing only the pistol'] },
-    { id: 'hush',     t: ['쉿', 'Hush'], d: ['우는 것을 한 번도 깨우지 않고 7장을 마친다', 'Finish chapter 7 without waking a Weeper'] },
-    { id: 'clean',    t: ['한 번에', 'In One Go'], d: ['9장이나 10장을 체크포인트 없이 마친다', 'Finish chapter 9 or 10 without using a checkpoint'] },
+    { id: 'hush',     t: ['쉿', 'Hush'], d: ['우는 것을 한 번도 깨우지 않고 8장을 마친다', 'Finish chapter 8 without waking a Weeper'] },
+    { id: 'clean',    t: ['한 번에', 'In One Go'], d: ['10장이나 11장을 체크포인트 없이 마친다', 'Finish chapter 10 or 11 without using a checkpoint'] },
     { id: 'rec10',    t: ['주워 읽는 사람', 'Reader'], d: ['기록 10장을 찾는다', 'Find 10 records'] },
-    { id: 'rec20',    t: ['남겨진 기록', 'Everything Left Behind'], d: ['기록 20장을 모두 찾는다', 'Find all 20 records'] },
+    { id: 'rec20',    t: ['남겨진 기록', 'Everything Left Behind'], d: ['기록 22장을 모두 찾는다', 'Find all 22 records'] },
     { id: 'surv10',   t: ['도시의 주인', 'Owner of the City'], d: ['서바이벌에서 10분을 버틴다', 'Last 10 minutes in Survival'] },
     { id: 'cities',   t: ['네 도시의 밤', 'Four Cities, Four Nights'], d: ['네 도시 모두 서바이벌에서 3분을 버틴다', 'Last 3 minutes in Survival in all four cities'] },
     { id: 'gold1',    t: ['첫 금메달', 'First Gold'], d: ['도전에서 금메달을 딴다', 'Earn a gold medal in a challenge'] },
@@ -159,7 +169,7 @@ const STORY = {
     { id: 'k1000',    t: ['천 번의 밤', 'A Thousand Nights'], d: ['감염체를 모두 합쳐 1,000기 처치한다', 'Kill 1,000 infected in total'] }
   ],
 
-  /** 기록 — 챕터마다 둘. 길에 떨어진 종이를 밟아 줍는다 */
+  /** 기록 — 챕터마다 둘. 길에 떨어진 종이를 밟아 줍는다. id 는 저장 열쇠라 챕터가 끼어들어도 바꾸지 않는다 */
   records: [
     { id: 'c1a', ch: 0, title: ['대피 안내문', 'Evacuation notice'],
       text: ['[긴급] 종로구 주민은 광화문 집결지로. 1인 가방 1개. 반려동물 동반 불가. 22시 이후 추가 수송 없음.', '[URGENT] Jongno residents to the Gwanghwamun rally point. One bag per person. No pets. No further transport after 22:00.'] },
@@ -173,33 +183,37 @@ const STORY = {
       text: ['기름 떨어짐. 걸어서 건넙니다. 이 차 쓰실 분, 열쇠는 햇빛 가리개 뒤.', 'Out of gas. Crossing on foot. If you need this car, the key is behind the sun visor.'] },
     { id: 'c3b', ch: 2, title: ['선착장 화이트보드', 'Pier whiteboard'],
       text: ['김 선장 — 23시, 03시 운항. 자리 없으면 지붕에라도. 이름 적고 갈 것. (아래로 이름이 마흔 줄 넘게 이어진다)', 'Capt. Kim — runs at 23:00 and 03:00. No seats? Ride on the roof. Write your name before you go. (Over forty names follow.)'] },
-    { id: 'c4a', ch: 3, title: ['하루의 교신 일지', 'Haru\'s radio log'],
+    { id: 'cba', ch: 3, title: ['작전 일지', 'Operations log'],
+      text: ['D+0 21:40. 수송 차량 일곱 대 중 두 대 귀환. 집결지 인원 통제 불가. 정문 폐쇄 명령 — 거부함.', 'D+0 21:40. Two of seven transports returned. Rally point beyond control. Ordered to close the gate. Refused.'] },
+    { id: 'cbb', ch: 3, title: ['철망의 인식표', 'Tags on the fence'],
+      text: ['이름이 새겨진 인식표 열한 개가 철망에 묶여 있다. 그 아래 분필 글씨 — "먼저 간다. 미안하다."', 'Eleven name tags tied to the fence. Below them, in chalk: "Going ahead. Sorry."'] },
+    { id: 'c4a', ch: 4, title: ['하루의 교신 일지', 'Haru\'s radio log'],
       text: ['D+11. 오늘 교신 4명. 오사카 1, 나고야 2, 요코하마 1. 서울은 아직 0.', 'D+11. Four contacts today. Osaka 1, Nagoya 2, Yokohama 1. Seoul still 0.'] },
-    { id: 'c4b', ch: 3, title: ['셔터의 낙서', 'Graffiti on a shutter'],
+    { id: 'c4b', ch: 4, title: ['셔터의 낙서', 'Graffiti on a shutter'],
       text: ['안에 사람 있음. 문 두드리지 말고 무전 9번으로.', 'Someone inside. Don\'t knock. Use radio channel 9.'] },
-    { id: 'c5a', ch: 4, title: ['전광판 기록', 'Billboard log'],
+    { id: 'c5a', ch: 5, title: ['전광판 기록', 'Billboard log'],
       text: ['SYSTEM: 공공 안내 송출 실패 3,214회. 재시도 대기 중.', 'SYSTEM: Public notice broadcast failed 3,214 times. Waiting to retry.'] },
-    { id: 'c5b', ch: 4, title: ['찢어진 전단', 'Torn flyer'],
+    { id: 'c5b', ch: 5, title: ['찢어진 전단', 'Torn flyer'],
       text: ['남쪽으로 가는 배가 있다. 싱가포르, 3번 부두. 믿을지는 당신 몫.', 'There is a ship going south. Singapore, Pier 3. Believe it or don\'t.'] },
-    { id: 'c6a', ch: 5, title: ['공원 관리소 기록', 'Park office report'],
+    { id: 'c6a', ch: 6, title: ['공원 관리소 기록', 'Park office report'],
       text: ['큰 개체 목격. 키 3미터 이상. 총소리를 향해 움직임. 소리가 클수록 빨라짐.', 'Large one sighted. Over three meters tall. Moves toward gunfire. The louder, the faster.'] },
-    { id: 'c6b', ch: 5, title: ['하루의 메모', 'Haru\'s note'],
+    { id: 'c6b', ch: 6, title: ['하루의 메모', 'Haru\'s note'],
       text: ['도하에게. 안테나 고정 볼트는 오른쪽 주머니에. 내가 못 내려오면 그냥 가.', 'To Doha. The antenna bolts are in the right pocket. If I don\'t come down, just go.'] },
-    { id: 'c7a', ch: 6, title: ['노점 장부', 'Stall ledger'],
+    { id: 'c7a', ch: 7, title: ['노점 장부', 'Stall ledger'],
       text: ['망고 찹쌀밥 12. 외상 3. 다들 돌아오면 받기로.', 'Mango sticky rice: 12. On credit: 3. Collect when everyone gets back.'] },
-    { id: 'c7b', ch: 6, title: ['진료소 공지', 'Clinic notice'],
+    { id: 'c7b', ch: 7, title: ['진료소 공지', 'Clinic notice'],
       text: ['발열 환자는 북쪽 구역. 물린 자국이 있으면 솔직하게 말할 것. 우리는 내쫓지 않음.', 'Fever patients to the north wing. If you\'ve been bitten, tell us honestly. We won\'t turn you away.'] },
-    { id: 'c8a', ch: 7, title: ['녹의 근무표', 'Nok\'s rota'],
+    { id: 'c8a', ch: 8, title: ['녹의 근무표', 'Nok\'s rota'],
       text: ['녹: 야간 / 녹: 야간 / 녹: 야간. 다른 칸의 이름은 모두 지워져 있다.', 'Nok: night / Nok: night / Nok: night. Every other name has been erased.'] },
-    { id: 'c8b', ch: 7, title: ['초소 무전 기록', 'Checkpoint radio log'],
+    { id: 'c8b', ch: 8, title: ['초소 무전 기록', 'Checkpoint radio log'],
       text: ['…그건 다리 앞에서 멈췄다. 사람 소리를 기다리는 것 같다. 교대 인원 없음. 반복, 교대 인원 없음…', '…it stopped at the foot of the bridge. Seems to be waiting for human sounds. No relief. Repeat, no relief…'] },
-    { id: 'c9a', ch: 8, title: ['중계기 점검표', 'Relay checklist'],
+    { id: 'c9a', ch: 9, title: ['중계기 점검표', 'Relay checklist'],
       text: ['비상 중계망 3/3 정상. 점검자 서명 없음. 날짜는 대피 전날.', 'Emergency relay network 3/3 nominal. No inspector signature. Dated the day before the evacuation.'] },
-    { id: 'c9b', ch: 8, title: ['쟁반 밑 편지', 'Letter under a tray'],
+    { id: 'c9b', ch: 9, title: ['쟁반 밑 편지', 'Letter under a tray'],
       text: ['아빠, 새벽호 타. 우리 먼저 가 있을게. 리본 단 가방 찾아.', 'Dad, get on the Dawn. We went ahead. Look for the bag with the ribbon.'] },
-    { id: 'c10a', ch: 9, title: ['새벽호 승선 명단', 'Dawn passenger list'],
+    { id: 'c10a', ch: 10, title: ['새벽호 승선 명단', 'Dawn passenger list'],
       text: ['총 311명. 마지막 줄은 비어 있다. 누군가 연필로 적어 두었다 — "한 명 더."', '311 in total. The last line is blank. Someone wrote in pencil: "One more."'] },
-    { id: 'c10b', ch: 9, title: ['메이의 항해 일지', 'May\'s logbook'],
+    { id: 'c10b', ch: 10, title: ['메이의 항해 일지', 'May\'s logbook'],
       text: ['출항 예정 05:00. 하루라는 무선사가 계속 기다려 달라고 한다. 5분만 더 기다리기로 한다.', 'Departure 05:00. A radio operator called Haru keeps asking us to wait. Decided to wait five more minutes.'] }
   ]
 };

@@ -50,6 +50,7 @@
       <svg viewBox="0 0 40 40"><path d="M20 4 L30 30 L20 24 L10 30 Z"/></svg>
       <em id="hudDistance">0m</em>
     </div>
+    <div class="hud__meter" id="hudMeter" aria-hidden="true">0m</div>
 
     <div class="hud__bottom">
       <div class="gauge gauge--health">
@@ -67,11 +68,13 @@
       <div class="ammo">
         <div class="ammo__slots" id="hudSlots"></div>
         <div class="ammo__gun">
+          <svg class="ammo__icon" id="hudGunIcon" viewBox="0 0 64 20" aria-hidden="true"><path d=""/></svg>
           <div class="ammo__rounds"><b id="hudAmmo">30</b><em id="hudReserve">/ 120</em></div>
+          <div class="ammo__pips" aria-hidden="true"><i id="hudPips"></i></div>
           <span id="hudWeapon">SMG</span>
           <div class="ammo__reload"><i id="hudReloadBar" style="width:0%"></i></div>
         </div>
-        <div class="ammo__nade"><b id="hudNades">3</b><span>수류탄</span></div>
+        <div class="ammo__nade"><svg class="ammo__nadeIcon" viewBox="0 0 20 24" aria-hidden="true"><path d="M8 2h5v3h3l1 2h-3v1.2A7.5 7.5 0 1 1 6 8.2V7H4l1-2h3z"/></svg><b id="hudNades">3</b><span>수류탄</span></div>
       </div>
     </div>
 
@@ -290,6 +293,14 @@
             <b>조준 스틱</b>은 민 방향을 바로 비추는 트윈 스틱. <b>회전</b>은 원작처럼 좌우로 민 만큼 돈다.
             어느 방식이든 왼쪽 화면 아무 데나 누르면 그 자리에 이동 스틱이 생긴다.</p>
 
+          <div class="set__row set__row--stack">
+            <div class="set__label">카메라 거리</div>
+            <div class="seg" id="setCam">
+              <button type="button" data-set="cam" data-val="near">가까이</button>
+              <button type="button" data-set="cam" data-val="mid">보통</button>
+              <button type="button" data-set="cam" data-val="far">멀리</button>
+            </div>
+          </div>
           <div class="set__row set__row--stack">
             <div class="set__label">화질</div>
             <div class="seg" id="setQuality">

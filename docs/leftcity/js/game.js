@@ -22,6 +22,8 @@ const mctx = mask.getContext('2d');
    잡고 그보다 크면 확대한다(최대 2배). 그래서 1080p·1440p 에서도 보이는 도시의 넓이가 비슷하다.
    W · H 는 '논리 화면'(세계를 그리는 단위)이고, DEV 는 기기 배율, DPR = DEV × ZOOM 이 캔버스 배율이다. */
 let W = 0, H = 0, DPR = 1, MDPR = 0.5, DEV = 1, ZOOM = 1, HUDZ = 1;
+/** 카메라 거리별로 보이는 '논리 화면'의 높이 · 너비 목표 (세계 단위) */
+const CAM_VIEW = { near: [470, 780], mid: [600, 980], far: [800, 1280] };
 const BUDGET = { high: 3.6e6, auto: 2.2e6, low: 0.85e6 };
 const RES = { max: 1, ema: 16.7, holdT: 0, okT: 0, ceil: 9 };
 function maxDPR() {
@@ -39,10 +41,14 @@ function applyScale(s) {
   mctx.setTransform(MDPR, 0, 0, MDPR, 0, 0);
 }
 function resize() {
-  ZOOM = Math.max(1, Math.min(2, window.innerHeight / 800));
+  // 카메라 거리 — 원작 예고편처럼 사람이 크게 보이도록 '가까이'가 기본. 보이는 세계의 높이 · 너비 목표를
+  // 정하고 둘 중 더 좁게 잡히는 쪽에 맞춘다(세로 휴대폰이 너무 좁아지지 않게). 1배 밑으로는 줄이지 않는다
+  const [th, tw] = CAM_VIEW[SETTINGS.cam] || CAM_VIEW.near;
+  ZOOM = Math.max(1, Math.min(3.2, window.innerHeight / th, window.innerWidth / tw));
   W = window.innerWidth / ZOOM; H = window.innerHeight / ZOOM;
-  // 글자 · HUD 도 큰 화면에서는 함께 키운다(데스크톱만 — 터치는 손가락 크기가 기준)
-  HUDZ = matchMedia('(hover:none) and (pointer:coarse)').matches ? 1 : Math.max(1, Math.min(1.5, 1 + (ZOOM - 1) * 0.8));
+  // 글자 · HUD 도 큰 화면에서는 함께 키운다(데스크톱만 — 터치는 손가락 크기가 기준). 카메라 거리와는 따로
+  const sz = Math.max(1, Math.min(2, window.innerHeight / 800));
+  HUDZ = matchMedia('(hover:none) and (pointer:coarse)').matches ? 1 : Math.max(1, Math.min(1.5, 1 + (sz - 1) * 0.8));
   document.documentElement.style.setProperty('--hudz', HUDZ);
   RES.max = maxDPR(); RES.ceil = 9; RES.holdT = 1;
   applyScale(RES.max);
@@ -72,7 +78,7 @@ resize();
 document.addEventListener('visibilitychange', () => {
   if (document.hidden && typeof G !== 'undefined' && G.state === 'play') G.togglePause();
 });
-SETTINGS.onChange(k => { if (k === 'quality' || k === null) resize(); });
+SETTINGS.onChange(k => { if (k === 'quality' || k === 'cam' || k === null) resize(); });
 /* 언어 — 고정 문구를 바꾸고, 지금 열린 화면을 새 언어로 다시 그린다 */
 I18N.set(SETTINGS.lang);
 document.addEventListener('DOMContentLoaded', () => I18N.apply());
@@ -658,14 +664,14 @@ const Ach = {
     }
     if (!won) return;
     const i = g.levelIndex;
-    const byCh = { 0: 'night1', 2: 'seoul', 5: 'tokyo', 7: 'bangkok', 9: 'dawn' };
+    const byCh = { 0: 'night1', 2: 'seoul', 3: 'camp', 6: 'tokyo', 8: 'bangkok', 10: 'dawn' };
     if (byCh[i]) this.unlock(byCh[i]);
-    if (i === 9 && g.difficulty === 'hard') this.unlock('harddawn');
+    if (i === 10 && g.difficulty === 'hard') this.unlock('harddawn');
     if (grade === 'S') this.unlock('gradeS');
     if (g.player.dmgTaken <= 0) this.unlock('untouched');
     if (i === 0 && !g.nonPistol) this.unlock('pistol');
-    if (i === 6 && !g.weeperWoke) this.unlock('hush');
-    if ((i === 8 || i === 9) && !g.fromCheckpoint) this.unlock('clean');
+    if (i === 7 && !g.weeperWoke) this.unlock('hush');
+    if ((i === 9 || i === 10) && !g.fromCheckpoint) this.unlock('clean');
   },
   onRecord() {
     const n = Records.all().length;
@@ -704,8 +710,8 @@ function worldTransform(c, cam, s = DPR) { c.setTransform(s, 0, 0, s * TILT, -ca
 function screenTransform(c, cam) { c.setTransform(DPR, 0, 0, DPR, -cam.x * DPR, -cam.y * DPR * TILT); }
 
 const SPITTER_CAP = 2;
-const SURVIVAL_UNLOCK = 8;
-const CITY_NAME = { seoul: '서울', tokyo: '도쿄', bangkok: '방콕', singapore: '싱가포르' };
+const SURVIVAL_UNLOCK = 9;
+const CITY_NAME = { seoul: '서울', tokyo: '도쿄', bangkok: '방콕', singapore: '싱가포르', base: '대피 기지' };
 /** 처음 손전등이 벽이 아니라 갈 길을 비추도록 — 출구 쪽으로 몇 칸 따라간 곳과 트인 거리를 함께 본다 */
 function openingAngle(w, p) {
   let tx = Math.floor(p.x / TILE), ty = Math.floor(p.y / TILE);
@@ -755,8 +761,20 @@ const G = {
   toastT: 0,
 
   /* ── 진행도 저장 ── */
+  /** 저장 배치 판 — 2 부터 4장(대피 기지)이 끼어들었다. 예전 저장의 4장 이후 진행 · 평가 · 체크포인트를 한 칸씩 민다 */
+  migrateSaves() {
+    try {
+      if ((+localStorage.getItem('aftermath.layout') || 1) >= 2) return;
+      const pr = +(localStorage.getItem('aftermath.progress') || 0);
+      if (pr > 3) localStorage.setItem('aftermath.progress', pr + 1);
+      const gr = JSON.parse(localStorage.getItem('aftermath.grades') || '{}'), out = {};
+      for (const k in gr) out[+k >= 3 ? +k + 1 : k] = gr[k];
+      localStorage.setItem('aftermath.grades', JSON.stringify(out));
+      localStorage.setItem('aftermath.layout', '2');
+    } catch (e) { /* 저장 불가 — 그대로 둔다 */ }
+  },
   progress() { return +(localStorage.getItem('aftermath.progress') || 0); },
-  // 서바이벌은 방콕(8장)까지 마치면 열린다 — 싱가포르 장이 더해지기 전의 저장과 맞춘다
+  // 서바이벌은 방콕(9장)까지 마치면 열린다
   survivalOpen() { return this.progress() >= SURVIVAL_UNLOCK || this.bestSurvival() > 0; },
   saveProgress(i) {
     if (i > this.progress()) localStorage.setItem('aftermath.progress', i);
@@ -823,6 +841,7 @@ const G = {
     this.combo = 0; this.comboMax = 0; this.lastKillT = -9; this.chHordeT = C && C.rules && C.rules.hordeEvery ? 6 : 0;
     this.level = L;
     this.world = new World(L.seed, L.blocks, cityOpts(L));
+    MODELS.military = !!this.world.theme.military;          // 기지의 감염체는 전투복 · 철모 차림이 많다
     Minimap.reset(this.world);
 
     const w = this.world;
@@ -970,6 +989,7 @@ const G = {
       const br = makeRng(L.seed ^ 0xb100d);
       const stain = (x, y, n, spread) => {
         for (let k = 0; k < n; k++) this.decals.push({ x: x + (br() - 0.5) * spread, y: y + (br() - 0.5) * spread * 0.7, r: 4 + br() * 9, a: 0.22 + br() * 0.2 });
+        if (br() < 0.6) this.decals.push({ x, y, r: 22 + br() * 16, a: 0.45 + br() * 0.2, s: (br() * SPLATS) | 0, rot: br() * 6.283 });
       };
       for (const lm of w.landmarks) if (lm.kind === 'checkpoint')
         for (let i = 0; i < 5; i++) stain((lm.x + 1.5 + br() * (lm.w - 3)) * TILE, (lm.y + 2 + br() * (lm.h - 3)) * TILE, 6, 70);
@@ -1499,7 +1519,25 @@ const G = {
     return false;
   },
 
+  /** 쓰러진 자리의 큰 핏자국 — 맞은 방향으로 튄 모양. 자국이 가득 차면 가장 오래된 것부터 지운다 */
+  splat(x, y, ang, size) {
+    if (this.world.solid(x, y)) return;
+    if (this.decals.length >= 420) this.decals.shift();
+    this.decals.push({ x: x + Math.cos(ang) * 6, y: y + Math.sin(ang) * 6, r: 15 + size * 0.9 + Math.random() * 8,
+                       a: 0.7 + Math.random() * 0.2, s: (Math.random() * SPLATS) | 0, rot: ang });
+  },
+  /** 폭발 자국 — 그을음 */
+  scorch(x, y) {
+    if (this.decals.length >= 420) this.decals.shift();
+    this.decals.push({ x, y, r: 52, a: 0.6, s: -1, rot: Math.random() * 6.283 });
+  },
   spawnBlood(x, y, ang, n) {
+    // 맞은 자리의 붉은 안개 — 원작에서 총에 맞을 때마다 피어오르던 것
+    for (let i = 0; i < 2; i++) {
+      const a = ang + (Math.random() - 0.5) * 0.9, sp = 30 + Math.random() * 60;
+      this.particles.push({ x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, life: 0.32 + Math.random() * 0.2, max: 0.5,
+        size: 6 + Math.random() * 5, col: '#9a1a12', kind: 'mist' });
+    }
     for (let i = 0; i < n; i++) {
       const a = ang + (Math.random() - 0.5) * 2.2, sp = 40 + Math.random() * 210;
       this.particles.push({ x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp,
@@ -1736,11 +1774,13 @@ const G = {
       const q = this.particles[i];
       q.life -= dt;
       q.x += q.vx * dt; q.y += q.vy * dt;
-      const drag = Math.pow(q.kind === 'blood' ? 0.02 : 0.08, dt);
+      const drag = Math.pow(q.kind === 'blood' ? 0.02 : q.kind === 'smoke' ? 0.25 : 0.08, dt);
       q.vx *= drag; q.vy *= drag;
       if (q.life <= 0) {
-        if (q.kind === 'blood' && this.decals.length < 420 && !w.solid(q.x, q.y))
+        if (q.kind === 'blood' && !w.solid(q.x, q.y)) {
+          if (this.decals.length >= 420) this.decals.shift();
           this.decals.push({ x: q.x, y: q.y, r: q.size * 1.9, a: 0.3 + Math.random() * 0.28 });
+        }
         this.particles.splice(i, 1);
       }
     }
@@ -1949,8 +1989,15 @@ function render() {
   ctx.fillStyle = '#3a0c0a';
   const dx0 = cam.x - 30, dx1 = cam.x + W + 30, dy0 = cam.y - 30, dy1 = cam.y + VH() + 30;   // 화면 밖 혈흔은 건너뛴다
   for (const d of g.decals) {
-    if (d.x < dx0 || d.x > dx1 || d.y < dy0 || d.y > dy1) continue;
+    if (d.x < dx0 - d.r || d.x > dx1 + d.r || d.y < dy0 - d.r || d.y > dy1 + d.r) continue;
     ctx.globalAlpha = d.a;
+    if (d.s !== undefined) {
+      const img = splatImg(d.s), R = d.r;
+      ctx.save(); ctx.translate(d.x, d.y); ctx.rotate(d.rot);
+      ctx.drawImage(img, -R, -R, R * 2, R * 2);
+      ctx.restore();
+      continue;
+    }
     ctx.beginPath(); ctx.arc(d.x, d.y, d.r, 0, 6.283); ctx.fill();
   }
   ctx.globalAlpha = 1;
@@ -2044,9 +2091,13 @@ function render() {
   }
 
   for (const q of g.particles) {
-    ctx.globalAlpha = clamp(q.life / q.max, 0, 1);
+    const k = clamp(q.life / q.max, 0, 1);
+    let r = q.size;
+    if (q.kind === 'mist') { r *= 1 + (1 - k) * 2.2; ctx.globalAlpha = k * 0.45; }
+    else if (q.kind === 'smoke') { r *= 1 + (1 - k) * 1.8; ctx.globalAlpha = k * 0.3; }
+    else ctx.globalAlpha = k;
     ctx.fillStyle = q.col;
-    ctx.beginPath(); ctx.arc(q.x, q.y, q.size, 0, 6.283); ctx.fill();
+    ctx.beginPath(); ctx.arc(q.x, q.y, r, 0, 6.283); ctx.fill();
   }
   ctx.globalAlpha = 1;
   drawCity(cam, g, w);
@@ -2201,6 +2252,7 @@ function drawGround(cam, w) {
   const x0 = Math.floor(cam.x / TILE), y0 = Math.floor(cam.y / TILE);
   const x1 = Math.ceil((cam.x + W) / TILE), y1 = Math.ceil((cam.y + VH()) / TILE);
   const at = (x, y) => w.at(x, y);
+  const road = new Path2D(), side = new Path2D(), detail = [];
 
   for (let y = y0; y <= y1; y++) {
     for (let x = x0; x <= x1; x++) {
@@ -2233,7 +2285,7 @@ function drawGround(cam, w) {
         for (let k = 0; k < 4; k++) ctx.fillRect(px + ((n * 7 + k * 13) % 44), py + ((n * 11 + k * 17) % 44), 2, 3);
       } else if (d === D_PLAZA || d === D_LANDMARK) {
         // 광장 · 경내 — 포석
-        ctx.fillStyle = d === D_LANDMARK ? '#2a2826' : n < 8 ? '#363a3f' : '#33373c';
+        ctx.fillStyle = d === D_LANDMARK ? '#2c2a27' : n < 8 ? '#393a38' : '#363735';
         ctx.fillRect(px, py, TILE, TILE);
         ctx.strokeStyle = 'rgba(0,0,0,.22)'; ctx.lineWidth = 1;
         ctx.beginPath();
@@ -2244,35 +2296,71 @@ function drawGround(cam, w) {
         ctx.moveTo(px + 36.5, py + 32); ctx.lineTo(px + 36.5, py + 48);
         ctx.stroke();
       } else if (d === D_SIDEWALK) {
-        ctx.fillStyle = n < 8 ? '#343b45' : '#2f363f';
-        ctx.fillRect(px, py, TILE, TILE);
-        ctx.strokeStyle = 'rgba(255,255,255,.05)';
-        ctx.lineWidth = 1;
-        ctx.strokeRect(px + .5, py + .5, TILE - 1, TILE - 1);
+        side.rect(px, py, TILE, TILE);
+        detail.push(i, x, y, 1);
       } else {
-        ctx.fillStyle = n < 6 ? '#272d36' : n < 12 ? '#232932' : '#2b323c';
-        ctx.fillRect(px, py, TILE, TILE);
-        // 중앙선 — 대로의 노란 겹선
-        const m = w.mark[i];
-        if (m === 1 && (y & 1) === 0) {
-          ctx.fillStyle = 'rgba(214,180,70,.32)';
-          ctx.fillRect(px - 3, py + 6, 2, TILE - 12); ctx.fillRect(px + 1, py + 6, 2, TILE - 12);
-        } else if (m === 2 && (x & 1) === 0) {
-          ctx.fillStyle = 'rgba(214,180,70,.32)';
-          ctx.fillRect(px + 6, py - 3, TILE - 12, 2); ctx.fillRect(px + 6, py + 1, TILE - 12, 2);
-        }
-        // 횡단보도
-        const cw = w.cross[i];
-        if (cw) {
-          ctx.fillStyle = 'rgba(230,228,218,.28)';
-          for (let k = 0; k < 4; k++) {
-            if (cw === 1) ctx.fillRect(px + 4 + k * 11, py + 6, 6, TILE - 12);
-            else ctx.fillRect(px + 6, py + 4 + k * 11, TILE - 12, 6);
-          }
-        }
+        road.rect(px, py, TILE, TILE);
+        detail.push(i, x, y, 0);
       }
     }
   }
+  // 차도 · 보도 — 결 무늬로 한 번씩만 칠한다. 칸마다 무늬와 단색을 번갈아 고르면 그때마다 무늬를 새로 준비해
+  // 프레임이 크게 떨어진다(쓰레기 조각을 칸마다 그리던 판: 58 → 40fps)
+  ctx.imageSmoothingEnabled = false;
+  ctx.fillStyle = bakedPattern('road'); ctx.fill(road);
+  ctx.fillStyle = bakedPattern('side'); ctx.fill(side);
+  ctx.imageSmoothingEnabled = true;
+  // 그 위의 표시 — 색마다 한 경로로 모아 한 번씩
+  const P = () => new Path2D();
+  const curb = P(), shadow = P(), yellow = P(), zebra = P(), park = P(), hole = P(), holeTop = P(), trash = P();
+  const sw = (x, y) => w.deco[w.idx(x, y)] === D_SIDEWALK;
+  const rd = (x, y) => { const j = w.idx(x, y); return w.grid[j] === T_ROAD && (w.deco[j] === D_ASPHALT || w.deco[j] === D_PROP || w.deco[j] === D_RUBBLE); };
+  for (let k = 0; k < detail.length; k += 4) {
+    const i = detail[k], x = detail[k + 1], y = detail[k + 2], px = x * TILE, py = y * TILE;
+    const h2 = ((x * 2654435761) ^ (y * 40503)) >>> 0;
+    if (detail[k + 3] === 1) {
+      // 보도 가장자리 — 차도 쪽은 높은 연석
+      if (rd(x, y + 1)) curb.rect(px, py + TILE - 4, TILE, 4);
+      if (rd(x, y - 1)) curb.rect(px, py, TILE, 2.5);
+      if (rd(x - 1, y)) curb.rect(px, py, 3, TILE);
+      if (rd(x + 1, y)) curb.rect(px + TILE - 3, py, 3, TILE);
+      if (h2 % 7 === 0) litter(trash, px, py, h2);
+      continue;
+    }
+    if (sw(x, y - 1)) shadow.rect(px, py, TILE, 6);                       // 연석 그늘
+    if (sw(x - 1, y)) shadow.rect(px, py, 4, TILE);
+    const m = w.mark[i];                                                  // 중앙선 — 대로의 노란 겹선
+    if (m === 1 && (y & 1) === 0) { yellow.rect(px - 3, py + 6, 2, TILE - 12); yellow.rect(px + 1, py + 6, 2, TILE - 12); }
+    else if (m === 2 && (x & 1) === 0) { yellow.rect(px + 6, py - 3, TILE - 12, 2); yellow.rect(px + 6, py + 1, TILE - 12, 2); }
+    const cw = w.cross[i];                                                // 횡단보도
+    if (cw) for (let q = 0; q < 4; q++) {
+      if (cw === 1) zebra.rect(px + 4 + q * 11, py + 6, 6, TILE - 12);
+      else zebra.rect(px + 6, py + 4 + q * 11, TILE - 12, 6);
+    }
+    const dm = w.dirm[i];
+    if (!cw && !m && dm && dm !== 3) {
+      if (((x >> 2) + (y >> 2)) % 3 === 0) {                              // 길가 주차선
+        if (dm === 2 && sw(x, y - 1)) park.rect(px + 2, py + 4, 2, 20);
+        else if (dm === 2 && sw(x, y + 1)) park.rect(px + 2, py + TILE - 24, 2, 20);
+        else if (dm === 1 && sw(x - 1, y)) park.rect(px + 4, py + 2, 20, 2);
+        else if (dm === 1 && sw(x + 1, y)) park.rect(px + TILE - 24, py + 2, 20, 2);
+      }
+      if (h2 % 41 === 3) {                                                // 맨홀
+        const mx = px + 14 + (h2 >> 8) % 20, my = py + 14 + (h2 >> 12) % 20;
+        hole.moveTo(mx + 9, my); hole.arc(mx, my, 9, 0, 6.283);
+        holeTop.moveTo(mx + 7.5, my); holeTop.arc(mx, my, 7.5, 0, 6.283);
+      }
+    }
+    if (h2 % 5 === 0) litter(trash, px, py, h2);
+  }
+  ctx.fillStyle = 'rgba(205,200,180,.20)'; ctx.fill(curb);
+  ctx.fillStyle = 'rgba(0,0,0,.32)'; ctx.fill(shadow);
+  ctx.fillStyle = 'rgba(214,180,70,.32)'; ctx.fill(yellow);
+  ctx.fillStyle = 'rgba(230,228,218,.28)'; ctx.fill(zebra);
+  ctx.fillStyle = 'rgba(222,220,206,.24)'; ctx.fill(park);
+  ctx.fillStyle = 'rgba(0,0,0,.45)'; ctx.fill(hole);
+  ctx.fillStyle = '#2b2a28'; ctx.fill(holeTop);
+  ctx.fillStyle = 'rgba(200,196,182,.30)'; ctx.fill(trash);
 
   /* 젖은 웅덩이 */
   ctx.fillStyle = 'rgba(130,165,200,.09)';
@@ -2281,6 +2369,97 @@ function drawGround(cam, w) {
     ctx.beginPath(); ctx.ellipse(q.x, q.y, q.rx, q.ry, 0, 0, 6.283); ctx.fill();
   }
   drawLandmarksGround(cam, w);
+}
+
+/** 핏자국 그림 — 가운데 고인 검붉은 웅덩이, 맞은 방향(+x)으로 길게 튄 줄기와 방울. 몇 장만 만들어 돌려 찍는다 */
+const SPLATS = 6, splatImgs = [];
+function splatImg(k) {
+  if (k < 0) {                                       // 그을음
+    if (splatImgs.scorch) return splatImgs.scorch;
+    const c = document.createElement('canvas'); c.width = c.height = 128;
+    const x = c.getContext('2d'), g = x.createRadialGradient(64, 64, 4, 64, 64, 62);
+    g.addColorStop(0, 'rgba(8,8,8,.95)'); g.addColorStop(0.5, 'rgba(14,12,10,.6)'); g.addColorStop(1, 'rgba(0,0,0,0)');
+    x.fillStyle = g; x.fillRect(0, 0, 128, 128);
+    x.strokeStyle = 'rgba(0,0,0,.5)'; x.lineWidth = 2;
+    for (let i = 0; i < 14; i++) { const a = i / 14 * 6.283 + Math.random() * 0.3; x.beginPath(); x.moveTo(64 + Math.cos(a) * 20, 64 + Math.sin(a) * 20); x.lineTo(64 + Math.cos(a) * (44 + Math.random() * 18), 64 + Math.sin(a) * (44 + Math.random() * 18)); x.stroke(); }
+    return (splatImgs.scorch = c);
+  }
+  if (splatImgs[k]) return splatImgs[k];
+  const S = 128, c = document.createElement('canvas'); c.width = c.height = S;
+  const x = c.getContext('2d');
+  let seed = 101 + k * 37; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  const cx = 52, cy = 64;
+  const blob = (bx, by, r, col) => {
+    x.fillStyle = col; x.beginPath();
+    for (let i = 0; i <= 14; i++) { const a = i / 14 * 6.283, rr = r * (0.7 + rnd() * 0.5); i ? x.lineTo(bx + Math.cos(a) * rr, by + Math.sin(a) * rr) : x.moveTo(bx + Math.cos(a) * rr, by + Math.sin(a) * rr); }
+    x.closePath(); x.fill();
+  };
+  blob(cx, cy, 26, '#2a0504');
+  for (let i = 0; i < 5; i++) blob(cx + (rnd() - 0.4) * 30, cy + (rnd() - 0.5) * 30, 8 + rnd() * 12, '#330605');
+  blob(cx - 2, cy, 15, '#1c0303');
+  // 튄 줄기
+  x.strokeStyle = '#2e0504'; x.lineCap = 'round';
+  for (let i = 0; i < 7; i++) {
+    const a = (rnd() - 0.5) * 1.3, len = 26 + rnd() * 38;
+    x.lineWidth = 1.5 + rnd() * 3.5;
+    x.beginPath(); x.moveTo(cx + Math.cos(a) * 18, cy + Math.sin(a) * 18); x.lineTo(cx + Math.cos(a) * (18 + len), cy + Math.sin(a) * (18 + len)); x.stroke();
+    x.fillStyle = '#2e0504'; x.beginPath(); x.arc(cx + Math.cos(a) * (20 + len), cy + Math.sin(a) * (20 + len), 1.5 + rnd() * 3, 0, 6.283); x.fill();
+  }
+  for (let i = 0; i < 26; i++) {
+    const a = (rnd() - 0.5) * 2.4, d = 22 + rnd() * 40;
+    x.fillStyle = rnd() < 0.5 ? '#3a0706' : '#220403';
+    x.beginPath(); x.arc(cx + Math.cos(a) * d, cy + Math.sin(a) * d, 0.8 + rnd() * 2.4, 0, 6.283); x.fill();
+  }
+  // 젖은 윤기 — 손전등에 비치면 반짝인다
+  x.fillStyle = 'rgba(160,40,30,.25)'; x.beginPath(); x.ellipse(cx - 6, cy - 6, 8, 4, -0.4, 0, 6.283); x.fill();
+  return (splatImgs[k] = c);
+}
+
+/** 차도 — 덧씌운 자국 · 금 · 기름 얼룩 · 골재 알갱이 (288×288) */
+function drawRoad(x) {
+  const S = 288;
+  let seed = 31; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  x.fillStyle = '#26282b'; x.fillRect(0, 0, S, S);
+  // 얼룩덜룩한 덧씌우기 — 큰 사각 땜질과 둥근 얼룩
+  for (let i = 0; i < 7; i++) { x.fillStyle = rnd() < 0.5 ? 'rgba(255,255,255,.018)' : 'rgba(0,0,0,.06)'; x.fillRect(rnd() * S, rnd() * S, 30 + rnd() * 70, 20 + rnd() * 60); }
+  for (let i = 0; i < 26; i++) { x.fillStyle = rnd() < 0.4 ? 'rgba(255,255,255,.015)' : 'rgba(0,0,0,.045)'; x.beginPath(); x.ellipse(rnd() * S, rnd() * S, 8 + rnd() * 26, 5 + rnd() * 16, rnd() * 3, 0, 6.283); x.fill(); }
+  // 골재 알갱이
+  for (let i = 0; i < 2200; i++) { x.fillStyle = rnd() < 0.5 ? 'rgba(255,255,255,.06)' : 'rgba(0,0,0,.12)'; x.fillRect(rnd() * S, rnd() * S, 1, 1); }
+  // 금 — 꺾인 가는 선
+  x.strokeStyle = 'rgba(0,0,0,.3)'; x.lineWidth = 0.8;
+  for (let i = 0; i < 6; i++) {
+    let cx = rnd() * S, cy = rnd() * S, a = rnd() * 6.28;
+    x.beginPath(); x.moveTo(cx, cy);
+    for (let j = 0; j < 6; j++) { a += (rnd() - 0.5) * 1.3; cx += Math.cos(a) * (5 + rnd() * 9); cy += Math.sin(a) * (5 + rnd() * 9); x.lineTo(cx, cy); }
+    x.stroke();
+  }
+  // 기름 얼룩
+  for (let i = 0; i < 4; i++) { x.fillStyle = 'rgba(8,8,10,.22)'; x.beginPath(); x.ellipse(rnd() * S, rnd() * S, 6 + rnd() * 10, 4 + rnd() * 6, rnd() * 3, 0, 6.283); x.fill(); }
+}
+/** 보도 — 올리브빛 콘크리트 판석 (96×96) */
+function drawSide(x) {
+  const S = 96;
+  let seed = 97; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  x.fillStyle = '#35362f'; x.fillRect(0, 0, S, S);
+  for (let i = 0; i < 4; i++) for (let j = 0; j < 4; j++) {     // 판석마다 조금씩 다른 색
+    const v = rnd(); x.fillStyle = v < 0.35 ? 'rgba(0,0,0,.08)' : v < 0.6 ? 'rgba(255,250,220,.03)' : 'rgba(0,0,0,0)';
+    x.fillRect(i * 24, j * 24, 24, 24);
+  }
+  for (let i = 0; i < 700; i++) { x.fillStyle = rnd() < 0.5 ? 'rgba(255,255,240,.05)' : 'rgba(0,0,0,.1)'; x.fillRect(rnd() * S, rnd() * S, 1, 1); }
+  for (let i = 0; i < 5; i++) { x.fillStyle = 'rgba(0,0,0,.08)'; x.beginPath(); x.ellipse(rnd() * S, rnd() * S, 5 + rnd() * 12, 3 + rnd() * 8, rnd() * 3, 0, 6.283); x.fill(); }
+  x.fillStyle = 'rgba(0,0,0,.3)';
+  for (let k2 = 0; k2 < S; k2 += 24) { x.fillRect(0, k2, S, 1); x.fillRect(k2, 0, 1, S); }
+  x.fillStyle = 'rgba(255,255,240,.04)';
+  for (let k2 = 0; k2 < S; k2 += 24) { x.fillRect(0, k2 + 1, S, 1); x.fillRect(k2 + 1, 0, 1, S); }
+}
+/** 길에 버려진 것 — 종이 · 전단 · 비닐. 칸의 해시로 자리와 모양을 정한다(매 프레임 같다). 한 경로에 모아 한 번에 칠한다 */
+function litter(path, px, py, h) {
+  const m = 1 + h % 3;
+  for (let k = 0; k < m; k++) {
+    const q = (h >>> (k * 6 + 3)) & 63, lx = px + 6 + (q & 7) * 4.6, ly = py + 6 + (q >> 3) * 4.6;
+    const sz = 3 + ((h >>> (k * 3)) & 3);
+    path.moveTo(lx, ly); path.lineTo(lx + sz, ly + 1); path.lineTo(lx + sz - 1, ly + sz * 0.8); path.lineTo(lx - 1, ly + sz * 0.7); path.closePath();
+  }
 }
 
 /* ═══════════ 도시의 불빛 ═══════════
@@ -2398,6 +2577,13 @@ function liftBox(E, x, y, w, h, k, side, top) {
   polyFill(t, top);
 }
 
+/** 공중에 뜬 상자 — 높이 k0 에서 k1 까지 (쌓인 컨테이너의 윗단) */
+function liftBoxK(E, x, y, w, h, k0, k1, side, top) {
+  const b = liftRect(E, x, y, w, h, k0), t = liftRect(E, x, y, w, h, k1);
+  for (let i = 0; i < 4; i++) polyFill([b[i], b[(i + 1) % 4], t[(i + 1) % 4], t[i]], side);
+  polyFill(t, top);
+}
+
 function drawLandmarksGround(cam, w) {
   for (const lm of w.landmarks) {
     if (!lmVisible(cam, lm)) continue;
@@ -2448,6 +2634,15 @@ function drawLandmarksGround(cam, w) {
       ctx.fillStyle = 'rgba(0,0,0,.18)';
       ctx.fillRect((lm.x + 4) * TILE + 6, (lm.y + 5) * TILE, 10, 4 * TILE); ctx.fillRect((lm.x + 6) * TILE + 30, (lm.y + 5) * TILE, 10, 4 * TILE);
       ctx.fillStyle = 'rgba(230,230,220,.35)'; ctx.fillRect((lm.x + 4) * TILE, (lm.y + 8) * TILE + 4, 3 * TILE, 5);
+    } else if (lm.kind === 'base') {
+      // 헬기장 — 노란 원과 H, 정문으로 이어지는 바퀴 자국
+      const [px, py] = [lm.pad[0] * TILE, lm.pad[1] * TILE];
+      ctx.fillStyle = 'rgba(0,0,0,.16)'; ctx.fillRect((lm.x + 5) * TILE + 8, (lm.y + 8) * TILE, 12, 3 * TILE); ctx.fillRect((lm.x + 7) * TILE + 28, (lm.y + 8) * TILE, 12, 3 * TILE);
+      ctx.strokeStyle = 'rgba(214,184,70,.42)'; ctx.lineWidth = 5;
+      ctx.beginPath(); ctx.arc(px, py, 58, 0, 6.283); ctx.stroke();
+      ctx.fillStyle = 'rgba(230,228,215,.38)';
+      ctx.fillRect(px - 20, py - 24, 9, 48); ctx.fillRect(px + 11, py - 24, 9, 48); ctx.fillRect(px - 11, py - 4, 22, 8);
+      ctx.fillStyle = 'rgba(230,230,220,.3)'; ctx.fillRect((lm.x + 4) * TILE, (lm.y + 10) * TILE + 6, 5 * TILE, 5);   // 정지선
     } else if (lm.kind === 'railyard') {
       // 자갈 바닥 · 침목 · 두 줄 레일 (블록 끝까지)
       ctx.fillStyle = 'rgba(70,64,58,.55)'; ctx.fillRect(lm.x * TILE, lm.y * TILE, lm.w * TILE, lm.h * TILE);
@@ -2711,6 +2906,51 @@ const LANDMARK_TOP = {
     ctx.fillStyle = '#f2eedc'; ctx.fillRect(top[0] - 10, top[1] - 2, 20, 4);
     lm.flood = top; lm.floodAt = [(lm.x + 5.5) * TILE, (lm.y + 4.5) * TILE];
   },
+  /* 대피 기지 본영: 검문소와 같은 모래주머니 · 막사 · 천막 · 투광등 위에, 2단으로 쌓인 컨테이너와 철망 울타리 */
+  base(lm, E, g) {
+    LANDMARK_TOP.checkpoint(lm, E, g);
+    lm.floodAt = [lm.pad[0] * TILE, lm.pad[1] * TILE];
+    const C = ['#8a2e24', '#2e4a6a', '#b8b8b0', '#4a5a3a', '#9a6a2a', '#7a2a2a'];
+    const K = 0.08;
+    lm.boxes.forEach(([x, y, n, lv], i) => {
+      for (let l = 0; l < lv; l++) {
+        const c = C[(i * 2 + l * 3 + x) % C.length];
+        liftBoxK(E, x + 0.04, y + 0.06, n - 0.08, 0.88, K * l, K * (l + 1) - 0.004, shade(c, 0.66), c);
+        const r = liftRect(E, x + 0.04, y + 0.06, n - 0.08, 0.88, K * (l + 1) - 0.004, 3);
+        const f = [liftPt(E, (x + 0.04) * TILE, (y + 0.94) * TILE, K * l), liftPt(E, (x + n - 0.04) * TILE, (y + 0.94) * TILE, K * l)];
+        ctx.strokeStyle = 'rgba(0,0,0,.28)'; ctx.lineWidth = 1; ctx.beginPath();
+        for (let k = 1; k < n * 6; k++) {                                      // 골판 — 윗면과 앞면
+          const t = k / (n * 6);
+          ctx.moveTo(r[0][0] + (r[1][0] - r[0][0]) * t, r[0][1]); ctx.lineTo(r[3][0] + (r[2][0] - r[3][0]) * t, r[3][1]);
+          const fx = f[0][0] + (f[1][0] - f[0][0]) * t; ctx.moveTo(fx, f[0][1]); ctx.lineTo(fx, f[0][1] - (K - 0.004) * HSC);
+        }
+        ctx.stroke();
+      }
+    });
+    // 철망 — 기둥과 그물. 그물은 비쳐 보이게 옅은 마름모 격자로
+    ctx.lineWidth = 1;
+    for (const [x, y, w, h] of lm.fence) {
+      const horiz = w > 1, len = horiz ? w : h;
+      const a0 = horiz ? [x * TILE, (y + 0.5) * TILE] : [(x + 0.5) * TILE, y * TILE];
+      const a1 = horiz ? [(x + w) * TILE, (y + 0.5) * TILE] : [(x + 0.5) * TILE, (y + h) * TILE];
+      const H = 0.075 * HSC;
+      ctx.fillStyle = 'rgba(150,158,160,.07)';
+      ctx.beginPath(); ctx.moveTo(a0[0], a0[1]); ctx.lineTo(a1[0], a1[1]); ctx.lineTo(a1[0], a1[1] - H); ctx.lineTo(a0[0], a0[1] - H); ctx.closePath(); ctx.fill();
+      ctx.strokeStyle = 'rgba(170,176,178,.22)'; ctx.beginPath();
+      const steps = len * 6;
+      for (let k = 0; k <= steps; k++) {
+        const t = k / steps, px = a0[0] + (a1[0] - a0[0]) * t, py = a0[1] + (a1[1] - a0[1]) * t;
+        const d = 1 / steps * 3, qx = a0[0] + (a1[0] - a0[0]) * Math.min(1, t + d), qy = a0[1] + (a1[1] - a0[1]) * Math.min(1, t + d);
+        ctx.moveTo(px, py); ctx.lineTo(qx, qy - H);
+        ctx.moveTo(px, py - H); ctx.lineTo(qx, qy);
+      }
+      ctx.stroke();
+      ctx.strokeStyle = '#7d8286'; ctx.lineWidth = 2.5; ctx.beginPath();
+      for (let k = 0; k <= len; k++) { const t = k / len, px = a0[0] + (a1[0] - a0[0]) * t, py = a0[1] + (a1[1] - a0[1]) * t; ctx.moveTo(px, py); ctx.lineTo(px, py - H - 3); }
+      ctx.moveTo(a0[0], a0[1] - H); ctx.lineTo(a1[0], a1[1] - H);
+      ctx.stroke(); ctx.lineWidth = 1;
+    }
+  },
   /* 철로: 화차는 구조물로 그려지고, 여기서는 신호기만 */
   railyard(lm, E, g) {
     const b = [lm.signal[0] * TILE, lm.signal[1] * TILE], top = liftPt(E, b[0], b[1], 0.3);
@@ -2868,7 +3108,7 @@ const LANDMARK_TOP = {
    원작은 높은 곳에서 내려다보는 3D 카메라였다. 건물 지붕을 시점(화면 속 플레이어 자리)에서
    바깥쪽으로 (1+BLD_H) 배 밀어내면, 시점 쪽을 향한 벽면이 드러나 높이가 생긴다.
    지붕 전체가 시점 기준 한 번의 확대라서 이웃 타일의 지붕이 어긋나지 않는다. */
-const BLD_H = 0.15;
+const BLD_H = 0.19;                                // 원작 예고편처럼 3‒4층 벽면이 서 보이게 (예전 0.15)
 function eyeOf(cam) { return { x: cam.x + W / 2, y: cam.y + focusY() / TILT }; }
 /* 60° 로 기울인 카메라: 바닥은 세로로 sin60 만큼 줄고(TILT), 높이는 화면에서 곧장 위로 cos60 만큼 선다.
    세계 좌표(줄이기 전)로 쓰면 높이 h 는 h·cos60/sin60 만큼 위(−y)로 — k=1 이 높이 480px(약 10칸).
@@ -2903,7 +3143,7 @@ function bldH(w, x, y) {
 }
 const FLOOR = 34;                                   // 한 층 높이 (세계 px)
 const ZK = 1 / 480 * HSC;                           // 높이 1px → 세계 y 위로
-const GUN_LIFT = 20 * 1.12 * ZK, SPIT_LIFT = 17 * ZK;
+const GUN_LIFT = 20 * 1.12 * ZK * MODELS.HK, SPIT_LIFT = 17 * ZK * MODELS.HK;
 const WALLS = ['#262e39', '#2f2b29', '#2a3131', '#34302c', '#29313a', '#30343a'];
 const lotHash = (w, x, y) => Math.imul(w.lot[w.idx(x, y)] || (x * 7 + y * 13), 2246822519) >>> 0;
 
@@ -2912,14 +3152,30 @@ const lotHash = (w, x, y) => Math.imul(w.lot[w.idx(x, y)] || (x * 7 + y * 13), 2
 function buildingRow(w, r, x0, x1) {
   const isB = (x, y) => w.deco[w.idx(x, y)] === D_BUILDING;
   const roofs = w.theme.roofs, R = roofs.length;
+  // 벽면 바탕색 → 재료 결(벽돌 · 미장) → 창. 결은 한 줄의 벽을 한 경로로 모아 한 번에 칠한다 —
+  // 칸마다 무늬와 단색을 번갈아 고르면 무늬를 매번 새로 준비해 프레임이 떨어진다
+  const brick = new Path2D(), stucco = new Path2D();
   for (let x = x0; x <= x1; x++) {
     if (!isB(x, r)) continue;
     const h = bldH(w, x, r), hs = isB(x, r + 1) ? bldH(w, x, r + 1) : 0;
     if (h <= hs + 1e-4) continue;
     const px = x * TILE, base = (r + 1) * TILE, top = base - h * HSC, low = base - hs * HSC;
-    const lh = lotHash(w, x, r);
-    ctx.fillStyle = WALLS[lh % WALLS.length];
+    const mat = wallMat(w, lotHash(w, x, r));
+    ctx.fillStyle = mat[0];
     ctx.fillRect(px - 0.3, top, TILE + 0.6, low - top);
+    (mat[1] ? brick : stucco).rect(px - 0.3, top, TILE + 0.6, low - top);
+  }
+  ctx.imageSmoothingEnabled = false;
+  ctx.fillStyle = bakedPattern('brick'); ctx.fill(brick);
+  ctx.fillStyle = bakedPattern('stucco'); ctx.fill(stucco);
+  ctx.imageSmoothingEnabled = true;
+  for (let x = x0; x <= x1; x++) {
+    if (!isB(x, r)) continue;
+    const h = bldH(w, x, r), hs = isB(x, r + 1) ? bldH(w, x, r + 1) : 0;
+    if (h <= hs + 1e-4) continue;
+    const px = x * TILE, base = (r + 1) * TILE, top = base - h * HSC;
+    const lh = lotHash(w, x, r);
+    const mat = wallMat(w, lh);
     // 층마다 창 두 개. 1층은 셔터 내린 가게나 유리문
     const hp = h * 480, hsp = hs * 480, nf = Math.floor(hp / FLOOR + 0.25);
     for (let f = 0; f < nf; f++) {
@@ -2935,7 +3191,7 @@ function buildingRow(w, r, x0, x1) {
         } else {
           ctx.fillStyle = '#10161d'; ctx.fillRect(px + 4, y2, TILE - 8, y1 - y2);
           ctx.fillStyle = 'rgba(150,180,210,.10)'; ctx.fillRect(px + 4, y2, TILE - 8, 2.5);
-          ctx.fillStyle = WALLS[lh % WALLS.length]; ctx.fillRect(px + TILE / 2 - 1, y2, 2, y1 - y2);
+          ctx.fillStyle = mat[0]; ctx.fillRect(px + TILE / 2 - 1, y2, 2, y1 - y2);
         }
         ctx.fillStyle = 'rgba(0,0,0,.4)'; ctx.fillRect(px, base - 28 * ZK, TILE, 2.4);   // 차양
         continue;
@@ -2943,10 +3199,16 @@ function buildingRow(w, r, x0, x1) {
       const v0 = Math.max(hsp + 1, zb + 9), v1 = Math.min(zt - 1, zb + 27);
       if (v1 <= v0) continue;
       for (const [wx, k] of [[px + 6, 0], [px + 28, 1]]) {
-        const q = (wh >> (k * 7)) & 127;
-        ctx.fillStyle = q < 2 ? 'rgba(201,154,82,.55)' : q < 9 ? '#07090b' : '#121820';
-        ctx.fillRect(wx, base - v1 * ZK, 14, (v1 - v0) * ZK);
-        if (q >= 9) { ctx.fillStyle = 'rgba(150,180,210,.09)'; ctx.fillRect(wx, base - v1 * ZK, 14, 2); }
+        const q = (wh >> (k * 7)) & 127, wy = base - v1 * ZK, wh2 = (v1 - v0) * ZK;
+        // 창틀(밝은 테) → 유리 → 십자 창살 → 창턱. 원작의 벽처럼 창이 벽에서 도드라진다
+        ctx.fillStyle = 'rgba(190,186,170,.30)'; ctx.fillRect(wx - 1.5, wy - 1.5, 17, wh2 + 3);
+        ctx.fillStyle = q < 2 ? 'rgba(201,154,82,.75)' : q < 9 ? '#07090b' : '#0f141a';
+        ctx.fillRect(wx, wy, 14, wh2);
+        if (q >= 9) { ctx.fillStyle = 'rgba(150,180,210,.12)'; ctx.fillRect(wx, wy, 14, wh2 * 0.35); }
+        else if (q >= 2) { ctx.fillStyle = 'rgba(0,0,0,.6)'; ctx.fillRect(wx, wy, 14, wh2); }   // 깨진 창 — 더 깊은 어둠
+        ctx.fillStyle = 'rgba(160,156,140,.28)'; ctx.fillRect(wx + 6.4, wy, 1.2, wh2); ctx.fillRect(wx, wy + wh2 * 0.45, 14, 1.1);
+        ctx.fillStyle = 'rgba(210,206,190,.34)'; ctx.fillRect(wx - 2.5, wy + wh2 + 0.5, 19, 2);
+        ctx.fillStyle = 'rgba(0,0,0,.3)'; ctx.fillRect(wx - 2.5, wy + wh2 + 2.5, 19, 1.5);
       }
       ctx.fillStyle = 'rgba(0,0,0,.28)'; ctx.fillRect(px, base - zb * ZK - 1, TILE, 1.6);       // 층 띠
     }
@@ -2954,7 +3216,8 @@ function buildingRow(w, r, x0, x1) {
     if (!hs) { ctx.fillStyle = 'rgba(0,0,0,.3)'; ctx.fillRect(px, base - 5 * ZK, TILE, 5 * ZK); }
     ctx.fillStyle = 'rgba(255,255,255,.06)'; ctx.fillRect(px, top, TILE, 2);
   }
-  // 지붕 — 필지마다 색과 높이
+  // 지붕 — 필지마다 색과 높이. 방수층 무늬는 바탕을 다 칠한 뒤 한 번에 (아래 난간 · 설비는 그 위에)
+  const roofPath = new Path2D();
   for (let x = x0; x <= x1; x++) {
     if (!isB(x, r)) continue;
     const i = w.idx(x, r), lot = w.lot[i], lift = bldH(w, x, r) * HSC;
@@ -2962,8 +3225,16 @@ function buildingRow(w, r, x0, x1) {
     const px = x * TILE, py = r * TILE - lift;
     ctx.fillStyle = roofs[k];
     ctx.fillRect(px - 0.5, py - 0.5, TILE + 1, TILE + 1);
-    ctx.fillStyle = roofPattern();
-    ctx.fillRect(px - 0.5, py - 0.5, TILE + 1, TILE + 1);
+    roofPath.rect(px - 0.5, py - 0.5, TILE + 1, TILE + 1);
+  }
+  ctx.imageSmoothingEnabled = false;
+  ctx.fillStyle = bakedPattern('roof'); ctx.fill(roofPath);
+  ctx.imageSmoothingEnabled = true;
+  for (let x = x0; x <= x1; x++) {
+    if (!isB(x, r)) continue;
+    const i = w.idx(x, r), lot = w.lot[i], lift = bldH(w, x, r) * HSC;
+    const k = lot ? lot % R : (((x * 73856093) ^ (r * 19349663)) & 15) % R;
+    const px = x * TILE, py = r * TILE - lift;
     // 난간 — 길이나 다른 건물과 맞닿은 가장자리
     const same = (dx, dy) => isB(x + dx, r + dy) && w.lot[w.idx(x + dx, r + dy)] === lot;
     ctx.fillStyle = 'rgba(160,176,198,.16)';
@@ -2993,13 +3264,43 @@ function buildingRow(w, r, x0, x1) {
   }
 }
 
-/** 옥상 방수층 — 얼룩과 시트 이음매. 한 번 만들어 무늬로 깐다 */
-let roofPat = null;
-function roofPattern() {
-  if (roofPat) return roofPat;
-  const c = document.createElement('canvas');
-  c.width = c.height = 96;
-  const x = c.getContext('2d');
+/** 필지의 외벽 재료 [색, 벽돌 여부] — 테마마다 다르다 (서울은 붉은 벽돌이 많고 도쿄는 타일 · 콘크리트) */
+function wallMat(w, lh) {
+  const m = w.theme.walls || [[WALLS[lh % WALLS.length], 0]];
+  return m[(lh >>> 3) % m.length];
+}
+/** 벽돌 결 — 4px 줄마다 줄눈, 반 장씩 어긋난 세로 줄눈, 벽돌마다 조금씩 다른 색 */
+/** 벽돌 결 — 4px 줄마다 줄눈, 반 장씩 어긋난 세로 줄눈, 벽돌마다 조금씩 다른 색 (96×48) */
+function drawBrick(x) {
+  let seed = 11; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  const CH = 4, BW = 10;
+  for (let r = 0; r < 48 / CH; r++) {
+    const off = (r & 1) * BW / 2;
+    for (let b = -1; b < 96 / BW + 1; b++) {
+      const bx = b * BW + off, v = rnd();
+      x.fillStyle = v < 0.3 ? 'rgba(0,0,0,.16)' : v < 0.55 ? 'rgba(255,220,200,.06)' : v < 0.6 ? 'rgba(0,0,0,.3)' : 'rgba(0,0,0,0)';
+      x.fillRect(bx, r * CH, BW, CH);
+      x.fillStyle = 'rgba(0,0,0,.32)'; x.fillRect(bx, r * CH, 1, CH);
+    }
+    x.fillStyle = 'rgba(0,0,0,.34)'; x.fillRect(0, r * CH + CH - 1, 96, 1);
+    x.fillStyle = 'rgba(255,240,220,.05)'; x.fillRect(0, r * CH, 96, 0.7);
+  }
+}
+/** 미장 · 타일 벽 — 얼룩과 빗물이 흘러내린 세로 자국 (96×96) */
+function drawStucco(x) {
+  let seed = 23; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  for (let i = 0; i < 260; i++) { x.fillStyle = rnd() < 0.5 ? 'rgba(255,255,255,.035)' : 'rgba(0,0,0,.07)'; x.fillRect(rnd() * 96, rnd() * 96, 1 + rnd() * 2, 1 + rnd() * 2); }
+  for (let i = 0; i < 9; i++) {
+    const sx = rnd() * 96, sy = rnd() * 40, len = 20 + rnd() * 56;
+    const g = x.createLinearGradient(0, sy, 0, sy + len);
+    g.addColorStop(0, 'rgba(0,0,0,.16)'); g.addColorStop(1, 'rgba(0,0,0,0)');
+    x.fillStyle = g; x.fillRect(sx, sy, 2 + rnd() * 4, len);
+  }
+  x.fillStyle = 'rgba(0,0,0,.08)'; for (let k = 0; k < 96; k += 24) x.fillRect(0, k, 96, 0.8);
+}
+
+/** 옥상 방수층 — 얼룩과 시트 이음매 (96×96) */
+function drawRoof(x) {
   let seed = 7;
   const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
   for (let i = 0; i < 70; i++) {
@@ -3008,8 +3309,26 @@ function roofPattern() {
   }
   x.fillStyle = 'rgba(0,0,0,.14)';
   for (let k = 0; k < 96; k += 32) { x.fillRect(0, k, 96, 1); x.fillRect(k + 11, 0, 1, 96); }
-  roofPat = ctx.createPattern(c, 'repeat');
-  return roofPat;
+}
+
+/** 미리 구운 무늬 — 화면 픽셀과 1:1 로 굽는다(가로 배율 DPR, 세로는 기울기 TILT 까지). 찍을 때 늘이거나 줄이지
+    않으니 거르기(smoothing)를 꺼도 깨끗하고, 소프트웨어 렌더러에서도 단색 칠하기와 비슷한 비용이 된다.
+    확대해 찍던 때는 카메라를 당기자 화면 전체를 거르며 늘이느라 58 → 43fps 까지 떨어졌다.
+    그리는 배율이 바뀌면(자동 화질 · 카메라 거리) 다시 굽는다 */
+const PATS = { road: [288, 288, drawRoad], side: [96, 96, drawSide], brick: [96, 48, drawBrick], stucco: [96, 96, drawStucco], roof: [96, 96, drawRoof] };
+const patCache = {};
+function bakedPattern(key) {
+  const R = Math.max(0.5, Math.min(4, DPR));
+  const hit = patCache[key];
+  if (hit && hit.R === R) return hit.p;
+  const [Sw, Sh, draw] = PATS[key];
+  const c = document.createElement('canvas'); c.width = Math.max(1, Math.round(Sw * R)); c.height = Math.max(1, Math.round(Sh * R * TILT));
+  const x = c.getContext('2d'); x.scale(c.width / Sw, c.height / Sh);
+  draw(x);
+  const p = ctx.createPattern(c, 'repeat');
+  p.setTransform(new DOMMatrix().scale(Sw / c.width, Sh / c.height));
+  patCache[key] = { R, p };
+  return p;
 }
 
 /** 도시 — 건물 줄과 서 있는 것(사람 · 감염체 · 탈것 · 길가 장식)을 북쪽부터 번갈아 그린다 */
@@ -3321,7 +3640,8 @@ function drawGrenade(gr) {
    아니라 도로와 건물 윤곽이 희미하게 보이는 밤이고, 손전등이 그 위를 하얗게 쓸고 지나간다.
    막의 기본 농도는 밝기 설정(0‒100)으로 조절한다. */
 function darkLevel(g) {
-  const base = 0.74 - (SETTINGS.brightness - 50) * 0.0044;   // 0 → 0.96, 50 → 0.74, 100 → 0.52
+  // 원작 예고편의 밤 — 불빛 밖도 거리 · 벽 · 사람 윤곽은 읽힌다. 눈만 보이는 깊은 어둠은 밝기를 낮춰서
+  const base = 0.66 - (SETTINGS.brightness - 50) * 0.0048;   // 0 → 0.9, 50 → 0.66, 100 → 0.42
   return clamp(base - g.lightning * (SETTINGS.flash ? 0.72 : 0.25), 0.06, 0.985);
 }
 
@@ -3331,7 +3651,7 @@ function drawDarkness(cam, g, p, w) {
   mctx.setTransform(MDPR, 0, 0, MDPR, 0, 0);
   mctx.globalCompositeOperation = 'source-over';
   mctx.clearRect(0, 0, W, H);
-  mctx.fillStyle = `rgba(3,4,6,${dark})`;
+  mctx.fillStyle = `rgba(4,6,10,${dark})`;
   mctx.fillRect(0, 0, W, H);
 
   mctx.globalCompositeOperation = 'destination-out';
@@ -3419,6 +3739,24 @@ function drawGlow(cam, g, p, w) {
     gr.addColorStop(0.45, 'rgba(205,205,208,.17)');
     gr.addColorStop(1, 'rgba(180,190,200,0)');
     ctx.fillStyle = gr; ctx.fill();
+  }
+
+  // 폭발 — 원작 예고편의 노랗고 흰 별 모양 섬광. 짧게 뻗었다가 사그라든다
+  for (const f of g.flashes) {
+    if (f.burst === undefined) continue;
+    const k = 1 - f.t / f.life;
+    if (k <= 0.35) continue;
+    const kk = (k - 0.35) / 0.65, R = 40 + (1 - kk) * 70;
+    ctx.fillStyle = `rgba(255,236,150,${0.55 * kk})`;
+    ctx.beginPath();
+    for (let i = 0; i < 22; i++) {
+      const a = f.burst + i / 22 * 6.283, rr = i & 1 ? R * 0.32 : R * (0.7 + ((i * 7919) % 13) / 13 * 0.6);
+      i ? ctx.lineTo(f.x + Math.cos(a) * rr, f.y + Math.sin(a) * rr) : ctx.moveTo(f.x + Math.cos(a) * rr, f.y + Math.sin(a) * rr);
+    }
+    ctx.closePath(); ctx.fill();
+    const gr = ctx.createRadialGradient(f.x, f.y, 0, f.x, f.y, R * 0.6);
+    gr.addColorStop(0, `rgba(255,255,240,${0.9 * kk})`); gr.addColorStop(1, 'rgba(255,220,120,0)');
+    ctx.fillStyle = gr; ctx.beginPath(); ctx.arc(f.x, f.y, R * 0.6, 0, 6.283); ctx.fill();
   }
 
   // 산 웅덩이와 날아오는 산 — 어둠 속에서 스스로 빛나 경고가 된다
@@ -3521,7 +3859,7 @@ function drawGlow(cam, g, p, w) {
 
   // 총구 · 폭발
   if (p.muzzle > 0) {
-    const mx = p.x + Math.cos(p.angle) * 22, my = p.y + Math.sin(p.angle) * 22 - GUN_LIFT;
+    const mx = p.x + Math.cos(p.angle) * 22 * MODELS.CS, my = p.y + Math.sin(p.angle) * 22 * MODELS.CS - GUN_LIFT;
     const gr = ctx.createRadialGradient(mx, my, 0, mx, my, 60);
     gr.addColorStop(0, 'rgba(255,220,150,.55)');
     gr.addColorStop(1, 'rgba(0,0,0,0)');
@@ -3546,14 +3884,16 @@ function drawRain(g) {
   const dt = 1 / 60;
   rainT += dt;
   ctx.strokeStyle = 'rgba(180,200,225,1)';
-  ctx.lineWidth = 1;
+  // 빗줄기는 화면 단위다 — 카메라를 당겨도 굵기 · 길이가 실제 화면에서 같도록 확대만큼 줄인다
+  const zk = 1 / ZOOM;
+  ctx.lineWidth = Math.max(0.45, 1.1 * zk);
   ctx.beginPath();
   for (const r of g.rain) {
-    r.y += r.v * dt; r.x -= r.v * 0.22 * dt;
+    r.y += r.v * dt * zk; r.x -= r.v * 0.22 * dt * zk;
     if (r.y > H) { r.y = -20; r.x = Math.random() * (W + 400) - 100; }
     if (r.x < -60) r.x = W + 40;
     ctx.globalAlpha = r.a;
-    ctx.moveTo(r.x, r.y); ctx.lineTo(r.x - r.len * 0.22, r.y + r.len);
+    ctx.moveTo(r.x, r.y); ctx.lineTo(r.x - r.len * 0.22 * zk, r.y + r.len * zk);
   }
   ctx.stroke();
   ctx.globalAlpha = 1;
@@ -3728,6 +4068,14 @@ G.refreshHud = function (force) {
 
   const wp = p.weapon, inMag = p.magOf(wp), spare = p.reserveOf(wp);
   $('hudAmmo').textContent = inMag;
+  // 원작 HUD 처럼 총 그림자와 탄창의 남은 알을 눈금으로
+  const icon = $('hudGunIcon');
+  if (icon.dataset.k !== wp.key) { icon.dataset.k = wp.key; icon.firstChild.setAttribute('d', GUN_ICONS[wp.key] || ''); }
+  const pipW = Math.min(4, 120 / wp.mag);
+  const pips = $('hudPips');
+  pips.parentNode.style.width = (wp.mag * pipW) + 'px';
+  pips.style.width = (inMag * pipW) + 'px';
+  pips.parentNode.style.setProperty('--pip', pipW + 'px');
   $('hudReserve').textContent = spare === Infinity ? '/ ∞' : '/ ' + spare;
   $('hudWeapon').textContent = p.reloading ? T('장전 중') : T(wp.name);
   const gun = document.querySelector('.ammo__gun');
@@ -3783,14 +4131,23 @@ G.refreshHud = function (force) {
       }
       if (ob.type === 'collect' && best) { tx = best.x; ty = best.y; }
     }
+    $('hudMeter').style.opacity = tx === null ? '0' : '1';
     if (tx === null) { compass.style.opacity = '0'; }
     else {
       compass.style.opacity = '1';
       const ang = Math.atan2(ty - p.y, tx - p.x) * 180 / Math.PI + 90;
       compass.querySelector('svg').style.transform = `rotate(${ang}deg) translateY(-76px)`;
-      $('hudDistance').textContent = Math.round(Math.hypot(tx - p.x, ty - p.y) / TILE * 2.4) + 'm';
+      $('hudDistance').textContent = $('hudMeter').textContent = Math.round(Math.hypot(tx - p.x, ty - p.y) / TILE * 2.4) + 'm';
     }
   }
+};
+
+/** 무기 그림자 — 오른쪽을 향한 옆모습 (viewBox 64×20) */
+const GUN_ICONS = {
+  pistol:  'M18 5h24v5H29l-3 8h-7l3-8h-4z',
+  smg:     'M2 6h44v1h10v2H46v2H33v8h-4v-8h-5l-1 6h-4l1-6h-9v-1H2z',
+  shotgun: 'M2 9l12-3h48v3H48v3H36v-3H28l-2 3h-5l-1-3-18 4z',
+  rifle:   'M2 8l14-2h46v2H46v3h-6v-2H30l-2 7h-4l1-7-23 3zM22 2h14v3H22z'
 };
 
 /* ═══════════ 화면 전환 ═══════════ */
@@ -3876,7 +4233,7 @@ const UI = {
     // 원작처럼 서바이벌은 이야기를 끝까지 본 뒤에 열린다
     const open = G.survivalOpen();
     $('btnSurvival').disabled = !open;
-    $('btnSurvival').textContent = open ? T('서바이벌') : T('서바이벌 — 8장 완수 시 개방 ({n}/{t})', { n: Math.min(G.progress(), SURVIVAL_UNLOCK), t: SURVIVAL_UNLOCK });
+    $('btnSurvival').textContent = open ? T('서바이벌') : T('서바이벌 — 9장 완수 시 개방 ({n}/{t})', { n: Math.min(G.progress(), SURVIVAL_UNLOCK), t: SURVIVAL_UNLOCK });
     const cOpen = G.challengeOpen();
     $('btnChallenge').disabled = !cOpen;
     $('btnChallenge').textContent = cOpen ? T('도전') : T('도전 — 2장 완수 시 개방');
@@ -4255,7 +4612,7 @@ document.addEventListener('click', e => {
     }
     case 'wipe':
       if (confirm(T('챕터 진행 · 평가 · 서바이벌 기록을 지웁니다. 설정과 키 설정은 남습니다. 계속할까요?'))) {
-        for (const k of ['aftermath.progress', 'aftermath.grades', 'aftermath.best', 'aftermath.hints', 'aftermath.errors', 'aftermath.records', 'aftermath.cityBest', 'aftermath.prologue', 'aftermath.ach', 'aftermath.stats', 'aftermath.chal']) try { localStorage.removeItem(k); } catch (e) { /* 무시 */ }
+        for (const k of ['aftermath.layout', 'aftermath.progress', 'aftermath.grades', 'aftermath.best', 'aftermath.hints', 'aftermath.errors', 'aftermath.records', 'aftermath.cityBest', 'aftermath.prologue', 'aftermath.ach', 'aftermath.stats', 'aftermath.chal']) try { localStorage.removeItem(k); } catch (e) { /* 무시 */ }
         $('aboutMsg').textContent = T('진행 기록을 지웠습니다');
       }
       break;
@@ -4446,6 +4803,7 @@ G.toScreen = (x, y) => toScreen(G.camera(), x, y).map(v => v * ZOOM);   // CSS p
 G.buzz = buzz;
 /** 현재 어둠 농도 (0‒1) — 밝기 설정 확인용 */
 G.darkLevel = () => darkLevel(G);
+G.migrateSaves();
 window.G = G;
 window.UI = UI;
 window.Records = Records;

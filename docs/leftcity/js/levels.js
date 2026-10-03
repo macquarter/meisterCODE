@@ -1,7 +1,8 @@
 /* ═══════════════════════════════════════════
    LEFT CITY — 남겨진 도시 : 캠페인 데이터
-   10개 스토리 챕터 + 무한 서바이벌 (이야기 글 · 무전은 story.js)
-   서울(1‒3) → 도쿄(4‒6) → 방콕(7‒8) → 싱가포르(9‒10). 같은 시드 = 같은 도시
+   11개 스토리 챕터 + 무한 서바이벌 (이야기 글 · 무전은 story.js)
+   서울(1‒3) → 대피 기지(4) → 도쿄(5‒7) → 방콕(8‒9) → 싱가포르(10‒11). 같은 시드 = 같은 도시.
+   군용차 · 컨테이너 · 철망 같은 군 시설은 4장(대피 기지)에만 둔다 — 나머지는 도시답게
    지도는 가장자리 너머로 이어 붙으므로(원환) 가장 먼 곳이 반 지도 거리다 — 그만큼 도시를 크게 잡는다
    ═══════════════════════════════════════════ */
 const LEVELS = [
@@ -10,7 +11,7 @@ const LEVELS = [
     brief: '서울. 대피 방송이 끝난 지 아홉 시간. 야간 배송을 마치고 지하에서 올라왔을 때 도시는 이미 떠난 뒤였다. ' +
            '광화문 안뜰이 마지막 구조 집결지라고 했다. 가진 건 권총 한 자루와 손전등뿐이다.',
     goals: ['광화문 안뜰까지 이동', '길에 떨어진 무기를 주울 것'],
-    seed: 1042, blocks: 9, city: 'seoul', landmarks: ['gwanghwamun', 'checkpoint'], goal: 'gwanghwamun',   // 1041 은 검문소가 들어가며 시작 화면이 무거운 배치가 됐다 (55→59fps)
+    seed: 1042, blocks: 9, city: 'seoul', landmarks: ['gwanghwamun'], goal: 'gwanghwamun',
     objective: { type: 'escape' },
     spawn: { initial: 6, rate: 0.22, max: 14 },
     mix: { walker: 1, runner: 0, brute: 0 },
@@ -45,6 +46,19 @@ const LEVELS = [
     supplies: { ammo: 4, shells: 2, medkit: 2, battery: 3, nade: 2 }
   },
   {
+    name: '마지막 수송',
+    brief: '김 선장의 어선이 한강 하구의 대피 기지에 닿았다. 바다를 건너기엔 기름이 모자라고, 기지의 연료고는 잠겨 있다. ' +
+           '출입 카드 세 장이 막사와 창고에 흩어져 있다. 대피를 지휘하던 곳이다 — 무엇이 이곳을 끝냈는지는 곧 보게 된다.',
+    goals: ['출입 카드 3장 확보', '본영 헬기장으로 이동'],
+    seed: 3907, weepers: 1, blocks: 9, city: 'base', river: true, landmarks: ['evacbase', 'checkpoint', 'railyard'], goal: 'evacbase',
+    objective: { type: 'collect', count: 3, item: '출입 카드' },
+    spawn: { initial: 11, rate: 0.45, max: 24 },
+    mix: { walker: 0.5, runner: 0.3, brute: 0.04, crawler: 0.16, bloater: 0.06 },
+    own: ['pistol', 'smg', 'shotgun'], drops: ['rifle'],            // 군 기지 — 소총은 여기서 줍는다
+    startAmmo: { smg: 100, shell: 8, rifle: 0 }, startNades: 3,
+    supplies: { ammo: 4, shells: 3, rounds: 1, medkit: 2, battery: 3, nade: 3 }
+  },
+  {
     name: '발전소 구역',
     brief: '도쿄. 배는 스미다강 하구에 닿았다. 하루의 무선국은 아사쿠사의 셔터 내린 전파상 안에 있다. ' +
            '발전기 연료가 떨어져 송신이 곧 끊긴다. 연료통 네 개. 발전기 소음은 저들을 부를 것이다.',
@@ -53,8 +67,8 @@ const LEVELS = [
     objective: { type: 'collect', count: 4, item: '연료통' },
     spawn: { initial: 12, rate: 0.5, max: 26 },
     mix: { walker: 0.45, runner: 0.33, brute: 0.05, crawler: 0.17, bloater: 0.07, screamer: 0.04 },
-    own: ['pistol', 'smg', 'shotgun'], drops: ['rifle'],
-    startAmmo: { smg: 110, shell: 10, rifle: 0 }, startNades: 3,
+    own: ['pistol', 'smg', 'shotgun', 'rifle'], drops: [],
+    startAmmo: { smg: 110, shell: 10, rifle: 6 }, startNades: 3,
     supplies: { ammo: 4, shells: 3, rounds: 1, medkit: 2, battery: 3, nade: 2 }
   },
   {
@@ -156,7 +170,7 @@ const SURVIVAL = {
 
 /** 서바이벌에서 고를 수 있는 도시와 그 랜드마크 */
 const SURVIVAL_CITIES = {
-  seoul:   { river: true,  landmarks: ['gwanghwamun', 'namsan', 'checkpoint'] },
+  seoul:   { river: true,  landmarks: ['gwanghwamun', 'namsan'] },
   tokyo:   { river: true,  landmarks: ['scramble', 'tokyotower', 'sensoji', 'railyard'] },
   bangkok: { river: true,  landmarks: ['watarun', 'democracy', 'nightmarket', 'gasstation'] },
   singapore: { river: true, landmarks: ['port', 'supertree', 'hawker', 'railyard'] }
@@ -167,7 +181,7 @@ const SURVIVAL_CITIES = {
 const ALL_GUNS = ['pistol', 'smg', 'shotgun', 'rifle'];
 const CHALLENGES = [
   { id: 'hunt', name: '사냥 시간', note: '2분 동안 최대한 많이. 연달아 쓰러뜨리면 배수가 오른다.',
-    city: 'seoul', seed: 31117, blocks: 8, river: true, landmarks: ['gwanghwamun', 'checkpoint'], time: 120, rules: { hordeEvery: 25 },
+    city: 'seoul', seed: 31117, blocks: 8, river: true, landmarks: ['gwanghwamun', 'namsan'], time: 120, rules: { hordeEvery: 25 },
     own: ['pistol', 'smg', 'shotgun'], startAmmo: { smg: 200, shell: 24, rifle: 0 }, startNades: 3,
     supplies: { ammo: 8, shells: 4, rounds: 0, medkit: 3, battery: 4, nade: 3 },
     spawn: { initial: 20, rate: 1.6, max: 44 }, mix: { walker: 0.55, runner: 0.3, crawler: 0.15 },

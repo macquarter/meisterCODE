@@ -47,9 +47,21 @@ body{
 .hud__compass svg{position:absolute;width:26px;height:26px;
   transform-origin:50% 50%;fill:var(--amber);opacity:.5;
   filter:drop-shadow(0 0 6px rgba(240,180,41,.5))}
-.hud__compass em{position:absolute;top:74px;font-style:normal;font-size:10px;
-  letter-spacing:.14em;color:var(--amber);opacity:.6;white-space:nowrap;
-  font-variant-numeric:tabular-nums}
+.hud__compass em{display:none}
+/* 목표까지 거리 — 원작처럼 화면 아래 가운데 노란 숫자 */
+.hud__meter{position:absolute;left:50%;bottom:calc(14px + env(safe-area-inset-bottom));transform:translateX(-50%);
+  font:700 24px/1 'Barlow Condensed','Arial Narrow',system-ui,sans-serif;letter-spacing:.02em;
+  color:#e9d36c;text-shadow:0 1px 0 rgba(0,0,0,.7),0 0 12px rgba(0,0,0,.6);font-variant-numeric:tabular-nums;
+  pointer-events:none;transition:opacity .3s}
+.ammo__icon{display:block;width:64px;height:20px;margin:0 0 4px auto;fill:var(--bone);opacity:.85;
+  filter:drop-shadow(0 1px 0 rgba(0,0,0,.6))}
+.ammo__pips{margin:5px 0 0 auto;height:7px;position:relative;
+  background:repeating-linear-gradient(90deg,rgba(220,214,200,.18) 0 calc(var(--pip,4px) - 1.5px),transparent 0 var(--pip,4px))}
+.ammo__pips i{position:absolute;right:0;top:0;bottom:0;display:block;
+  background:repeating-linear-gradient(90deg,var(--bone) 0 calc(var(--pip,4px) - 1.5px),transparent 0 var(--pip,4px));
+  background-position:right}
+.ammo__gun.dry .ammo__pips i{background:repeating-linear-gradient(90deg,var(--blood) 0 calc(var(--pip,4px) - 1.5px),transparent 0 var(--pip,4px))}
+.ammo__nadeIcon{display:block;width:16px;height:19px;margin:0 auto 3px;fill:var(--bone);opacity:.8}
 
 /* 하단 게이지 */
 .hud__bottom{display:flex;align-items:flex-end;gap:14px;flex-wrap:wrap}
@@ -455,7 +467,7 @@ body.touch .hud__bottom{margin-bottom:calc(152px + env(safe-area-inset-bottom));
 body.touch .gauge{width:min(112px,27vw)}
 body.touch .ammo{position:absolute;top:calc(46px + env(safe-area-inset-top));
   right:max(14px,env(safe-area-inset-right));margin:0;gap:14px}
-body.touch .hud__compass em{top:60px}
+body.touch .hud__meter{bottom:calc(20px + env(safe-area-inset-bottom))}
 
 @media (max-width:520px){
   .gauge{width:30vw}

@@ -342,8 +342,9 @@ class Zombie {
     g.spawnBlood(this.x, this.y, ang, this.type === 'brute' ? 10 : 6);
     if (this.hp <= 0 && !this.dead) {
       this.dead = true;
-      g.corpses.push({ x: this.x, y: this.y, a: ang, type: this.type, age: 0, hazmat: !!(this.look && this.look.hazmat) });   // 맞은 방향으로 쓰러진다
+      g.corpses.push({ x: this.x, y: this.y, a: ang, type: this.type, age: 0, hazmat: !!(this.look && this.look.hazmat), top: this.look && this.look.top, pants: this.look && this.look.pants });   // 맞은 방향으로 쓰러진다
       g.spawnBlood(this.x, this.y, ang, 16);
+      if (g.splat) g.splat(this.x, this.y, ang, this.t.size || 12);   // 원작처럼 큰 핏자국이 남는다
       g.onKill(this);
       if (this.t.bloat) g.bloaterBurst(this);
       SFX.pan(this.x - g.player.x);
@@ -657,7 +658,7 @@ class Grenade {
   }
   explode(g) {
     const R = 150;
-    g.flashes.push({ x: this.x, y: this.y, t: 0, life: 0.5, r: R * 2.1 });
+    g.flashes.push({ x: this.x, y: this.y, t: 0, life: 0.5, r: R * 2.1, burst: Math.random() * 6.283 });
     if (g.buzz && Math.hypot(this.x - g.player.x, this.y - g.player.y) < 420) g.buzz(70);
     g.shake = 24;
     SFX.explode();
@@ -667,6 +668,13 @@ class Grenade {
         life: 0.3 + Math.random() * 0.5, max: 0.8, size: 1 + Math.random() * 3.4,
         col: i % 4 ? '#ffffff' : '#ffd9a0', kind: 'spark' });
     }
+    // 원작 예고편의 수류탄 — 노랗고 흰 폭발 뒤로 회색 연기가 피어오른다
+    for (let i = 0; i < 9; i++) {
+      const a = Math.random() * 6.283, sp = 20 + Math.random() * 70;
+      g.particles.push({ x: this.x + Math.cos(a) * 14, y: this.y + Math.sin(a) * 14, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 30,
+        life: 1.1 + Math.random() * 0.9, max: 2, size: 12 + Math.random() * 12, col: '#6a6864', kind: 'smoke' });
+    }
+    if (g.splat) g.scorch && g.scorch(this.x, this.y);
     for (const z of g.zombies) {
       if (z.dead) continue;
       const d = Math.hypot(z.x - this.x, z.y - this.y);

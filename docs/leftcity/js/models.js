@@ -11,6 +11,9 @@
    공은 그늘 → 바탕 → 하이라이트 세 번 칠해 둥글게, 막대는 그늘 위에 밝은 줄을 얹는다. */
 const MODELS = (() => {
   const TL = Math.sin(Math.PI / 3), UP = Math.cos(Math.PI / 3);
+  /* 사람 크기 — 원작 예고편처럼 사람이 화면에서 또렷하게 서 보이도록 인형만 키우고(CS) 키를 조금 더 세운다(UPR).
+     부딪힘 크기는 그대로다. 눈 · 총구 높이(headZ · HK)도 같은 배수를 쓴다 */
+  const CS = 1.3, UPR = UP * 1.22, HK = CS * 1.22;
 
   /* ── 색 ── */
   const rgbC = new Map(), toneC = new Map();
@@ -34,12 +37,12 @@ const MODELS = (() => {
   /* ── 인형 뼈대 ── */
   class Rig {
     constructor(x, y, face, S = 1) {
-      this.x = x; this.y = y; this.c = Math.cos(face); this.s = Math.sin(face); this.S = S;
+      this.x = x; this.y = y; this.c = Math.cos(face); this.s = Math.sin(face); this.S = S * CS;
       this.parts = [];
     }
     pt(fx, fy, fz) {
       const S = this.S, wx = this.x + (fx * this.c - fy * this.s) * S, wy = this.y + (fx * this.s + fy * this.c) * S;
-      return [wx, wy * TL - fz * S * UP, wy * 0.5 + fz * S * 0.866];
+      return [wx, wy * TL - fz * S * UPR, wy * 0.5 + fz * S * 0.866];
     }
     ball(fx, fy, fz, r, col, hl = true) {
       const p = this.pt(fx, fy, fz);
@@ -89,6 +92,7 @@ const MODELS = (() => {
   }
 
   function shadow(ctx, x, y, rx, a = 0.4) {
+    rx *= CS;
     ctx.fillStyle = `rgba(0,0,0,${a})`;
     ctx.beginPath(); ctx.ellipse(x, y * TL, rx, rx * 0.55, 0, 0, 6.283); ctx.fill();
   }
@@ -121,6 +125,10 @@ const MODELS = (() => {
     const hx = L * 1.2 + 0.8 + (hd.dx || 0), hy = hd.dy || 0, hz = 25 + bob + (hd.dz || 0), hr = hd.r || 3.3;
     R.ball(hx, hy, hz, hr, sk);
     if (o.hair) R.ball(hx - 1.3, hy, hz + 0.6, hr * 0.9, o.hair, false);
+    if (o.helmet) {                                   // 철모 — 머리보다 넓고 낮게 얹힌다
+      R.ball(hx - 0.4, hy, hz + 1.1, hr * 1.18, o.helmet);
+      R.ball(hx + hr * 0.5, hy, hz + 0.2, hr * 0.5, tone(o.helmet, 0.7), false);
+    }
     if (o.hood) {                                     // 방호복 두건과 어두운 보안경
       R.ball(hx - 0.6, hy, hz + 0.4, hr * 1.12, o.hood, false);
       R.ball(hx + hr * 0.75, hy, hz - 0.2, hr * 0.55, '#1c2a30', false);
@@ -177,6 +185,11 @@ const MODELS = (() => {
       hazmat: (z.type === 'walker' || z.type === 'runner') && r() < 0.14
     };
     if (z.look.hazmat) { z.look.top = '#d9d7cc'; z.look.pants = '#cfcdc2'; z.look.hair = null; }
+    // 대피 기지 — 마지막까지 남았던 병사들. 얼룩무늬 전투복과 철모
+    else if (api.military && (z.type === 'walker' || z.type === 'runner' || z.type === 'crawler') && r() < 0.5) {
+      z.look.top = pick(['#4a5236', '#525a3c', '#43492f']); z.look.pants = pick(['#3e4430', '#454a34']);
+      z.look.helmet = z.type !== 'crawler' && r() < 0.8; if (z.look.helmet) z.look.hair = null;
+    }
     return z.look;
   }
   const blood = (R, x, z, r) => R.ball(x, 0.8, z, r, '#4a1512', false);
@@ -288,6 +301,7 @@ const MODELS = (() => {
       shadow(ctx, z.x, z.y, 11);
     }
     if (k.hazmat && !t.boss && !t.bloat && !t.spit && !t.scream && t.size < 18) { o.hood = '#e2e0d6'; o.sleeve = k.top; }
+    if (k.helmet && o.head) { o.helmet = '#3d4330'; o.sleeve = k.top; }
     o.x = z.x; o.y = z.y; o.face = z.face; o.ph = ph; o.sway = o.sway ?? sway;
     R = humanRig(o);
     R.draw(ctx, over);
@@ -321,11 +335,12 @@ const MODELS = (() => {
                  a1: (r() - 0.5) * 1.2, a2: (r() - 0.5) * 1.2, l1: (r() - 0.5) * 0.8, l2: (r() - 0.5) * 0.8 };
       if (c.type === 'player') { c.look.top = '#2f3a44'; c.look.pants = '#262b31'; }
       if (c.hazmat) { c.look.top = '#d9d7cc'; c.look.pants = '#cfcdc2'; }
+      else if (c.top && c.type !== 'player') { c.look.top = c.top; c.look.pants = c.pants || c.look.pants; }   // 쓰러지기 전 옷 그대로
     }
     // 쓰러진 몸은 움직이지 않는다 — 한 번 그려 둔 그림을 옮겨 찍는다 (시체 40구에서도 프레임이 버틴다)
     if (!c.img) {
       const S0 = c.type === 'brute' ? 1.6 : c.type === 'behemoth' ? 2.3 : c.type === 'bloater' ? 1.3 : 1.1;
-      const half = Math.ceil(26 * S0), dpr = Math.min(4, window.AFT_SCALE || window.devicePixelRatio || 1);
+      const half = Math.ceil(26 * S0 * CS), dpr = Math.min(4, window.AFT_SCALE || window.devicePixelRatio || 1);
       const cv = document.createElement('canvas');
       cv.width = cv.height = half * 2 * dpr;
       const cx = cv.getContext('2d');
@@ -338,7 +353,7 @@ const MODELS = (() => {
   function corpseBody(ctx, c, S) {
     const k = c.look;
     ctx.fillStyle = 'rgba(70,12,10,.55)';
-    ctx.beginPath(); ctx.ellipse(-Math.cos(c.a) * 3, -Math.sin(c.a) * 3 * TL, 16 * S, 10 * S, 0, 0, 6.283); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(-Math.cos(c.a) * 3, -Math.sin(c.a) * 3 * TL, 16 * S * CS, 10 * S * CS, 0, 0, 6.283); ctx.fill();
     const R = new Rig(0, 0, c.a, S);
     R.ball(-5, 0, 1.6, 3.4, k.pants, false);
     R.ball(0, 0, 2, 4.2, k.top, false);
@@ -551,8 +566,26 @@ const MODELS = (() => {
     });
   }
 
+  /** 군용 트럭 — 각진 올리브색 운전석, 활대 위로 씌운 방수포 짐칸 */
+  function mtruck(ctx, pr) {
+    const hx = pr.w / 2, hy = pr.h / 2, col = '#4a5236';
+    ctx.fillStyle = 'rgba(0,0,0,.45)';
+    shadowRect(ctx, pr, hx + 2, hy + 2);
+    wheels(ctx, pr, [-hx * 0.66, -hx * 0.4, hx * 0.66], hy * 0.92, 6);
+    box(ctx, pr.x, pr.y, pr.a, hx * 0.4, hx, -hy * 0.92, hy * 0.92, 5, 24, tone(col, 1.08), col, (c2, f, i) => {
+      if (i === 1) { patch(c2, f, 0.1, 0.9, 0.55, 0.9, GLASS); patch(c2, f, 0.05, 0.95, 0.08, 0.3, 'rgba(0,0,0,.35)'); }
+      else if (i === 0 || i === 2) patch(c2, f, 0.3, 0.88, 0.55, 0.9, GLASS);
+    });
+    box(ctx, pr.x, pr.y, pr.a, -hx, hx * 0.36, -hy, hy, 6, 31, tone('#5c6146', 1.05), '#545a40', (c2, f, i) => {
+      for (let u = 0.12; u < 1; u += 0.22) patch(c2, f, u - 0.012, u + 0.012, 0.25, 1, 'rgba(0,0,0,.25)');   // 방수포 활대
+      patch(c2, f, 0, 1, 0, 0.22, '#3a3f2c');                                                                   // 적재함 판
+      if (i === 3) patch(c2, f, 0.1, 0.9, 0.3, 0.95, 'rgba(0,0,0,.4)');                                         // 뒤쪽 트인 자리
+    });
+  }
+
   function prop(ctx, pr) {
     if (pr.kind === 'car') car(ctx, pr);
+    else if (pr.kind === 'mtruck') mtruck(ctx, pr);
     else if (pr.kind === 'wagon') wagon(ctx, pr);
     else if (pr.kind === 'humvee') humvee(ctx, pr);
     else if (pr.kind === 'truck') truck(ctx, pr);
@@ -614,15 +647,15 @@ const MODELS = (() => {
   /** 머리 높이 (세계 px) — 어둠 속 눈이 이 높이에 뜬다 */
   function headZ(z) {
     const t = z.t;
-    if (t.crawl) return 7;
-    if (t.weeper && !z.rage) return 13;
+    if (t.crawl) return 7 * HK;
+    if (t.weeper && !z.rage) return 13 * HK;
     const S = t.boss ? 2.35 : t.bloat ? 1.25 : t.size >= 18 ? 1.75 : t.speed > 100 ? 1.06 : 1.15;
-    return 24 * S;
+    return 24 * S * HK;
   }
 
   /* 화면에서 높이 h(세계 px)는 세계 y 로 h·UP/TL 만큼 위 */
   const ZK = UP / TL;
-  const api = { zombie, player, corpse, prop, decor, STANDING, headZ, box, tone, ZK, TL, UP, lod: 0 };
+  const api = { zombie, player, corpse, prop, decor, STANDING, headZ, box, tone, ZK, TL, UP, CS, HK, lod: 0, military: false };
   return api;
 })();
 window.MODELS = MODELS;

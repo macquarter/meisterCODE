@@ -68,6 +68,21 @@ SETTINGS.onChange(k => { if (k === 'quality' || k === null) resize(); });
 
 const isTouch = matchMedia('(hover:none) and (pointer:coarse)').matches;
 if (isTouch) document.body.classList.add('touch');
+/** 터치 버튼 크기 */
+function applyTouchSize() {
+  for (const k of ['small', 'normal', 'large']) document.body.classList.toggle('ts-' + k, SETTINGS.touchSize === k);
+}
+applyTouchSize();
+SETTINGS.onChange(k => { if (k === 'touchSize' || k === null) applyTouchSize(); });
+/** 짧은 진동 — 지원 기기 · 설정이 켜졌을 때만. 너무 잦으면 손이 저리므로 간격을 둔다 */
+let buzzT = 0;
+function buzz(ms) {
+  if (!isTouch || !SETTINGS.haptics || !navigator.vibrate) return;
+  const now = performance.now();
+  if (now < buzzT) return;
+  buzzT = now + Math.max(120, ms * 3);
+  try { navigator.vibrate(ms); } catch (e) { /* 막힌 환경 */ }
+}
 
 /* ═══════════ 입력 ═══════════ */
 const keys = Object.create(null);
@@ -75,39 +90,149 @@ const input = { mx: W / 2, my: H / 2, firing: false, moveX: 0, moveY: 0, aimTouc
                 // 터치 질주는 누르고 있는 버튼이 아니라 걸쇠다 — 두 엄지가 이미 스틱 위에 있어서
                 sprintLatch: false, idleT: 0 };
 
-addEventListener('keydown', e => {
-  keys[e.code] = true;
-  if (['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space'].includes(e.code)) e.preventDefault();
+/** 키 다시 묶기 대기 중이면 그 행동 id — 이때 누른 키는 게임으로 가지 않는다 */
+let rebinding = null;
+const WEAPON_OF = { w1: 'pistol', w2: 'smg', w3: 'shotgun', w4: 'rifle' };
+
+/** 누름 한 번에 일어나는 행동 (누르고 있는 행동은 프레임마다 KEYBIND.held 로 읽는다) */
+function pressAction(act, e) {
   if (G.state === 'arms') {
-    const pick = { Digit1: 'pistol', Digit2: 'smg', Digit3: 'shotgun', Digit4: 'rifle' }[e.code];
-    if (pick || e.code === 'Escape' || e.code === 'Tab') { e.preventDefault(); G.closeArms(pick); }
+    if (WEAPON_OF[act] || act === 'arms') { if (e) e.preventDefault(); G.closeArms(WEAPON_OF[act]); }
     return;
   }
-  if (e.code === 'Tab' && G.state === 'play') { e.preventDefault(); G.openArms(); return; }
-  if (e.code === 'Escape') G.togglePause();
-  if (e.code === 'KeyG' && G.state === 'play') G.player.throwNade(G);
-  if (G.state === 'play') {
-    if (e.code === 'Digit1') G.player.select('pistol', G);
-    if (e.code === 'Digit2') G.player.select('smg', G);
-    if (e.code === 'Digit3') G.player.select('shotgun', G);
-    if (e.code === 'Digit4') G.player.select('rifle', G);
-    if (e.code === 'KeyQ')   G.player.cycle(G);
-    if (e.code === 'KeyR')   G.player.reload(G);
-    if (e.code === 'KeyE')   G.player.melee(G);
+  if (act === 'map' && (G.state === 'play' || G.state === 'map')) { if (e) e.preventDefault(); G.toggleMap(); return; }
+  if (G.state !== 'play') return;
+  const p = G.player;
+  switch (act) {
+    case 'arms':   if (e) e.preventDefault(); G.openArms(); break;
+    case 'nade':   p.throwNade(G); break;
+    case 'reload': p.reload(G); break;
+    case 'melee':  p.melee(G); break;
+    case 'cycle':  p.cycle(G); break;
+    case 'light':  G.toggleLight(); break;
+    default: if (WEAPON_OF[act]) p.select(WEAPON_OF[act], G);
   }
-  if (e.code === 'KeyF' && G.state === 'play') G.toggleLight();
+}
+
+addEventListener('keydown', e => {
+  if (rebinding) { e.preventDefault(); UI.finishRebind(e.code); return; }
+  keys[e.code] = true;
+  const act = KEYBIND.action(e.code);
+  // 브라우저 기본 동작(스크롤 · 포커스 이동)을 막는다 — 게임 키일 때만
+  if (act || ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space', 'Tab'].includes(e.code)) {
+    if (G.state === 'play' || G.state === 'arms' || G.state === 'map') e.preventDefault();
+  }
+  if (e.code === 'Escape') {
+    if (G.state === 'arms') { G.closeArms(); return; }
+    if (G.state === 'map') { G.toggleMap(); return; }
+    G.togglePause();
+    return;
+  }
+  if (e.repeat) return;
+  if (act) pressAction(act, e);
 });
 addEventListener('keyup', e => { keys[e.code] = false; });
 addEventListener('blur', () => { for (const k in keys) keys[k] = false; input.firing = false; });
 
-view.addEventListener('mousemove', e => { input.mx = e.clientX; input.my = e.clientY; input.hasMouse = true; });
+view.addEventListener('mousemove', e => { input.mx = e.clientX; input.my = e.clientY; input.hasMouse = true; PAD.aim = null; });
 view.addEventListener('mousedown', e => {
   SFX.resume();
-  if (e.button === 0) input.firing = true;
-  else if (e.button === 2 && G.state === 'play') G.player.melee(G);
+  if (e.button === 0) { input.firing = true; return; }
+  const code = 'Mouse' + e.button;
+  keys[code] = true;
+  const act = KEYBIND.action(code);
+  if (act) pressAction(act, e);
 });
-addEventListener('mouseup', () => { input.firing = false; });
+addEventListener('mousedown', e => {
+  // 키 설정 화면에서는 마우스 버튼(왼쪽 제외)도 받는다
+  if (rebinding && e.button !== 0) { e.preventDefault(); UI.finishRebind('Mouse' + e.button); }
+}, true);
+addEventListener('mouseup', e => { if (e.button === 0) input.firing = false; else keys['Mouse' + e.button] = false; });
 view.addEventListener('contextmenu', e => e.preventDefault());
+
+/* ═══════════ 게임패드 (표준 배치) ═══════════
+   왼쪽 스틱 이동 · 오른쪽 스틱 조준(손전등) · RT 사격 · LT/L3 질주 · RB 수류탄 · LB 밀치기
+   X 재장전 · Y 다음 무기 · A 손전등 · B 무기 고르기 · Back/D-pad ↑ 전체 지도 · Start 일시정지.
+   메뉴에서는 D-pad/왼쪽 스틱으로 고르고 A 로 누르고 B 로 돌아간다. */
+const PAD = { connected: false, mx: 0, my: 0, aim: null, fire: false, sprint: false, prev: [], navT: 0, focus: null };
+function padItems() {
+  if (G.state === 'arms') return [...document.querySelectorAll('#arms .arm:not([disabled])')];
+  const scr = document.querySelector('.screen:not(.hidden)');
+  if (!scr) return [];
+  return [...scr.querySelectorAll('button:not([disabled]), .chapter:not(.chapter--locked), input[type=range]')]
+    .filter(el => el.offsetParent !== null);
+}
+function padFocus(el) {
+  if (PAD.focus) PAD.focus.classList.remove('padfocus');
+  PAD.focus = el;
+  if (!el) return;
+  el.classList.add('padfocus');
+  el.focus({ preventScroll: true });
+  el.scrollIntoView({ block: 'nearest' });
+}
+function padBack() {
+  if (G.state === 'pause') { G.togglePause(); return; }
+  if (G.state === 'arms') { G.closeArms(); return; }
+  if (G.state === 'map') { G.toggleMap(); return; }
+  const scr = document.querySelector('.screen:not(.hidden)');
+  const b = scr && scr.querySelector('[data-act=back],[data-act=setback],[data-act=keyback]');
+  if (b) b.click();
+}
+function pollPad(dt) {
+  const list = navigator.getGamepads ? navigator.getGamepads() : [];
+  let gp = null;
+  for (const g of list) if (g && g.connected) { gp = g; break; }
+  if (!gp) {
+    if (PAD.connected) { PAD.connected = false; PAD.mx = PAD.my = 0; PAD.fire = PAD.sprint = false; PAD.aim = null; }
+    return;
+  }
+  if (!PAD.connected) { PAD.connected = true; if (G.state === 'play') G.toast('게임패드 연결 — 배치는 일시정지 › 조작법', 3); }
+  const btn = i => !!gp.buttons[i] && (gp.buttons[i].pressed || gp.buttons[i].value > 0.45);
+  const down = i => btn(i) && !PAD.prev[i];
+  const dz = v => Math.abs(v) < 0.18 ? 0 : (v - Math.sign(v) * 0.18) / 0.82;
+  const ax = dz(gp.axes[0] || 0), ay = dz(gp.axes[1] || 0), rx = gp.axes[2] || 0, ry = gp.axes[3] || 0;
+
+  if (G.state === 'play') {
+    PAD.mx = ax; PAD.my = ay;
+    // 화면 방향 → 세계 방향 (세로가 줄어든 만큼 되돌린다)
+    if (Math.hypot(rx, ry) > 0.35) { PAD.aim = Math.atan2(ry / TILT, rx); input.hasMouse = false; }
+    PAD.fire = btn(7); PAD.sprint = btn(6) || btn(10);
+    if (down(5)) pressAction('nade');
+    if (down(4)) pressAction('melee');
+    if (down(2)) pressAction('reload');
+    if (down(3) || down(15)) pressAction('cycle');
+    if (down(0)) pressAction('light');
+    if (down(1)) pressAction('arms');
+    if (down(8) || down(12)) pressAction('map');
+    if (down(9)) G.togglePause();
+  } else {
+    PAD.mx = PAD.my = 0; PAD.fire = PAD.sprint = false;
+    if (G.state === 'map') { if (down(0) || down(1) || down(8) || down(12)) G.toggleMap(); }
+    else {
+      // 메뉴 — 위아래(또는 좌우)로 옮겨 다니고 A 로 누른다. 스틱은 길게 밀면 0.18초마다 한 칸
+      PAD.navT -= dt;
+      const items = padItems();
+      let step = 0;
+      if (down(13) || down(15)) step = 1;
+      else if (down(12) || down(14)) step = -1;
+      else if (PAD.navT <= 0 && (Math.abs(ay) > 0.6 || Math.abs(ax) > 0.6)) step = (Math.abs(ay) > Math.abs(ax) ? ay : ax) > 0 ? 1 : -1;
+      if (step) PAD.navT = 0.18;
+      if (items.length) {
+        let i = items.indexOf(PAD.focus);
+        if (i < 0) { i = 0; if (!step) padFocus(items[0]); }
+        if (step) padFocus(items[(i + step + items.length) % items.length]);
+        if (down(0) && PAD.focus) {
+          if (PAD.focus.matches('input[type=range]')) { PAD.focus.stepUp(2); PAD.focus.dispatchEvent(new Event('input', { bubbles: true })); }
+          else PAD.focus.click();
+        }
+      }
+      if (down(1)) padBack();
+      if (down(9) && G.state === 'pause') G.togglePause();
+    }
+  }
+  PAD.prev = gp.buttons.map((_, i) => btn(i));
+}
+addEventListener('gamepaddisconnected', () => { PAD.connected = false; });
 
 /* 터치: 좌 = 이동 스틱, 우 = 회전(또는 조준) 스틱 */
 function bindPad(el, onVec, axisX) {
@@ -168,7 +293,7 @@ function applyTouchLayout() {
   document.body.classList.toggle('nofire', SETTINGS.autofire);
 }
 SETTINGS.onChange(applyTouchLayout);
-SETTINGS.onChange(k => { if (k === 'music') SFX.music(G.state === 'play' || G.state === 'pause' || G.state === 'arms'); });
+SETTINGS.onChange(k => { if (k === 'music') SFX.music(G.state === 'play' || G.state === 'pause' || G.state === 'arms' || G.state === 'map'); });
 applyTouchLayout();
 
 /* drag — 원작 1.1 의 선택 조작: 화면 오른쪽 절반 어디든 좌우로 끌어 돈다 */
@@ -231,7 +356,7 @@ const Hints = (() => {
 
   // [키 표시, 설명]. 데스크톱과 터치가 다르면 그 자리에서 고른다.
   const TEXT = {
-    move:     () => !isTouch ? ['WASD', '이동 · 마우스로 손전등을 비춘다']
+    move:     () => !isTouch ? [['up', 'left', 'down', 'right'].map(a => KEYBIND.labelOf(a)).join(''), '이동 · 마우스로 손전등을 비춘다']
       : ['왼쪽 스틱', SETTINGS.aim === 'turn' ? '이동 · 오른쪽 스틱을 좌우로 밀어 손전등을 돌린다'
         : SETTINGS.aim === 'drag' ? '이동 · 오른쪽 화면을 좌우로 끌어 손전등을 돌린다'
         : '이동 · 오른쪽 스틱으로 손전등을 비춘다'],
@@ -239,17 +364,17 @@ const Hints = (() => {
       ? (isTouch ? ['자동 사격', '불빛에 들어온 적은 저절로 쏜다 — 손전등을 적에게 돌리자']
                  : ['클릭', '불빛 안에 들어온 적은 자동으로 쏜다. 직접 쏠 수도 있다'])
       : [isTouch ? '사격' : '클릭', '사격 — 손전등이 비추는 쪽으로만 나간다'],
-    reload:   () => [isTouch ? '장전' : 'R', '재장전 — 탄창이 비면 자동으로도 갈아 끼운다'],
-    melee:    () => [isTouch ? '밀치기' : 'E · 우클릭', '붙잡히면 발이 묶인다 — 밀쳐내고 빠져나가라'],
+    reload:   () => [isTouch ? '장전' : KEYBIND.labelOf('reload'), '재장전 — 탄창이 비면 자동으로도 갈아 끼운다'],
+    melee:    () => [isTouch ? '밀치기' : KEYBIND.labelOf('melee') + ' · 우클릭', '붙잡히면 발이 묶인다 — 밀쳐내고 빠져나가라'],
     weeper:   () => ['우는 것', '울음소리가 들리면 불빛을 돌리고 멀리 돌아가라 — 깨우면 끝까지 쫓아온다'],
     bloater:  () => ['부푼 것', '가까이서 터지면 담즙을 뒤집어쓴다 — 멀리서 쏴라'],
     bile:     () => ['담즙', '냄새를 맡고 무리가 몰려온다 — 등을 벽에 대고 수류탄을 준비하라'],
     horde:    () => ['무리', '붉은 호가 가리키는 쪽에서 몰려온다 — 불빛을 그쪽으로 돌리거나 질주로 거리를 벌려라'],
     sprint:   () => isTouch ? ['질주', '한 번 누르면 계속 달린다 · 발소리가 커서 멀리서도 깨운다']
-                            : ['Shift', '질주 — 빠르지만 발소리가 커서 멀리서도 깨운다'],
+                            : [KEYBIND.labelOf('sprint'), '질주 — 빠르지만 발소리가 커서 멀리서도 깨운다'],
     pickup:   () => ['', '빛나는 물건은 밟으면 줍는다'],
-    battery:  () => [isTouch ? '손전등' : 'F', '손전등을 꺼서 배터리를 아낀다 · 노란 상자로 채운다'],
-    nade:     () => [isTouch ? '수류탄' : 'G', '무리가 몰렸다 — 수류탄'],
+    battery:  () => [isTouch ? '손전등' : KEYBIND.labelOf('light'), '손전등을 꺼서 배터리를 아낀다 · 노란 상자로 채운다'],
+    nade:     () => [isTouch ? '수류탄' : KEYBIND.labelOf('nade'), '무리가 몰렸다 — 수류탄'],
     runner:   () => ['달리는 것', '약하지만 빠르다. 멀리 있을 때 끊어 쏘자'],
     brute:    () => ['거대한 것', '잘 밀리지 않는다. 수류탄을 아끼지 말 것'],
     crawler:  () => ['기어다니는 것', '웅크렸다 튄다. 일정하게 다가오지 않는다'],
@@ -409,10 +534,10 @@ const G = {
     return true;
   },
 
-  toast(msg) {
+  toast(msg, dur = 2.2) {
     const el = $('toast');
     el.textContent = msg; el.classList.add('show');
-    this.toastT = 2.2;
+    this.toastT = dur;
   },
 
   /* ── 레벨 시작 ── */
@@ -669,6 +794,7 @@ const G = {
       this.particles.push({ x: z.x, y: z.y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, life: 0.4 + Math.random() * 0.5, max: 0.9,
         size: 2 + Math.random() * 3, col: i % 3 ? '#7d9a3a' : '#b7c96a', kind: 'spark' });
     }
+    if (d < 260) buzz(45);
     if (d < 140 && !p.dead) this.bileHit();
   },
   /** 담즙 — 9초 동안 시야가 흐려지고, 무리가 냄새를 맡고 몰려온다 */
@@ -891,9 +1017,9 @@ const G = {
       const empty = own && w.ammoKey && mag + res <= 0;
       const ammo = !own ? '없음' : w.ammoKey ? `${mag} / ${res}` : `${mag} / ∞`;
       return `<button class="arm${k === p.wpn ? ' on' : ''}${empty ? ' empty' : ''}" data-k="${k}"${own ? '' : ' disabled'}>
-        ${ARM_ICON[k]}<b>${w.name}</b><span>${ammo}</span>${isTouch ? '' : `<kbd>${w.slot}</kbd>`}</button>`;
+        ${ARM_ICON[k]}<b>${w.name}</b><span>${ammo}</span>${isTouch ? '' : `<kbd>${KEYBIND.labelOf('w' + w.slot)}</kbd>`}</button>`;
     }).join('');
-    $('armsNote').textContent = isTouch ? '무기를 누르면 바로 이어집니다' : '숫자키 또는 클릭 · Tab 으로 닫기';
+    $('armsNote').textContent = isTouch ? '무기를 누르면 바로 이어집니다' : `무기 키 또는 클릭 · ${KEYBIND.labelOf('arms')} 로 닫기`;
     $('arms').classList.remove('hidden');
     SFX.click();
   },
@@ -904,8 +1030,21 @@ const G = {
     if (key) this.player.select(key, this);
   },
 
+  /** 전체 지도 (원작 1.1) — 보는 동안 시간이 멈춘다 */
+  toggleMap() {
+    if (this.state === 'map') { $('bigmap').classList.add('hidden'); this.state = 'play'; return; }
+    if (this.state !== 'play' || this.player.dead) return;
+    this.state = 'map';
+    input.firing = false;
+    drawBigMap(this);
+    $('bigMapNote').textContent = isTouch ? '화면을 누르면 닫힙니다' : `${KEYBIND.labelOf('map')} 또는 Esc 로 닫기`;
+    $('bigmap').classList.remove('hidden');
+    SFX.click();
+  },
+
   /** 어디서 맞았는가 — 화면 가장자리 쪽 붉은 호로 0.9초 보여 준다 (같은 쪽이면 갱신) */
   hitFrom(x, y) {
+    buzz(28);
     const p = this.player, a = Math.atan2(y - p.y, x - p.x);
     if (!this.hitDirs) this.hitDirs = [];
     for (const h of this.hitDirs) if (Math.abs(Math.atan2(Math.sin(h.a - a), Math.cos(h.a - a))) < 0.45) { h.a = a; h.t = 0.9; return; }
@@ -967,16 +1106,16 @@ const G = {
 
     /* 입력 → 이동 */
     let mx = 0, my = 0;
-    if (keys.KeyW || keys.ArrowUp) my -= 1;
-    if (keys.KeyS || keys.ArrowDown) my += 1;
-    if (keys.KeyA || keys.ArrowLeft) mx -= 1;
-    if (keys.KeyD || keys.ArrowRight) mx += 1;
-    mx += input.moveX; my += input.moveY;
+    if (KEYBIND.held('up', keys)) my -= 1;
+    if (KEYBIND.held('down', keys)) my += 1;
+    if (KEYBIND.held('left', keys)) mx -= 1;
+    if (KEYBIND.held('right', keys)) mx += 1;
+    mx += input.moveX + PAD.mx; my += input.moveY + PAD.my;
     const ml = Math.hypot(mx, my);
     if (ml > 1) { mx /= ml; my /= ml; }
 
     const moving = ml > 0.1;
-    p.resolveSprint(!!(keys.ShiftLeft || keys.ShiftRight) || input.sprintLatch, moving, dt);
+    p.resolveSprint(KEYBIND.held('sprint', keys) || input.sprintLatch || PAD.sprint, moving, dt);
     // 걸쇠는 숨이 차거나 0.6초 넘게 멈추면 스스로 풀린다 — 서 있는 동안 켜져 있다가
     // 다시 움직일 때 의도치 않게 질주(=소음)하지 않도록
     if (input.sprintLatch) {
@@ -1008,6 +1147,7 @@ const G = {
       input.dragTurn = 0;
     }
     if (input.aimTouch !== null) p.angle = input.aimTouch;
+    else if (PAD.aim !== null) p.angle = PAD.aim;
     else if (input.hasMouse) p.angle = Math.atan2(cam.y + input.my / TILT - p.y, cam.x + input.mx - p.x);   // 화면 → 세계 (기울기 되돌림)
 
     p.update(dt, this);
@@ -1032,7 +1172,7 @@ const G = {
 
     /* 사격: 수동 + 불빛 안 자동사격 */
     if (!p.dead) {
-      const manual = input.firing || keys.Space;
+      const manual = input.firing || KEYBIND.held('fire', keys) || PAD.fire;
       // 원작: 불빛을 적에게 비추면 사격은 저절로 된다. 불빛 안의 표적을 향해 쏜다
       const tgt = !manual && SETTINGS.autofire ? this.autoTarget() : null;
       if (p.cool <= 0 && (manual || tgt))
@@ -2572,6 +2712,38 @@ const Minimap = {
   }
 };
 
+/** 게임 중 전체 지도 — 지금 있는 곳 · 바라보는 쪽 · 남은 보급 상자 · 집결지 · 랜드마크 */
+function drawBigMap(g) {
+  const w = g.world, cv = $('bigMapCv'), img = Minimap.img || mapImage(w);
+  const css = Math.floor(Math.min(W - 32, H - 96, 720));
+  const dpr = Math.min(2, window.devicePixelRatio || 1);
+  cv.width = cv.height = Math.floor(css * dpr); cv.style.width = cv.style.height = css + 'px';
+  const c = cv.getContext('2d');
+  c.setTransform(dpr, 0, 0, dpr, 0, 0);
+  c.fillStyle = '#07090c'; c.fillRect(0, 0, css, css);
+  const k = css / Math.max(w.w, w.h), ox = (css - w.w * k) / 2, oy = (css - w.h * k) / 2;
+  c.imageSmoothingEnabled = false;
+  c.drawImage(img, ox, oy, w.w * k, w.h * k);
+  // 원환 지도 — 좌표를 지도 한 장 안으로 접는다
+  const fold = (x, y) => { const WW = w.w * TILE, HH = w.h * TILE; x %= WW; if (x < 0) x += WW; y %= HH; if (y < 0) y += HH; return [ox + x / TILE * k, oy + y / TILE * k]; };
+  c.font = '600 12px ' + getComputedStyle(document.body).fontFamily; c.textAlign = 'center'; c.textBaseline = 'bottom';
+  for (const lm of w.landmarks) {
+    const x = ox + (lm.x + lm.w / 2) * k, y = oy + lm.y * k, tw = c.measureText(lm.name).width;
+    c.fillStyle = 'rgba(0,0,0,.65)'; c.fillRect(x - tw / 2 - 4, y - 17, tw + 8, 16);
+    c.fillStyle = '#f2c98a'; c.fillText(lm.name, x, y - 3);
+  }
+  const mark = (x, y, col, r) => { const [sx, sy] = fold(x, y); c.fillStyle = col; c.beginPath(); c.arc(sx, sy, r, 0, 6.283); c.fill(); c.strokeStyle = 'rgba(0,0,0,.75)'; c.lineWidth = 2; c.stroke(); };
+  for (const pk of g.pickups) if (pk.type === 'goal') mark(pk.x, pk.y, '#59b7d8', 5);
+  if (g.exitOpen && g.level.objective.type !== 'endless') mark(w.exit.x, w.exit.y, '#78dcff', 7);
+  // 나 — 바라보는 쪽 화살표와 손전등 부채
+  const [px, py] = fold(g.player.x, g.player.y);
+  c.save(); c.translate(px, py); c.rotate(g.player.angle);
+  c.fillStyle = 'rgba(240,226,180,.18)'; c.beginPath(); c.moveTo(0, 0); c.arc(0, 0, 34, -0.45, 0.45); c.closePath(); c.fill();
+  c.fillStyle = '#f0b429'; c.strokeStyle = 'rgba(0,0,0,.8)'; c.lineWidth = 2;
+  c.beginPath(); c.moveTo(11, 0); c.lineTo(-7, -7); c.lineTo(-3, 0); c.lineTo(-7, 7); c.closePath(); c.stroke(); c.fill();
+  c.restore();
+}
+
 /** 브리핑 화면의 구역 전체 지도 — 같은 시드라 실제 판과 같은 도시다 */
 function drawBriefMap(L) {
   const cv = $('briefMap'), c = cv.getContext('2d'), w = new World(L.seed, L.blocks, cityOpts(L));
@@ -2690,10 +2862,68 @@ G.refreshHud = function (force) {
 /* ═══════════ 화면 전환 ═══════════ */
 const UI = {
   screens: ['scrTitle', 'scrChapters', 'scrHowto', 'scrBrief', 'scrCity', 'scrPause', 'scrResult',
-            'scrSettings', 'scrEnding'],
+            'scrSettings', 'scrEnding', 'scrKeys'],
   settingsFrom: 'scrTitle',
   hideScreens() { this.screens.forEach(s => $(s).classList.add('hidden')); },
   show(id) { this.hideScreens(); $(id).classList.remove('hidden'); },
+
+  /** 조작법 — 지금 묶인 키로 그린다 */
+  buildHowto() {
+    const k = a => `<kbd>${KEYBIND.labelOf(a)}</kbd>`;
+    const rows = [
+      [k('up') + k('left') + k('down') + k('right'), '이동 (방향키도 됨)'],
+      ['<kbd>마우스</kbd>', '손전등 방향 · 조준'],
+      ['<kbd>클릭</kbd>' + k('fire'), '사격 (불빛 안의 적은 자동 사격)'],
+      [k('w1') + k('w2') + k('w3') + k('w4') + k('cycle'), '무기 전환 (권총 · SMG · 샷건 · 소총)'],
+      [k('arms'), '무기 고르기 — 고르는 동안 시간이 멈춘다'],
+      [k('reload'), '재장전 (약실이 비면 자동 장전)'],
+      [k('melee') + '<kbd>우클릭</kbd>', '근접 밀치기 — 달라붙은 적을 떼어낸다'],
+      [k('nade'), '수류탄 투척'],
+      [k('light'), '손전등 on / off (배터리 절약)'],
+      [k('sprint'), '전력 질주 (기력 소모 — 바닥나면 숨이 찬다)'],
+      [k('map'), '전체 지도 — 보는 동안 시간이 멈춘다'],
+      ['<kbd>Esc</kbd>', '일시정지']
+    ];
+    $('howtoKeys').innerHTML = rows.map(([keys, txt]) => `<div>${keys}<span>${txt}</span></div>`).join('');
+  },
+
+  /** 키 설정 목록 */
+  buildKeys() {
+    $('keyList').innerHTML = KEYBIND.ACTIONS.map(a =>
+      `<div class="keymap__row"><span>${a.name}</span>` +
+      `<button type="button" class="keymap__key${KEYBIND.code(a.id) !== a.def ? ' changed' : ''}" data-bind="${a.id}">${KEYBIND.labelOf(a.id)}</button></div>`).join('');
+    $('keyReset').disabled = KEYBIND.isDefault();
+  },
+  startRebind(id) {
+    this.cancelRebind();
+    rebinding = id;
+    const b = document.querySelector(`[data-bind="${id}"]`);
+    if (b) { b.classList.add('wait'); b.textContent = '키를 누르세요…'; }
+    $('keyMsg').textContent = `'${KEYBIND.nameOf(id)}' 에 쓸 키를 누르세요 · Esc 취소`;
+  },
+  cancelRebind() {
+    if (!rebinding) return;
+    rebinding = null;
+    this.buildKeys();
+    $('keyMsg').textContent = '';
+  },
+  finishRebind(code) {
+    const id = rebinding;
+    if (!id) return;
+    if (code === 'Escape') { this.cancelRebind(); return; }
+    if (KEYBIND.reserved(code)) { $('keyMsg').textContent = `${KEYBIND.label(code)} 는 쓸 수 없습니다`; return; }
+    rebinding = null;
+    const swapped = KEYBIND.set(id, code);
+    this.buildKeys();
+    $('keyMsg').textContent = swapped
+      ? `${KEYBIND.label(code)} → ${KEYBIND.nameOf(id)} · '${KEYBIND.nameOf(swapped)}' 은(는) ${KEYBIND.labelOf(swapped)} 로 바꿨습니다`
+      : `${KEYBIND.label(code)} → ${KEYBIND.nameOf(id)}`;
+    for (const k of [id, swapped]) {
+      const b = k && document.querySelector(`[data-bind="${k}"]`);
+      if (b) { b.classList.add('flash'); setTimeout(() => b.classList.remove('flash'), 500); }
+    }
+    SFX.click();
+  },
   enterPlay() {
     this.hideScreens();
     $('arms').classList.add('hidden');
@@ -2722,6 +2952,7 @@ const UI = {
       const locked = i > unlocked;
       const el = document.createElement('div');
       el.className = 'chapter' + (locked ? ' chapter--locked' : '');
+      if (!locked) { el.tabIndex = 0; el.setAttribute('role', 'button'); el.addEventListener('keydown', e => { if (e.code === 'Enter' || e.code === 'Space') { e.preventDefault(); el.click(); } }); }
       const best = grades[i] | 0;
       const mark = locked ? '잠김'
         : best ? `<b class="chapter__grade" data-g="${UI.letter(best)}">${UI.letter(best)}</b>` +
@@ -2908,7 +3139,18 @@ document.addEventListener('click', e => {
     case 'howto':
     case 'keys':
       UI.settingsFrom = G.state === 'pause' ? 'scrPause' : 'scrTitle';
-      UI.show('scrHowto'); break;
+      UI.buildHowto(); UI.show('scrHowto'); break;
+    case 'keymap':
+      UI.keysFrom = $('scrHowto').classList.contains('hidden') ? 'scrSettings' : 'scrHowto';
+      if (UI.keysFrom === 'scrSettings' || !UI.settingsFrom) UI.settingsFrom = UI.settingsFrom || 'scrTitle';
+      UI.buildKeys(); UI.show('scrKeys'); break;
+    case 'keyreset':
+      UI.cancelRebind(); KEYBIND.reset(); UI.buildKeys(); $('keyMsg').textContent = '기본 키로 되돌렸습니다'; break;
+    case 'keyback':
+      UI.cancelRebind();
+      if (UI.keysFrom === 'scrHowto') { UI.buildHowto(); UI.show('scrHowto'); }
+      else { UI.syncSettings(); UI.show('scrSettings'); }
+      break;
     case 'settings':
       UI.settingsFrom = G.state === 'pause' ? 'scrPause' : 'scrTitle';
       UI.syncSettings(); UI.show('scrSettings'); break;
@@ -2929,6 +3171,22 @@ document.addEventListener('click', e => {
       break;
   }
 });
+
+/* 전체 지도 — 터치는 미니맵을 눌러 열고 아무 데나 눌러 닫는다. 마우스로도 지도 위를 누르면 닫힌다 */
+$('minimap').addEventListener('click', () => { if (G.state === 'play') G.toggleMap(); });
+$('minimap').addEventListener('touchend', e => { e.preventDefault(); if (G.state === 'play') G.toggleMap(); }, { passive: false });
+$('bigmap').addEventListener('click', () => { if (G.state === 'map') G.toggleMap(); });
+
+/* 키 설정 — 행동 버튼을 누르면 다음 키를 기다린다 */
+$('keyList').addEventListener('click', e => {
+  const b = e.target.closest('[data-bind]');
+  if (!b) return;
+  e.stopPropagation();
+  SFX.init(); SFX.resume(); SFX.click();
+  if (rebinding === b.dataset.bind) UI.cancelRebind(); else UI.startRebind(b.dataset.bind);
+});
+// 키가 바뀌면 다음 도움말 · 무기 고르기 화면이 새 키로 뜬다
+KEYBIND.onChange(() => { if (!$('scrHowto').classList.contains('hidden')) UI.buildHowto(); });
 
 /* 설정 위젯 배선 */
 $('setVolume').addEventListener('input', e => {
@@ -2996,6 +3254,7 @@ function frame(now) {
   const dt = Math.min(0.05, ms / 1000);
   last = now;
   adaptRes(ms);
+  pollPad(dt);
   if (SETTINGS.fps) {
     fpsN++; fpsT += ms;
     if (fpsT >= 500) {
@@ -3013,7 +3272,7 @@ function frame(now) {
     if (G.state === 'play' || G.state === 'result') render();
     hudT -= dt;
     if (hudT <= 0) { hudT = 0.07; G.refreshHud(); }
-  } else if (G.state === 'pause' || G.state === 'result' || G.state === 'arms') {
+  } else if (G.state === 'pause' || G.state === 'result' || G.state === 'arms' || G.state === 'map') {
     if (G.world) render();
   } else {
     drawAttract(dt);
@@ -3026,6 +3285,8 @@ requestAnimationFrame(frame);
 
 /** 세계 좌표 → 화면 좌표 (시험·도구용) */
 G.toScreen = (x, y) => toScreen(G.camera(), x, y);
+/** 짧은 진동 (엔티티에서 폭발 등에 쓴다) */
+G.buzz = buzz;
 /** 현재 어둠 농도 (0‒1) — 밝기 설정 확인용 */
 G.darkLevel = () => darkLevel(G);
 window.G = G;

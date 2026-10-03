@@ -626,6 +626,7 @@ class Grenade {
   explode(g) {
     const R = 150;
     g.flashes.push({ x: this.x, y: this.y, t: 0, life: 0.5, r: R * 2.1 });
+    if (g.buzz && Math.hypot(this.x - g.player.x, this.y - g.player.y) < 420) g.buzz(70);
     g.shake = 24;
     SFX.explode();
     for (let i = 0; i < 40; i++) {

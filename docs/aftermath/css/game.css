@@ -444,3 +444,64 @@ body.touch .hud__compass em{top:60px}
 /* 챕터의 도시 */
 .chapter__city{display:inline-block;margin-left:8px;padding:1px 6px;border-radius:2px;vertical-align:2px;
   font-size:9.5px;font-weight:500;letter-spacing:.12em;color:var(--fog);border:1px solid rgba(255,255,255,.14)}
+
+/* ── 키 설정 ── */
+body.touch .desk-only{display:none !important}
+.set__btn{padding:6px 12px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.16);border-radius:3px;
+  color:var(--amber);font-family:var(--font);font-size:12px;letter-spacing:.06em;cursor:pointer}
+.set__btn:hover{background:rgba(240,180,41,.12);border-color:rgba(240,180,41,.45)}
+.screen--keys .screen__inner{width:min(720px,100%)}
+.keymap{display:grid;grid-template-columns:1fr 1fr;gap:6px 18px;margin:18px 0 8px;text-align:left}
+.keymap__row{display:flex;align-items:center;justify-content:space-between;gap:12px;
+  padding:7px 4px 7px 10px;border-bottom:1px solid rgba(255,255,255,.06)}
+.keymap__row span{font-size:13px;color:var(--bone)}
+.keymap__key{min-width:96px;padding:6px 10px;font-family:var(--font);font-size:12px;font-weight:600;letter-spacing:.04em;
+  color:var(--bone);background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.18);border-bottom-width:2px;
+  border-radius:3px;cursor:pointer;text-align:center;transition:background .15s,border-color .15s}
+.keymap__key:hover,.keymap__key:focus-visible{background:rgba(240,180,41,.12);border-color:rgba(240,180,41,.5);outline:none}
+.keymap__key.wait{color:var(--amber);border-color:var(--amber);animation:pulse .9s infinite}
+.keymap__key.changed{border-color:rgba(240,180,41,.55)}
+.keymap__key.flash{background:rgba(240,180,41,.25)}
+.keymap__msg{min-height:20px;font-size:12px;color:var(--amber);margin-bottom:6px}
+@media (max-width:620px){ .keymap{grid-template-columns:1fr} }
+@media (orientation:landscape) and (max-height:520px){ .keymap{grid-template-columns:1fr 1fr 1fr;gap:2px 14px} .keymap__row{padding:4px 2px 4px 6px} }
+
+/* ── 전체 지도 ── */
+.bigmap{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;
+  background:rgba(4,6,9,.72);-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px);pointer-events:auto;padding:16px}
+.bigmap canvas{border:1px solid rgba(255,255,255,.14);border-radius:4px;background:#07090c;max-width:100%;max-height:100%}
+.bigmap__legend{font-size:12px;color:var(--fog);letter-spacing:.06em}
+.bigmap__note{font-size:11px;color:var(--fog);opacity:.7;letter-spacing:.08em}
+.dot--me{background:var(--amber);border-radius:2px;transform:rotate(45deg)}
+.dot--goal{background:#59b7d8}
+body.touch .minimap{pointer-events:auto;cursor:pointer}
+
+/* ── 게임패드 ── */
+.padfocus{outline:2px solid var(--amber) !important;outline-offset:3px;box-shadow:0 0 0 4px rgba(240,180,41,.18)}
+.btn:focus-visible,.chapter:focus-visible,.city:focus-visible,.arm:focus-visible,.seg button:focus-visible,.tog:focus-visible{
+  outline:2px solid var(--amber);outline-offset:3px}
+.padmap{display:grid;grid-template-columns:1fr 1fr;gap:6px 18px;margin:22px 0 10px;text-align:left;
+  padding-top:16px;border-top:1px solid rgba(255,255,255,.08)}
+.padmap h3{grid-column:1 / -1;font-size:12px;letter-spacing:.2em;color:var(--fog);font-weight:600;margin-bottom:2px}
+.padmap div{font-size:12.5px;color:var(--bone);display:flex;gap:10px;align-items:baseline}
+.padmap b{min-width:92px;font-size:11px;font-weight:600;color:var(--amber);letter-spacing:.04em}
+.padmap p{grid-column:1 / -1;font-size:11px;color:var(--fog);opacity:.8;margin-top:4px}
+body.touch .padmap,body.touch #howtoKeymap{display:none}
+
+/* ── 터치 버튼 크기 (설정) — 스틱은 화면 모서리를, 버튼은 제자리 가운데를 기준으로 키운다 ── */
+body:not(.touch) .touch-only{display:none !important}
+#touch{--ts:1}
+body.ts-small #touch{--ts:.86}
+body.ts-large #touch{--ts:1.14}
+#touch .pad--move{transform:scale(var(--ts));transform-origin:left bottom}
+#touch .pad--turn{transform:scale(var(--ts));transform-origin:right bottom}
+#touch .tbtn{transform:scale(var(--ts))}
+#touch .tbtn:active{transform:scale(calc(var(--ts) * .94))}
+@media (orientation:landscape) and (max-height:520px){
+  /* 스틱이 커지면 옆 버튼 줄도 바깥으로 비킨다 */
+  .tbtn--reload,.tbtn--sprint,.tbtn--light{left:calc(132px * var(--ts) + 28px + env(safe-area-inset-left))}
+  .tbtn--nade{right:calc(132px * var(--ts) + 28px + env(safe-area-inset-right))}
+  .tbtn--swap{right:calc(132px * var(--ts) + 32px + env(safe-area-inset-right))}
+}
+/* 아주 낮은 가로 화면에서는 '크게' 를 조금만 키운다 — 스틱이 미니맵에 닿지 않게 */
+@media (orientation:landscape) and (max-height:360px){ body.ts-large #touch{--ts:1.04} }

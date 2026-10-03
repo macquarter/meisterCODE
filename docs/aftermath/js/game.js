@@ -117,7 +117,7 @@ bindPad($('padTurn'), (x, y, m) => {
     input.aimTouch = null;
   } else {
     input.turnRate = 0;
-    input.aimTouch = m > 0.35 ? Math.atan2(y, x) : null;
+    input.aimTouch = m > 0.35 ? Math.atan2(y / TILT, x) : null;     // 화면 방향 → 세계 방향
   }
 }, () => SETTINGS.aim === 'turn');
 
@@ -286,6 +286,16 @@ const Hints = (() => {
 window.Hints = Hints;
 
 /* ═══════════ 게임 ═══════════ */
+/** 카메라 기울기 — 정수리(90°)가 아니라 60° 에서 내려다본다 */
+const TILT = Math.sin(Math.PI / 3);              // 0.866 — 바닥의 세로 축소
+const HSC = 480 * Math.cos(Math.PI / 3) / TILT;  // 높이 k=1 이 세계 y 로 얼마나 올라가는가 (≈277)
+/** 화면에 보이는 세계의 세로 길이 */
+const VH = () => H / TILT;
+/** 세계 좌표 → 화면 좌표 (CSS px) */
+function toScreen(cam, x, y) { return [x - cam.x, (y - cam.y) * TILT]; }
+/** 세계 그리기용 변환을 건다 (DPR 포함) */
+function worldTransform(c, cam) { c.setTransform(DPR, 0, 0, DPR * TILT, -cam.x * DPR, -cam.y * DPR * TILT); }
+
 /** 레벨 데이터 → 도시 생성 옵션 */
 const cityOpts = L => ({ theme: L.city, river: !!L.river, landmarks: L.landmarks || [], goal: L.goal });
 
@@ -377,7 +387,9 @@ const G = {
 
     // 보급품 배치
     const rng = makeRng(L.seed ^ 0x5bf03635);
-    const loot = n => Math.max(1, Math.round(n * SETTINGS.mod.loot));
+    // 지도가 커진 만큼(이어 붙는 지도로 넓힌 3블록) 보급품도 늘린다 — 길 위의 밀도를 예전과 맞춘다
+    const spread = Math.sqrt((L.blocks * L.blocks) / ((L.blocks - 3) * (L.blocks - 3)));
+    const loot = n => Math.max(1, Math.round(n * SETTINGS.mod.loot * spread));
     const place = (type, n, minD) => {
       n = loot(n);
       for (let i = 0; i < n; i++) {
@@ -417,6 +429,7 @@ const G = {
     this.freezeT = 0; this.lastStop = -9;
     w.updateFlow(this.player.x, this.player.y);
     this.directorReset();
+    this.anchorT = 0;
 
     // 그것 — 탈출점 쪽에 자리잡는다. 길을 뚫으려면 지나야 한다
     if (ob.type === 'boss') {
@@ -527,12 +540,12 @@ const G = {
     const p = this.player, w = this.world;
     const near = fromX !== undefined;
     const behindRoute = !near && Math.random() < 0.75;
-    const pIdx = Math.floor(p.y / TILE) * w.w + Math.floor(p.x / TILE);
+    const pIdx = w.idx(Math.floor(p.x / TILE), Math.floor(p.y / TILE));
     const myDist = w.toExit[pIdx];
     for (let i = 0; i < 60; i++) {
       const q = near ? w.pickPoint(fromX, fromY, 100, 520) : w.pickPoint(p.x, p.y, 480, 820);
       const d = Math.hypot(q.x - p.x, q.y - p.y);
-      const qi = Math.floor(q.y / TILE) * w.w + Math.floor(q.x / TILE);
+      const qi = w.idx(Math.floor(q.x / TILE), Math.floor(q.y / TILE));
       if (d < (near ? 360 : 440) || !w.flow || w.flow[qi] <= 0) continue;
       const da = Math.abs(((Math.atan2(q.y - p.y, q.x - p.x) - p.angle + Math.PI * 3) % (Math.PI * 2)) - Math.PI);
       if (da < 1.0 && w.los(p.x, p.y, q.x, q.y)) continue;            // 보고 있는 곳에서 솟아나지 않게
@@ -675,6 +688,26 @@ const G = {
       }
     }
   },
+  /**
+   * 지도는 가장자리 너머로 같은 도시가 이어 붙는다(원환). 그래서 모든 것을 플레이어에게 가장 가까운
+   * 복사본 자리로 옮겨 둔다 — 반 지도(1400px 이상) 떨어진 것만 실제로 움직이므로 화면에서는 보이지 않는다.
+   * 이렇게 해 두면 거리 · 그리기 · 충돌 계산은 평범한 좌표 그대로 쓸 수 있다.
+   */
+  reanchor() {
+    const w = this.world, p = this.player, rx = p.x, ry = p.y;
+    const fix = o => { const n = w.near(o.x, o.y, rx, ry); o.x = n.x; o.y = n.y; };
+    for (const arr of [this.zombies, this.pickups, this.puddles, this.decals, this.corpses, this.casings, this.gas, this.acids]) if (arr) arr.forEach(fix);
+    w.props.forEach(fix); w.decor.forEach(fix); fix(w.exit);
+    for (const sg of w.signs) {
+      const n = w.near((sg.x + 0.5) * TILE, (sg.y + 0.5) * TILE, rx, ry);
+      sg.x = Math.floor(n.x / TILE); sg.y = Math.floor(n.y / TILE);
+    }
+    for (const lm of w.landmarks) {                     // 랜드마크는 그릴 때 옮겨 그린다
+      const cx = (lm.x + lm.w / 2) * TILE, cy = (lm.y + lm.h / 2) * TILE, n = w.near(cx, cy, rx, ry);
+      lm.ox = n.x - cx; lm.oy = n.y - cy;
+    }
+  },
+
   /** 반동 — 카메라를 쏜 방향의 반대로 잠깐 민다 */
   recoil(ang, kick) {
     if (!SETTINGS.shake) return;
@@ -899,9 +932,11 @@ const G = {
       input.dragTurn = 0;
     }
     if (input.aimTouch !== null) p.angle = input.aimTouch;
-    else if (input.hasMouse) p.angle = Math.atan2(input.my - (p.y - cam.y), input.mx - (p.x - cam.x));
+    else if (input.hasMouse) p.angle = Math.atan2(cam.y + input.my / TILT - p.y, cam.x + input.mx - p.x);   // 화면 → 세계 (기울기 되돌림)
 
     p.update(dt, this);
+    this.anchorT = (this.anchorT || 0) - dt;
+    if (this.anchorT <= 0) { this.anchorT = 0.25; this.reanchor(); }
 
     // 반동은 빠르게 제자리로, 탄피는 굴러가다 멈춘다
     const kd = Math.pow(0.0005, dt);
@@ -945,8 +980,10 @@ const G = {
       if (!p.dead && Math.hypot(p.x - a.x, p.y - a.y) < a.r)
         acidDps = Math.max(acidDps, 13 * Math.min(1, a.t / a.max + 0.3));   // 식을수록 약해진다
     }
+    // L4D 스피터처럼 서 있을수록 세진다 — 스쳐 지나가면 가볍고, 버티면 아프다
+    p.inAcid = acidDps > 0 ? (p.inAcid || 0) + dt : Math.max(0, (p.inAcid || 0) - dt * 2);
     if (acidDps > 0) {
-      p.hurt(acidDps * SETTINGS.mod.dmg * dt);
+      p.hurt(acidDps * (0.3 + 0.7 * Math.min(1, p.inAcid / 1.6)) * SETTINGS.mod.dmg * dt);
       if (this.hurtSfxT <= 0) { this.hurtSfxT = 0.75; SFX.hurt(); }
     }
     for (const pk of this.pickups) pk.update(dt, this);
@@ -1126,14 +1163,10 @@ const G = {
     // 그 사이 트인 띠의 가운데쯤(40%)에 둔다 — 화면 정중앙이면 지도 끝에서 버튼 밑에 깔린다.
     const fy = focusY();
     let x = p.x + Math.cos(p.angle) * lead - W / 2;
-    let y = p.y + Math.sin(p.angle) * lead - fy;
+    let y = p.y + Math.sin(p.angle) * lead - fy / TILT;
     // 지도 밖 허공이 보이지 않게 가둔다. 단, 위아래 UI 띠가 어차피 가리는 만큼은 넘어가도 된다
     // — 그래야 지도 끝에서도 플레이어가 탄약·게이지 밑에 깔리지 않는다.
-    const port = isTouch && H > W;
-    const over0 = port ? H * 0.10 : isTouch ? H * 0.22 : 70, over1 = port ? H * 0.40 : isTouch ? H * 0.30 : 130;
-    const mx = w.w * TILE - W, my = w.h * TILE - H;
-    x = mx > 0 ? clamp(x, 0, mx) : mx / 2;
-    y = my > 0 ? clamp(y, -over0, my + over1) : my / 2;
+    // 지도에 끝이 없으므로 카메라를 가두지 않는다
     if (this.shake > 0.1 && SETTINGS.shake) {
       x += (Math.random() - 0.5) * this.shake;
       y += (Math.random() - 0.5) * this.shake;
@@ -1151,14 +1184,14 @@ function focusY() { return isTouch && H > W ? H * 0.40 : H / 2; }
 function render() {
   const g = G, p = g.player, w = g.world;
   const cam = g.camera();
-  placeCompass(p.x - cam.x, p.y - cam.y);
+  placeCompass(...toScreen(cam, p.x, p.y));
 
   ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
   ctx.fillStyle = '#05070a';
   ctx.fillRect(0, 0, W, H);
 
   ctx.save();
-  ctx.translate(-cam.x, -cam.y);
+  worldTransform(ctx, cam);
 
   drawGround(cam, w);
   drawProps(cam, w);
@@ -1174,7 +1207,7 @@ function render() {
 
   /* 탄피 */
   for (const c of g.casings) {
-    if (c.x < cam.x - 20 || c.x > cam.x + W + 20 || c.y < cam.y - 20 || c.y > cam.y + H + 20) continue;
+    if (c.x < cam.x - 20 || c.x > cam.x + W + 20 || c.y < cam.y - 20 || c.y > cam.y + VH() + 20) continue;
     ctx.save(); ctx.translate(c.x, c.y); ctx.rotate(c.a);
     ctx.fillStyle = c.shell ? '#9c2f24' : '#b8923a';
     ctx.fillRect(-2.5, -1.2, c.shell ? 6 : 4.5, c.shell ? 3 : 2.2);
@@ -1283,7 +1316,7 @@ function drawHordeCue(cam, g, p) {
   const a = Math.atan2(h.y - p.y, h.x - p.x), k = Math.min(1, h.t / 1.2);
   const pulse = 0.55 + Math.sin(g.time * 14) * 0.25;
   ctx.save();
-  ctx.translate(p.x - cam.x, p.y - cam.y);
+  worldTransform(ctx, cam); ctx.translate(p.x, p.y);
   ctx.strokeStyle = `rgba(214,52,40,${k * pulse})`;
   ctx.lineWidth = 5; ctx.lineCap = 'round';
   ctx.beginPath(); ctx.arc(0, 0, 58, a - 0.42, a + 0.42); ctx.stroke();
@@ -1359,13 +1392,13 @@ function drawCrosshair(g, p) {
 }
 
 function drawGround(cam, w) {
-  const x0 = Math.max(0, Math.floor(cam.x / TILE)), y0 = Math.max(0, Math.floor(cam.y / TILE));
-  const x1 = Math.min(w.w - 1, Math.ceil((cam.x + W) / TILE)), y1 = Math.min(w.h - 1, Math.ceil((cam.y + H) / TILE));
+  const x0 = Math.floor(cam.x / TILE), y0 = Math.floor(cam.y / TILE);
+  const x1 = Math.ceil((cam.x + W) / TILE), y1 = Math.ceil((cam.y + VH()) / TILE);
   const at = (x, y) => w.at(x, y);
 
   for (let y = y0; y <= y1; y++) {
     for (let x = x0; x <= x1; x++) {
-      const i = y * w.w + x, d = w.deco[i];
+      const i = w.idx(x, y), d = w.deco[i];
       const n = ((x * 73856093) ^ (y * 19349663)) & 15;
       const px = x * TILE, py = y * TILE;
       if (d === D_BUILDING) {
@@ -1385,8 +1418,8 @@ function drawGround(cam, w) {
         ctx.fillRect(px, py, TILE, TILE);
         ctx.fillStyle = 'rgba(0,0,0,.25)'; ctx.fillRect(px, py + TILE - 2, TILE, 2);   // 상판 이음매
         // 난간 — 물과 맞닿은 쪽
-        if (w.deco[i - 1] === D_WATER) { ctx.fillStyle = '#4a5058'; ctx.fillRect(px, py, 5, TILE); }
-        if (w.deco[i + 1] === D_WATER) { ctx.fillStyle = '#4a5058'; ctx.fillRect(px + TILE - 5, py, 5, TILE); }
+        if (w.deco[w.idx(x - 1, y)] === D_WATER) { ctx.fillStyle = '#4a5058'; ctx.fillRect(px, py, 5, TILE); }
+        if (w.deco[w.idx(x + 1, y)] === D_WATER) { ctx.fillStyle = '#4a5058'; ctx.fillRect(px + TILE - 5, py, 5, TILE); }
       } else if (d === D_GRASS) {
         ctx.fillStyle = n < 6 ? '#1c271d' : n < 12 ? '#1a241b' : '#202c21';
         ctx.fillRect(px, py, TILE, TILE);
@@ -1438,7 +1471,7 @@ function drawGround(cam, w) {
   /* 젖은 웅덩이 */
   ctx.fillStyle = 'rgba(130,165,200,.09)';
   for (const q of G.puddles) {
-    if (q.x < cam.x - 60 || q.x > cam.x + W + 60 || q.y < cam.y - 60 || q.y > cam.y + H + 60) continue;
+    if (q.x < cam.x - 60 || q.x > cam.x + W + 60 || q.y < cam.y - 60 || q.y > cam.y + VH() + 60) continue;
     ctx.beginPath(); ctx.ellipse(q.x, q.y, q.rx, q.ry, 0, 0, 6.283); ctx.fill();
   }
   drawLandmarksGround(cam, w);
@@ -1449,7 +1482,7 @@ function drawGround(cam, w) {
    발전기가 돌아가는 야시장. 가산 합성이라 어둠 위에 떠 길잡이가 된다(적은 드러내지 않는다). */
 function drawCityLights(cam, g, w) {
   const E = eyeOf(cam), t = g.time;
-  const vis = (x, y, m) => !(x < cam.x - m || x > cam.x + W + m || y < cam.y - m || y > cam.y + H + m);
+  const vis = (x, y, m) => !(x < cam.x - m || x > cam.x + W + m || y < cam.y - m || y > cam.y + VH() + m);
   const glow = (x, y, r, col, a) => {
     const gr = ctx.createRadialGradient(x, y, 0, x, y, r);
     gr.addColorStop(0, col.replace('A', a)); gr.addColorStop(1, col.replace('A', 0));
@@ -1463,10 +1496,8 @@ function drawCityLights(cam, g, w) {
     const dead = (sg.ph * 10 | 0) % 3 === 0;
     if (dead) continue;
     const flick = (sg.ph * 7 | 0) % 4 === 0 ? (Math.sin(t * 23 + sg.ph * 9) > 0.3 ? 1 : 0.15) : 0.85 + Math.sin(t * 2 + sg.ph) * 0.15;
-    let cx, cy;
-    if (sg.side === 's') { [cx, cy] = liftPt(E, bx + TILE / 2, by + TILE, 0.07); }
-    else if (sg.side === 'w') { [cx, cy] = liftPt(E, bx, by + TILE / 2, 0.07); }
-    else { [cx, cy] = liftPt(E, bx + TILE, by + TILE / 2, 0.07); }
+    if (sg.side !== 's') continue;               // 기운 카메라에서 보이는 것은 남쪽 벽면의 간판뿐
+    const [cx, cy] = liftPt(E, bx + TILE / 2, by + TILE, 0.07);
     glow(cx, cy, 34, hexA(sg.col), 0.16 * flick);
     ctx.globalAlpha = 0.75 * flick;
     ctx.fillStyle = sg.col;
@@ -1483,6 +1514,7 @@ function drawCityLights(cam, g, w) {
   // 랜드마크의 불빛
   for (const lm of w.landmarks) {
     if (!lmVisible(cam, lm, 400)) continue;
+    ctx.save(); ctx.translate(lm.ox || 0, lm.oy || 0);
     if (lm.beacon && Math.sin(t * 3.1 + lm.x) > 0.2) glow(lm.beacon[0], lm.beacon[1], 30, 'rgba(255,40,30,A)', 0.7);
     if (lm.lantern) glow(lm.lantern[0], lm.lantern[1], 70, 'rgba(255,90,50,A)', 0.28);
     if (lm.bulbs) for (const [x, y] of lm.bulbs) glow(x, y, 14, 'rgba(255,200,120,A)', 0.45 + Math.sin(t * 5 + x) * 0.08);
@@ -1498,6 +1530,7 @@ function drawCityLights(cam, g, w) {
         for (let k = 0; k < 6; k++) { ctx.fillStyle = `rgba(255,255,255,${Math.random() * 0.12})`; ctx.fillRect(p[0] - 30, p[1] - 18 + Math.random() * 36, 60, 2); }
       });
     }
+    ctx.restore();
   }
 }
 /** '#rrggbb' → 'rgba(r,g,b,A)' (A 자리에 투명도를 끼워 넣는다) */
@@ -1511,8 +1544,8 @@ function hexA(hex) {
    높이는 liftPt 의 k 로 — 건물(0.15)보다 높은 탑은 k 를 크게 준다. */
 const tc = v => (v + 0.5) * TILE;          // 칸 중심 좌표
 function lmVisible(cam, lm, m = 600) {
-  const x = lm.x * TILE, y = lm.y * TILE;
-  return !(x + lm.w * TILE < cam.x - m || x > cam.x + W + m || y + lm.h * TILE < cam.y - m || y > cam.y + H + m);
+  const x = lm.x * TILE + (lm.ox || 0), y = lm.y * TILE + (lm.oy || 0);
+  return !(x + lm.w * TILE < cam.x - m || x > cam.x + W + m || y + lm.h * TILE < cam.y - m || y > cam.y + VH() + m);
 }
 /** 바닥 사각형(타일 단위)을 높이 k 로 들어 올린 네 꼭짓점 */
 function liftRect(E, x, y, w, h, k, inset = 0) {
@@ -1560,6 +1593,7 @@ function liftBox(E, x, y, w, h, k, side, top) {
 function drawLandmarksGround(cam, w) {
   for (const lm of w.landmarks) {
     if (!lmVisible(cam, lm)) continue;
+    ctx.save(); ctx.translate(lm.ox || 0, lm.oy || 0);     // 이어 붙은 복사본 자리로
     if (lm.kind === 'palace') {
       // 정문에서 정전까지 박석 길
       ctx.fillStyle = '#45464a';
@@ -1602,10 +1636,11 @@ function drawLandmarksGround(cam, w) {
       ctx.fillStyle = 'rgba(120,60,40,.18)';
       ctx.fillRect(lm.x * TILE, lm.y * TILE, lm.w * TILE, lm.h * TILE);
     }
+    ctx.restore();
   }
   // 나무 그루터기 (밑동) — 우거진 잎은 위층에서
   for (const d of w.decor) if (d.kind === 'tree') {
-    if (d.x < cam.x - 60 || d.x > cam.x + W + 60 || d.y < cam.y - 60 || d.y > cam.y + H + 60) continue;
+    if (d.x < cam.x - 60 || d.x > cam.x + W + 60 || d.y < cam.y - 60 || d.y > cam.y + VH() + 60) continue;
     ctx.fillStyle = '#2b2219'; ctx.beginPath(); ctx.arc(d.x, d.y, 6, 0, 6.283); ctx.fill();
   }
 }
@@ -1614,7 +1649,7 @@ function drawLandmarksTop(cam, w, g) {
   const E = eyeOf(cam);
   // 나무 — 잎이 시야를 가린다 (그 아래 감염체도)
   for (const d of w.decor) if (d.kind === 'tree') {
-    if (d.x < cam.x - 80 || d.x > cam.x + W + 80 || d.y < cam.y - 80 || d.y > cam.y + H + 80) continue;
+    if (d.x < cam.x - 80 || d.x > cam.x + W + 80 || d.y < cam.y - 80 || d.y > cam.y + VH() + 80) continue;
     const [x, y] = liftPt(E, d.x, d.y, 0.1);
     ctx.fillStyle = 'rgba(0,0,0,.35)'; ctx.beginPath(); ctx.arc(d.x + 4, d.y + 5, d.r, 0, 6.283); ctx.fill();
     ctx.fillStyle = '#1e3020'; ctx.beginPath(); ctx.arc(x, y, d.r, 0, 6.283); ctx.fill();
@@ -1623,7 +1658,7 @@ function drawLandmarksTop(cam, w, g) {
   for (const lm of w.landmarks) {
     if (!lmVisible(cam, lm, 300)) continue;
     const L = LANDMARK_TOP[lm.kind];
-    if (L) L(lm, E, g, w);
+    if (L) { ctx.save(); ctx.translate(lm.ox || 0, lm.oy || 0); L(lm, E, g, w); ctx.restore(); }
   }
 }
 
@@ -1791,8 +1826,11 @@ const LANDMARK_TOP = {
    바깥쪽으로 (1+BLD_H) 배 밀어내면, 시점 쪽을 향한 벽면이 드러나 높이가 생긴다.
    지붕 전체가 시점 기준 한 번의 확대라서 이웃 타일의 지붕이 어긋나지 않는다. */
 const BLD_H = 0.15;
-function eyeOf(cam) { return { x: cam.x + W / 2, y: cam.y + focusY() }; }
-const liftPt = (E, x, y, k) => [E.x + (x - E.x) * (1 + k), E.y + (y - E.y) * (1 + k)];
+function eyeOf(cam) { return { x: cam.x + W / 2, y: cam.y + focusY() / TILT }; }
+/* 60° 로 기울인 카메라: 바닥은 세로로 sin60 만큼 줄고(TILT), 높이는 화면에서 곧장 위로 cos60 만큼 선다.
+   세계 좌표(줄이기 전)로 쓰면 높이 h 는 h·cos60/sin60 만큼 위(−y)로 — k=1 이 높이 480px(약 10칸).
+   그래서 보이는 벽면은 남쪽 면뿐이고, 지붕은 바로 위로 떠 있다 */
+const liftPt = (E, x, y, k) => [x, y - k * HSC];
 
 /** 원뿔 끝점 중 건물 벽에 막힌 것을 지붕선까지 들어 올린다 — 빛이 벽면을 타고 오른다 */
 function liftPoly(poly, w, E) {
@@ -1800,8 +1838,9 @@ function liftPoly(poly, w, E) {
   for (let i = 2; i < poly.length; i += 2) {
     const x = poly[i], y = poly[i + 1], dx = x - ox, dy = y - oy, d = Math.hypot(dx, dy);
     if (d < 1) continue;
+    if (dy >= 0) continue;                       // 보이는 벽(남쪽 면)에 닿은 빛만 — 북쪽으로 가던 빛
     const tx = Math.floor((x + dx / d * 3) / TILE), ty = Math.floor((y + dy / d * 3) / TILE);
-    if (tx < 0 || ty < 0 || tx >= w.w || ty >= w.h || w.deco[ty * w.w + tx] !== D_BUILDING) continue;
+    if (w.deco[w.idx(tx, ty)] !== D_BUILDING) continue;
     const q = liftPt(E, x, y, BLD_H);
     poly[i] = q[0]; poly[i + 1] = q[1];
   }
@@ -1810,21 +1849,19 @@ function liftPoly(poly, w, E) {
 
 function drawBuildings(cam, w) {
   const E = eyeOf(cam), K = BLD_H;
-  const x0 = Math.max(0, Math.floor(cam.x / TILE) - 1), y0 = Math.max(0, Math.floor(cam.y / TILE) - 1);
-  const x1 = Math.min(w.w - 1, Math.ceil((cam.x + W) / TILE)), y1 = Math.min(w.h - 1, Math.ceil((cam.y + H) / TILE));
-  const isB = (x, y) => x < 0 || y < 0 || x >= w.w || y >= w.h || w.deco[y * w.w + x] === D_BUILDING;
+  const x0 = Math.floor(cam.x / TILE) - 1, y0 = Math.floor(cam.y / TILE) - 1;
+  // 지붕이 위로 떠 있으므로 화면 아래쪽 바깥의 건물도 그 지붕이 보일 수 있다 — 두 칸 더
+  const x1 = Math.ceil((cam.x + W) / TILE), y1 = Math.ceil((cam.y + VH()) / TILE) + 2;
+  const isB = (x, y) => w.deco[w.idx(x, y)] === D_BUILDING;
 
-  // 벽면 — 시점을 향한 면만. 면 방향별로 한 경로에 모아 칠한다
-  const faces = { s: [], n: [], e: [] };
+  // 벽면 — 60° 카메라에서 보이는 것은 남쪽 면뿐이다
+  const faces = { s: [] };
   for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
-    if (!isB(x, y)) continue;
-    const px = x * TILE, py = y * TILE, qx = px + TILE, qy = py + TILE;
-    if (E.y > qy && !isB(x, y + 1)) faces.s.push(px, qy, qx, qy);
-    if (E.y < py && !isB(x, y - 1)) faces.n.push(px, py, qx, py);
-    if (E.x < px && !isB(x - 1, y)) faces.e.push(px, py, px, qy);
-    if (E.x > qx && !isB(x + 1, y)) faces.e.push(qx, py, qx, qy);
+    if (!isB(x, y) || isB(x, y + 1)) continue;
+    const px = x * TILE, qx = px + TILE, qy = (y + 1) * TILE;
+    faces.s.push(px, qy, qx, qy);
   }
-  const cols = { s: '#252d38', n: '#10141a', e: '#1a2029' };
+  const cols = { s: '#252d38' };
   ctx.strokeStyle = 'rgba(0,0,0,.42)';
   ctx.lineWidth = 2;
   for (const k in faces) {
@@ -1847,17 +1884,17 @@ function drawBuildings(cam, w) {
     ctx.stroke();
   }
 
-  // 지붕 — 시점 기준으로 (1+K) 배 확대한 좌표계에서 바닥 평면과 같은 방식으로 그린다
+  // 지붕 — 바닥 평면을 높이만큼 위로 옮긴 좌표계에서 그린다
   ctx.save();
-  ctx.translate(E.x, E.y); ctx.scale(1 + K, 1 + K); ctx.translate(-E.x, -E.y);
+  ctx.translate(0, -K * HSC);
   // 지붕 색은 필지마다 — 같은 건물은 한 색, 옆 건물은 다른 색으로 도시의 결이 보인다
   const roofs = w.theme.roofs, R = roofs.length;
   for (let c = 0; c < R; c++) {
     ctx.fillStyle = roofs[c];
     ctx.beginPath();
     for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
-      if (!isB(x, y) || x < 0 || y < 0 || x >= w.w || y >= w.h) continue;
-      const lot = w.lot[y * w.w + x];
+      if (!isB(x, y)) continue;
+      const lot = w.lot[w.idx(x, y)];
       const k = lot ? lot % R : (((x * 73856093) ^ (y * 19349663)) & 15) % R;
       if (k === c) ctx.rect(x * TILE - 0.5, y * TILE - 0.5, TILE + 1, TILE + 1);
     }
@@ -1867,10 +1904,10 @@ function drawBuildings(cam, w) {
   ctx.strokeStyle = 'rgba(0,0,0,.35)'; ctx.lineWidth = 2;
   ctx.beginPath();
   for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
-    if (!isB(x, y) || x < 0 || y < 0 || x >= w.w - 1 || y >= w.h - 1) continue;
-    const l = w.lot[y * w.w + x];
-    if (isB(x + 1, y) && w.lot[y * w.w + x + 1] !== l) { ctx.moveTo((x + 1) * TILE, y * TILE); ctx.lineTo((x + 1) * TILE, (y + 1) * TILE); }
-    if (isB(x, y + 1) && w.lot[(y + 1) * w.w + x] !== l) { ctx.moveTo(x * TILE, (y + 1) * TILE); ctx.lineTo((x + 1) * TILE, (y + 1) * TILE); }
+    if (!isB(x, y)) continue;
+    const l = w.lot[w.idx(x, y)];
+    if (isB(x + 1, y) && w.lot[w.idx(x + 1, y)] !== l) { ctx.moveTo((x + 1) * TILE, y * TILE); ctx.lineTo((x + 1) * TILE, (y + 1) * TILE); }
+    if (isB(x, y + 1) && w.lot[w.idx(x, y + 1)] !== l) { ctx.moveTo(x * TILE, (y + 1) * TILE); ctx.lineTo((x + 1) * TILE, (y + 1) * TILE); }
   }
   ctx.stroke();
   // 난간선과 옥상 설비
@@ -1900,7 +1937,7 @@ function drawBuildings(cam, w) {
 
 /** 버려진 탈것과 화물 · 나라별 길가 장식 — 손전등에 색이 살아난다 */
 function drawProps(cam, w) {
-  const vis = (x, y, m) => !(x < cam.x - m || x > cam.x + W + m || y < cam.y - m || y > cam.y + H + m);
+  const vis = (x, y, m) => !(x < cam.x - m || x > cam.x + W + m || y < cam.y - m || y > cam.y + VH() + m);
   for (const pr of w.props) {
     if (!vis(pr.x, pr.y, 90)) continue;
     ctx.save();
@@ -2191,7 +2228,7 @@ function drawDarkness(cam, g, p, w) {
 
   mctx.globalCompositeOperation = 'destination-out';
   mctx.save();
-  mctx.translate(-cam.x, -cam.y);
+  worldTransform(mctx, cam);
 
   // 주변 미광 (손전등이 꺼져도 남는 최소 시야)
   const amb = p.lightOn && p.battery > 0 ? 128 : 92;
@@ -2252,7 +2289,7 @@ function drawDarkness(cam, g, p, w) {
 function drawGlow(cam, g, p, w) {
   ctx.save();
   ctx.globalCompositeOperation = 'lighter';
-  ctx.translate(-cam.x, -cam.y);
+  worldTransform(ctx, cam);
 
   const range = p.lightRange;
   if (range > 0) {
@@ -2445,7 +2482,11 @@ const Minimap = {
     c.beginPath(); c.arc(S / 2, S / 2, S / 2 - 1, 0, 6.283); c.clip();
     c.imageSmoothingEnabled = false;
     c.globalAlpha = 0.9;
-    c.drawImage(this.img, px - span / 2, py - span / 2, span, span, 0, 0, S, S);
+    // 지도가 이어 붙으므로 원본 그림을 이웃 칸까지 깔아 둔다
+    const W0 = this.img.width, H0 = this.img.height;
+    const bx = ((px % W0) + W0) % W0, by = ((py % H0) + H0) % H0;
+    for (const ox of [-W0, 0, W0]) for (const oy of [-H0, 0, H0])
+      c.drawImage(this.img, (ox - (bx - span / 2)) * k, (oy - (by - span / 2)) * k, W0 * k, H0 * k);
     c.globalAlpha = 1;
     const dot = (wx, wy, col, r) => {
       let x = (wx / TILE - px) * k + S / 2, y = (wy / TILE - py) * k + S / 2;
@@ -2902,6 +2943,8 @@ function frame(now) {
 UI.enterMenu();
 requestAnimationFrame(frame);
 
+/** 세계 좌표 → 화면 좌표 (시험·도구용) */
+G.toScreen = (x, y) => toScreen(G.camera(), x, y);
 /** 현재 어둠 농도 (0‒1) — 밝기 설정 확인용 */
 G.darkLevel = () => darkLevel(G);
 window.G = G;

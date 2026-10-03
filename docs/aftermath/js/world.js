@@ -51,6 +51,7 @@ class World {
     this.markSidewalks();
     this.pickEndpoints(opts.goal);
     this.indexProps();
+    this.buildShapes();
 
     // 구조물이 도로망을 지나치게 끊었으면 전부 치우고 다시 계산한다
     if (this.maxDist < blocks * 8) {
@@ -60,6 +61,7 @@ class World {
       this.markSidewalks();
       this.pickEndpoints(opts.goal);
       this.indexProps();
+      this.buildShapes();
     }
   }
 
@@ -69,17 +71,29 @@ class World {
     this.props.forEach((pr, i) => { for (const [tx, ty] of pr.tiles) this.propAt[ty * this.w + tx] = i; });
   }
   propNear(x, y) {
-    const tx = Math.floor(x / TILE), ty = Math.floor(y / TILE);
-    if (tx < 0 || ty < 0 || tx >= this.w || ty >= this.h) return null;
-    const i = this.propAt[ty * this.w + tx];
+    const i = this.propAt[this.idx(Math.floor(x / TILE), Math.floor(y / TILE))];
     return i >= 0 ? this.props[i] : null;
   }
 
   /* ── 격자 접근 ─────────────────────────── */
-  at(x, y) {
-    if (x < 0 || y < 0 || x >= this.w || y >= this.h) return T_WALL;
-    return this.grid[y * this.w + x];
+  /** 칸 번호 — 지도가 이어 붙으므로 바깥 좌표는 반대편으로 감는다 */
+  idx(x, y) {
+    const w = this.w, h = this.h;
+    x %= w; if (x < 0) x += w;
+    y %= h; if (y < 0) y += h;
+    return y * w + x;
   }
+  at(x, y) { return this.grid[this.idx(x, y)]; }
+  /** 원환 위에서 a → b 의 가장 짧은 차이 */
+  wrapDelta(ax, ay, bx, by) {
+    const WW = this.w * TILE, HH = this.h * TILE;
+    let dx = bx - ax, dy = by - ay;
+    dx -= Math.round(dx / WW) * WW; dy -= Math.round(dy / HH) * HH;
+    return [dx, dy];
+  }
+  /** 점 (x, y) 의 복사본 중 ref 에 가장 가까운 것 */
+  near(x, y, rx, ry) { const [dx, dy] = this.wrapDelta(rx, ry, x, y); return { x: rx + dx, y: ry + dy }; }
+  wrapDist(ax, ay, bx, by) { const [dx, dy] = this.wrapDelta(ax, ay, bx, by); return Math.hypot(dx, dy); }
   set(x, y, v) {
     if (x < 0 || y < 0 || x >= this.w || y >= this.h) return;
     this.grid[y * this.w + x] = v;
@@ -102,8 +116,11 @@ class World {
   /* ── 길의 위계 ──────────────────────────── */
   /** 한 축의 도로선 목록: 대로(폭 4) 두 줄 + 그 사이 간선(폭 2)을 불규칙한 간격으로 */
   lines(len, rng, avoid) {
-    const B = 1, out = [];
-    const blvd = [Math.round(len * (0.3 + rng() * 0.08)), Math.round(len * (0.62 + rng() * 0.08))];
+    const B = 0, out = [];
+    // 대로는 34칸에 하나꼴로, 고르게 (지도가 클수록 많다)
+    const nb = Math.max(2, Math.round(len / 34));
+    const blvd = [];
+    for (let k = 0; k < nb; k++) blvd.push(Math.round(len * (k + 0.5 + (rng() - 0.5) * 0.3) / nb));
     let x = B + 3 + Math.floor(rng() * 4);
     while (x < len - B - 3) {
       const near = blvd.find(b => Math.abs(b - x) < 6);
@@ -117,7 +134,8 @@ class World {
   }
 
   layout(rng, blocks, opts) {
-    const W = this.w, H = this.h, B = 1;
+    // 지도는 끝이 없다 — 가장자리 너머에 같은 도시가 이어 붙는다(원환). 그래서 바깥 봉쇄벽(B)이 없다
+    const W = this.w, H = this.h, B = 0;
     // 강 — 도시를 동서로 가르는 4칸 너비의 물길, 양쪽으로 강변로
     let river = null;
     if (opts.river) {
@@ -419,8 +437,8 @@ class World {
 
   /** 건물에 접한 도로를 인도로 표시 (렌더 전용) */
   markSidewalks() {
-    for (let y = 1; y < this.h - 1; y++) {
-      for (let x = 1; x < this.w - 1; x++) {
+    for (let y = 0; y < this.h; y++) {
+      for (let x = 0; x < this.w; x++) {
         const i = y * this.w + x;
         if (this.grid[i] !== T_ROAD || this.deco[i] !== D_ASPHALT || this.dirm[i] === 3) continue;
         const b = (xx, yy) => this.at(xx, yy) === T_WALL && this.deco[yy * this.w + xx] === D_BUILDING;
@@ -443,10 +461,8 @@ class World {
       const cur = q[head++];
       if (dist[cur] > dist[far]) far = cur;
       const cx = cur % this.w, cy = (cur / this.w) | 0;
-      const nb = [cur + 1, cur - 1, cur + this.w, cur - this.w];
-      const ok = [cx + 1 < this.w, cx - 1 >= 0, cy + 1 < this.h, cy - 1 >= 0];
+      const nb = [this.idx(cx + 1, cy), this.idx(cx - 1, cy), this.idx(cx, cy + 1), this.idx(cx, cy - 1)];
       for (let k = 0; k < 4; k++) {
-        if (!ok[k]) continue;
         const ni = nb[k];
         if (dist[ni] !== -1 || this.grid[ni] !== T_ROAD) continue;
         dist[ni] = dist[cur] + 1; q[tail++] = ni;
@@ -513,40 +529,116 @@ class World {
   /** 도달 가능한 도로 중 조건에 맞는 지점을 고른다 */
   pickPoint(fromX, fromY, minD, maxD, rng) {
     const r = rng || this.rng;
+    // 후보는 원본 지도의 칸 — 기준점에 가장 가까운 복사본으로 옮겨 잰다
     for (let tries = 0; tries < 220; tries++) {
       const idx = this.reach[Math.floor(r() * this.reach.length)];
-      const p = this.tileCenter(idx);
+      const c = this.tileCenter(idx), p = this.near(c.x, c.y, fromX, fromY);
       const d = Math.hypot(p.x - fromX, p.y - fromY);
       if (d >= minD && d <= maxD) return p;
     }
-    return this.tileCenter(this.reach[Math.floor(r() * this.reach.length)]);
+    const c = this.tileCenter(this.reach[Math.floor(r() * this.reach.length)]);
+    return this.near(c.x, c.y, fromX, fromY);
   }
 
   /* ── 충돌 ──────────────────────────────── */
   solid(px, py) { return this.at(Math.floor(px / TILE), Math.floor(py / TILE)) === T_WALL; }
 
-  /** 원(px,py,r)이 벽과 겹치는가 */
-  hits(px, py, r) {
+  /**
+   * 칸의 충돌 모양. 건물·물·랜드마크는 칸 전체지만, 차·버스는 실제 차체 크기(회전을 감싼 사각형),
+   * 나무는 줄기 둘레의 원이다 — 칸을 통째로 막으면 보이지 않는 벽에 걸린다.
+   * 반환: null(막지 않음) | {x0,y0,x1,y1} | {cx,cy,r}
+   */
+  shapeAt(tx, ty) {
+    const i = this.idx(tx, ty);
+    if (this.grid[i] === T_ROAD) return null;
+    const sp = this.shapes && this.shapes.get(i);
+    if (!sp) return { x0: tx * TILE, y0: ty * TILE, x1: (tx + 1) * TILE, y1: (ty + 1) * TILE };
+    // 저장된 모양은 원본 지도 좌표 — 이어 붙은 복사본이면 그만큼 옮긴다
+    const ox = (tx - i % this.w) * TILE, oy = (ty - ((i / this.w) | 0)) * TILE;
+    if (!ox && !oy) return sp;
+    return sp.r !== undefined ? { cx: sp.cx + ox, cy: sp.cy + oy, r: sp.r }
+      : { x0: sp.x0 + ox, y0: sp.y0 + oy, x1: sp.x1 + ox, y1: sp.y1 + oy };
+  }
+  buildShapes() {
+    this.shapes = new Map();
+    for (const pr of this.props) {
+      const c = Math.abs(Math.cos(pr.a)), s = Math.abs(Math.sin(pr.a));
+      const hw = (pr.w * c + pr.h * s) / 2 * 0.92, hh = (pr.w * s + pr.h * c) / 2 * 0.92;
+      const box = { x0: pr.x - hw, y0: pr.y - hh, x1: pr.x + hw, y1: pr.y + hh };
+      for (const [tx, ty] of pr.tiles) {
+        const X0 = tx * TILE, Y0 = ty * TILE;
+        this.shapes.set(ty * this.w + tx, { x0: Math.max(X0, box.x0), y0: Math.max(Y0, box.y0), x1: Math.min(X0 + TILE, box.x1), y1: Math.min(Y0 + TILE, box.y1) });
+      }
+    }
+    for (const d of this.decor) if (d.kind === 'tree')
+      this.shapes.set(Math.floor(d.y / TILE) * this.w + Math.floor(d.x / TILE), { cx: d.x, cy: d.y, r: 13 });
+  }
+
+  /** 원(px,py,r)과 겹치는 모양들을 돌며 fn(밀어낼 방향 x, y, 깊이) — 깊이 > 0 이면 겹침 */
+  overlaps(px, py, r, fn) {
     const x0 = Math.floor((px - r) / TILE), x1 = Math.floor((px + r) / TILE);
     const y0 = Math.floor((py - r) / TILE), y1 = Math.floor((py + r) / TILE);
-    for (let y = y0; y <= y1; y++) {
-      for (let x = x0; x <= x1; x++) {
-        if (this.at(x, y) === T_ROAD) continue;         // 벽과 물 모두 막는다
-        const cx = Math.max(x * TILE, Math.min(px, x * TILE + TILE));
-        const cy = Math.max(y * TILE, Math.min(py, y * TILE + TILE));
-        const dx = px - cx, dy = py - cy;
-        if (dx * dx + dy * dy < r * r) return true;
+    for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
+      const sh = this.shapeAt(x, y);
+      if (!sh) continue;
+      let nx, ny, depth;
+      if (sh.r !== undefined) {
+        const dx = px - sh.cx, dy = py - sh.cy, d = Math.hypot(dx, dy);
+        depth = r + sh.r - d;
+        if (depth <= 0) continue;
+        nx = d > 1e-6 ? dx / d : 1; ny = d > 1e-6 ? dy / d : 0;
+      } else {
+        const cx = Math.max(sh.x0, Math.min(px, sh.x1)), cy = Math.max(sh.y0, Math.min(py, sh.y1));
+        const dx = px - cx, dy = py - cy, d = Math.hypot(dx, dy);
+        if (d > 1e-6) { depth = r - d; if (depth <= 0) continue; nx = dx / d; ny = dy / d; }
+        else {
+          // 중심이 사각형 안 — 가장 얕은 면으로 꺼낸다
+          const l = px - sh.x0, rr = sh.x1 - px, t = py - sh.y0, bb = sh.y1 - py, m = Math.min(l, rr, t, bb);
+          if (m === l) { nx = -1; ny = 0; } else if (m === rr) { nx = 1; ny = 0; } else if (m === t) { nx = 0; ny = -1; } else { nx = 0; ny = 1; }
+          depth = m + r;
+        }
       }
+      if (fn(nx, ny, depth) === true) return true;
     }
     return false;
   }
 
-  /** 축 분리 이동 — 벽을 따라 미끄러진다 */
+  /** 원(px,py,r)이 벽·물·구조물과 겹치는가 */
+  hits(px, py, r) {
+    return this.overlaps(px, py, r, () => true);
+  }
+
+  /**
+   * 이동 — 먼저 움직이고, 겹친 만큼 면(또는 모서리)의 법선 방향으로 밀어낸다.
+   * 축을 나눠 막던 예전 방식은 볼록한 모서리를 몇 px 만 걸쳐도 그 자리에 멈췄다(측정: 738회 중 738회).
+   * 밀어내기는 모서리를 둥글게 돌아 미끄러지고, 이미 겹쳐 있어도 스스로 빠져나온다.
+   */
   slide(e, dx, dy) {
-    let moved = false;
-    if (dx && !this.hits(e.x + dx, e.y, e.r)) { e.x += dx; moved = true; }
-    if (dy && !this.hits(e.x, e.y + dy, e.r)) { e.y += dy; moved = true; }
-    return moved;
+    const x0 = e.x, y0 = e.y;
+    const n = Math.max(1, Math.ceil(Math.hypot(dx, dy) / (e.r * 0.5)));
+    const sx = dx / n, sy = dy / n, want = Math.hypot(sx, sy);
+    for (let k = 0; k < n; k++) {
+      const bx = e.x, by = e.y;
+      e.x += sx; e.y += sy;
+      this.depenetrate(e);
+      // 모서리 꼭짓점을 정면으로 밀면 밀어내기와 이동이 맞서 멈춘다 — 그때는 트인 축 하나로 비켜 간다
+      if (Math.hypot(e.x - bx, e.y - by) < want * 0.2 && sx && sy) {
+        for (const [ax, ay] of Math.abs(sx) >= Math.abs(sy) ? [[sx, 0], [0, sy]] : [[0, sy], [sx, 0]]) {
+          e.x = bx + ax; e.y = by + ay;
+          this.depenetrate(e);
+          if (Math.hypot(e.x - bx, e.y - by) >= want * 0.2) break;
+          e.x = bx; e.y = by;
+        }
+      }
+    }
+    return Math.abs(e.x - x0) + Math.abs(e.y - y0) > 0.01;
+  }
+  depenetrate(e) {
+    for (let it = 0; it < 4; it++) {
+      let any = false;
+      this.overlaps(e.x, e.y, e.r, (nx, ny, depth) => { e.x += nx * (depth + 0.01); e.y += ny * (depth + 0.01); any = true; });
+      if (!any) return;
+    }
   }
 
   /* ── 시야 (DDA 레이캐스트) ──────────────── */
@@ -566,8 +658,7 @@ class World {
     while (t < maxT) {
       if (sx < sy) { t = sx; sx += ddx; mx += stepX; }
       else { t = sy; sy += ddy; my += stepY; }
-      if (mx < 0 || my < 0 || mx >= this.w || my >= this.h) return maxD;
-      if (this.grid[my * this.w + mx] === T_WALL) return Math.min(t * TILE, maxD);
+      if (this.grid[this.idx(mx, my)] === T_WALL) return Math.min(t * TILE, maxD);
     }
     return maxD;
   }
@@ -587,33 +678,33 @@ class World {
     if (!this.flow) { this.flow = new Int16Array(N); this.flowQ = new Int32Array(N); }
     const D = this.flow, q = this.flowQ;
     D.fill(-1);
-    const sx = Math.floor(px / TILE), sy = Math.floor(py / TILE);
-    if (sx < 0 || sy < 0 || sx >= W || sy >= H) return;
+    const s0 = this.idx(Math.floor(px / TILE), Math.floor(py / TILE));
     let head = 0, tail = 0;
-    D[sy * W + sx] = 0; q[tail++] = sy * W + sx;
+    D[s0] = 0; q[tail++] = s0;
     while (head < tail) {
       const c = q[head++], x = c % W, y = (c - x) / W, nd = D[c] + 1;
       if (nd > 60) continue;                              // 60칸(약 2.9km) 너머는 필요 없다
-      if (x > 0     && D[c - 1] < 0 && this.grid[c - 1] === T_ROAD) { D[c - 1] = nd; q[tail++] = c - 1; }
-      if (x < W - 1 && D[c + 1] < 0 && this.grid[c + 1] === T_ROAD) { D[c + 1] = nd; q[tail++] = c + 1; }
-      if (y > 0     && D[c - W] < 0 && this.grid[c - W] === T_ROAD) { D[c - W] = nd; q[tail++] = c - W; }
-      if (y < H - 1 && D[c + W] < 0 && this.grid[c + W] === T_ROAD) { D[c + W] = nd; q[tail++] = c + W; }
+      // 이어 붙은 지도 — 가장자리 너머는 반대편 칸
+      const l = x > 0 ? c - 1 : c + W - 1, r = x < W - 1 ? c + 1 : c - W + 1;
+      const u = y > 0 ? c - W : c + (H - 1) * W, d = y < H - 1 ? c + W : c - (H - 1) * W;
+      if (D[l] < 0 && this.grid[l] === T_ROAD) { D[l] = nd; q[tail++] = l; }
+      if (D[r] < 0 && this.grid[r] === T_ROAD) { D[r] = nd; q[tail++] = r; }
+      if (D[u] < 0 && this.grid[u] === T_ROAD) { D[u] = nd; q[tail++] = u; }
+      if (D[d] < 0 && this.grid[d] === T_ROAD) { D[d] = nd; q[tail++] = d; }
     }
   }
   /** (x, y) 에서 플레이어 쪽으로 가는 다음 칸의 중심 방향. 모르면 null */
   flowDir(x, y) {
     const D = this.flow;
     if (!D) return null;
-    const W = this.w, tx = Math.floor(x / TILE), ty = Math.floor(y / TILE);
-    const here = D[ty * W + tx];
-    let best = here < 0 ? 1e9 : here, bx = -1, by = -1;
+    const tx = Math.floor(x / TILE), ty = Math.floor(y / TILE);
+    const here = D[this.idx(tx, ty)];
+    let best = here < 0 ? 1e9 : here, bx = 0, by = 0, found = false;
     for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
-      const nx = tx + dx, ny = ty + dy;
-      if (nx < 0 || ny < 0 || nx >= W || ny >= this.h) continue;
-      const v = D[ny * W + nx];
-      if (v >= 0 && v < best) { best = v; bx = nx; by = ny; }
+      const v = D[this.idx(tx + dx, ty + dy)];
+      if (v >= 0 && v < best) { best = v; bx = tx + dx; by = ty + dy; found = true; }
     }
-    if (bx < 0) return null;
+    if (!found) return null;
     return Math.atan2((by + 0.5) * TILE - y, (bx + 0.5) * TILE - x);
   }
 

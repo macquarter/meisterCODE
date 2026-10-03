@@ -77,6 +77,8 @@
 
     <div id="damageFlash"></div>
     <div id="fpsMeter" hidden></div>
+    <div id="cpMark" aria-hidden="true">체크포인트</div>
+    <div id="achMark" role="status" aria-live="polite"><b>도전 과제</b><span></span></div>
     <div id="toast"></div>
     <div id="radio" class="radio" role="status" aria-live="polite"><b></b><span></span></div>
     <div id="hint" role="status" aria-live="polite"><b></b><span></span></div>
@@ -162,6 +164,7 @@
 
     <section class="screen screen--story hidden" id="scrStory" data-act="storynext">
       <div class="screen__inner">
+        <canvas class="story__map hidden" id="storyMap" width="640" height="420" aria-hidden="true"></canvas>
         <p class="story__card" id="storyCard"></p>
         <p class="story__tap" id="storyTap">누르면 넘어갑니다</p>
         <button class="btn btn--ghost story__skip" data-act="storyskip">건너뛰기</button>
@@ -170,6 +173,8 @@
 
     <section class="screen screen--list hidden" id="scrJournal">
       <div class="screen__inner">
+        <h2>도전 과제 <small id="achCount"></small></h2>
+        <div class="achs" id="achList"></div>
         <h2>기록 보관함 <small id="journalCount"></small></h2>
         <p class="note">길에 떨어진 종이를 밟으면 여기에 남는다. 챕터마다 두 장.</p>
         <div class="journal" id="journalList"></div>
@@ -396,7 +401,8 @@
         <dl class="result__stats" id="resultStats"></dl>
         <div class="screen__side screen__actions">
           <button class="btn btn--primary" data-act="next">계속</button>
-          <button class="btn" data-act="restart">재시도</button>
+          <button class="btn hidden" data-act="checkpoint">체크포인트부터</button>
+          <button class="btn" data-act="restart">처음부터</button>
           <button class="btn hidden" data-act="retryeasy">쉬운 난이도로 다시</button>
           <button class="btn btn--ghost" data-act="quit">타이틀로</button>
         </div>

@@ -139,6 +139,33 @@ body.touch .radio{left:calc(max(14px,env(safe-area-inset-left)) + 84px);max-widt
 body.touch .radio.show ~ #hint{margin-top:66px}
 @media (prefers-reduced-motion:reduce){.radio{transition:opacity .2s;transform:none}}
 
+/* 체크포인트 — 오른쪽 위에 잠깐 */
+#cpMark{position:absolute;right:max(16px,env(safe-area-inset-right));top:calc(136px + env(safe-area-inset-top));
+  font-size:11px;letter-spacing:.16em;color:#9be7a0;padding:4px 9px;border:1px solid rgba(155,231,160,.35);
+  background:rgba(7,9,12,.7);opacity:0;pointer-events:none}
+#cpMark::before{content:'◆ '}
+#cpMark.show{animation:cpFlash 2.6s ease both}
+@keyframes cpFlash{0%{opacity:0;transform:translateY(-4px)}10%,75%{opacity:1;transform:none}100%{opacity:0}}
+body.touch #cpMark{top:calc(40px + env(safe-area-inset-top))}
+@media (orientation:portrait){ body.touch #cpMark{top:calc(178px + env(safe-area-inset-top))} }
+
+/* 도전 과제 — 달성 알림과 목록 */
+#achMark{position:absolute;right:max(16px,env(safe-area-inset-right));top:calc(170px + env(safe-area-inset-top));
+  padding:8px 12px;background:rgba(7,9,12,.88);border:1px solid rgba(240,180,41,.45);opacity:0;pointer-events:none;max-width:260px}
+#achMark b{display:block;font-size:10.5px;letter-spacing:.16em;color:var(--amber);font-weight:600}
+#achMark b::before{content:'★ '}
+#achMark span{font-size:13.5px}
+#achMark.show{animation:cpFlash 4s ease both}
+body.touch #achMark{top:calc(74px + env(safe-area-inset-top))}
+@media (orientation:portrait){ body.touch #achMark{top:calc(210px + env(safe-area-inset-top))} }
+.achs{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px;text-align:left;margin:6px 0 22px}
+.ach{padding:9px 11px;border:1px solid rgba(255,255,255,.07);background:rgba(255,255,255,.02);opacity:.5}
+.ach.on{opacity:1;border-color:rgba(240,180,41,.35);background:rgba(240,180,41,.05)}
+.ach b{display:block;font-size:13px;margin-bottom:2px}
+.ach.on b{color:var(--amber)}
+.ach span{font-size:11.5px;line-height:1.5;color:var(--fog)}
+#scrJournal h2 + .achs + h2{margin-top:4px}
+
 /* ── 이야기 카드 · 기록 보관함 ─────────────── */
 .screen--story{cursor:pointer;background:#030405}
 .screen--story .screen__inner{text-align:center;max-width:640px}
@@ -146,6 +173,9 @@ body.touch .radio.show ~ #hint{margin-top:66px}
   min-height:5.2em;display:flex;align-items:center;justify-content:center;margin:0 auto;
   animation:storyIn 1.2s ease both}
 .story__card.title{font-size:clamp(34px,8vw,64px);letter-spacing:.24em;font-weight:700}
+.story__map{display:block;width:min(640px,92vw,calc((100vh - 220px) * 1.52));height:auto;margin:0 auto 6px}
+.story__map.hidden{display:none}
+.story__card.small{font-size:clamp(15px,2.4vw,19px);min-height:3.4em}
 .story__tap{font-size:11px;letter-spacing:.2em;color:var(--fog);opacity:.5;margin-top:18px}
 .story__skip{margin-top:22px}
 @keyframes storyIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}

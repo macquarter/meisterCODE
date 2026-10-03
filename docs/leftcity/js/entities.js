@@ -235,6 +235,7 @@ class Player {
     this.cool = w.rate;
     this.mag[w.key] = this.magOf(w) - 1;
     g.shots += w.pellets;
+    if (w.key !== 'pistol') g.nonPistol = true;
     for (let i = 0; i < w.pellets; i++) {
       const a = base + (Math.random() - 0.5) * w.spread * 2;
       g.bullets.push(new Bullet(
@@ -367,6 +368,7 @@ class Zombie {
      조용하면 천천히 빠진다. 1 이 되면 비명과 함께 9초 동안 전력으로 쫓는다. */
   enrage(g) {
     this.rage = true; this.rageT = 9; this.aggro = true; this.startle = 1;
+    g.weeperWoke = true;
     const d = Math.hypot(g.player.x - this.x, g.player.y - this.y);
     SFX.wail(d);
     g.shake = Math.min(18, g.shake + 8);

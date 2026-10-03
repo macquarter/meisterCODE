@@ -298,6 +298,11 @@ const I18N = (() => {
     '현문이 내려왔다 — 배에 올라라': 'The gangway is down — get aboard',
     '현문으로 승선하라': 'Board by the gangway',
     '{city} 최고': 'Best in {city}',
+    '도전 과제': 'Achievements', '기록 · 도전 과제 {n}/{t} · ★{a}': 'Records {n}/{t} · Achievements ★{a}',
+    '체크포인트': 'Checkpoint', '체크포인트부터': 'From checkpoint', '처음부터': 'From the start',
+    '체크포인트부터 — {name}': 'From checkpoint — {name}',
+    '{item} {n}/{t}': '{item} {n}/{t}', '중계기 {n}/{t}': 'Relays {n}/{t}', '3번 부두': 'Pier 3',
+    '길의 절반': 'Halfway', '소탕 {n}/{t}': 'Purge {n}/{t}', '그것의 체력 절반': 'IT at half health',
     '최고 {m}분 {s}초 · {k}기 처치': 'Best {m}m {s}s · {k} kills', '기록 없음': 'No record yet',
 };
 

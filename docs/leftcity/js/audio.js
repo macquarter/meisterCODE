@@ -89,7 +89,10 @@ const SFX = (() => {
        우는 것  — 가까우면 다른 층을 줄여 흐느낌이 들리게 한다 (Alien: Isolation 식 정적)
      음표는 50ms 마다 0.25초 앞까지 미리 예약한다. */
   const music = { on: false, bus: null, timer: null, next: 0, step: 0,
-    st: { intensity: 0, phase: 'build', boss: false, horde: false, weeper: 0 }, lv: {} };
+    st: { intensity: 0, phase: 'build', boss: false, horde: false, weeper: 0, menu: false }, lv: {} };
+  /* 메뉴 주제 — 느린 단조 화음(Am · F · C · G) 위로 비 오는 밤의 피아노 동기. 64 걸음(8분음표) 한 바퀴 */
+  const MENU_CHORDS = [[0, 3, 7], [-4, 0, 3], [3, 7, 10], [-2, 2, 5]];
+  const MENU_MOTIF = { 0: 24, 6: 27, 8: 31, 14: 29, 16: 27, 22: 24, 24: 22, 32: 24, 38: 27, 40: 34, 46: 31, 48: 29, 54: 27, 56: 26 };
   const SCALE = [0, 3, 5, 7, 10];                 // 단조 5음 (A 기준 반음)
   const hz = semi => 55 * Math.pow(2, semi / 12);
   function note(t, freq, dur, gain, type, filt, out) {
@@ -128,13 +131,25 @@ const SFX = (() => {
     const S = music.st;
     const k = Math.max(0, Math.min(1, S.intensity / 100));
     const duck = 1 - Math.min(0.8, S.weeper);                    // 우는 것 곁에서는 음악이 숨을 죽인다
-    const bpm = S.boss ? 96 : 60 + k * 60 + (S.horde ? 16 : 0);
+    const bpm = S.menu ? 76 : S.boss ? 96 : 60 + k * 60 + (S.horde ? 16 : 0);
     const beat = 60 / bpm / 2;                                    // 8분음표
     const now = ctx.currentTime;
     if (music.next < now) music.next = now + 0.05;
     while (music.next < now + 0.25) {
       const t = music.next, i = music.step++;
-      if (S.phase === 'relax' && !S.boss) {
+      if (S.menu) {
+        const ch = MENU_CHORDS[((i / 16) | 0) % 4];
+        if (i % 16 === 0) {
+          for (const n of ch) { note(t, hz(n + 24), beat * 17, 0.022, 'triangle', 700); note(t, hz(n + 24) * 1.004, beat * 17, 0.016, 'sawtooth', 500); }
+          note(t, hz(ch[0] + 12), beat * 15, 0.05, 'sine', 0);
+        }
+        const m = MENU_MOTIF[i % 64];
+        if (m !== undefined && (i % 128 < 64 || Math.random() < 0.75)) {
+          note(t, hz(m + 12), 2.2, 0.05, 'sine', 0);
+          note(t, hz(m + 24), 1.2, 0.012, 'triangle', 0);
+        }
+        if (i % 4 === 2 && Math.random() < 0.25) note(t, hz(ch[(Math.random() * 3) | 0] + 36), 1.4, 0.012, 'sine', 0);
+      } else if (S.phase === 'relax' && !S.boss) {
         // 숨 고르기 — 4박에 한 번 떨어지는 피아노 음
         if (i % 6 === 0 && Math.random() < 0.7) {
           const sc = SCALE[(Math.random() * SCALE.length) | 0];
@@ -410,6 +425,12 @@ const SFX = (() => {
         bus.gain.exponentialRampToValueAtTime(0.0001, t + 0.8);
         setTimeout(() => { try { bus.disconnect(); } catch (e) {} }, 1000);
       }
+    },
+    /** 타이틀 · 메뉴의 주제 음악. 게임에 들어가면 연출 음악으로 그대로 이어진다 */
+    menuMusic(on) {
+      music.st.menu = !!on;
+      if (on) { music.st.intensity = 0; music.st.boss = false; music.st.horde = false; music.st.weeper = 0; }
+      if (on && !music.on) this.music(true);
     },
     /** 매 프레임 연출 상태를 넘긴다 */
     musicState(st) { Object.assign(music.st, st); },

@@ -28,6 +28,15 @@ const STORY = {
     ['도시는 이미 떠난 뒤였다.', 'The city had already gone.']
   ],
 
+  /** 도시가 바뀌는 장 앞의 여정 지도 — 어느 장 앞에서, 어디서 어디로, 어떻게 */
+  journey: {
+    3: { from: 'seoul', to: 'tokyo', how: ['김 선장의 어선 · 바다 위의 이틀', 'Captain Kim\'s fishing boat · two days at sea'] },
+    6: { from: 'tokyo', to: 'bangkok', how: ['남쪽으로 가는 화물선 · 엿새', 'A freighter heading south · six days'] },
+    8: { from: 'bangkok', to: 'singapore', how: ['진료소 트럭으로 반도를 따라 · 사흘', 'The clinic\'s truck down the peninsula · three days'] }
+  },
+  /** 지도 위 도시 (경도, 위도) */
+  cities: { seoul: [127.0, 37.55], tokyo: [139.7, 35.68], bangkok: [100.5, 13.75], singapore: [103.82, 1.35] },
+
   /** 챕터별 무전과 마무리 한 줄. 무전 열쇠: start · mid · mid2 · done · hold · boss */
   chapters: [
     { // 1 첫 번째 밤 — 서울
@@ -127,6 +136,26 @@ const STORY = {
       ['도하는 송신 버튼을 눌렀다. "들려. 아직 여기 있어."', 'Doha pressed the button. "I hear you. I\'m still here."']
     ]
   },
+
+  /** 도전 과제 — [제목, 설명] 한·영 */
+  achievements: [
+    { id: 'night1',   t: ['첫 밤을 넘기다', 'Through the First Night'], d: ['1장을 마친다', 'Finish chapter 1'] },
+    { id: 'seoul',    t: ['서울을 떠나다', 'Leaving Seoul'], d: ['3장을 마친다', 'Finish chapter 3'] },
+    { id: 'tokyo',    t: ['계속 말할게', 'I\'ll Keep Talking'], d: ['6장을 마친다', 'Finish chapter 6'] },
+    { id: 'bangkok',  t: ['세 번 깜빡임', 'Three Blinks'], d: ['8장을 마친다', 'Finish chapter 8'] },
+    { id: 'dawn',     t: ['새벽호', 'The Dawn'], d: ['10장을 마치고 배에 오른다', 'Finish chapter 10 and board the ship'] },
+    { id: 'harddawn', t: ['절멸의 밤', 'Night of Extinction'], d: ['절멸 난이도로 10장을 마친다', 'Finish chapter 10 on the hardest difficulty'] },
+    { id: 'gradeS',   t: ['흠잡을 데 없이', 'Flawless'], d: ['어느 챕터에서든 S 평가', 'Earn an S grade in any chapter'] },
+    { id: 'untouched',t: ['털끝 하나', 'Not a Scratch'], d: ['피해를 받지 않고 챕터를 마친다', 'Finish a chapter without taking damage'] },
+    { id: 'pistol',   t: ['권총 한 자루', 'Just a Pistol'], d: ['1장을 권총만 쏘며 마친다', 'Finish chapter 1 firing only the pistol'] },
+    { id: 'hush',     t: ['쉿', 'Hush'], d: ['우는 것을 한 번도 깨우지 않고 7장을 마친다', 'Finish chapter 7 without waking a Weeper'] },
+    { id: 'clean',    t: ['한 번에', 'In One Go'], d: ['9장이나 10장을 체크포인트 없이 마친다', 'Finish chapter 9 or 10 without using a checkpoint'] },
+    { id: 'rec10',    t: ['주워 읽는 사람', 'Reader'], d: ['기록 10장을 찾는다', 'Find 10 records'] },
+    { id: 'rec20',    t: ['남겨진 기록', 'Everything Left Behind'], d: ['기록 20장을 모두 찾는다', 'Find all 20 records'] },
+    { id: 'surv10',   t: ['도시의 주인', 'Owner of the City'], d: ['서바이벌에서 10분을 버틴다', 'Last 10 minutes in Survival'] },
+    { id: 'cities',   t: ['네 도시의 밤', 'Four Cities, Four Nights'], d: ['네 도시 모두 서바이벌에서 3분을 버틴다', 'Last 3 minutes in Survival in all four cities'] },
+    { id: 'k1000',    t: ['천 번의 밤', 'A Thousand Nights'], d: ['감염체를 모두 합쳐 1,000기 처치한다', 'Kill 1,000 infected in total'] }
+  ],
 
   /** 기록 — 챕터마다 둘. 길에 떨어진 종이를 밟아 줍는다 */
   records: [

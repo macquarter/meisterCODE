@@ -76,7 +76,14 @@ python yt_transcript.py URL --whisper-model medium
 
 ## "차단됨"이 뜰 때
 
-YouTube가 지금 내 인터넷(IP)을 막은 상태입니다. 자막과 음성을 같은 곳에서 받기 때문에, 받아쓰기로 넘어가도 똑같이 실패합니다. 아래 순서대로 해 보세요.
+YouTube가 지금 내 인터넷(IP)을 막은 상태입니다. 자막과 음성을 같은 곳에서 받기 때문에, 받아쓰기로 넘어가도 똑같이 실패합니다.
+
+막혀도 도구가 자동으로 건지는 것:
+- 제목·채널 (`meta.json`)
+- YouTube가 자동으로 뽑아 둔 장면 이미지 3~4장 (`thumb_*.jpg`)
+- `.env`에 `GEMINI_API_KEY`와 `GEMINI_MODEL`이 있으면: Gemini가 YouTube 주소를 직접 받아 영상을 보고 요약 (`summary_gemini_video.md`). Google 서버가 영상을 가져가므로 내 IP 차단과 무관합니다.
+
+그래도 자막이 꼭 필요하면 아래 순서대로 해 보세요.
 
 1. 수십 분 뒤 다시 실행합니다. 짧은 시간에 많이 요청해서 걸린 일시 제한(429)이면 풀립니다.
 2. VPN을 끄거나 다른 네트워크(휴대폰 테더링 등)에서 실행합니다.
@@ -97,4 +104,4 @@ YouTube가 지금 내 인터넷(IP)을 막은 상태입니다. 자막과 음성�
 - 요약 모델 기본값은 `claude-opus-5-5`입니다. 바꾸려면 `.env`에 `CLAUDE_MODEL=...`을 넣습니다.
 - Claude가 내용을 거절하면 서버가 자동으로 다른 Claude 모델로 다시 시도하도록 설정되어 있습니다(`fallbacks: "default"`).
 - GPT·Gemini는 모델 이름이 자주 바뀌어 기본값을 두지 않았습니다. `.env`의 `OPENAI_MODEL`, `GEMINI_MODEL`에 직접 넣어 주세요.
-- 종료 코드: `0` 성공, `1` 자막 또는 요약 실패, `2` YouTube 차단
+- 종료 코드: `0` 성공(차단됐지만 Gemini 영상 분석 성공 포함), `1` 자막 또는 요약 실패, `2` YouTube 차단

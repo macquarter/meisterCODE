@@ -289,10 +289,104 @@ def summarize_gemini(message: str) -> str:
     model = os.environ.get("GEMINI_MODEL")
     if not model:
         raise RuntimeError("GEMINI_MODEL 환경변수에 사용할 모델 이름을 넣어 주세요")
-    return genai.Client().models.generate_content(model=model, contents=message).text
+    with genai.Client() as client:  # 변수로 붙잡지 않으면 응답 전에 연결이 닫힌다
+        return client.models.generate_content(model=model, contents=message).text
 
 
 SUMMARIZERS = {"claude": summarize_claude, "gpt": summarize_gpt, "gemini": summarize_gemini}
+
+
+# ---------------------------------------------------------------- 막혔을 때 우회
+
+def fetch_oembed(url: str) -> dict:
+    """oEmbed(제목·채널)는 영상 페이지가 막혀도 대개 열린다."""
+    import requests
+
+    try:
+        r = requests.get("https://www.youtube.com/oembed",
+                         params={"url": url, "format": "json"}, timeout=20)
+        r.raise_for_status()
+        d = r.json()
+        return {"title": d.get("title"), "channel": d.get("author_name")}
+    except Exception as e:
+        log(f"  · oEmbed 실패: {type(e).__name__}")
+        return {}
+
+
+def save_thumbnails(vid: str, workdir: Path) -> list[Path]:
+    """YouTube가 자동으로 뽑아 둔 장면 3장(영상 25%·50%·75% 지점)과 대표 썸네일."""
+    import requests
+
+    saved = []
+    for name in ("hqdefault", "hq1", "hq2", "hq3"):
+        try:
+            r = requests.get(f"https://i.ytimg.com/vi/{vid}/{name}.jpg", timeout=20)
+        except Exception:
+            continue
+        if r.status_code == 200 and len(r.content) > 2000:
+            p = workdir / f"thumb_{name}.jpg"
+            p.write_bytes(r.content)
+            saved.append(p)
+    return saved
+
+
+def gemini_watch_youtube(url: str, prompt: str) -> str:
+    """Gemini API는 YouTube 주소를 직접 받아 영상을 본다 (Google 서버가 영상을 가져감)."""
+    from google import genai
+    from google.genai import types
+
+    model = os.environ.get("GEMINI_MODEL")
+    if not model:
+        raise RuntimeError("GEMINI_MODEL 환경변수에 사용할 모델 이름을 넣어 주세요")
+    with genai.Client() as client:  # 변수로 붙잡지 않으면 응답 전에 연결이 닫힌다
+        resp = client.models.generate_content(
+            model=model,
+            contents=types.Content(parts=[
+                types.Part(file_data=types.FileData(file_uri=url)),
+                types.Part(text=prompt + "\n\n먼저 영상의 대사·내레이션을 타임스탬프와 함께 받아 적은 뒤 정리해 주세요."),
+            ]),
+        )
+        return resp.text
+
+
+def handle_blocked(url: str, vid: str, workdir: Path, prompt: str) -> int:
+    """자막·음성이 막혔을 때 쓸 수 있는 것을 최대한 건진다."""
+    log("\n[우회] 막히지 않는 경로로 가능한 정보 수집")
+    meta = {"url": url, "id": vid, "blocked": True, **fetch_oembed(url)}
+    thumbs = save_thumbnails(vid, workdir)
+    meta["thumbnails"] = [p.name for p in thumbs]
+    (workdir / "meta.json").write_text(json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8")
+    log(f"  ✓ 제목: {meta.get('title')} / 채널: {meta.get('channel')}")
+    log(f"  ✓ 장면 이미지 {len(thumbs)}장 → {workdir}")
+
+    if os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY"):
+        log("  · Gemini에 YouTube 주소를 직접 넘겨 영상 분석")
+        import time
+
+        text, err = None, None
+        for wait in (0, 10, 30, 60):  # 503(과부하)·429(한도)는 잠시 뒤 재시도
+            if wait:
+                log(f"    일시적 오류로 {wait}초 뒤 재시도")
+                time.sleep(wait)
+            try:
+                text = gemini_watch_youtube(url, prompt)
+                break
+            except Exception as e:
+                err = e
+                if not re.search(r"\b(503|429|500)\b|UNAVAILABLE|RESOURCE_EXHAUSTED", str(e)):
+                    break
+        if text is None:
+            log(f"  ✗ Gemini 영상 분석 실패: {err}")
+        else:
+            out = workdir / "summary_gemini_video.md"
+            out.write_text(text, encoding="utf-8")
+            log(f"  ✓ Gemini 영상 분석 → {out}")
+            print(text)
+            return 0
+    else:
+        log("  · GEMINI_API_KEY를 .env에 넣으면 막혔을 때도 Gemini가 영상을 직접 보고 요약합니다")
+    log(BLOCK_HELP)
+    return 2
 
 
 # ---------------------------------------------------------------- 실행
@@ -363,8 +457,7 @@ def main() -> int:
             tr = transcribe(audio, langs[0] if langs else None, args.whisper, args.whisper_model)
     except Blocked as e:
         log(f"\n✗ 차단됨: {e}")
-        log(BLOCK_HELP)
-        return 2
+        return handle_blocked(url, vid, workdir, args.prompt or DEFAULT_PROMPT)
 
     if not tr.lines:
         log("✗ 자막을 얻지 못했습니다")

@@ -390,7 +390,8 @@ const G = {
     // 초기 좀비
     const initial = Math.max(2, Math.round(L.spawn.initial * SETTINGS.mod.max));
     for (let i = 0; i < initial; i++) this.spawnZombie(560, 1600);
-    this.flowT = 0; this.hordeAt = null;
+    this.flowT = 0; this.hordeAt = null; this.casings = []; this.kickX = 0; this.kickY = 0;
+    this.freezeT = 0; this.lastStop = -9;
     w.updateFlow(this.player.x, this.player.y);
     this.directorReset();
 
@@ -470,63 +471,122 @@ const G = {
   },
 
   /* ── 연출가 ──────────────────────────────────
-     원작 리뷰의 "Left 4 Dead 의 달리는 무리"와 "번개가 무리를 드러낸다".
-     조용한 시간(build) → 무리 습격(peak) → 숨 고르기(relax) 를 되풀이한다.
-     build 동안에는 이따금 한두 마리가 등 뒤에서 냄새를 맡고 온다. */
+     Valve 가 GDC 2009 에서 공개한 Left 4 Dead 의 적응형 연출을 이 게임 크기에 맞춰 옮겼다.
+     · 긴장도(intensity): 받은 피해에 비례해, 가까이서 적이 죽으면 거리에 반비례해 오른다.
+       교전 중(300px 안에 추격자)에는 줄지 않고, 아니면 서서히 0 으로 내려간다.
+     · build   — 위협을 채운다: 배회자 · 추적자 · 무리. 긴장도가 문턱(70)을 넘으면
+     · sustain — 3‒5초 더 유지하고
+     · fade    — 새 위협을 멈춘 채 지금 싸움이 자연스럽게 끝나기를 기다렸다가
+     · relax   — 숨 고를 시간(16‒24초, 또는 충분히 전진할 때까지). 그리고 다시 build.
+     · 무리는 무작위 간격으로, 75% 는 진행 경로의 뒤쪽에서. 오기 2초 전에 먼 비명이 먼저 들린다
+       ("사건은 다가온다고 알릴 때 더 흥미롭다" — 같은 발표). */
   directorReset() {
     const ch = this.survival ? 3 : this.levelIndex;
     const ob = this.level.objective.type;
     this.dir = {
-      phase: 'build',
-      t: 15 - Math.min(3, ch * 0.4),                  // 첫 습격까지
+      phase: 'build', intensity: 0, t: 0,
+      mobT: 15 - Math.min(3, ch * 0.4),               // 첫 무리까지
       stalkT: ch === 0 ? 16 : 8,                     // 첫 챕터는 혼자 걸을 시간을 조금 더 준다
-      horde: [], peakT: 0, count: 0,
-      every: (ob === 'survive' ? 24 : 36) - Math.min(8, ch * 1.1)
+      sinceMob: 0, horde: [], pending: null, count: 0, relaxFrom: null,
+      every: (ob === 'survive' ? 22 : 32) - Math.min(8, ch * 1.1)
     };
   },
+  /** 긴장도를 올린다 (피해 · 근접 처치 · 붙잡힘) */
+  stress(v) { if (this.dir) this.dir.intensity = Math.min(100, this.dir.intensity + v); },
   hordeSize() {
     const ch = this.survival ? 2 + Math.floor(this.time / 40) : this.levelIndex;
-    return Math.round((4 + ch * 0.9) * SETTINGS.mod.max * (this.level.objective.type === 'survive' ? 1.2 : 1));
+    // 무리 크기는 직전 무리 직후엔 작고, 시간이 지날수록 최대치로 자란다 (연달은 무리의 균형)
+    const grow = 0.55 + 0.45 * Math.min(1, (this.dir ? this.dir.sinceMob : 60) / 50);
+    return Math.max(3, Math.round((4 + ch * 0.9) * grow * SETTINGS.mod.max * (this.level.objective.type === 'survive' ? 1.2 : 1)));
   },
-  /** 시야 밖(주로 뒤·옆) 한 지점에 무리를 몰아 놓고 전부 달려들게 한다 */
-  spawnHorde(n) {
+  /** 무리가 올 자리: 75% 는 진행 경로의 뒤쪽(출구에서 더 먼 칸), 나머지는 시야 밖 아무 곳 */
+  hordeSpot(fromX, fromY) {
     const p = this.player, w = this.world;
-    let anchor = null;
-    for (let i = 0; i < 40 && !anchor; i++) {
-      const q = w.pickPoint(p.x, p.y, 480, 820);
+    const behindRoute = Math.random() < 0.75;
+    const pIdx = Math.floor(p.y / TILE) * w.w + Math.floor(p.x / TILE);
+    const myDist = w.dist[pIdx];
+    for (let i = 0; i < 60; i++) {
+      const q = fromX === undefined ? w.pickPoint(p.x, p.y, 480, 820) : w.pickPoint(fromX, fromY, 120, 380);
       const d = Math.hypot(q.x - p.x, q.y - p.y);
+      const qi = Math.floor(q.y / TILE) * w.w + Math.floor(q.x / TILE);
+      if (d < 440 || !w.flow || w.flow[qi] <= 0) continue;
       const da = Math.abs(((Math.atan2(q.y - p.y, q.x - p.x) - p.angle + Math.PI * 3) % (Math.PI * 2)) - Math.PI);
-      if (d >= 460 && da > 1.0 && w.flow && w.flow[Math.floor(q.y / TILE) * w.w + Math.floor(q.x / TILE)] > 0) anchor = q;
+      if (da < 1.0 && w.los(p.x, p.y, q.x, q.y)) continue;            // 보고 있는 곳에서 솟아나지 않게
+      if (behindRoute && i < 40 && myDist >= 0 && w.dist[qi] < myDist + 3) continue;
+      return q;
     }
-    if (!anchor) return [];
-    const room = 60 - this.zombies.length;
+    return null;
+  },
+  /** 무리를 예고한다 — 먼 비명이 먼저 들리고 2.2초 뒤 실제로 몰려온다 */
+  callHorde(n, near) {
+    const D = this.dir, p = this.player;
+    if (!D || D.pending) return false;
+    const spot = near ? this.hordeSpot(near.x, near.y) : this.hordeSpot();
+    if (!spot) return false;
+    D.pending = { x: spot.x, y: spot.y, n, t: 2.2 };
+    const a = Math.atan2(spot.y - p.y, spot.x - p.x);
+    SFX.horde(Math.hypot(spot.x - p.x, spot.y - p.y) * 1.6, a - p.angle);   // 아직 멀다
+    this.hordeAt = { x: spot.x, y: spot.y, t: 4.2 };
+    const side = Math.abs(((a - p.angle + Math.PI * 3) % (Math.PI * 2)) - Math.PI) > 2.2 ? '뒤에서' : '옆에서';
+    this.toast(`무리가 온다 — ${side}`);
+    return true;
+  },
+  /** 예고했던 무리를 내보낸다 */
+  releaseHorde() {
+    const D = this.dir, q = D.pending, p = this.player, w = this.world;
+    D.pending = null;
     const out = [];
-    for (let i = 0; i < Math.min(n, room); i++) {
-      const q = i === 0 ? anchor : w.pickPoint(anchor.x, anchor.y, 0, 200);
-      if (Math.hypot(q.x - p.x, q.y - p.y) < 380) continue;
-      const z = new Zombie(q.x + (Math.random() - 0.5) * 20, q.y + (Math.random() - 0.5) * 20, this.pickType());
+    const room = 60 - this.zombies.length;
+    for (let i = 0; i < Math.min(q.n, room); i++) {
+      const s = i === 0 ? q : w.pickPoint(q.x, q.y, 0, 200);
+      if (Math.hypot(s.x - p.x, s.y - p.y) < 360) continue;
+      const z = new Zombie(s.x + (Math.random() - 0.5) * 20, s.y + (Math.random() - 0.5) * 20, this.pickType());
       if (z.t.boss) continue;
       z.aggro = true; z.horde = true;
       this.zombies.push(z); out.push(z);
     }
-    if (out.length) {
-      const a = Math.atan2(anchor.y - p.y, anchor.x - p.x);
-      SFX.horde(Math.hypot(anchor.x - p.x, anchor.y - p.y), a - p.angle);
-      if (Math.random() < 0.6 && this.lightningT > 2) {        // 번개가 무리를 드러낸다
-        this.lightning = SETTINGS.flash ? 1 : 0.22; SFX.thunder();
-        this.lightningT = 14 + Math.random() * 18;
-      }
-      const side = Math.abs(((a - p.angle + Math.PI * 3) % (Math.PI * 2)) - Math.PI) > 2.2 ? '뒤에서' : '옆에서';
-      this.toast(`무리가 온다 — ${side}`);
-      this.hordeAt = { x: anchor.x, y: anchor.y, t: 3 };
+    if (!out.length) return;
+    SFX.horde(Math.hypot(q.x - p.x, q.y - p.y), Math.atan2(q.y - p.y, q.x - p.x) - p.angle);
+    if (Math.random() < 0.6 && this.lightningT > 2) {               // 번개가 무리를 드러낸다
+      this.lightning = SETTINGS.flash ? 1 : 0.22; SFX.thunder();
+      this.lightningT = 14 + Math.random() * 18;
     }
-    return out;
+    D.horde.push(...out); D.count++; D.sinceMob = 0;
+    if (this.hordeAt) this.hordeAt.t = Math.max(this.hordeAt.t, 2);
+  },
+  /** 경보기 달린 차 — 맞히면 울리고, 울리면 무리가 온다 (L4D 의 "이중 기대감") */
+  triggerAlarm(pr) {
+    if (!pr || !pr.alarm || pr.ringing) return;
+    pr.ringing = 7;
+    SFX.alarm(Math.hypot(pr.x - this.player.x, pr.y - this.player.y));
+    this.toast('경보가 울린다 — 무리가 몰려온다');
+    // 숨 고르기 중이어도 경보는 무리를 부른다
+    this.callHorde(this.hordeSize() + 2, pr);
+  },
+  hitProp(x, y) { this.triggerAlarm(this.world.propNear(x, y)); },
+  alarmNear(x, y, r) {
+    for (const pr of this.world.props) if (pr.alarm && Math.hypot(pr.x - x, pr.y - y) < r) this.triggerAlarm(pr);
   },
   updateDirector(dt) {
-    const D = this.dir, ob = this.level.objective.type;
-    if (!D || this.player.dead) return;
-    D.t -= dt;
+    const D = this.dir, p = this.player;
+    if (!D || p.dead) return;
+    D.t += dt; D.sinceMob += dt;
+    if (D.horde.length > 30) D.horde = D.horde.filter(z => !z.dead);
     if (this.hordeAt) { this.hordeAt.t -= dt; if (this.hordeAt.t <= 0) this.hordeAt = null; }
+    if (D.pending && (D.pending.t -= dt) <= 0) this.releaseHorde();
+    for (const pr of this.world.props) if (pr.ringing) {
+      pr.ringing -= dt;
+      if (pr.ringing <= 0) pr.ringing = 0;
+    }
+
+    // 긴장도: 피해(Player.stress 누적) · 붙잡힘 → 올리고, 교전이 없으면 내린다
+    if (p.stress) { this.stress(p.stress * 1.2); p.stress = 0; }
+    if (p.grabbed) this.stress(p.grabbed * 9 * dt);
+    let engaged = false;
+    for (const z of this.zombies) if (z.aggro && Math.hypot(z.x - p.x, z.y - p.y) < 300) { engaged = true; break; }
+    if (!engaged) D.intensity = Math.max(0, D.intensity - 7 * dt);
+    D.engaged = engaged;
+
     if (D.phase === 'build') {
       // 등 뒤의 추적자 — 조용한 시간에도 완전히 안전하지는 않다
       D.stalkT -= dt;
@@ -535,20 +595,48 @@ const G = {
         const z = this.spawnZombie(430, 650);
         if (z) { z.aggro = true; z.stalker = true; }
       }
-      if (D.t <= 0) {
-        D.horde = this.spawnHorde(this.hordeSize());
-        if (D.horde.length) { D.phase = 'peak'; D.peakT = 0; D.count++; }
-        else D.t = 2;                                      // 자리가 없으면 잠깐 뒤 다시
+      D.mobT -= dt;
+      if (D.mobT <= 0) {
+        if (this.callHorde(this.hordeSize())) D.mobT = D.every * (0.8 + Math.random() * 0.5);
+        else D.mobT = 2;
       }
-    } else if (D.phase === 'peak') {
-      D.peakT += dt;
-      const alive = D.horde.filter(z => !z.dead).length;
-      if (alive <= 1 || D.peakT > 24) { D.phase = 'relax'; D.t = 7 + Math.random() * 4; }
-    } else if (D.phase === 'relax' && D.t <= 0) {
-      D.phase = 'build';
-      D.t = Math.max(12, D.every - (this.survival ? this.time / 25 : 0)) * (0.85 + Math.random() * 0.3);
-      D.stalkT = 4 + Math.random() * 4;
+      if (D.intensity >= 70) { D.phase = 'sustain'; D.t = 0; D.hold = 3 + Math.random() * 2; }
+    } else if (D.phase === 'sustain') {
+      if (D.t >= D.hold) { D.phase = 'fade'; D.t = 0; }
+    } else if (D.phase === 'fade') {
+      // 새 위협은 멈추고, 지금 싸움이 끝나 긴장이 내려올 때까지 기다린다
+      // 오래 끌면(25초) 강제로 넘긴다 — 추격자가 끝없이 붙는 판에서 숨 고르기를 영영 못 주지 않도록
+      if ((D.intensity < 35 && !engaged && !D.pending) || D.t > 25) {
+        D.phase = 'relax'; D.t = 0; D.relaxFor = 16 + Math.random() * 8; D.relaxFrom = { x: p.x, y: p.y };
+      }
+    } else if (D.phase === 'relax') {
+      const moved = Math.hypot(p.x - D.relaxFrom.x, p.y - D.relaxFrom.y);
+      if (D.t >= D.relaxFor || moved > 1100) {
+        D.phase = 'build'; D.t = 0;
+        D.mobT = Math.max(D.mobT, 6 + Math.random() * 6);
+        D.stalkT = 4 + Math.random() * 4;
+      }
     }
+  },
+  /** 반동 — 카메라를 쏜 방향의 반대로 잠깐 민다 */
+  recoil(ang, kick) {
+    if (!SETTINGS.shake) return;
+    this.kickX = (this.kickX || 0) - Math.cos(ang) * kick * 1.6;
+    this.kickY = (this.kickY || 0) - Math.sin(ang) * kick * 1.6;
+  },
+  /** 탄피 — 튀어나가 굴러가다 멈추고, 판이 끝날 때까지 남는다 */
+  ejectCasing(x, y, ang, key) {
+    const side = ang + Math.PI / 2 + (Math.random() - 0.5) * 0.6, sp = 90 + Math.random() * 70;
+    this.casings.push({ x: x + Math.cos(ang) * 8, y: y + Math.sin(ang) * 8,
+      vx: Math.cos(side) * sp, vy: Math.sin(side) * sp, a: Math.random() * 6.28, spin: (Math.random() - 0.5) * 30,
+      t: 0.5, shell: key === 'shotgun' });
+    if (this.casings.length > 220) this.casings.shift();
+  },
+  /** 짧은 정지 — 처치의 무게. 연사로 화면이 끊기지 않게 간격을 둔다 */
+  hitStop(s) {
+    if (this.time - (this.lastStop || -9) < 0.14) return;
+    this.lastStop = this.time;
+    this.freezeT = Math.max(this.freezeT || 0, s);
   },
 
   /** 손전등 켜고 끄기 — F 키와 터치 버튼이 같이 쓴다 */
@@ -589,6 +677,10 @@ const G = {
 
   onKill(z) {
     this.kills++;
+    // 가까이서 쓰러질수록 긴장도가 오른다 (L4D: 거리에 반비례). 처치에는 짧은 정지
+    const d = Math.hypot(z.x - this.player.x, z.y - this.player.y);
+    this.stress(Math.max(0, 14 * (1 - d / 360)));
+    this.hitStop(z.t.boss ? 0.16 : d < 120 ? 0.055 : 0.035);
     this.score += Math.round(z.t.score * SETTINGS.mod.score);
     if (z.t.boss) {
       this.boss = null;
@@ -719,7 +811,9 @@ const G = {
     // 붙잡히면 발이 묶인다 — 한 마리당 22%, 최대 60%. 포위되면 빠져나오기 어렵다
     const grab = 1 - Math.min(0.6, (p.grabN || 0) * 0.22);
     p.grabbed = p.grabN || 0; p.grabN = 0;
-    const speed = (p.dead ? 0 : 158) * (p.sprinting ? 1.42 : p.reloading ? 0.78 : 1) * grab;
+    // 크게 다치면 절뚝인다 — "추격당하며 절뚝이며 안전지대로" (L4D)
+    const limp = p.hp < 25 ? 0.8 : 1;
+    const speed = (p.dead ? 0 : 158) * (p.sprinting ? 1.42 : p.reloading ? 0.78 : 1) * grab * limp;
     if (!p.dead && (mx || my)) {
       const before = p.walkPhase;
       w.slide(p, mx * speed * dt, my * speed * dt);
@@ -739,6 +833,22 @@ const G = {
     else if (input.hasMouse) p.angle = Math.atan2(input.my - (p.y - cam.y), input.mx - (p.x - cam.x));
 
     p.update(dt, this);
+
+    // 반동은 빠르게 제자리로, 탄피는 굴러가다 멈춘다
+    const kd = Math.pow(0.0005, dt);
+    this.kickX *= kd; this.kickY *= kd;
+    for (const c of this.casings) if (c.t > 0) {
+      c.t -= dt; c.x += c.vx * dt; c.y += c.vy * dt; c.a += c.spin * dt;
+      c.vx *= Math.pow(0.02, dt); c.vy *= Math.pow(0.02, dt); c.spin *= Math.pow(0.05, dt);
+    }
+    // 질주로 경보기 차에 부딪히면 울린다
+    if (p.sprinting) for (const pr of w.props)
+      if (pr.alarm && !pr.ringing && Math.hypot(pr.x - p.x, pr.y - p.y) < 36) this.triggerAlarm(pr);
+    // 숨이 넘어가는 소리
+    if (!p.dead && p.hp < 25) {
+      this.breathT = (this.breathT || 0) - dt;
+      if (this.breathT <= 0) { this.breathT = 1.6; SFX.breath(); }
+    }
 
     /* 사격: 수동 + 불빛 안 자동사격 */
     if (!p.dead) {
@@ -819,7 +929,7 @@ const G = {
       Math.round((sp.max + (this.survival ? Math.floor(this.time / 20) : 0)) * SETTINGS.mod.max), 60);
     if (this.spawnT <= 0 && this.zombies.length < maxZ) {
       this.spawnT = 1 / Math.max(0.05, rate);
-      if (!this.dir || this.dir.phase !== 'relax') this.spawnZombie(620, 1500);
+      if (!this.dir || this.dir.phase === 'build' || this.dir.phase === 'sustain') this.spawnZombie(620, 1500);
     }
     // 추격 경로는 0.35초마다 다시 깐다
     this.flowT -= dt;
@@ -956,6 +1066,7 @@ const G = {
       x += (Math.random() - 0.5) * this.shake;
       y += (Math.random() - 0.5) * this.shake;
     }
+    x += this.kickX || 0; y += this.kickY || 0;
     return { x, y };
   }
 };
@@ -988,6 +1099,15 @@ function render() {
     ctx.beginPath(); ctx.arc(d.x, d.y, d.r, 0, 6.283); ctx.fill();
   }
   ctx.globalAlpha = 1;
+
+  /* 탄피 */
+  for (const c of g.casings) {
+    if (c.x < cam.x - 20 || c.x > cam.x + W + 20 || c.y < cam.y - 20 || c.y > cam.y + H + 20) continue;
+    ctx.save(); ctx.translate(c.x, c.y); ctx.rotate(c.a);
+    ctx.fillStyle = c.shell ? '#9c2f24' : '#b8923a';
+    ctx.fillRect(-2.5, -1.2, c.shell ? 6 : 4.5, c.shell ? 3 : 2.2);
+    ctx.restore();
+  }
 
   /* 산 웅덩이 */
   for (const a of g.acids) {
@@ -1391,12 +1511,14 @@ function drawPlayer(p) {
 function drawZombie(z) {
   const sway = Math.sin(z.phase) * (z.aggro ? 3.2 : 1.6);
   const S = z.t.size;
-  // 밤이 완전한 암흑은 아니라서, 불빛 밖의 좀비는 실루엣만 희미하게 남긴다.
-  // 손전등·근접·번개가 형체를 드러낸다 — "번개가 치면 무리가 보인다"
+  // Darkwood 처럼 — 거리·건물 같은 정적인 것은 어둠 속에서도 희미하게 보이지만,
+  // 적은 손전등 원뿔 안에서만 형체가 있다. 밖에서는 붉은 눈(발광 층)만 남는다.
+  // 바로 곁(손이 닿는 거리)과 번개만 예외다 — "번개가 치면 무리가 보인다"
   const p = G.player, d = Math.hypot(z.x - p.x, z.y - p.y);
-  const vis = Math.max(z.lit, clamp((240 - d) / 130, 0, 1), G.lightning * 1.4, z.t.boss ? 0.6 : 0);
+  const vis = Math.max(z.lit, clamp((120 - d) / 50, 0, 1), G.lightning * 1.4, z.t.boss ? 0.5 : 0);
+  if (vis <= 0.01) return;
   ctx.save();
-  const a0 = 0.16 + 0.84 * clamp(vis, 0, 1);
+  const a0 = clamp(vis, 0, 1);
   ctx.globalAlpha = a0;
   ctx.translate(z.x, z.y);
   ctx.rotate(z.face);
@@ -1447,6 +1569,12 @@ function drawZombie(z) {
     ctx.globalAlpha = a0 * clamp(1 - z.hp / z.hpMax, 0, 1) * 0.5;
     ctx.fillStyle = '#6b1310';
     ctx.beginPath(); ctx.arc(0, 0, z.t.size * 0.8, 0, 6.283); ctx.fill();
+  }
+  // 맞은 순간 하얗게 번쩍인다
+  if (z.flash > 0) {
+    ctx.globalAlpha = a0 * 0.75;
+    ctx.fillStyle = '#f4f1ea';
+    ctx.beginPath(); ctx.arc(0, 0, z.t.size * 1.02, 0, 6.283); ctx.fill();
   }
   ctx.globalAlpha = 1;
   ctx.restore();
@@ -1639,6 +1767,25 @@ function drawGlow(cam, g, p, w) {
     const nx = -Math.sin(z.face) * 2.6, ny = Math.cos(z.face) * 2.6;
     ctx.beginPath(); ctx.arc(ex + nx, ey + ny, 1.7, 0, 6.283); ctx.fill();
     ctx.beginPath(); ctx.arc(ex - nx, ey - ny, 1.7, 0, 6.283); ctx.fill();
+  }
+
+  // 경보기 차 — 평소엔 계기판의 붉은 점이 천천히 깜빡인다(건드리지 말라는 신호).
+  // 울리면 비상등이 번갈아 번쩍인다
+  for (const pr of w.props) {
+    if (!pr.alarm || Math.hypot(pr.x - p.x, pr.y - p.y) > 900) continue;
+    if (pr.ringing) {
+      const on = ((g.time * 4) | 0) % 2;
+      for (const sgn of [-1, 1]) {
+        const hx = pr.x + Math.cos(pr.a) * pr.w * 0.5 * sgn, hy = pr.y + Math.sin(pr.a) * pr.w * 0.5 * sgn;
+        const gr = ctx.createRadialGradient(hx, hy, 0, hx, hy, 70);
+        gr.addColorStop(0, `rgba(255,170,60,${on ? 0.5 : 0.12})`);
+        gr.addColorStop(1, 'rgba(0,0,0,0)');
+        ctx.fillStyle = gr; ctx.beginPath(); ctx.arc(hx, hy, 70, 0, 6.283); ctx.fill();
+      }
+    } else if ((g.time + pr.x * 0.001) % 1.6 < 0.12) {
+      ctx.fillStyle = 'rgba(255,40,30,.75)';
+      ctx.beginPath(); ctx.arc(pr.x + Math.cos(pr.a) * 4, pr.y + Math.sin(pr.a) * 4, 1.6, 0, 6.283); ctx.fill();
+    }
   }
 
   // 보급품 반짝임
@@ -2177,7 +2324,10 @@ function frame(now) {
   const dt = Math.min(0.05, (now - last) / 1000);
   last = now;
 
-  if (G.state === 'play') {
+  if (G.state === 'play' && G.freezeT > 0) {
+    G.freezeT -= dt;                                   // 처치 직후의 짧은 정지 — 그림만 그린다
+    render();
+  } else if (G.state === 'play') {
     G.update(dt);
     if (G.state === 'play' || G.state === 'result') render();
     hudT -= dt;

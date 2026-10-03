@@ -50,6 +50,7 @@ class World {
     this.markSidewalks();
     this.markCrossings();
     this.pickEndpoints();
+    this.indexProps();
 
     // 구조물이 도로망을 지나치게 끊었으면 전부 치우고 다시 계산한다
     if (this.maxDist < blocks * 8) {
@@ -58,7 +59,20 @@ class World {
       this.props = [];
       this.markSidewalks();
       this.pickEndpoints();
+      this.indexProps();
     }
+  }
+
+  /** 칸 → 구조물 번호 (총알·폭발이 무엇을 맞혔는지 알기 위해) */
+  indexProps() {
+    this.propAt = new Int16Array(this.w * this.h).fill(-1);
+    this.props.forEach((pr, i) => { for (const [tx, ty] of pr.tiles) this.propAt[ty * this.w + tx] = i; });
+  }
+  propNear(x, y) {
+    const tx = Math.floor(x / TILE), ty = Math.floor(y / TILE);
+    if (tx < 0 || ty < 0 || tx >= this.w || ty >= this.h) return null;
+    const i = this.propAt[ty * this.w + tx];
+    return i >= 0 ? this.props[i] : null;
   }
 
   /* ── 격자 접근 ─────────────────────────── */
@@ -145,6 +159,8 @@ class World {
       this.set(x, y, T_WALL);
       this.deco[y * this.w + x] = D_PROP;
       this.props.push({ x: x * TILE + TILE / 2, y: y * TILE + TILE / 2,
+        // 열에 셋은 경보기가 달려 있다 (생성 순서를 흔들지 않게 난수 대신 좌표 해시)
+        alarm: (((x * 92837111) ^ (y * 689287499)) >>> 0) % 10 < 3,
         kind: 'car', col: CAR_COLS[(rng() * CAR_COLS.length) | 0],
         a: (rng() - 0.5) * 0.5 + (isRoadLane(x) ? Math.PI / 2 : 0),
         w: 40, h: 21, tiles: [[x, y]] });

@@ -237,6 +237,18 @@ const SFX = (() => {
       tone(58.3, 1.2, 0.1 * n, 'sawtooth', 43);
     },
 
+    /** 차량 경보 — 두 음을 번갈아 6초. 거리에 따라 작아진다 */
+    alarm(d) {
+      if (!enabled || !ctx) return;
+      const n = Math.max(0.35, near(d));
+      for (let i = 0; i < 24; i++) setTimeout(() => tone(i % 2 ? 740 : 980, 0.24, 0.07 * n, 'square'), i * 250);
+    },
+    /** 크게 다쳤을 때의 거친 숨 */
+    breath() {
+      burst(0.5, 620, 0.8, 0.07, 'bandpass', 0.45);
+      setTimeout(() => burst(0.4, 480, 0.8, 0.05, 'bandpass', 0.36), 620);
+    },
+
     growl(d)  { const n = near(d); if (n <= 0.02) return;
                 tone(64 + Math.random() * 34, 0.5 + Math.random() * 0.35,
                      0.1 * n, 'sawtooth', 34 + Math.random() * 20);

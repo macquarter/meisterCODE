@@ -4,17 +4,17 @@
 
 const WEAPONS = {
   pistol:  { key: 'pistol',  name: '권총', slot: 1, rate: 0.40, dmg: 21, spread: 0.028,
-             range: 540, speed: 1300, pellets: 1, ammoKey: null,   kick: 1.8, sfx: 'pistol',
+             range: 540, speed: 1300, pellets: 1, ammoKey: null,   kick: 1.8, sfx: 'pistol', knock: 7,
              mag: 12, reload: 1.05 },
   smg:     { key: 'smg',     name: 'SMG',  slot: 2, rate: 0.085, dmg: 17, spread: 0.075,
-             range: 620, speed: 1500, pellets: 1, ammoKey: 'smg',  kick: 2.2, sfx: 'shot',
+             range: 620, speed: 1500, pellets: 1, ammoKey: 'smg',  kick: 2.2, sfx: 'shot', knock: 5,
              mag: 30, reload: 1.75 },
   shotgun: { key: 'shotgun', name: '샷건', slot: 3, rate: 0.74, dmg: 15, spread: 0.20,
-             range: 430, speed: 1200, pellets: 8, ammoKey: 'shell', kick: 8, sfx: 'shotgun',
+             range: 430, speed: 1200, pellets: 8, ammoKey: 'shell', kick: 8, sfx: 'shotgun', knock: 11,
              mag: 6,  reload: 2.15 },
   // 소총 — 원작의 네 번째 무기. 느리지만 한 발이 줄 선 감염체 여럿을 꿰뚫는다
   rifle:   { key: 'rifle',   name: '소총', slot: 4, rate: 0.82, dmg: 92, spread: 0.004,
-             range: 900, speed: 2300, pellets: 1, ammoKey: 'rifle', kick: 5.5, sfx: 'rifle',
+             range: 900, speed: 2300, pellets: 1, ammoKey: 'rifle', kick: 5.5, sfx: 'rifle', knock: 22,
              mag: 5,  reload: 2.35, pierce: 3 }
 };
 const SLOT_ORDER = ['pistol', 'smg', 'shotgun', 'rifle'];
@@ -210,6 +210,7 @@ class Player {
     if (this.dead) return;
     this.hp -= dmg;
     this.dmgTaken += dmg;
+    this.stress = (this.stress || 0) + dmg;                   // 연출가가 읽는 긴장도
     this.hurtFlash = Math.min(1, this.hurtFlash + dmg / 34);
     if (this.hp <= 0) { this.hp = 0; this.dead = true; SFX.death(); }
   }
@@ -232,11 +233,14 @@ class Player {
       g.bullets.push(new Bullet(
         this.x + Math.cos(base) * 14,
         this.y + Math.sin(base) * 14,
-        a, w.dmg, w.range * (0.85 + Math.random() * 0.3), w.speed, w.pierce | 0));
+        a, w.dmg, w.range * (0.85 + Math.random() * 0.3), w.speed, w.pierce | 0, w.knock));
     }
     this.muzzle = w.pellets > 1 ? 0.1 : 0.06;
     this.noise = 1;
     g.shake = Math.min(14, g.shake + w.kick);
+    g.recoil(base, w.kick);                                   // 카메라가 반동 방향으로 튄다
+    g.ejectCasing(this.x, this.y, base, w.key);               // 탄피는 바닥에 남는다
+    if (w.pellets > 1) g.world.slide(this, -Math.cos(base) * 6, -Math.sin(base) * 6);   // 산탄의 밀림
     SFX[w.sfx]();
     return true;
   }
@@ -310,14 +314,20 @@ class Zombie {
     this.dead = false;
   }
 
-  hurt(dmg, ang, g) {
+  hurt(dmg, ang, g, knock = 0) {
     this.hp -= dmg;
     this.aggro = true;
+    this.flash = 0.07;                                        // 맞은 순간 하얗게
     if (this.type !== 'brute' && !this.t.boss) this.stagger = 0.09;
+    // 넉백 — 맞은 방향으로 밀린다. 덩치는 덜 밀린다
+    if (knock) {
+      const k = knock * (this.t.boss ? 0.08 : this.type === 'brute' ? 0.3 : 1);
+      g.world.slide(this, Math.cos(ang) * k, Math.sin(ang) * k);
+    }
     g.spawnBlood(this.x, this.y, ang, this.type === 'brute' ? 10 : 6);
     if (this.hp <= 0 && !this.dead) {
       this.dead = true;
-      g.corpses.push({ x: this.x, y: this.y, a: this.face, type: this.type, age: 0 });
+      g.corpses.push({ x: this.x, y: this.y, a: ang, type: this.type, age: 0 });   // 맞은 방향으로 쓰러진다
       g.spawnBlood(this.x, this.y, ang, 16);
       g.onKill(this);
       SFX.zombieDie(Math.hypot(this.x - g.player.x, this.y - g.player.y));
@@ -328,6 +338,7 @@ class Zombie {
     const p = g.player;
     const dx = p.x - this.x, dy = p.y - this.y;
     const d = Math.hypot(dx, dy) || 1;
+    if (this.flash > 0) this.flash -= dt;
 
     // 감지: 소리 · 불빛 · 근접
     if (!this.aggro) {
@@ -483,8 +494,9 @@ class Zombie {
 
 /* ── 총알 ──────────────────────────────────── */
 class Bullet {
-  constructor(x, y, ang, dmg, range, speed, pierce = 0) {
+  constructor(x, y, ang, dmg, range, speed, pierce = 0, knock = 6) {
     this.x = x; this.y = y; this.px = x; this.py = y;
+    this.knock = knock;
     this.vx = Math.cos(ang) * speed; this.vy = Math.sin(ang) * speed;
     this.ang = ang; this.dmg = dmg; this.left = range; this.dead = false;
     this.pierce = pierce;          // 더 꿰뚫을 수 있는 몸의 수
@@ -500,6 +512,7 @@ class Bullet {
       if (this.left <= 0) { this.dead = true; return; }
       if (g.world.solid(this.x, this.y)) {
         this.dead = true;
+        g.hitProp(this.x, this.y);                            // 경보기 달린 차를 쏘면 울린다
         g.spawnSparks(this.x, this.y, this.ang);
         SFX.hitWall(Math.hypot(this.x - g.player.x, this.y - g.player.y));
         return;
@@ -508,7 +521,7 @@ class Bullet {
         if (z.dead) continue;
         if (this.struck && this.struck.has(z)) continue;
         if (Math.hypot(z.x - this.x, z.y - this.y) < z.r + 3) {
-          z.hurt(this.dmg, this.ang, g);
+          z.hurt(this.dmg, this.ang, g, this.knock);
           if (!this.struck || this.struck.size === 0) g.hits++;   // 명중률은 탄 하나당 한 번
           g.onHit(z.dead);
           SFX.hitFlesh(Math.hypot(this.x - g.player.x, this.y - g.player.y));
@@ -557,10 +570,11 @@ class Grenade {
       if (z.dead) continue;
       const d = Math.hypot(z.x - this.x, z.y - this.y);
       if (d > R || !g.world.los(this.x, this.y, z.x, z.y)) continue;
-      z.hurt(200 * (1 - d / R) + 40, Math.atan2(z.y - this.y, z.x - this.x), g);
+      z.hurt(200 * (1 - d / R) + 40, Math.atan2(z.y - this.y, z.x - this.x), g, 30 * (1 - d / R));
     }
     const pd = Math.hypot(g.player.x - this.x, g.player.y - this.y);
     if (pd < R * 0.75 && !g.player.dead) g.player.hurt(34 * (1 - pd / (R * 0.75)));
+    g.alarmNear(this.x, this.y, R);                               // 폭발은 근처 차 경보를 울린다
   }
 }
 

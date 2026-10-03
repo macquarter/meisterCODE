@@ -675,7 +675,7 @@ const MODELS = (() => {
 
   /* 화면에서 높이 h(세계 px)는 세계 y 로 h·UP/TL 만큼 위 */
   const ZK = UP / TL;
-  const api = { zombie, player, corpse, prop, decor, STANDING, headZ, box, tone, ZK, TL, UP, CS, HK, lod: 0, military: false,
+  const api = { zombie, player, corpse, prop, decor, STANDING, headZ, lookOf, box, tone, ZK, TL, UP, CS, HK, lod: 0, military: false,
                 light: { x: -0.55, y: -0.8, k: 0 } };   // 그릴 인형의 빛 방향(화면 단위) · 손전등을 받는 정도
   return api;
 })();

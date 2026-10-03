@@ -350,6 +350,7 @@ body.touch .minimap{right:auto;left:max(14px,env(safe-area-inset-left));top:calc
 .btn--primary{background:rgba(201,53,43,.16);border-color:rgba(201,53,43,.5);color:#ffd9d5}
 .btn--primary:hover{background:rgba(201,53,43,.28);border-color:var(--blood)}
 .btn--ghost{border-color:transparent;color:var(--fog);font-size:12px}
+a.btn{display:inline-block;text-decoration:none;text-align:center}
 .screen .btn{margin-top:9px}
 
 .record{margin-top:30px;font-size:11px;letter-spacing:.16em;color:var(--fog);opacity:.6}

@@ -717,7 +717,12 @@ const HSC = 480 * Math.cos(Math.PI / 3) / TILT;  // 높이 k=1 이 세계 y 로 
 /** 화면에 보이는 세계의 세로 길이 */
 const VH = () => H / TILT;
 /** 세계 좌표 → 화면 좌표 (CSS px) */
-function toScreen(cam, x, y) { return [x - cam.x, (y - cam.y) * TILT]; }
+function toScreen(cam, x, y) {
+  if (R3) return R3.project(x, y);                     // 3D 판 — 원근 카메라로 투영
+  return [x - cam.x, (y - cam.y) * TILT];
+}
+/** 3D 판(3d.html)의 그리개 — js/r3d.js 가 window.R3D 로 걸어 둔다. 없으면 2D 로 그린다 */
+let R3 = null;
 /** 세계 그리기용 변환을 건다 (DPR 포함) */
 function worldTransform(c, cam, s = DPR) { c.setTransform(s, 0, 0, s * TILT, -cam.x * s, -cam.y * s * TILT); }
 /** 입체 모형용 — 세로를 줄이지 않은 화면 공간(cam 만큼만 옮김). 모형이 y·sin60 − z·cos60 를 스스로 계산한다 */
@@ -1717,6 +1722,7 @@ const G = {
     if (input.aimTouch !== null) p.angle = input.aimTouch;
     else if (PAD.aim !== null) p.angle = PAD.aim;
     else if (autoAimOn() && !p.dead) { if (input.manualHoldT <= 0) autoFace(this, p, mx, my, dt); }
+    else if (input.hasMouse && R3) { const q = R3.unproject(input.mx, input.my); if (q) p.angle = Math.atan2(q[1] - p.y, q[0] - p.x); }
     else if (input.hasMouse) p.angle = Math.atan2(cam.y + input.my / TILT - p.y, cam.x + input.mx - p.x);   // 화면 → 세계 (기울기 되돌림)
 
     p.update(dt, this);
@@ -1989,6 +1995,8 @@ function focusY() { return isTouch && H > W ? H * 0.40 : H / 2; }
 function render() {
   const g = G, p = g.player, w = g.world;
   g.frameNo = (g.frameNo || 0) + 1;                   // 프레임마다 한 번 만드는 것들(그림자)의 열쇠
+  if (!R3 && window.R3D && window.R3D.ok) R3 = window.R3D;
+  if (R3) { render3D(g, p); return; }
   const cam = g.camera();
   placeCompass(...toScreen(cam, p.x, p.y));
 
@@ -2128,6 +2136,30 @@ function render() {
   drawScreamCue(cam, g, p);
   drawHitDirs(cam, g, p, g.state === 'play' ? 1 / 60 : 0);
   drawCrosshair(g, p);
+}
+
+/** 3D 판 — 세계는 WebGL 캔버스에, 그 위 투명한 2D 캔버스에는 화면 표시만(조준선 · 피격 방향 · 무리 예고 · 담즙) */
+function render3D(g, p) {
+  const cam = g.camera();
+  R3.render(g);
+  placeCompass(...toScreen(cam, p.x, p.y));
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  ctx.clearRect(0, 0, W, H);
+  if (p.bile > 0) drawBile(p.bile);
+  if (g.lightning > 0.01) { ctx.fillStyle = `rgba(196,208,228,${g.lightning * (SETTINGS.flash ? 0.18 : 0.05)})`; ctx.fillRect(0, 0, W, H); }
+  drawHordeCue3D(g, p);
+  drawHitDirs(cam, g, p, g.state === 'play' ? 1 / 60 : 0);
+  drawCrosshair(g, p);
+}
+/** 무리 예고 — 3D 판에서는 플레이어 화면 위치 둘레에 그 방향의 붉은 호 */
+function drawHordeCue3D(g, p) {
+  const h = g.hordeAt;
+  if (!h || p.dead) return;
+  const [sx, sy] = R3.project(p.x, p.y), [hx, hy] = R3.project(h.x, h.y);
+  const a = Math.atan2(hy - sy, hx - sx), k = Math.min(1, h.t / 1.2), pulse = 0.55 + Math.sin(g.time * 14) * 0.25;
+  ctx.strokeStyle = `rgba(214,52,40,${k * pulse})`; ctx.lineWidth = 5; ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.arc(sx, sy, 58, a - 0.42, a + 0.42); ctx.stroke();
+  ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(sx, sy, 68, a - 0.24, a + 0.24); ctx.stroke();
 }
 
 /** 담즙 — 가장자리부터 녹색으로 번지고 흘러내린다 */
@@ -5071,6 +5103,7 @@ function step(now) {
   } else if (G.state === 'pause' || G.state === 'result' || G.state === 'arms' || G.state === 'map') {
     if (G.world) render();
   } else {
+    if (R3) R3.hide();
     drawAttract(dt);
   }
 }
@@ -5085,6 +5118,8 @@ G.toScreen = (x, y) => toScreen(G.camera(), x, y).map(v => v * ZOOM);   // CSS p
 G.buzz = buzz;
 /** 현재 어둠 농도 (0‒1) — 밝기 설정 확인용 */
 G.darkLevel = () => darkLevel(G);
+/** 3D 판이 읽는 화면 정보 — 논리 화면 크기 · 확대 · 기울기 없는 원래 손전등 원뿔 반각 */
+G.view = () => ({ W, H, ZOOM, DPR });
 G.tex = TEX;
 window.G = G;
 window.UI = UI;

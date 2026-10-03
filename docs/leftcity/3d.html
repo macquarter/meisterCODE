@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
-<title>LEFT CITY — 남겨진 도시</title>
+<title>LEFT CITY 3D — 남겨진 도시</title>
 <meta name="description" content="도시는 사람을 두고 떠났다. 손전등 하나로 서울에서 싱가포르까지, 남겨진 도시를 가로지르는 톱다운 좀비 서바이벌.">
 <meta name="theme-color" content="#07090c">
 <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
@@ -19,6 +19,9 @@
 <meta property="og:image" content="icons/icon-512.png">
 <meta property="og:type" content="website">
 <link rel="stylesheet" href="css/game.css">
+<style>/* 3D 판: 세계는 WebGL 캔버스(#view3d)에, 2D 캔버스는 그 위의 투명한 표시 층 */
+#view{background:transparent !important;position:relative;z-index:1}
+#view3d{z-index:0}</style>
 </head>
 <body>
 
@@ -128,7 +131,7 @@
           <button class="btn btn--ghost" data-act="journal" id="btnJournal">기록 보관함</button>
           <button class="btn btn--ghost" data-act="howto">조작법</button>
           <button class="btn btn--ghost" data-act="settings">설정</button>
-          <a class="btn btn--ghost" href="3d.html" id="btnTrack">3D 판 (실험)</a>
+          <a class="btn btn--ghost" href="index.html" id="btnTrack">2D 판</a>
         </div>
         <p class="record">최고 기록 · 서바이벌 <b id="bestSurvival">—</b></p>
         <p class="version"><span id="appVersion"></span> · <button type="button" class="linkbtn" data-act="about">정보 · 개인정보</button></p>
@@ -444,6 +447,7 @@
 <script src="js/entities.js"></script>
 <script src="js/models.js"></script>
 <script src="js/game.js"></script>
+<script type="module" src="js/r3d.js"></script>
 <script>
 /* 설치형(PWA) — http(s) 로 열렸을 때만 오프라인 캐시를 건다. 파일로 열거나 다른 페이지에 끼워 넣으면 건너뛴다 */
 if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {

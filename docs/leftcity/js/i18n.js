@@ -245,7 +245,7 @@ const I18N = (() => {
     '음량': 'Volume', '밝기': 'Brightness',
     '밤의 어둠 농도. 화면이 너무 어둡거나 밝은 곳에서 하면 조절하세요.': 'How dark the night is. Adjust if your screen is too dark or you\'re playing somewhere bright.',
     '터치 조준': 'Touch aim', '자동 조준': 'Auto-aim', '조준 스틱': 'Aim stick', '회전(원작)': 'Turn (original)', '드래그': 'Drag',
-    '카메라 거리': 'Camera', '가까이': 'Close', '멀리': 'Far', '화질': 'Quality', '자동': 'Auto', '선명하게': 'Sharp', '가볍게': 'Light',
+    '3D 판 (실험)': '3D version (beta)', '2D 판': '2D version', '카메라 거리': 'Camera', '가까이': 'Close', '멀리': 'Far', '화질': 'Quality', '자동': 'Auto', '선명하게': 'Sharp', '가볍게': 'Light',
     '자동은 프레임이 떨어지면 먼저 바닥 · 벽의 재질 무늬를 끄고, 그래도 버거우면 그리는 해상도를 낮춘다. 선명하게는 무늬를 늘 켜 두고, 가볍게는 늘 끈다. 화면이 큰 기기(레티나 모니터·태블릿)에서 끊기면 가볍게로 두세요.':
       'When frames drop, Auto first turns off the ground and wall textures, then lowers the render resolution if it still struggles. Sharp always keeps textures on; Light always turns them off. If it stutters on a big screen (Retina display, tablet), choose Light.',
     'FPS 표시': 'Show FPS', '손전등 방향': 'Flashlight aim', '마우스': 'Mouse',

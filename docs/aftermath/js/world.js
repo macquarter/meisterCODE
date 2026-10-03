@@ -327,6 +327,44 @@ class World {
     return this.ray(x1, y1, Math.atan2(y2 - y1, x2 - x1), d + 1) >= d - 1;
   }
 
+  /* ── 추격 경로 (흐름장) ─────────────────────
+     플레이어 칸에서 도로망을 따라 BFS 거리를 깐다. 시야가 막힌 감염체는 거리가 줄어드는
+     이웃 칸으로 걸어, 건물 뒤에 끼지 않고 골목을 돌아 들어온다. */
+  updateFlow(px, py) {
+    const W = this.w, H = this.h, N = W * H;
+    if (!this.flow) { this.flow = new Int16Array(N); this.flowQ = new Int32Array(N); }
+    const D = this.flow, q = this.flowQ;
+    D.fill(-1);
+    const sx = Math.floor(px / TILE), sy = Math.floor(py / TILE);
+    if (sx < 0 || sy < 0 || sx >= W || sy >= H) return;
+    let head = 0, tail = 0;
+    D[sy * W + sx] = 0; q[tail++] = sy * W + sx;
+    while (head < tail) {
+      const c = q[head++], x = c % W, y = (c - x) / W, nd = D[c] + 1;
+      if (nd > 60) continue;                              // 60칸(약 2.9km) 너머는 필요 없다
+      if (x > 0     && D[c - 1] < 0 && this.grid[c - 1] !== T_WALL) { D[c - 1] = nd; q[tail++] = c - 1; }
+      if (x < W - 1 && D[c + 1] < 0 && this.grid[c + 1] !== T_WALL) { D[c + 1] = nd; q[tail++] = c + 1; }
+      if (y > 0     && D[c - W] < 0 && this.grid[c - W] !== T_WALL) { D[c - W] = nd; q[tail++] = c - W; }
+      if (y < H - 1 && D[c + W] < 0 && this.grid[c + W] !== T_WALL) { D[c + W] = nd; q[tail++] = c + W; }
+    }
+  }
+  /** (x, y) 에서 플레이어 쪽으로 가는 다음 칸의 중심 방향. 모르면 null */
+  flowDir(x, y) {
+    const D = this.flow;
+    if (!D) return null;
+    const W = this.w, tx = Math.floor(x / TILE), ty = Math.floor(y / TILE);
+    const here = D[ty * W + tx];
+    let best = here < 0 ? 1e9 : here, bx = -1, by = -1;
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      const nx = tx + dx, ny = ty + dy;
+      if (nx < 0 || ny < 0 || nx >= W || ny >= this.h) continue;
+      const v = D[ny * W + nx];
+      if (v >= 0 && v < best) { best = v; bx = nx; by = ny; }
+    }
+    if (bx < 0) return null;
+    return Math.atan2((by + 0.5) * TILE - y, (bx + 0.5) * TILE - x);
+  }
+
   /** 손전등 원뿔의 가시 폴리곤 (벽에 가려진다) */
   conePoly(px, py, ang, half, range, rays) {
     const pts = [px, py];

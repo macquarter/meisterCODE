@@ -200,7 +200,8 @@ const Hints = (() => {
                  : ['클릭', '불빛 안에 들어온 적은 자동으로 쏜다. 직접 쏠 수도 있다'])
       : [isTouch ? '사격' : '클릭', '사격 — 손전등이 비추는 쪽으로만 나간다'],
     reload:   () => [isTouch ? '장전' : 'R', '재장전 — 탄창이 비면 자동으로도 갈아 끼운다'],
-    melee:    () => [isTouch ? '밀치기' : 'E · 우클릭', '달라붙은 적을 밀쳐낸다'],
+    melee:    () => [isTouch ? '밀치기' : 'E · 우클릭', '붙잡히면 발이 묶인다 — 밀쳐내고 빠져나가라'],
+    horde:    () => ['무리', '붉은 호가 가리키는 쪽에서 몰려온다 — 불빛을 그쪽으로 돌리거나 질주로 거리를 벌려라'],
     sprint:   () => isTouch ? ['질주', '한 번 누르면 계속 달린다 · 발소리가 커서 멀리서도 깨운다']
                             : ['Shift', '질주 — 빠르지만 발소리가 커서 멀리서도 깨운다'],
     pickup:   () => ['', '빛나는 물건은 밟으면 줍는다'],
@@ -213,7 +214,7 @@ const Hints = (() => {
     behemoth: () => ['그것', '붉은 선이 뜨면 옆으로 비켜라. 벽에 박으면 비틀거린다']
   };
   // 지금 당장 알아야 하는 것은 줄 앞으로 끼워 넣는다
-  const URGENT = new Set(['melee', 'reload', 'nade', 'runner', 'brute', 'crawler', 'spitter', 'behemoth']);
+  const URGENT = new Set(['horde', 'melee', 'reload', 'nade', 'runner', 'brute', 'crawler', 'spitter', 'behemoth']);
 
   const queue = [];
   let cur = null, t = 0, gap = 0;
@@ -229,7 +230,7 @@ const Hints = (() => {
     el.querySelector('span').textContent = msg;
     el.classList.add('show');
     cur = id;
-    t = id in { runner: 1, brute: 1, crawler: 1, spitter: 1, behemoth: 1 } ? 4.6 : 3.8;
+    t = id in { runner: 1, brute: 1, crawler: 1, spitter: 1, behemoth: 1, horde: 1 } ? 4.6 : 3.8;
     seen[id] = 1; save();
   }
   function hide() { $('hint').classList.remove('show'); cur = null; gap = 0.5; }
@@ -265,6 +266,7 @@ const Hints = (() => {
       if (g.boss && !g.boss.dead && g.boss.aggro &&
           Math.hypot(g.boss.x - p.x, g.boss.y - p.y) < 700) push('behemoth');
       if (adjacent) push('melee');
+      if (g.hordeAt) push('horde');
       if (close >= 4 && p.nades > 0) push('nade');
       for (const pk of g.pickups)
         if (Math.hypot(pk.x - p.x, pk.y - p.y) < 240) { push('pickup'); break; }
@@ -388,6 +390,9 @@ const G = {
     // 초기 좀비
     const initial = Math.max(2, Math.round(L.spawn.initial * SETTINGS.mod.max));
     for (let i = 0; i < initial; i++) this.spawnZombie(560, 1600);
+    this.flowT = 0; this.hordeAt = null;
+    w.updateFlow(this.player.x, this.player.y);
+    this.directorReset();
 
     // 그것 — 탈출점 쪽에 자리잡는다. 길을 뚫으려면 지나야 한다
     if (ob.type === 'boss') {
@@ -458,8 +463,92 @@ const G = {
     const a = Math.atan2(p.y - this.player.y, p.x - this.player.x);
     let da = Math.abs(((a - this.player.angle + Math.PI * 3) % (Math.PI * 2)) - Math.PI);
     const d = Math.hypot(p.x - this.player.x, p.y - this.player.y);
-    if (da < CONE_HALF + 0.05 && d < this.player.lightRange + 90) return;
-    this.zombies.push(new Zombie(p.x, p.y, this.pickType()));
+    if (da < CONE_HALF + 0.05 && d < this.player.lightRange + 90) return null;
+    const z = new Zombie(p.x, p.y, this.pickType());
+    this.zombies.push(z);
+    return z;
+  },
+
+  /* ── 연출가 ──────────────────────────────────
+     원작 리뷰의 "Left 4 Dead 의 달리는 무리"와 "번개가 무리를 드러낸다".
+     조용한 시간(build) → 무리 습격(peak) → 숨 고르기(relax) 를 되풀이한다.
+     build 동안에는 이따금 한두 마리가 등 뒤에서 냄새를 맡고 온다. */
+  directorReset() {
+    const ch = this.survival ? 3 : this.levelIndex;
+    const ob = this.level.objective.type;
+    this.dir = {
+      phase: 'build',
+      t: 15 - Math.min(3, ch * 0.4),                  // 첫 습격까지
+      stalkT: ch === 0 ? 16 : 8,                     // 첫 챕터는 혼자 걸을 시간을 조금 더 준다
+      horde: [], peakT: 0, count: 0,
+      every: (ob === 'survive' ? 24 : 36) - Math.min(8, ch * 1.1)
+    };
+  },
+  hordeSize() {
+    const ch = this.survival ? 2 + Math.floor(this.time / 40) : this.levelIndex;
+    return Math.round((4 + ch * 0.9) * SETTINGS.mod.max * (this.level.objective.type === 'survive' ? 1.2 : 1));
+  },
+  /** 시야 밖(주로 뒤·옆) 한 지점에 무리를 몰아 놓고 전부 달려들게 한다 */
+  spawnHorde(n) {
+    const p = this.player, w = this.world;
+    let anchor = null;
+    for (let i = 0; i < 40 && !anchor; i++) {
+      const q = w.pickPoint(p.x, p.y, 480, 820);
+      const d = Math.hypot(q.x - p.x, q.y - p.y);
+      const da = Math.abs(((Math.atan2(q.y - p.y, q.x - p.x) - p.angle + Math.PI * 3) % (Math.PI * 2)) - Math.PI);
+      if (d >= 460 && da > 1.0 && w.flow && w.flow[Math.floor(q.y / TILE) * w.w + Math.floor(q.x / TILE)] > 0) anchor = q;
+    }
+    if (!anchor) return [];
+    const room = 60 - this.zombies.length;
+    const out = [];
+    for (let i = 0; i < Math.min(n, room); i++) {
+      const q = i === 0 ? anchor : w.pickPoint(anchor.x, anchor.y, 0, 200);
+      if (Math.hypot(q.x - p.x, q.y - p.y) < 380) continue;
+      const z = new Zombie(q.x + (Math.random() - 0.5) * 20, q.y + (Math.random() - 0.5) * 20, this.pickType());
+      if (z.t.boss) continue;
+      z.aggro = true; z.horde = true;
+      this.zombies.push(z); out.push(z);
+    }
+    if (out.length) {
+      const a = Math.atan2(anchor.y - p.y, anchor.x - p.x);
+      SFX.horde(Math.hypot(anchor.x - p.x, anchor.y - p.y), a - p.angle);
+      if (Math.random() < 0.6 && this.lightningT > 2) {        // 번개가 무리를 드러낸다
+        this.lightning = SETTINGS.flash ? 1 : 0.22; SFX.thunder();
+        this.lightningT = 14 + Math.random() * 18;
+      }
+      const side = Math.abs(((a - p.angle + Math.PI * 3) % (Math.PI * 2)) - Math.PI) > 2.2 ? '뒤에서' : '옆에서';
+      this.toast(`무리가 온다 — ${side}`);
+      this.hordeAt = { x: anchor.x, y: anchor.y, t: 3 };
+    }
+    return out;
+  },
+  updateDirector(dt) {
+    const D = this.dir, ob = this.level.objective.type;
+    if (!D || this.player.dead) return;
+    D.t -= dt;
+    if (this.hordeAt) { this.hordeAt.t -= dt; if (this.hordeAt.t <= 0) this.hordeAt = null; }
+    if (D.phase === 'build') {
+      // 등 뒤의 추적자 — 조용한 시간에도 완전히 안전하지는 않다
+      D.stalkT -= dt;
+      if (D.stalkT <= 0 && this.zombies.length < 58) {
+        D.stalkT = 7 + Math.random() * 6;
+        const z = this.spawnZombie(430, 650);
+        if (z) { z.aggro = true; z.stalker = true; }
+      }
+      if (D.t <= 0) {
+        D.horde = this.spawnHorde(this.hordeSize());
+        if (D.horde.length) { D.phase = 'peak'; D.peakT = 0; D.count++; }
+        else D.t = 2;                                      // 자리가 없으면 잠깐 뒤 다시
+      }
+    } else if (D.phase === 'peak') {
+      D.peakT += dt;
+      const alive = D.horde.filter(z => !z.dead).length;
+      if (alive <= 1 || D.peakT > 24) { D.phase = 'relax'; D.t = 7 + Math.random() * 4; }
+    } else if (D.phase === 'relax' && D.t <= 0) {
+      D.phase = 'build';
+      D.t = Math.max(12, D.every - (this.survival ? this.time / 25 : 0)) * (0.85 + Math.random() * 0.3);
+      D.stalkT = 4 + Math.random() * 4;
+    }
   },
 
   /** 손전등 켜고 끄기 — F 키와 터치 버튼이 같이 쓴다 */
@@ -627,7 +716,10 @@ const G = {
       input.idleT = moving ? 0 : input.idleT + dt;
       if (p.winded || input.idleT > 0.6 || p.dead) input.sprintLatch = false;
     }
-    const speed = (p.dead ? 0 : 158) * (p.sprinting ? 1.42 : p.reloading ? 0.78 : 1);
+    // 붙잡히면 발이 묶인다 — 한 마리당 22%, 최대 60%. 포위되면 빠져나오기 어렵다
+    const grab = 1 - Math.min(0.6, (p.grabN || 0) * 0.22);
+    p.grabbed = p.grabN || 0; p.grabN = 0;
+    const speed = (p.dead ? 0 : 158) * (p.sprinting ? 1.42 : p.reloading ? 0.78 : 1) * grab;
     if (!p.dead && (mx || my)) {
       const before = p.walkPhase;
       w.slide(p, mx * speed * dt, my * speed * dt);
@@ -721,13 +813,18 @@ const G = {
     this.spawnT -= dt;
     const sp = this.level.spawn;
     if (this.survival) this.waveScale = 1 + this.time / 55;
-    const rate = sp.rate * this.waveScale * SETTINGS.mod.spawn;
+    // 캠페인의 자잘한 소환은 연출가가 압박을 맡은 만큼 줄인다
+    const rate = sp.rate * this.waveScale * SETTINGS.mod.spawn * (this.survival ? 1 : 0.6);
     const maxZ = Math.min(
       Math.round((sp.max + (this.survival ? Math.floor(this.time / 20) : 0)) * SETTINGS.mod.max), 60);
     if (this.spawnT <= 0 && this.zombies.length < maxZ) {
       this.spawnT = 1 / Math.max(0.05, rate);
-      this.spawnZombie(620, 1500);
+      if (!this.dir || this.dir.phase !== 'relax') this.spawnZombie(620, 1500);
     }
+    // 추격 경로는 0.35초마다 다시 깐다
+    this.flowT -= dt;
+    if (this.flowT <= 0) { this.flowT = 0.35; this.world.updateFlow(p.x, p.y); }
+    this.updateDirector(dt);
     // 서바이벌: 120초마다 그것이 한 마리씩. 이미 있으면 겹쳐 보내지 않는다.
     // 타이머는 "실제로 내려보냈을 때"만 다음으로 넘긴다 — 자리를 못 찾았다고
     // 시간을 흘려보내면 웨이브가 통째로 사라진다.
@@ -955,7 +1052,24 @@ function render() {
   drawGlow(cam, g, p, w);
   drawRain(g);
   drawVignette();
+  drawHordeCue(cam, g, p);
   drawCrosshair(g, p);
+}
+
+/** 무리가 오는 쪽을 플레이어 둘레의 붉은 호로 3초간 가리킨다 (소리를 못 듣는 환경 대비) */
+function drawHordeCue(cam, g, p) {
+  const h = g.hordeAt;
+  if (!h || p.dead) return;
+  const a = Math.atan2(h.y - p.y, h.x - p.x), k = Math.min(1, h.t / 1.2);
+  const pulse = 0.55 + Math.sin(g.time * 14) * 0.25;
+  ctx.save();
+  ctx.translate(p.x - cam.x, p.y - cam.y);
+  ctx.strokeStyle = `rgba(214,52,40,${k * pulse})`;
+  ctx.lineWidth = 5; ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.arc(0, 0, 58, a - 0.42, a + 0.42); ctx.stroke();
+  ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.arc(0, 0, 68, a - 0.24, a + 0.24); ctx.stroke();
+  ctx.restore();
 }
 
 /**

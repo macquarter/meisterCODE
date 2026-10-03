@@ -210,6 +210,33 @@ const SFX = (() => {
     gasp()      { burst(0.46, 780, 0.7, 0.13, 'bandpass', 0.42);
                   setTimeout(() => burst(0.3, 620, 0.8, 0.08, 'bandpass', 0.28), 300); },
 
+    /** 무리의 습격 — 멀리서 겹쳐 터지는 비명과 땅울림. rel 은 시선 기준 방향(좌우 패닝) */
+    horde(d, rel) {
+      if (!enabled || !ctx) return;
+      const n = Math.max(0.45, near(d * 0.6));
+      const pan = ctx.createStereoPanner ? ctx.createStereoPanner() : null;
+      const out = pan || master;
+      if (pan) { pan.pan.value = Math.max(-0.9, Math.min(0.9, Math.sin(rel))); pan.connect(master); }
+      const t0 = ctx.currentTime;
+      for (let i = 0; i < 6; i++) {
+        const at = t0 + i * 0.11 + Math.random() * 0.15;
+        const o = ctx.createOscillator(), g = ctx.createGain(), f = ctx.createBiquadFilter();
+        o.type = 'sawtooth';
+        const f0 = 330 + Math.random() * 260;
+        o.frequency.setValueAtTime(f0, at);
+        o.frequency.exponentialRampToValueAtTime(f0 * 0.42, at + 0.7);
+        f.type = 'bandpass'; f.frequency.value = 900; f.Q.value = 0.8;
+        g.gain.setValueAtTime(0.0001, at);
+        g.gain.exponentialRampToValueAtTime(0.09 * n, at + 0.05);
+        g.gain.exponentialRampToValueAtTime(0.0001, at + 0.75);
+        o.connect(f); f.connect(g); g.connect(out);
+        o.start(at); o.stop(at + 0.8);
+      }
+      burst(1.6, 140, 0.7, 0.3 * n, 'lowpass', 1.5);              // 수많은 발이 구르는 땅울림
+      tone(55, 1.2, 0.12 * n, 'sawtooth', 41);                    // 불협 저음
+      tone(58.3, 1.2, 0.1 * n, 'sawtooth', 43);
+    },
+
     growl(d)  { const n = near(d); if (n <= 0.02) return;
                 tone(64 + Math.random() * 34, 0.5 + Math.random() * 0.35,
                      0.1 * n, 'sawtooth', 34 + Math.random() * 20);

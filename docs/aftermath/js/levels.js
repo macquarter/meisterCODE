@@ -8,7 +8,7 @@ const LEVELS = [
     brief: '통신이 끊긴 지 아홉 시간. 가로등은 전부 죽었고 비만 내린다. ' +
            '북쪽 고가도로 아래에 구조대 집결지가 있다고 했다. 가진 건 권총 한 자루와 손전등뿐이다.',
     goals: ['집결지까지 이동', '길에 떨어진 무기를 주울 것'],
-    seed: 1041, blocks: 4,
+    seed: 1041, blocks: 6,
     objective: { type: 'escape' },
     spawn: { initial: 6, rate: 0.22, max: 14 },
     mix: { walker: 1, runner: 0, brute: 0 },
@@ -21,7 +21,7 @@ const LEVELS = [
     brief: '집결지는 비어 있었다. 무전기에서 좌표 하나가 반복된다. ' +
            '가는 길에 보급 상자가 흩어져 있다 — 지금 챙기지 않으면 다음은 없다.',
     goals: ['보급 상자 3개 확보', '확보 후 집결지로 이동'],
-    seed: 2207, blocks: 4,
+    seed: 2207, blocks: 5,
     objective: { type: 'collect', count: 3 },
     spawn: { initial: 8, rate: 0.3, max: 18 },
     mix: { walker: 0.85, runner: 0.15, brute: 0 },
@@ -34,7 +34,7 @@ const LEVELS = [
     brief: '느린 것들만 있는 게 아니었다. 어떤 개체는 뛰고, ' +
            '어떤 것은 바닥을 기어 불빛 아래로 들어오기 전까지 보이지 않는다.',
     goals: ['집결지까지 돌파'],
-    seed: 3319, blocks: 5,
+    seed: 3319, blocks: 7,
     objective: { type: 'escape' },
     spawn: { initial: 10, rate: 0.4, max: 22 },
     mix: { walker: 0.55, runner: 0.3, brute: 0, crawler: 0.15 },
@@ -47,7 +47,7 @@ const LEVELS = [
     brief: '이 구역의 비상 발전기를 돌리면 도시 동쪽 차단문이 열린다. ' +
            '연료통 네 개. 그동안 발전기 소음은 저들을 부른다.',
     goals: ['연료통 4개 회수', '차단문으로 이동'],
-    seed: 4523, blocks: 5,
+    seed: 4523, blocks: 6,
     objective: { type: 'collect', count: 4 },
     spawn: { initial: 12, rate: 0.5, max: 26 },
     mix: { walker: 0.45, runner: 0.33, brute: 0.05, crawler: 0.17 },
@@ -60,7 +60,7 @@ const LEVELS = [
     brief: '차단문은 90초 뒤에 열린다. 그때까지는 이 구역에서 살아 있어야 한다. ' +
            '도망칠 곳은 없다. 다만 오래 버티는 것뿐이다.',
     goals: ['90초 생존', '개방된 차단문으로 이동'],
-    seed: 5631, blocks: 4,
+    seed: 5631, blocks: 5,
     objective: { type: 'survive', time: 90 },
     spawn: { initial: 10, rate: 0.75, max: 30 },
     mix: { walker: 0.4, runner: 0.33, brute: 0.05, crawler: 0.14, spitter: 0.08 },
@@ -73,7 +73,7 @@ const LEVELS = [
     brief: '무전에서 마지막으로 들린 단어는 "크다"였다. ' +
            '탄창 하나로는 멈추지 않는 개체가 이 구역을 돌아다닌다.',
     goals: ['감염체 40기 소탕', '집결지로 이동'],
-    seed: 6742, blocks: 5,
+    seed: 6742, blocks: 6,
     objective: { type: 'purge', count: 40 },
     spawn: { initial: 14, rate: 0.62, max: 28 },
     mix: { walker: 0.35, runner: 0.3, brute: 0.13, crawler: 0.12, spitter: 0.1 },
@@ -100,7 +100,7 @@ const LEVELS = [
     brief: '강 건너에 불빛이 보인다. 진짜 사람의 불빛이다. ' +
            '그런데 다리 앞에 무언가가 서 있다. 저것은 걷지 않는다 — 기다리고 있다.',
     goals: ['그것을 쓰러뜨리고 다리를 건너라'],
-    seed: 8967, blocks: 6,
+    seed: 8967, blocks: 7,
     objective: { type: 'boss' },
     spawn: { initial: 18, rate: 0.95, max: 40 },
     mix: { walker: 0.26, runner: 0.32, brute: 0.18, crawler: 0.1, spitter: 0.14 },

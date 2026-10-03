@@ -418,8 +418,10 @@ class Zombie {
       // 원작의 감염체는 비틀거리지 않고 달려든다(리뷰: "Left 4 Dead 의 달리는 무리").
       // 배회할 때는 느릿하지만, 플레이어를 알아챈 뒤 1초 남짓이면 전력으로 뛴다
       this.aggroT = (this.aggroT || 0) + dt;
-      if (this.type === 'walker' || this.type === 'spitter') speed *= 1 + 1.05 * Math.min(1, this.aggroT / 1.2);
-      if (this.type === 'runner') speed *= 1.18 * (0.9 + Math.sin(g.time * 3 + this.phase) * 0.12);
+      // 전력 질주는 걷는 플레이어(158)와 비슷하다 — 걸어서는 떨칠 수 없고, 질주(224)해야 벌어진다
+      if (this.type === 'walker') speed *= 1 + 2.1 * Math.min(1, this.aggroT / 1.2);
+      if (this.type === 'spitter') speed *= 1 + 1.05 * Math.min(1, this.aggroT / 1.2);
+      if (this.type === 'runner') speed *= 1.42 * (0.9 + Math.sin(g.time * 3 + this.phase) * 0.12);
       if (this.t.crawl) {
         // 웅크렸다 튀는 리듬 — 일정 속도로 다가오지 않아 거리를 재기 어렵다
         this.lungeT -= dt;
@@ -431,6 +433,10 @@ class Zombie {
       }
       // 뱉는 것은 거리를 유지한다 — 너무 붙으면 물러난다
       target = Math.atan2(dy, dx);
+      // 시야가 막혀 있으면 도로를 따라 돌아 들어온다 (시야 확인은 0.3초마다)
+      this.losT = (this.losT || 0) - dt;
+      if (this.losT <= 0) { this.losT = 0.25 + Math.random() * 0.1; this.seen = d < 70 || g.world.los(this.x, this.y, p.x, p.y); }
+      if (!this.seen) { const fa = g.world.flowDir(this.x, this.y); if (fa !== null) target = fa; }
       if (sp) {
         if (d < sp.hold * 0.75) { target += Math.PI; speed *= 0.8; }
         else if (d < sp.hold) speed = 0;
@@ -461,9 +467,11 @@ class Zombie {
     if (!moved) this.wanderT = 0;
     this.phase += dt * (this.aggro ? 9 : 3);
 
-    // 접촉 공격
+    // 접촉 공격 — 붙잡힌 만큼 발이 묶인다 (다음 프레임 이동에 반영)
     if (d < this.r + p.r + 3 && !p.dead) {
-      p.hurt(this.t.dmg * SETTINGS.mod.dmg * dt);
+      p.grabN = (p.grabN || 0) + (this.t.boss ? 0 : 1);
+      // 여럿이 붙어도 피해는 덜 늘어난다 — 포위의 무서움은 피해보다 발이 묶이는 데서 온다
+      p.hurt(this.t.dmg * SETTINGS.mod.dmg * dt / (1 + 0.3 * Math.max(0, (p.grabbed || 0) - 1)));
       g.shake = Math.min(10, g.shake + 14 * dt);
       const push = 46 * dt;
       g.world.slide(p, (p.x - this.x) / d * push, (p.y - this.y) / d * push);

@@ -72,7 +72,7 @@ const MODELS = (() => {
         return;
       }
       // 윤곽 — 어두운 테를 먼저 한 번. 밝은 바닥 위에서도 몸이 또렷하게 떨어진다
-      if (!over) {
+      if (!over && api.outline) {
         ctx.fillStyle = ctx.strokeStyle = 'rgba(6,7,9,.85)';
         for (const q of P) {
           if (q.t === 0) { ctx.beginPath(); ctx.arc(q.X, q.Y, q.r + 0.8, 0, 6.283); ctx.fill(); }
@@ -675,7 +675,7 @@ const MODELS = (() => {
 
   /* 화면에서 높이 h(세계 px)는 세계 y 로 h·UP/TL 만큼 위 */
   const ZK = UP / TL;
-  const api = { zombie, player, corpse, prop, decor, STANDING, headZ, lookOf, box, tone, ZK, TL, UP, CS, HK, lod: 0, military: false,
+  const api = { zombie, player, corpse, prop, decor, STANDING, headZ, lookOf, box, tone, ZK, TL, UP, CS, HK, lod: 0, military: false, outline: true,
                 light: { x: -0.55, y: -0.8, k: 0 } };   // 그릴 인형의 빛 방향(화면 단위) · 손전등을 받는 정도
   return api;
 })();

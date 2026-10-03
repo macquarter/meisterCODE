@@ -59,7 +59,7 @@ function resize() {
 }
 /** 자동 화질 — 프레임 간격(ms)의 이동 평균(약 1초)이 22ms 를 넘으면 18% 낮추고,
     4초 동안 60fps 를 지키면 10% 올린다. 올렸다가 다시 떨어진 높이는 기억해 그 아래에서 멈춘다 */
-/** 재질 무늬(바닥 결 · 벽돌 · 지붕 방수층) — 자동 화질의 첫 단계. 해상도를 낮추기 전에 무늬부터 끈다:
+/** 세부 묘사(재질 무늬 · 손전등 그림자 · 인물 윤곽 · 빗물 물결) — 자동 화질의 첫 단계. 해상도를 낮추기 전에 이것부터 끈다:
     화면이 흐려지는 것보다 벽돌 결이 사라지는 쪽이 덜 거슬린다. 소프트웨어 렌더러에서 무늬는 한 장에 약 2ms.
     다시 켰다가 또 버거우면(두 번째) 그 판에서는 끈 채로 둔다. '선명하게'는 늘 켜고, '가볍게'는 늘 끈다 */
 const TEX = { on: true, strikes: 0, okT: 0 };
@@ -1995,6 +1995,7 @@ function focusY() { return isTouch && H > W ? H * 0.40 : H / 2; }
 function render() {
   const g = G, p = g.player, w = g.world;
   g.frameNo = (g.frameNo || 0) + 1;                   // 프레임마다 한 번 만드는 것들(그림자)의 열쇠
+  MODELS.outline = texOn();                          // 인물 윤곽 · 빛 층 · 그림자 · 물결은 세부 묘사 단계(자동 화질이 버거우면 끈다)
   if (!R3 && window.R3D && window.R3D.ok) R3 = window.R3D;
   if (R3) { render3D(g, p); return; }
   const cam = g.camera();
@@ -3905,7 +3906,7 @@ function drawDarkness(cam, g, p, w) {
   }
 
   // 손전등 그림자 — 열린 빛을 그림자 자리만 다시 어둡게 (끝으로 갈수록 옅게)
-  if (range > 0 && SETTINGS.quality !== 'low') {
+  if (range > 0 && texOn()) {
     mctx.globalCompositeOperation = 'source-over';
     for (const sh of lightShadows(g, p, w, range)) {
       const gr = mctx.createLinearGradient(sh.bx, sh.by, sh.ex, sh.ey);
@@ -4005,7 +4006,7 @@ function drawGlow(cam, g, p, w) {
 
   const range = p.lightRange;
   if (range > 0) {
-    if (SETTINGS.quality === 'low') {
+    if (!texOn()) {
       const poly = liftPoly(w.conePoly(p.x, p.y, p.angle, CONE_HALF * 0.96, range, 64), w, eyeOf(cam));
       ctx.beginPath();
       ctx.moveTo(poly[0], poly[1]);
@@ -4027,7 +4028,7 @@ function drawGlow(cam, g, p, w) {
   }
 
   // 빗방울이 떨어진 자리 — 손전등 빛 안에서만 보이는 작은 물결 (젖은 길)
-  if (range > 0 && SETTINGS.quality !== 'low') {
+  if (range > 0 && texOn()) {
     const S = g.splashes || (g.splashes = []), reach = w.ray(p.x, p.y, p.angle, range);
     for (let i = 0; i < 2; i++) {
       const a = p.angle + (Math.random() - 0.5) * CONE_HALF * 1.6, d = 30 + Math.random() * Math.min(range * 0.8, reach + 30);
@@ -4193,7 +4194,7 @@ function drawRain(g, cam, p) {
   ctx.lineWidth = Math.max(0.45, 1.1 * zk);
   // 손전등 빛줄기 안의 빗방울은 반짝인다 — 따로 모아 밝게 한 번 더
   const range = p && !p.dead ? p.lightRange : 0, ca = Math.cos(p ? p.angle : 0), sa = Math.sin(p ? p.angle : 0), cosH = Math.cos(CONE_HALF);
-  const lit = range > 0 && SETTINGS.quality !== 'low' ? new Path2D() : null;
+  const lit = range > 0 && texOn() ? new Path2D() : null;
   ctx.beginPath();
   for (const r of g.rain) {
     r.y += r.v * dt * zk; r.x -= r.v * 0.22 * dt * zk;

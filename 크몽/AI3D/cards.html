@@ -57,9 +57,15 @@ body{display:flex;flex-direction:column;align-items:center;gap:32px;padding:32px
 
 /* ── 04 대시보드 ── */
 .c4 .hd{position:relative;z-index:3;display:flex;justify-content:space-between;align-items:flex-start;padding:60px 36px 0}
-.c4 .kpi p{display:flex;align-items:baseline;justify-content:flex-end;gap:8px;line-height:1;margin-bottom:8px}
-.c4 .kpi b{font-size:20px;font-weight:900;letter-spacing:-.045em;color:var(--blue-lit)}
-.c4 .kpi span{font-size:12px;font-weight:700;color:#AEB7C4;width:84px}
+.c4 .zero{text-align:right;margin-top:-4px}
+.c4 .zero span{display:block;font-size:15px;font-weight:900;color:#CFD6E1}
+.c4 .zero b{display:block;font-size:80px;font-weight:900;letter-spacing:-.06em;line-height:.95;color:var(--blue-lit);text-shadow:0 0 40px rgba(46,123,246,.75)}
+.c4 .zero small{display:block;font-size:12px;font-weight:700;color:#AEB7C4;margin-top:4px}
+.c4 .stats{position:absolute;left:28px;bottom:40px;z-index:4;background:rgba(5,8,13,.86);border:1px solid rgba(255,255,255,.14);border-radius:10px;padding:10px 14px}
+.c4 .stats p{display:flex;align-items:baseline;gap:8px;line-height:1;margin-bottom:8px}
+.c4 .stats p:last-child{margin-bottom:0}
+.c4 .stats b{font-size:18px;font-weight:900;letter-spacing:-.045em;min-width:72px}
+.c4 .stats span{font-size:12px;font-weight:700;color:#AEB7C4}
 .c4 .stage{position:absolute;left:0;right:0;top:176px;bottom:0;z-index:2}
 .c4 .win{position:absolute;border-radius:10px}
 .c4 .win img{display:block;width:100%}
@@ -143,7 +149,7 @@ body{display:flex;flex-direction:column;align-items:center;gap:32px;padding:32px
 .cost p{font-size:12px;font-weight:700;line-height:1.6;color:#5A6577}
 .cost .us p{color:#fff;font-size:13px}
 .cost .day1{display:inline-block;margin-bottom:8px;font-size:12px;font-weight:900;background:#fff;color:var(--blue);padding:2px 8px;border-radius:4px}
-.src{margin-top:12px;font-size:12px;font-weight:600;color:#8892A2}
+.src{margin-top:12px;font-size:12px;font-weight:600;color:#8892A2;word-break:keep-all}
 
 /* ── 09 행동 ── */
 .price{display:flex;gap:8px;margin-top:12px}
@@ -235,27 +241,26 @@ body{display:flex;flex-direction:column;align-items:center;gap:32px;padding:32px
 .calc .us span.d{color:#fff}
 
 /* 06 영수증 */
-/* 06 시작 비용 비교: 가로 전체 = 578만원, 두 막대가 같은 축척 */
-.cm{margin-top:20px}
-.cm-lab{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px}
-.cm-lab span{font-size:14px;font-weight:800;color:#CFD6E1}
-.cm-lab span small{font-size:12px;font-weight:700;color:#7A8597;margin-left:6px}
-.cm-lab b{font-size:22px;font-weight:900;letter-spacing:-.04em;color:#E3E8EF}
-.cm-bar{display:flex;height:40px;gap:2px}
-.cm-bar i{display:block;height:100%}
-.cm-bar i:first-child{border-radius:6px 0 0 6px}
-.cm-bar .rg{flex:1;border-radius:0 6px 6px 0;border:1px dashed rgba(255,255,255,.3);
-  background:repeating-linear-gradient(135deg,rgba(255,255,255,.12) 0 6px,transparent 6px 12px)}
-.cm-lg{display:flex;flex-wrap:wrap;gap:4px 10px;margin-top:8px;font-size:12px;font-weight:700;color:#AEB7C4}
-.cm-lg em{font-style:normal;display:inline-flex;align-items:center;gap:4px}
-.cm-lg em::before{content:"";width:8px;height:8px;border-radius:2px;background:var(--c)}
-.cm-lg em.hx::before{background:repeating-linear-gradient(135deg,rgba(255,255,255,.5) 0 2px,transparent 2px 4px);outline:1px dashed rgba(255,255,255,.4)}
-.cm-us{display:flex;align-items:center;gap:16px;margin-top:20px}
-.cm-us i{display:block;height:52px;width:13.67%;flex:0 0 13.67%;background:var(--blue);border-radius:6px;box-shadow:0 0 32px rgba(46,123,246,.8)}
-.cm-us small{display:block;font-size:13px;font-weight:800;color:#CFD6E1;margin-bottom:2px}
-.cm-us b{display:block;font-size:44px;font-weight:900;letter-spacing:-.06em;color:var(--blue-lit);line-height:1;text-shadow:0 0 28px rgba(46,123,246,.55)}
-.cm-us span{display:block;font-size:13px;font-weight:700;color:#AEB7C4;margin-top:4px}
-.cm-gain{display:flex;margin-top:20px;border-top:1px solid rgba(255,255,255,.12);padding-top:12px}
+/* 06 분량별 비교: 트랙 전체 = 786만원, 모든 막대가 같은 축척 */
+.cm{margin-top:16px}
+.cm-key{display:flex;gap:16px;margin-bottom:4px;font-size:12px;font-weight:800;color:#AEB7C4}
+.cm-key em{font-style:normal;display:inline-flex;align-items:center;gap:6px}
+.cm-key em::before{content:"";width:12px;height:8px;border-radius:2px;background:var(--c)}
+.cm-key em.hx::before{background:repeating-linear-gradient(135deg,rgba(255,255,255,.5) 0 2px,transparent 2px 4px);outline:1px dashed rgba(255,255,255,.4)}
+.cm-row{display:flex;align-items:center;gap:12px;padding:8px 0;border-top:1px solid rgba(255,255,255,.09)}
+.cm-row .t{flex:0 0 64px}
+.cm-row .t b{display:block;font-size:15px;font-weight:900;letter-spacing:-.035em}
+.cm-row .t small{font-size:12px;font-weight:700;color:#7A8597}
+.cm-row .tr{flex:1;display:flex;flex-direction:column;gap:4px}
+.cm-row .g{display:flex;height:14px}
+.cm-row .g i{display:block;height:100%;background:#6B7686;border-radius:3px 0 0 3px}
+.cm-row .g .rg{border-radius:0 3px 3px 0;border:1px dashed rgba(255,255,255,.3);border-left:0;
+  background:repeating-linear-gradient(135deg,rgba(255,255,255,.14) 0 5px,transparent 5px 10px)}
+.cm-row .u{height:20px;background:var(--blue);border-radius:3px;box-shadow:0 0 18px rgba(46,123,246,.7)}
+.cm-row .v{flex:0 0 116px;text-align:right}
+.cm-row .v b{display:block;font-size:24px;font-weight:900;letter-spacing:-.05em;color:var(--blue-lit);line-height:1.05}
+.cm-row .v small{font-size:12px;font-weight:700;color:#7A8597}
+.cm-gain{display:flex;margin-top:12px;border-top:1px solid rgba(255,255,255,.14);padding-top:12px}
 .cm-gain div{flex:1}
 .cm-gain div + div{border-left:1px solid rgba(255,255,255,.12);padding-left:20px}
 .cm-gain b{display:block;font-size:20px;font-weight:900;letter-spacing:-.045em}
@@ -359,19 +364,19 @@ body{display:flex;flex-direction:column;align-items:center;gap:32px;padding:32px
   <div class="hd">
     <div><p class="eyebrow">실제 운영 화면 · 누수퀵 (배관 누수 진단)</p>
       <p class="h s">운영은, 전달되는<br><span class="b">대시보드 하나면 충분합니다</span></p></div>
-    <div class="kpi">
-      <p><b>144건</b><span>누적 발행</span></p>
-      <p><b>9,276회</b><span>유튜브 쇼츠 조회</span></p>
-      <p><b>1.1만 회</b><span>스레드 조회</span></p>
-      <p><b>0원</b><span>광고비</span></p>
-    </div>
+    <div class="zero"><span>광고비</span><b>0원</b><small>아래 숫자, 전부 광고 없이</small></div>
   </div>
   <div class="stage">
     <div class="win back"><div class="win__bar"><i class="dot d1"></i><i class="dot d2"></i><i class="dot d3"></i><i class="url"></i></div><img src="img/dash-kpi-crop.png" alt="누수퀵 운영 대시보드 핵심 지표"></div>
     <div class="win front"><div class="win__bar"><i class="dot d1"></i><i class="dot d2"></i><i class="dot d3"></i><i class="url"></i></div><img src="img/dash-sns-row1.png" alt="누수퀵 SNS 채널 운영 현황"></div>
     <span class="pin" style="left:432px;top:44px"><i>1</i>오늘·이번 달 숫자</span>
     <span class="pin" style="left:448px;top:196px"><i>2</i>방문 추이</span>
-    <span class="pin" style="left:40px;top:160px"><i>3</i>채널별 발행·조회</span>
+    <span class="pin" style="left:40px;top:44px"><i>3</i>채널별 발행·조회</span>
+  </div>
+  <div class="stats">
+    <p><b>144건</b><span>누적 발행</span></p>
+    <p><b>9,276회</b><span>유튜브 쇼츠 조회</span></p>
+    <p><b>1.1만 회</b><span>스레드 조회</span></p>
   </div>
   <div class="fade"></div>
   <p class="note">2026.10.03 실제 화면 · 계정명은 가렸습니다 · 누수퀵 1개 사례이며 결과는 업종·지역·계정 상태에 따라 다릅니다</p>
@@ -392,24 +397,30 @@ body{display:flex;flex-direction:column;align-items:center;gap:32px;padding:32px
   </div>
 </section>
 
-<!-- ═════ 06 [Desire] 시작 비용 ═════ -->
+<!-- ═════ 06 [Desire] 분량별 비교 ═════ -->
 <section class="card">
   <div class="beam"></div>
   <div class="top"><b>MEISTER<span>CODE</span></b><span>06 / 09</span></div>
   <div class="in">
-    <p class="eyebrow">5개 채널 홍보, 시작하는 데 드는 돈</p>
-    <p class="h s">같은 다섯 채널,<br><span class="b">출발선이 다릅니다</span></p>
+    <p class="eyebrow">월 20건부터 100건까지, 같은 분량끼리 비교하면</p>
+    <p class="h s">같은 다섯 채널,<br><span class="b">계산서가 다릅니다</span></p>
     <div class="cm">
-      <div class="cm-lab"><span>5곳에 따로 맡기면<small>채널별 월 운영 시세</small></span><b>월 200~578만원</b></div>
-      <div class="cm-bar"><i style="width:9%;background:#7A8597"></i><i style="width:9%;background:#5F6A7A"></i><i style="width:9%;background:#4D5767"></i><i style="width:3.81%;background:#3F4856"></i><i style="width:3.81%;background:#353D49"></i><i class="rg"></i></div>
-      <div class="cm-lg"><em style="--c:#7A8597">쇼츠 4편 52만</em><em style="--c:#5F6A7A">인스타 52만~</em><em style="--c:#4D5767">스레드 52만~</em><em style="--c:#3F4856">네이버 22만~</em><em style="--c:#353D49">홈페이지 22만~</em><em class="hx">시세 상단까지</em></div>
-      <div class="cm-us"><i></i><div><small>마이스터코드</small><b>월 79만원</b><span>5개 채널 전부 · 3D 쇼츠 4편 포함 · 월 20건</span></div></div>
+      <div class="cm-key"><em style="--c:#6B7686">5곳에 따로 맡기면 (시세 하단)</em><em class="hx">시세 상단까지</em><em style="--c:var(--blue)">마이스터코드</em></div>
+      <div class="cm-row"><div class="t"><b>월 20건</b><small>주 1회</small></div>
+        <div class="tr"><div class="g"><i style="width:25.45%"></i><i class="rg" style="width:48.09%"></i></div><div class="u" style="width:10.05%"></div></div>
+        <div class="v"><b>79만원</b><small>따로 200~578만</small></div></div>
+      <div class="cm-row"><div class="t"><b>월 60건</b><small>주 3회</small></div>
+        <div class="tr"><div class="g"><i style="width:38.68%"></i><i class="rg" style="width:48.09%"></i></div><div class="u" style="width:24.05%"></div></div>
+        <div class="v"><b>189만원</b><small>따로 304~682만</small></div></div>
+      <div class="cm-row"><div class="t"><b>월 100건</b><small>주 5회</small></div>
+        <div class="tr"><div class="g"><i style="width:51.91%"></i><i class="rg" style="width:48.09%"></i></div><div class="u" style="width:36.90%"></div></div>
+        <div class="v"><b>290만원</b><small>따로 408~786만</small></div></div>
       <div class="cm-gain">
-        <div><b>매달 121만원+</b><span>시세 하단끼리 비교해도 벌어지는 차이</span></div>
+        <div><b>매달 115만원+</b><span>어느 분량이든, 시세 하단보다도 가볍게</span></div>
         <div><b>5곳 → 1곳</b><span>계약도, 연락도, 확인도 한 곳에서</span></div>
       </div>
     </div>
-    <p class="src">회색은 크몽 공개 가격(2026년 10월) 채널별 월 운영 시세 합, 쇼츠는 일반 숏폼 평균 13만원 기준 · 판매자별 구성 상이 · VAT 별도</p>
+    <p class="src">회색은 크몽 공개 가격(2026년 10월) 기준: 쇼츠는 편수 × 일반 숏폼 평균 13만원, 나머지 4개 채널은 월 운영 시세 · 판매자별 구성 상이 · VAT 별도</p>
   </div>
 </section>
 

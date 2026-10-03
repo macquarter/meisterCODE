@@ -190,6 +190,14 @@ body.touch .minimap{right:auto;left:max(14px,env(safe-area-inset-left));top:calc
 .dot--exit{background:#78dcff}
 .btn[disabled]{opacity:.38;cursor:default;transform:none}
 
+/* ── 서바이벌 도시 선택 ── */
+.cities{display:grid;gap:10px;margin-bottom:20px}
+.city{display:flex;flex-direction:column;align-items:flex-start;gap:4px;padding:14px 16px;cursor:pointer;text-align:left;
+  background:rgba(255,255,255,.035);border:1px solid rgba(255,255,255,.12);color:var(--bone);font-family:var(--font)}
+.city:hover{background:rgba(255,255,255,.09);border-color:rgba(255,255,255,.28)}
+.city b{font-size:16px;letter-spacing:.08em}
+.city span{font-size:11px;color:var(--fog)}
+
 /* ── 무기 고르기 ──────────────────────────── */
 .arms{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
   gap:16px;background:rgba(4,6,9,.55);-webkit-backdrop-filter:blur(5px);backdrop-filter:blur(5px);

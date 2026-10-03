@@ -16,49 +16,48 @@ function makeRng(seed) {
   };
 }
 
-const T_ROAD = 0, T_WALL = 1;
-const D_ASPHALT = 0, D_SIDEWALK = 1, D_BUILDING = 2, D_RUBBLE = 3, D_PROP = 4;
+const T_ROAD = 0, T_WALL = 1, T_WATER = 2;          // 물은 걸을 수 없지만 빛과 총알은 지나간다
+const D_ASPHALT = 0, D_SIDEWALK = 1, D_BUILDING = 2, D_RUBBLE = 3, D_PROP = 4,
+      D_LANDMARK = 5, D_GRASS = 6, D_PLAZA = 7, D_WATER = 8, D_BRIDGE = 9;
 
-/* 도로 격자: 블록 주기 11 중 0,1 열/행이 차도 */
-const isRoadLane = v => (v % 11) === 0 || (v % 11) === 1;
-
+/**
+ * 도시 생성기.
+ * 이전 판은 같은 크기의 정사각 블록을 깎아 내 미로처럼 보였다. 실제 도시는 길에 위계가 있다 —
+ * 넓은 대로가 도시를 가르고, 그 사이를 간선 도로가 불규칙한 간격으로 잇고, 블록 안쪽은
+ * 골목이 파고든다. 강이 도시를 가로지르고 다리 몇 개만이 건너편과 잇는다. 공원·광장·주차장이
+ * 건물 숲 사이를 숨 쉬게 하고, 나라마다 랜드마크가 그 자리를 차지한다.
+ *
+ * opts: { theme: 'seoul'|'tokyo'|'bangkok', river: bool, landmarks: [id...], goal: 랜드마크 id }
+ */
 class World {
-  constructor(seed, blocks) {
+  constructor(seed, blocks, opts = {}) {
     const rng = makeRng(seed);
     this.rng = rng;
-    const P = 11, PAD = 2;                    // 블록 주기 11타일(건물 9 + 도로 2)
-    this.w = blocks * P + PAD * 2;
-    this.h = blocks * P + PAD * 2;
-    this.grid = new Uint8Array(this.w * this.h);
-    this.deco = new Uint8Array(this.w * this.h);
+    this.theme = THEMES[opts.theme] || THEMES.seoul;
+    this.w = blocks * 11 + 4;
+    this.h = blocks * 11 + 4;
+    const N = this.w * this.h;
+    this.grid = new Uint8Array(N).fill(T_WALL);
+    this.deco = new Uint8Array(N).fill(D_BUILDING);
+    this.dirm = new Uint8Array(N);     // 도로 방향 1 = 남북, 2 = 동서, 3 = 교차로
+    this.mark = new Uint8Array(N);     // 차선 1 = 세로 중앙선(칸 왼쪽), 2 = 가로 중앙선(칸 위쪽)
+    this.cross = new Uint8Array(N);    // 횡단보도 1 = 남북 도로를 가로지름, 2 = 동서 도로를 가로지름
+    this.lot = new Uint16Array(N);     // 건물 필지 번호 — 지붕 색을 필지마다 다르게
+    this.landmarks = []; this.signs = []; this.props = []; this.decor = [];
 
-    // 외곽 봉쇄벽
-    for (let x = 0; x < this.w; x++) { this.set(x, 0, T_WALL); this.set(x, this.h - 1, T_WALL); }
-    for (let y = 0; y < this.h; y++) { this.set(0, y, T_WALL); this.set(this.w - 1, y, T_WALL); }
-
-    // 도시 블록
-    for (let by = 0; by < blocks; by++) {
-      for (let bx = 0; bx < blocks; bx++) {
-        this.carveBlock(PAD + bx * P, PAD + by * P, 9, rng);
-      }
-    }
-
-    // 도로 위 구조물: 전복 차량과 적재 컨테이너
-    this.props = [];
+    this.layout(rng, blocks, opts);
     this.placeProps(rng, blocks);
-
     this.markSidewalks();
-    this.markCrossings();
-    this.pickEndpoints();
+    this.pickEndpoints(opts.goal);
     this.indexProps();
 
     // 구조물이 도로망을 지나치게 끊었으면 전부 치우고 다시 계산한다
     if (this.maxDist < blocks * 8) {
       for (const pr of this.props)
-        for (const [tx, ty] of pr.tiles) this.set(tx, ty, T_ROAD);
+        for (const [tx, ty] of pr.tiles) { this.set(tx, ty, T_ROAD); this.deco[ty * this.w + tx] = D_ASPHALT; }
       this.props = [];
       this.markSidewalks();
-      this.pickEndpoints();
+      this.pickEndpoints(opts.goal);
       this.indexProps();
     }
   }
@@ -83,11 +82,15 @@ class World {
   set(x, y, v) {
     if (x < 0 || y < 0 || x >= this.w || y >= this.h) return;
     this.grid[y * this.w + x] = v;
-    this.deco[y * this.w + x] = v ? D_BUILDING : D_ASPHALT;
+    this.deco[y * this.w + x] = v === T_WALL ? D_BUILDING : v === T_WATER ? D_WATER : D_ASPHALT;
   }
-  fill(x0, y0, w, h, v) {
-    for (let y = y0; y < y0 + h; y++) for (let x = x0; x < x0 + w; x++) this.set(x, y, v);
+  fill(x0, y0, w, h, v, deco) {
+    for (let y = y0; y < y0 + h; y++) for (let x = x0; x < x0 + w; x++) {
+      this.set(x, y, v);
+      if (deco !== undefined && x >= 0 && y >= 0 && x < this.w && y < this.h) this.deco[y * this.w + x] = deco;
+    }
   }
+  inside(x, y) { return x >= 0 && y >= 0 && x < this.w && y < this.h; }
   roadNeighbours(x, y) {
     let n = 0;
     for (let i = -1; i <= 1; i++) for (let j = -1; j <= 1; j++)
@@ -95,104 +98,273 @@ class World {
     return n;
   }
 
-  /** 한 블록을 건물/공터/안뜰/붕괴지로 조각낸다 */
-  carveBlock(x0, y0, s, rng) {
-    const kind = rng();
-    this.fill(x0, y0, s, s, T_WALL);
-
-    if (kind < 0.16) {
-      // 공터·주차장: 기둥 몇 개만 남긴다
-      this.fill(x0, y0, s, s, T_ROAD);
-      const pillars = 2 + Math.floor(rng() * 4);
-      for (let i = 0; i < pillars; i++) {
-        const px = x0 + 1 + Math.floor(rng() * (s - 2));
-        const py = y0 + 1 + Math.floor(rng() * (s - 2));
-        this.set(px, py, T_WALL);
-      }
-      return;
+  /* ── 길의 위계 ──────────────────────────── */
+  /** 한 축의 도로선 목록: 대로(폭 4) 두 줄 + 그 사이 간선(폭 2)을 불규칙한 간격으로 */
+  lines(len, rng, avoid) {
+    const B = 1, out = [];
+    const blvd = [Math.round(len * (0.3 + rng() * 0.08)), Math.round(len * (0.62 + rng() * 0.08))];
+    let x = B + 3 + Math.floor(rng() * 4);
+    while (x < len - B - 3) {
+      const near = blvd.find(b => Math.abs(b - x) < 6);
+      const isB = near !== undefined;
+      const pos = isB ? near : x, wd = isB ? 4 : 2;
+      if (isB) blvd.splice(blvd.indexOf(near), 1);
+      if (!(avoid && avoid(pos, wd)) && pos + wd < len - B) out.push({ p: pos, w: wd, blvd: isB });
+      x = pos + wd + 7 + Math.floor(rng() * 6);           // 블록 깊이 7‒12
     }
-    if (kind < 0.42) {
-      // 안뜰이 뚫린 블록
-      const cs = 3 + Math.floor(rng() * 2);
-      const cx = x0 + Math.floor((s - cs) / 2), cy = y0 + Math.floor((s - cs) / 2);
-      this.fill(cx, cy, cs, cs, T_ROAD);
-      // 안뜰로 들어가는 통로
-      if (rng() < 0.5) this.fill(cx + Math.floor(cs / 2), y0, 1, cy - y0, T_ROAD);
-      else this.fill(x0, cy + Math.floor(cs / 2), cx - x0, 1, T_ROAD);
-      return;
-    }
-    if (kind < 0.66) {
-      // 블록을 관통하는 뒷골목
-      if (rng() < 0.5) this.fill(x0, y0 + 2 + Math.floor(rng() * (s - 4)), s, 1, T_ROAD);
-      else this.fill(x0 + 2 + Math.floor(rng() * (s - 4)), y0, 1, s, T_ROAD);
-      return;
-    }
-    if (kind < 0.82) {
-      // 무너진 모서리
-      const cw = 3 + Math.floor(rng() * 3);
-      const rx = rng() < 0.5 ? x0 : x0 + s - cw;
-      const ry = rng() < 0.5 ? y0 : y0 + s - cw;
-      this.fill(rx, ry, cw, cw, T_ROAD);
-      for (let i = 0; i < 3; i++) {
-        const px = rx + Math.floor(rng() * cw), py = ry + Math.floor(rng() * cw);
-        this.set(px, py, T_WALL); this.deco[py * this.w + px] = D_RUBBLE;
-      }
-      return;
-    }
-    // 그 외: 통짜 건물 (기본값 유지)
+    return out;
   }
 
-  /** 트레일러의 거리 풍경: 버려진 차량과 색색의 화물 컨테이너 */
+  layout(rng, blocks, opts) {
+    const W = this.w, H = this.h, B = 1;
+    // 강 — 도시를 동서로 가르는 4칸 너비의 물길, 양쪽으로 강변로
+    let river = null;
+    if (opts.river) {
+      const ry = Math.round(H * (0.46 + rng() * 0.12));
+      river = { y0: ry, y1: ry + 3 };
+      this.river = river;
+    }
+    const inRiver = y => river && y >= river.y0 - 2 && y <= river.y1 + 2;
+    const vs = this.lines(W, rng);
+    const hs = this.lines(H, rng, river ? (p, wd) => p + wd > river.y0 - 6 && p < river.y1 + 6 : null);
+    if (river) {
+      hs.push({ p: river.y0 - 2, w: 2, blvd: false, bank: true }, { p: river.y1 + 1, w: 2, blvd: false, bank: true });
+      hs.sort((a, b) => a.p - b.p);
+      this.fill(B, river.y0, W - 2 * B, river.y1 - river.y0 + 1, T_WATER);
+    }
+    this.vlines = vs; this.hlines = hs;
+
+    // 다리: 대로는 모두 건너고, 간선 하나가 더 건넌다. 나머지 간선은 강변에서 끝난다
+    const bridgeExtra = vs.filter(v => !v.blvd);
+    const extra = bridgeExtra.length ? bridgeExtra[Math.floor(rng() * bridgeExtra.length)] : null;
+    for (const v of vs) {
+      const crosses = v.blvd || v === extra;
+      for (let y = B; y < H - B; y++) for (let x = v.p; x < v.p + v.w; x++) {
+        const isWater = river && y >= river.y0 && y <= river.y1;
+        if (isWater && !crosses) continue;
+        this.set(x, y, T_ROAD);
+        const i = y * W + x;
+        this.deco[i] = isWater ? D_BRIDGE : D_ASPHALT;
+        this.dirm[i] = 1;
+        if (v.blvd && x === v.p + 2 && !isWater) this.mark[i] = 1;
+      }
+      v.bridge = crosses;
+    }
+    for (const h of hs) for (let x = B; x < W - B; x++) for (let y = h.p; y < h.p + h.w; y++) {
+      const i = y * W + x;
+      this.dirm[i] = this.grid[i] === T_ROAD && this.dirm[i] === 1 ? 3 : 2;
+      this.set(x, y, T_ROAD);
+      if (h.blvd && y === h.p + 2) this.mark[i] = this.dirm[i] === 3 ? 0 : 2;
+    }
+    // 교차로 안의 차선은 지운다
+    for (let i = 0; i < W * H; i++) if (this.dirm[i] === 3) this.mark[i] = 0;
+
+    // 횡단보도: 교차로로 들어가는 칸마다
+    for (const v of vs) for (const h of hs) {
+      for (let x = v.p; x < v.p + v.w; x++) for (const y of [h.p - 1, h.p + h.w])
+        if (this.at(x, y) === T_ROAD && this.dirm[y * W + x] === 1 && this.deco[y * W + x] !== D_BRIDGE) this.cross[y * W + x] = 1;
+      for (let y = h.p; y < h.p + h.w; y++) for (const x of [v.p - 1, v.p + v.w])
+        if (this.at(x, y) === T_ROAD && this.dirm[y * W + x] === 2) this.cross[y * W + x] = 2;
+    }
+
+    // 블록 목록 (도로선 사이 사각형)
+    const xs = [{ p: 0, w: B }, ...vs, { p: W - B, w: B }], ys = [{ p: 0, w: B }, ...hs, { p: H - B, w: B }];
+    const blocksList = [];
+    for (let i = 0; i + 1 < xs.length; i++) for (let j = 0; j + 1 < ys.length; j++) {
+      const x0 = xs[i].p + xs[i].w, x1 = xs[i + 1].p, y0 = ys[j].p + ys[j].w, y1 = ys[j + 1].p;
+      if (x1 - x0 < 3 || y1 - y0 < 3) continue;
+      if (river && y1 > river.y0 - 2 && y0 < river.y1 + 2) continue;
+      blocksList.push({ x: x0, y: y0, w: x1 - x0, h: y1 - y0, used: false });
+    }
+    this.blocks = blocksList;
+
+    // 랜드마크 — 테마가 정한 것 중 이 장에서 쓰는 것
+    // 교차로에 붙는 것을 먼저 — 교차로를 넓히며 이웃 블록 가장자리를 깎으므로 그 블록은 비워 둔다
+    const ids = (opts.landmarks || []).slice().sort((a, b) => (LANDMARKS[b] && LANDMARKS[b].junction ? 1 : 0) - (LANDMARKS[a] && LANDMARKS[a].junction ? 1 : 0));
+    const cx = W / 2, cy = H / 2;
+    for (const id of ids) {
+      const L = LANDMARKS[id];
+      if (!L) continue;
+      if (L.junction) {                                   // 대로 교차로에 붙는 것 (스크램블 · 로터리)
+        const bv = vs.filter(v => v.blvd), bh = hs.filter(h => h.blvd);
+        if (!bv.length || !bh.length) continue;
+        const v = bv[ids.indexOf(id) % bv.length], h = bh[(ids.indexOf(id) + 1) % bh.length];
+        const lm = L.stamp(this, v, h, rng);
+        if (lm) {
+          this.landmarks.push(Object.assign(lm, { id, name: L.name }));
+          for (const b of blocksList) if (lm.x - 1 < b.x + b.w && b.x < lm.x + lm.w + 1 && lm.y - 1 < b.y + b.h && b.y < lm.y + lm.h + 1) b.used = 'edge';
+        }
+        continue;
+      }
+      // 발자국이 들어가는 블록 중 지도 중심에 가까운 것
+      const fit = blocksList.filter(b => !b.used && b.w >= L.w && b.h >= L.h)
+        .sort((a, b) => Math.hypot(a.x + a.w / 2 - cx, a.y + a.h / 2 - cy) - Math.hypot(b.x + b.w / 2 - cx, b.y + b.h / 2 - cy));
+      let blk = fit[Math.min(fit.length - 1, Math.floor(rng() * Math.min(3, fit.length)))];
+      // 맞는 블록이 없으면 도시 한가운데를 밀어 자리를 낸다 — 궁궐이 길을 끊듯 길이 그 앞에서 끝난다
+      if (!blk) blk = this.clearSite(L.w, L.h);
+      if (!blk) continue;
+      blk.used = true;
+      this.fill(blk.x, blk.y, blk.w, blk.h, T_ROAD, L.ground);
+      const ox = blk.x + Math.floor((blk.w - L.w) / 2), oy = blk.y + Math.floor((blk.h - L.h) / 2);
+      const lm = L.stamp(this, ox, oy, rng, blk);
+      if (lm) this.landmarks.push(Object.assign(lm, { id, name: L.name, block: blk }));
+    }
+
+    // 나머지 블록: 공원 · 광장 · 주차장 · 건물 (필지로 나누고 골목을 낸다)
+    let lotId = 1;
+    for (const b of blocksList) {
+      if (b.used === true) continue;               // 'edge' (교차로 랜드마크 옆) 은 건물로 채운다
+      const r = rng();
+      if (r < 0.1 && b.w >= 6 && b.h >= 6) { this.park(b, rng); b.kind = 'park'; continue; }
+      if (r < 0.16) { this.fill(b.x, b.y, b.w, b.h, T_ROAD, D_PLAZA); b.kind = 'plaza'; continue; }
+      if (r < 0.24) { this.fill(b.x, b.y, b.w, b.h, T_ROAD, D_ASPHALT); b.kind = 'lot'; continue; }
+      b.kind = 'build';
+      lotId = this.subdivide(b.x, b.y, b.w, b.h, rng, lotId, 0);
+      // 막다른 골목 — 블록 가장자리에서 반쯤 파고든다
+      if (rng() < 0.3 && b.w >= 7 && b.h >= 7) {
+        if (rng() < 0.5) { const x = b.x + 2 + Math.floor(rng() * (b.w - 4)); this.fill(x, b.y, 1, Math.floor(b.h / 2), T_ROAD); }
+        else { const y = b.y + 2 + Math.floor(rng() * (b.h - 4)); this.fill(b.x, y, Math.floor(b.w / 2), 1, T_ROAD); }
+      }
+    }
+
+    // 간판 — 길에 면한 건물 칸에 나라별 글자로
+    const T = this.theme;
+    for (let y = 1; y < H - 1; y++) for (let x = 1; x < W - 1; x++) {
+      const i = y * W + x;
+      if (this.deco[i] !== D_BUILDING || this.grid[i] !== T_WALL) continue;
+      const side = this.at(x, y + 1) === T_ROAD ? 's' : this.at(x - 1, y) === T_ROAD ? 'w' : this.at(x + 1, y) === T_ROAD ? 'e' : null;
+      if (!side || ((x * 2654435761 ^ y * 40503) >>> 0) % 9 !== 0) continue;
+      const h = ((x * 7919 + y * 104729) >>> 0);
+      this.signs.push({ x, y, side, text: T.signs[h % T.signs.length], col: T.signCols[(h >> 3) % T.signCols.length], ph: (h % 100) / 16 });
+    }
+  }
+
+  /** 필지 나누기 — 큰 땅은 둘로 쪼개고, 가끔 사이에 1칸 골목을 낸다 */
+  subdivide(x, y, w, h, rng, id, depth) {
+    if (depth < 3 && (w > 7 || h > 7) && rng() < 0.85) {
+      const vert = w >= h;
+      const span = vert ? w : h;
+      const cut = 3 + Math.floor(rng() * (span - 6));
+      const alley = rng() < 0.45 && span > 7;
+      if (vert) {
+        id = this.subdivide(x, y, cut, h, rng, id, depth + 1);
+        if (alley) this.fill(x + cut, y, 1, h, T_ROAD);
+        id = this.subdivide(x + cut + (alley ? 1 : 0), y, w - cut - (alley ? 1 : 0), h, rng, id, depth + 1);
+      } else {
+        id = this.subdivide(x, y, w, cut, rng, id, depth + 1);
+        if (alley) this.fill(x, y + cut, w, 1, T_ROAD);
+        id = this.subdivide(x, y + cut + (alley ? 1 : 0), w, h - cut - (alley ? 1 : 0), rng, id, depth + 1);
+      }
+      return id;
+    }
+    for (let yy = y; yy < y + h; yy++) for (let xx = x; xx < x + w; xx++)
+      if (this.inside(xx, yy) && this.grid[yy * this.w + xx] === T_WALL) this.lot[yy * this.w + xx] = id;
+    return id + 1;
+  }
+
+  /** 공원 — 잔디와 나무, 가운데로 산책로 */
+  park(b, rng) {
+    this.fill(b.x, b.y, b.w, b.h, T_ROAD, D_GRASS);
+    const mx = b.x + Math.floor(b.w / 2), my = b.y + Math.floor(b.h / 2);
+    for (let x = b.x; x < b.x + b.w; x++) this.deco[my * this.w + x] = D_PLAZA;
+    for (let y = b.y; y < b.y + b.h; y++) this.deco[y * this.w + mx] = D_PLAZA;
+    const n = Math.floor(b.w * b.h / 9);
+    for (let i = 0; i < n; i++) {
+      const x = b.x + 1 + Math.floor(rng() * (b.w - 2)), y = b.y + 1 + Math.floor(rng() * (b.h - 2));
+      if (x === mx || y === my || this.grid[y * this.w + x] !== T_ROAD) continue;
+      if (this.roadNeighbours(x, y) < 8) continue;          // 나무끼리 붙여 길을 막지 않게
+      this.tree(x, y, rng);
+    }
+  }
+  tree(x, y, rng) {
+    this.grid[y * this.w + x] = T_WALL;
+    this.decor.push({ kind: 'tree', x: (x + 0.5) * TILE, y: (y + 0.5) * TILE, r: 18 + rng() * 8, tiles: [[x, y]] });
+  }
+
+  /** 지도 가운데부터 나선으로 돌며, 강·다른 랜드마크와 겹치지 않는 자리를 비운다 (둘레 1칸은 길) */
+  clearSite(fw, fh) {
+    const W = this.w, H = this.h, cx = Math.floor(W / 2 - fw / 2), cy = Math.floor(H / 2 - fh / 2);
+    const ok = (x, y) => {
+      if (x < 3 || y < 3 || x + fw + 3 > W || y + fh + 3 > H) return false;
+      if (this.river && y + fh + 3 > this.river.y0 - 2 && y - 3 < this.river.y1 + 2) return false;
+      for (const l of this.landmarks) if (x - 2 < l.x + l.w && l.x < x + fw + 2 && y - 2 < l.y + l.h && l.y < y + fh + 2) return false;
+      return true;
+    };
+    for (let r = 0; r < Math.max(W, H); r++) for (let k = 0; k < 8 * Math.max(1, r); k++) {
+      const a = k / (8 * Math.max(1, r)) * 6.283;
+      const x = cx + Math.round(Math.cos(a) * r), y = cy + Math.round(Math.sin(a) * r);
+      if (!ok(x, y)) continue;
+      // 둘레 길 + 안쪽 바닥. 겹친 블록은 쓰인 것으로
+      for (let yy = y - 1; yy < y + fh + 1; yy++) for (let xx = x - 1; xx < x + fw + 1; xx++) {
+        this.set(xx, yy, T_ROAD);
+        const i = yy * W + xx;
+        this.dirm[i] = this.dirm[i] || 3; this.mark[i] = 0; this.cross[i] = 0;
+      }
+      for (const b of this.blocks) if (x - 1 < b.x + b.w && b.x < x + fw + 1 && y - 1 < b.y + b.h && b.y < y + fh + 1) b.used = true;
+      return { x, y, w: fw, h: fh, used: true };
+    }
+    return null;
+  }
+
+  /** 버려진 차량 · 나라별 탈것 · 화물 컨테이너 */
   placeProps(rng, blocks) {
-    const CAR_COLS = ['#2f4a63', '#5c2c28', '#3d4a3a', '#4a4640', '#26363f'];
+    const T = this.theme;
     const BOX_COLS = ['#7a3129', '#2b5a72', '#6b5a24', '#3f6b45'];
-
     const freeRoad = (x, y) =>
-      this.at(x, y) === T_ROAD && this.roadNeighbours(x, y) >= 5;
+      this.at(x, y) === T_ROAD && this.roadNeighbours(x, y) >= 5 && this.dirm[y * this.w + x] && this.dirm[y * this.w + x] < 3 &&
+      this.deco[y * this.w + x] !== D_LANDMARK && !this.cross[y * this.w + x];
+    const put = (x, y, pr) => {
+      for (const [tx, ty] of pr.tiles) { this.grid[ty * this.w + tx] = T_WALL; this.deco[ty * this.w + tx] = D_PROP; }
+      this.props.push(pr);
+    };
 
-    // 전복 차량 — 2차선 중 한 칸만 막는다
-    const cars = Math.floor(blocks * blocks * 1.5);
+    // 승용차 · 택시 — 한 칸
+    const cars = Math.floor(blocks * blocks * 1.4);
     for (let i = 0; i < cars; i++) {
-      const x = 1 + Math.floor(rng() * (this.w - 2));
-      const y = 1 + Math.floor(rng() * (this.h - 2));
+      const x = 1 + Math.floor(rng() * (this.w - 2)), y = 1 + Math.floor(rng() * (this.h - 2));
       if (!freeRoad(x, y)) continue;
-      this.set(x, y, T_WALL);
-      this.deco[y * this.w + x] = D_PROP;
-      this.props.push({ x: x * TILE + TILE / 2, y: y * TILE + TILE / 2,
+      const vertical = this.dirm[y * this.w + x] === 1;
+      const kind = T.small && rng() < 0.3 ? T.small : 'car';
+      put(x, y, { x: x * TILE + TILE / 2, y: y * TILE + TILE / 2,
         // 열에 셋은 경보기가 달려 있다 (생성 순서를 흔들지 않게 난수 대신 좌표 해시)
-        alarm: (((x * 92837111) ^ (y * 689287499)) >>> 0) % 10 < 3,
-        kind: 'car', col: CAR_COLS[(rng() * CAR_COLS.length) | 0],
-        a: (rng() - 0.5) * 0.5 + (isRoadLane(x) ? Math.PI / 2 : 0),
-        w: 40, h: 21, tiles: [[x, y]] });
+        alarm: kind === 'car' && (((x * 92837111) ^ (y * 689287499)) >>> 0) % 10 < 3,
+        kind, col: T.carCols[(rng() * T.carCols.length) | 0],
+        a: (rng() - 0.5) * 0.5 + (vertical ? Math.PI / 2 : 0),
+        w: kind === 'car' ? 40 : 30, h: kind === 'car' ? 21 : 19, tiles: [[x, y]] });
     }
-
-    // 화물 컨테이너 — 도로 방향으로만 눕혀 통행을 남긴다
-    const boxes = Math.floor(blocks * blocks * 0.8);
-    for (let i = 0; i < boxes; i++) {
-      const x = 1 + Math.floor(rng() * (this.w - 2));
-      const y = 1 + Math.floor(rng() * (this.h - 2));
-      const vertical = isRoadLane(x);
+    // 버스 · 트럭 · 컨테이너 — 두 칸, 도로 방향으로
+    const longs = Math.floor(blocks * blocks * 0.6);
+    for (let i = 0; i < longs; i++) {
+      const x = 1 + Math.floor(rng() * (this.w - 2)), y = 1 + Math.floor(rng() * (this.h - 2));
+      if (!freeRoad(x, y)) continue;
+      const vertical = this.dirm[y * this.w + x] === 1;
       const x2 = x + (vertical ? 0 : 1), y2 = y + (vertical ? 1 : 0);
-      if (!freeRoad(x, y) || !freeRoad(x2, y2)) continue;
-      this.set(x, y, T_WALL); this.set(x2, y2, T_WALL);
-      this.deco[y * this.w + x] = D_PROP;
-      this.deco[y2 * this.w + x2] = D_PROP;
-      const col = BOX_COLS[(rng() * BOX_COLS.length) | 0];
-      this.props.push({ x: (x + x2) / 2 * TILE + TILE / 2, y: (y + y2) / 2 * TILE + TILE / 2,
-        kind: 'box', col, a: vertical ? Math.PI / 2 : 0, w: 90, h: 40,
-        tiles: [[x, y], [x2, y2]] });
+      if (!freeRoad(x2, y2)) continue;
+      const bus = rng() < 0.45;
+      put(x, y, { x: (x + x2) / 2 * TILE + TILE / 2, y: (y + y2) / 2 * TILE + TILE / 2,
+        kind: bus ? 'bus' : 'box', col: bus ? T.busCol : BOX_COLS[(rng() * BOX_COLS.length) | 0],
+        a: vertical ? Math.PI / 2 : 0, w: 90, h: bus ? 36 : 40, tiles: [[x, y], [x2, y2]] });
     }
-  }
-
-  /** 교차로 앞 횡단보도 표시 (렌더 전용) */
-  markCrossings() {
-    this.cross = new Uint8Array(this.w * this.h);
-    for (let y = 1; y < this.h - 1; y++) {
-      for (let x = 1; x < this.w - 1; x++) {
-        if (this.at(x, y) !== T_ROAD) continue;
-        const rx = isRoadLane(x), ry = isRoadLane(y);
-        if (rx && !ry && (y % 11 === 2 || y % 11 === 10)) this.cross[y * this.w + x] = 1;
-        else if (ry && !rx && (x % 11 === 2 || x % 11 === 10)) this.cross[y * this.w + x] = 2;
+    // 강 위의 배 (장식)
+    if (this.river) {
+      for (let i = 0; i < 3; i++) {
+        const x = 3 + Math.floor(rng() * (this.w - 6));
+        if (this.deco[(this.river.y0 + 1) * this.w + x] !== D_WATER) continue;
+        this.decor.push({ kind: 'boat', x: x * TILE, y: (this.river.y0 + 1.5 + rng() * 1.5) * TILE, a: (rng() - 0.5) * 0.4 });
+      }
+    }
+    // 나라별 길가 장식 — 자판기(도쿄) · 노점 수레(방콕) · 편의점 파라솔(서울)
+    const kinds = T.streetDecor || [];
+    if (kinds.length) {
+      const n = Math.floor(blocks * blocks * 1.2);
+      for (let i = 0; i < n; i++) {
+        const x = 1 + Math.floor(rng() * (this.w - 2)), y = 1 + Math.floor(rng() * (this.h - 2));
+        const i0 = y * this.w + x;
+        if (this.grid[i0] !== T_ROAD || this.deco[i0] !== D_ASPHALT) continue;
+        const wall = this.at(x, y - 1) === T_WALL ? 'n' : this.at(x - 1, y) === T_WALL ? 'w' : this.at(x + 1, y) === T_WALL ? 'e' : null;
+        if (!wall || this.dirm[i0] === 3 || this.cross[i0]) continue;
+        this.decor.push({ kind: kinds[i % kinds.length], x: (x + 0.5) * TILE, y: (y + 0.5) * TILE, wall,
+          col: T.signCols[i % T.signCols.length] });
       }
     }
   }
@@ -201,11 +373,10 @@ class World {
   markSidewalks() {
     for (let y = 1; y < this.h - 1; y++) {
       for (let x = 1; x < this.w - 1; x++) {
-        if (this.at(x, y) !== T_ROAD) continue;
-        if (this.at(x + 1, y) === T_WALL || this.at(x - 1, y) === T_WALL ||
-            this.at(x, y + 1) === T_WALL || this.at(x, y - 1) === T_WALL) {
-          this.deco[y * this.w + x] = D_SIDEWALK;
-        }
+        const i = y * this.w + x;
+        if (this.grid[i] !== T_ROAD || this.deco[i] !== D_ASPHALT || this.dirm[i] === 3) continue;
+        const b = (xx, yy) => this.at(xx, yy) === T_WALL && this.deco[yy * this.w + xx] === D_BUILDING;
+        if (b(x + 1, y) || b(x - 1, y) || b(x, y + 1) || b(x, y - 1)) this.deco[i] = D_SIDEWALK;
       }
     }
   }
@@ -229,42 +400,59 @@ class World {
       for (let k = 0; k < 4; k++) {
         if (!ok[k]) continue;
         const ni = nb[k];
-        if (dist[ni] !== -1 || this.grid[ni] === T_WALL) continue;
+        if (dist[ni] !== -1 || this.grid[ni] !== T_ROAD) continue;
         dist[ni] = dist[cur] + 1; q[tail++] = ni;
       }
     }
     return { dist, far };
   }
 
-  pickEndpoints() {
+  pickEndpoints(goal) {
     let seed = -1;
     for (let y = 1; y < this.h - 1 && seed < 0; y++)
       for (let x = 1; x < this.w - 1; x++)
         if (this.at(x, y) === T_ROAD) { seed = y * this.w + x; break; }
 
-    const a = this.bfs(seed);
-    const b = this.bfs(a.far);
+    // 집결지가 랜드마크로 정해져 있으면 그곳에서 재고, 아니면 도로망의 지름 양 끝
+    const lm = goal && this.landmarks.find(l => l.id === goal && l.rally);
+    let b;
+    if (lm) {
+      const ri = lm.rally.ty * this.w + lm.rally.tx;
+      b = this.bfs(ri);
+      b.exitIdx = ri;
+    }
+    if (lm && b.far !== b.exitIdx) {
+      // 랜드마크에서 잰 거리이므로, 가장 먼 쪽(= 거리 큰 곳)에서 시작한다
+      this.toExit = b.dist;
+      this.reach = [];
+      for (let i = 0; i < b.dist.length; i++) if (b.dist[i] >= 0) this.reach.push(i);
+      this.exit = this.tileCenter(b.exitIdx);
+      this.maxDist = b.dist[b.far];
+      this.spawn = this.tileCenter(this.startTile(b.dist, this.maxDist, true));
+      return;
+    }
 
-    this.dist = b.dist;
+    const a = this.bfs(seed);
+    b = this.bfs(a.far);
     this.reach = [];
     for (let i = 0; i < b.dist.length; i++) if (b.dist[i] >= 0) this.reach.push(i);
-
     this.exit = this.tileCenter(b.far);
     this.maxDist = b.dist[b.far];
     this.spawn = this.tileCenter(this.startTile(b.dist, b.dist[b.far]));
+    this.toExit = this.bfs(b.far).dist;               // 출구까지의 도로 거리 — "지나온 길" 판정에 쓴다
   }
 
   /**
    * dist 는 반대편 끝점에서 잰 거리다. 그 끝점 근처(= 탈출점에서 가장 먼 구역) 중
    * 지도 가장자리에서 가장 떨어진 개활지를 시작점으로 삼아 코너 끼임을 막는다.
    */
-  startTile(dist, maxD) {
+  startTile(dist, maxD, far) {
     let best = -1, bestScore = -1;
     for (const i of this.reach) {
-      if (dist[i] > maxD * 0.16) continue;
+      if (far ? dist[i] < maxD * 0.84 : dist[i] > maxD * 0.16) continue;
       const x = i % this.w, y = (i / this.w) | 0;
       const border = Math.min(x, y, this.w - 1 - x, this.h - 1 - y);
-      const score = Math.min(border, 8) * 6 + this.roadNeighbours(x, y) * 2 - dist[i] * 0.12;
+      const score = Math.min(border, 8) * 6 + this.roadNeighbours(x, y) * 2 - (far ? maxD - dist[i] : dist[i]) * 0.12;
       if (score > bestScore) { bestScore = score; best = i; }
     }
     return best >= 0 ? best : this.reach[0];
@@ -295,7 +483,7 @@ class World {
     const y0 = Math.floor((py - r) / TILE), y1 = Math.floor((py + r) / TILE);
     for (let y = y0; y <= y1; y++) {
       for (let x = x0; x <= x1; x++) {
-        if (this.at(x, y) !== T_WALL) continue;
+        if (this.at(x, y) === T_ROAD) continue;         // 벽과 물 모두 막는다
         const cx = Math.max(x * TILE, Math.min(px, x * TILE + TILE));
         const cy = Math.max(y * TILE, Math.min(py, y * TILE + TILE));
         const dx = px - cx, dy = py - cy;
@@ -358,10 +546,10 @@ class World {
     while (head < tail) {
       const c = q[head++], x = c % W, y = (c - x) / W, nd = D[c] + 1;
       if (nd > 60) continue;                              // 60칸(약 2.9km) 너머는 필요 없다
-      if (x > 0     && D[c - 1] < 0 && this.grid[c - 1] !== T_WALL) { D[c - 1] = nd; q[tail++] = c - 1; }
-      if (x < W - 1 && D[c + 1] < 0 && this.grid[c + 1] !== T_WALL) { D[c + 1] = nd; q[tail++] = c + 1; }
-      if (y > 0     && D[c - W] < 0 && this.grid[c - W] !== T_WALL) { D[c - W] = nd; q[tail++] = c - W; }
-      if (y < H - 1 && D[c + W] < 0 && this.grid[c + W] !== T_WALL) { D[c + W] = nd; q[tail++] = c + W; }
+      if (x > 0     && D[c - 1] < 0 && this.grid[c - 1] === T_ROAD) { D[c - 1] = nd; q[tail++] = c - 1; }
+      if (x < W - 1 && D[c + 1] < 0 && this.grid[c + 1] === T_ROAD) { D[c + 1] = nd; q[tail++] = c + 1; }
+      if (y > 0     && D[c - W] < 0 && this.grid[c - W] === T_ROAD) { D[c - W] = nd; q[tail++] = c - W; }
+      if (y < H - 1 && D[c + W] < 0 && this.grid[c + W] === T_ROAD) { D[c + W] = nd; q[tail++] = c + W; }
     }
   }
   /** (x, y) 에서 플레이어 쪽으로 가는 다음 칸의 중심 방향. 모르면 null */

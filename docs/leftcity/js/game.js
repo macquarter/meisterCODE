@@ -909,6 +909,7 @@ const G = {
       }
     }
     Radio.reset();
+    for (const id of ['cpMark', 'achMark']) { const el = $(id); if (el) el.classList.remove('show'); }
 
     // 초기 좀비
     const initial = Math.max(2, Math.round(L.spawn.initial * SETTINGS.mod.max));
@@ -962,6 +963,17 @@ const G = {
       if (!spot) spot = { x: e.x, y: e.y };
       this.boss = new Zombie(spot.x, spot.y, 'behemoth');
       this.zombies.push(this.boss);
+    }
+
+    // 오래된 핏자국 — 대피 검문소 둘레와 거리 곳곳 (트레일러: 막사 옆 바닥의 검붉은 얼룩)
+    {
+      const br = makeRng(L.seed ^ 0xb100d);
+      const stain = (x, y, n, spread) => {
+        for (let k = 0; k < n; k++) this.decals.push({ x: x + (br() - 0.5) * spread, y: y + (br() - 0.5) * spread * 0.7, r: 4 + br() * 9, a: 0.22 + br() * 0.2 });
+      };
+      for (const lm of w.landmarks) if (lm.kind === 'checkpoint')
+        for (let i = 0; i < 5; i++) stain((lm.x + 1.5 + br() * (lm.w - 3)) * TILE, (lm.y + 2 + br() * (lm.h - 3)) * TILE, 6, 70);
+      for (let i = 0; i < 22; i++) { const q = w.pickPoint(0, 0, 0, 1e9, br); stain(q.x, q.y, 5, 60); }
     }
 
     // 웅덩이 & 비
@@ -1935,7 +1947,9 @@ function render() {
 
   /* 혈흔 */
   ctx.fillStyle = '#3a0c0a';
+  const dx0 = cam.x - 30, dx1 = cam.x + W + 30, dy0 = cam.y - 30, dy1 = cam.y + VH() + 30;   // 화면 밖 혈흔은 건너뛴다
   for (const d of g.decals) {
+    if (d.x < dx0 || d.x > dx1 || d.y < dy0 || d.y > dy1) continue;
     ctx.globalAlpha = d.a;
     ctx.beginPath(); ctx.arc(d.x, d.y, d.r, 0, 6.283); ctx.fill();
   }
@@ -2310,6 +2324,8 @@ function drawCityLights(cam, g, w) {
     if (lm.beacon && Math.sin(t * 3.1 + lm.x) > 0.2) glow(lm.beacon[0], lm.beacon[1], 30, 'rgba(255,40,30,A)', 0.7);
     if (lm.lantern) glow(lm.lantern[0], lm.lantern[1], 70, 'rgba(255,90,50,A)', 0.28);
     if (lm.bulbs) for (const [x, y] of lm.bulbs) glow(x, y, 14, 'rgba(255,200,120,A)', 0.45 + Math.sin(t * 5 + x) * 0.08);
+    if (lm.flood) { glow(lm.flood[0], lm.flood[1], 26, 'rgba(255,250,230,A)', 0.8); glow(lm.floodAt[0], lm.floodAt[1], 170, 'rgba(230,235,240,A)', 0.16); }
+    if (lm.signGlow) { const f = Math.sin(t * 17 + lm.x) > -0.85 ? 1 : 0.2; glow(lm.signGlow[0], lm.signGlow[1], 40, 'rgba(230,90,70,A)', 0.35 * f); }
     if (lm.kind === 'scramble') {
       // 꺼지지 않은 대형 전광판 — 지직거리는 잡음 화면
       const corners = [[lm.x - 1, lm.y - 1], [lm.x + lm.w, lm.y - 1], [lm.x - 1, lm.y + lm.h], [lm.x + lm.w, lm.y + lm.h]];
@@ -2427,6 +2443,25 @@ function drawLandmarksGround(cam, w) {
     } else if (lm.kind === 'market') {
       ctx.fillStyle = 'rgba(120,60,40,.18)';
       ctx.fillRect(lm.x * TILE, lm.y * TILE, lm.w * TILE, lm.h * TILE);
+    } else if (lm.kind === 'checkpoint') {
+      // 출입구로 이어지는 바퀴 자국과 흰 정지선
+      ctx.fillStyle = 'rgba(0,0,0,.18)';
+      ctx.fillRect((lm.x + 4) * TILE + 6, (lm.y + 5) * TILE, 10, 4 * TILE); ctx.fillRect((lm.x + 6) * TILE + 30, (lm.y + 5) * TILE, 10, 4 * TILE);
+      ctx.fillStyle = 'rgba(230,230,220,.35)'; ctx.fillRect((lm.x + 4) * TILE, (lm.y + 8) * TILE + 4, 3 * TILE, 5);
+    } else if (lm.kind === 'railyard') {
+      // 자갈 바닥 · 침목 · 두 줄 레일 (블록 끝까지)
+      ctx.fillStyle = 'rgba(70,64,58,.55)'; ctx.fillRect(lm.x * TILE, lm.y * TILE, lm.w * TILE, lm.h * TILE);
+      for (const ty of lm.tracks) {
+        const cy = (ty + 0.5) * TILE;
+        ctx.fillStyle = '#3a2e24';
+        for (let x = lm.x * TILE + 4; x < (lm.x + lm.w) * TILE; x += 14) ctx.fillRect(x, cy - 17, 7, 34);
+        ctx.fillStyle = '#8a8f94';
+        ctx.fillRect(lm.x * TILE, cy - 11, lm.w * TILE, 3); ctx.fillRect(lm.x * TILE, cy + 8, lm.w * TILE, 3);
+      }
+    } else if (lm.kind === 'gas') {
+      ctx.fillStyle = 'rgba(160,160,150,.10)'; ctx.fillRect(lm.x * TILE, lm.y * TILE, lm.w * TILE, lm.h * TILE);
+      ctx.fillStyle = 'rgba(30,20,10,.35)';
+      for (const [x, y] of lm.pumps) { ctx.beginPath(); ctx.ellipse((x + 0.5) * TILE + 14, (y + 0.5) * TILE + 6, 16, 9, 0, 0, 6.283); ctx.fill(); }   // 기름 얼룩
     } else if (lm.kind === 'hawker') {
       // 물청소 자국이 남은 타일 바닥과 배수로
       ctx.fillStyle = 'rgba(150,160,150,.10)';
@@ -2648,6 +2683,70 @@ const LANDMARK_TOP = {
       ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]); ctx.stroke();
       for (let t = 0.05; t < 1; t += 0.09) lm.bulbs.push([a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t]);
     }
+  },
+  /* 검문소: 모래주머니 담 · 콘크리트 방벽 · 조립식 막사 · 천막 · 투광등 */
+  checkpoint(lm, E, g) {
+    // 모래주머니 담 — 이어진 구간을 한 상자로 세우고, 자루 이음매는 한 번의 선 묶음으로
+    ctx.strokeStyle = 'rgba(0,0,0,.25)'; ctx.lineWidth = 1;
+    const seams = new Path2D();
+    for (const [x, y, w, h] of lm.runs) {
+      liftBox(E, x + 0.08, y + 0.12, w - 0.16, h - 0.24, 0.035, '#6e6248', '#8a7c5c');
+      const r = liftRect(E, x + 0.08, y + 0.12, w - 0.16, h - 0.24, 0.035, 0);
+      if (w > 1) for (let k = 1; k < w * 2; k++) { const u = k / (w * 2); seams.moveTo(r[0][0] + (r[1][0] - r[0][0]) * u, r[0][1]); seams.lineTo(r[3][0] + (r[2][0] - r[3][0]) * u, r[3][1]); }
+      else for (let k = 1; k < h * 2; k++) { const v = k / (h * 2); seams.moveTo(r[0][0], r[0][1] + (r[3][1] - r[0][1]) * v); seams.lineTo(r[1][0], r[1][1] + (r[2][1] - r[1][1]) * v); }
+    }
+    ctx.stroke(seams);
+    for (const [x, y] of lm.blocks) liftBox(E, x + 0.15, y + 0.3, 0.7, 0.4, 0.04, '#7c7d7a', '#9a9b98');
+    for (const [x, y] of lm.cabins) {
+      liftBox(E, x + 0.05, y + 0.1, 1.9, 0.8, 0.09, '#c9cbc6', '#e0e2dd');
+      const r = liftRect(E, x + 0.05, y + 0.9, 1.9, 0, 0.06);
+      ctx.fillStyle = '#20262c';
+      for (const t of [0.15, 0.55]) ctx.fillRect(r[0][0] + (r[1][0] - r[0][0]) * t, r[0][1] - 6, 18, 9);
+    }
+    const t = lm.tent;
+    hipRoof(E, t.x, t.y, 2, 1, 0.02, 0.07, '#4a5236', '#2e3322', 4);
+    const base = [lm.pole[0] * TILE, lm.pole[1] * TILE], top = liftPt(E, base[0], base[1], 0.42);
+    ctx.strokeStyle = '#6a7076'; ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(base[0], base[1]); ctx.lineTo(top[0], top[1]); ctx.stroke();
+    ctx.fillStyle = '#2a2d30'; ctx.fillRect(top[0] - 12, top[1] - 5, 24, 9);
+    ctx.fillStyle = '#f2eedc'; ctx.fillRect(top[0] - 10, top[1] - 2, 20, 4);
+    lm.flood = top; lm.floodAt = [(lm.x + 5.5) * TILE, (lm.y + 4.5) * TILE];
+  },
+  /* 철로: 화차는 구조물로 그려지고, 여기서는 신호기만 */
+  railyard(lm, E, g) {
+    const b = [lm.signal[0] * TILE, lm.signal[1] * TILE], top = liftPt(E, b[0], b[1], 0.3);
+    ctx.strokeStyle = '#4a4e52'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(b[0], b[1]); ctx.lineTo(top[0], top[1]); ctx.stroke();
+    ctx.fillStyle = '#16181a'; ctx.fillRect(top[0] - 5, top[1] - 12, 10, 18);
+    ctx.fillStyle = '#d23b2a'; ctx.beginPath(); ctx.arc(top[0], top[1] - 6, 3, 0, 6.283); ctx.fill();
+    lm.beacon = [top[0], top[1] - 6];
+  },
+  /* 주유소: 매점 · 주유기 · 기둥 위 지붕(속이 보이게 테두리와 얇은 판만) · 가격 간판 */
+  gas(lm, E, g) {
+    const sh = lm.shop;
+    liftBox(E, sh.x + 0.05, sh.y + 0.05, sh.w - 0.1, sh.h - 0.1, 0.1, '#5a5e62', '#3e4246');
+    const fr = liftRect(E, sh.x + 0.05, sh.y + sh.h - 0.05, sh.w - 0.1, 0, 0.07);
+    ctx.fillStyle = 'rgba(150,200,220,.25)'; ctx.fillRect(fr[0][0] + 8, fr[0][1] - 4, fr[1][0] - fr[0][0] - 16, 10);
+    for (const [x, y] of lm.pumps) {
+      liftBox(E, x + 0.3, y + 0.25, 0.4, 0.5, 0.06, '#b8372e', '#d8d2c6');
+      const p = liftPt(E, (x + 0.5) * TILE, (y + 0.75) * TILE, 0.045);
+      ctx.fillStyle = '#20262a'; ctx.fillRect(p[0] - 5, p[1] - 4, 10, 6);
+    }
+    const c = lm.canopy, r = liftRect(E, c.x, c.y, c.w, c.h, 0.2);
+    ctx.strokeStyle = 'rgba(120,125,130,.6)'; ctx.lineWidth = 5;
+    for (const [x, y] of [[c.x + 0.5, c.y + 0.5], [c.x + c.w - 0.5, c.y + 0.5], [c.x + 0.5, c.y + c.h - 0.5], [c.x + c.w - 0.5, c.y + c.h - 0.5]]) {
+      const tp = liftPt(E, x * TILE, y * TILE, 0.2); ctx.beginPath(); ctx.moveTo(x * TILE, y * TILE); ctx.lineTo(tp[0], tp[1]); ctx.stroke();
+    }
+    polyFill(r, 'rgba(210,214,218,.16)');
+    ctx.strokeStyle = 'rgba(200,60,50,.75)'; ctx.lineWidth = 4;
+    ctx.beginPath(); ctx.moveTo(r[0][0], r[0][1]); for (let i = 1; i <= 4; i++) ctx.lineTo(r[i % 4][0], r[i % 4][1]); ctx.stroke();
+    lm.bulbs = [];
+    for (let i = 1; i < 4; i++) for (let j = 1; j < 3; j++) lm.bulbs.push([r[0][0] + (r[1][0] - r[0][0]) * i / 4, r[0][1] + (r[3][1] - r[0][1]) * j / 3]);
+    const sb = [lm.sign[0] * TILE, lm.sign[1] * TILE], st = liftPt(E, sb[0], sb[1], 0.36);
+    ctx.strokeStyle = '#5a5e62'; ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(sb[0], sb[1]); ctx.lineTo(st[0], st[1]); ctx.stroke();
+    ctx.fillStyle = '#1a1c1e'; ctx.fillRect(st[0] - 16, st[1] - 26, 32, 28);
+    ctx.fillStyle = '#c94a3a'; ctx.fillRect(st[0] - 14, st[1] - 24, 28, 8);
+    ctx.fillStyle = '#e8d070'; ctx.font = '600 8px var(--font), monospace'; ctx.textAlign = 'center';
+    ctx.fillText('— . —', st[0], st[1] - 6);
+    lm.signGlow = [st[0], st[1] - 12];
   },
   /* 호커 센터: 노점 줄 · 둥근 탁자와 의자 · 기둥만 남은 지붕 틀(속이 보이게 선만 긋는다) */
   hawker(lm, E) {
@@ -4249,8 +4348,17 @@ function drawAttract(dt) {
   }
   ctx.restore();
   ctx.globalCompositeOperation = 'source-over';
+  // 번개 — 트레일러 끝처럼 붉은 눈들 위로 가끔 하늘이 하얗게 터진다 (섬광 설정을 따른다)
+  attractFlash.t -= dt;
+  if (attractFlash.t <= 0) { attractFlash.t = 7 + Math.random() * 9; attractFlash.k = 1; if (SFX.ready && G.state === 'title') SFX.thunder(); }
+  if (attractFlash.k > 0) {
+    attractFlash.k = Math.max(0, attractFlash.k - dt * 2.2);
+    const k = attractFlash.k * (SETTINGS.flash ? 0.22 : 0.05) * (0.6 + Math.random() * 0.4);
+    ctx.fillStyle = `rgba(200,212,232,${k})`; ctx.fillRect(0, 0, W, H);
+  }
   drawVignette();
 }
+const attractFlash = { t: 4, k: 0 };
 
 let last = performance.now();
 const fpsEl = $('fpsMeter');

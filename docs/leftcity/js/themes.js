@@ -12,7 +12,7 @@ const THEMES = {
     carCols: ['#d9822b', '#c7c9cc', '#2f4a63', '#3a3d42', '#5c2c28', '#e0e0e0'],   // 주황 택시가 섞인다
     busCol: '#2f7d4f', small: null,
     roofs: ['#1b2129', '#181d24', '#1f252d', '#22262b'],
-    streetDecor: ['parasol']
+    streetDecor: ['parasol', 'bin']
   },
   tokyo: {
     key: 'tokyo', name: '도쿄', river: '스미다강',
@@ -21,7 +21,7 @@ const THEMES = {
     carCols: ['#1d1f24', '#c9ccd1', '#3b4a5c', '#7a1f1f', '#d8d2c4', '#2d3a2e'],    // 검은 택시
     busCol: '#c8d3db', small: null,
     roofs: ['#1c1f26', '#1a1d23', '#20232b', '#191b20'],
-    streetDecor: ['vending', 'vending', 'bike']
+    streetDecor: ['vending', 'vending', 'bike', 'bin']
   },
   bangkok: {
     key: 'bangkok', name: '방콕', river: '짜오프라야강',
@@ -30,7 +30,7 @@ const THEMES = {
     carCols: ['#e85d75', '#3e8e41', '#d9c13b', '#2f4a63', '#c9ccd1', '#5a3e2b'],    // 분홍·초록 택시
     busCol: '#b5452d', small: 'tuktuk',
     roofs: ['#211d1b', '#1d1b1a', '#24201c', '#1b1a19'],
-    streetDecor: ['cart', 'shrine']
+    streetDecor: ['cart', 'shrine', 'bin']
   },
   singapore: {
     key: 'singapore', name: '싱가포르', river: '싱가포르강',
@@ -39,7 +39,7 @@ const THEMES = {
     carCols: ['#2f6fb5', '#c9ccd1', '#1d1f24', '#e2c13a', '#8b2b2b', '#3e8e41'],   // 파란 택시
     busCol: '#6b2f7a', small: null,
     roofs: ['#1c2125', '#1a1f22', '#20262a', '#1b2023'],
-    streetDecor: ['parasol', 'bike', 'vending']
+    streetDecor: ['parasol', 'bike', 'vending', 'bin']
   }
 };
 
@@ -47,6 +47,14 @@ const THEMES = {
    solid(x, y, w, h) 는 지나갈 수 없는 칸, 나머지는 바닥(ground)으로 걸어 다닌다. */
 const lmSolid = (wd, x, y, w, h) => wd.fill(x, y, w, h, T_WALL, D_LANDMARK);
 const lmFloor = (wd, x, y, w, h, deco) => wd.fill(x, y, w, h, T_ROAD, deco);
+/** 랜드마크 안에 놓는 탈것 · 화차 — 일반 구조물(props)로 넣어 충돌 · 그리기 · 경보를 그대로 쓴다.
+    tiles 는 차지하는 칸, 가로로 길면 a = 0, 세로면 a = π/2 */
+function lmProp(wd, kind, tiles, o) {
+  const xs = tiles.map(t => t[0]), ys = tiles.map(t => t[1]);
+  const cx = (Math.min(...xs) + Math.max(...xs) + 1) / 2 * TILE, cy = (Math.min(...ys) + Math.max(...ys) + 1) / 2 * TILE;
+  for (const [tx, ty] of tiles) { wd.grid[ty * wd.w + tx] = T_WALL; wd.deco[ty * wd.w + tx] = D_PROP; }
+  wd.props.push(Object.assign({ x: cx, y: cy, kind, a: 0, tiles }, o));
+}
 
 const LANDMARKS = {
   /* 서울 — 궁궐 정문과 담장, 안뜰 너머 정전. 집결지는 안뜰 */
@@ -155,6 +163,52 @@ const LANDMARKS = {
         lmSolid(wd, x, y, 1, 1); stalls.push([x, y]);
       }
       return { kind: 'market', x: x0, y: y0, w: 9, h: 9, rally: { tx: x0 + 4, ty: y0 + 4 }, stalls };
+    }
+  },
+  /* ── 원작 트레일러에 나오는 장소들 — 어느 도시에나 놓인다 ── */
+  /* 대피 검문소 — 모래주머니 담 · 조립식 막사 · 버려진 군용차 · 꺼지지 않은 투광등. 남쪽 가운데가 출입구 */
+  checkpoint: {
+    name: '대피 검문소', w: 11, h: 9, ground: D_ASPHALT,
+    stamp(wd, x0, y0, rng) {
+      const bags = [];
+      const bag = (x, y) => { lmSolid(wd, x, y, 1, 1); bags.push([x, y]); };
+      for (let x = 0; x <= 10; x++) bag(x0 + x, y0);
+      for (let y = 1; y <= 8; y++) { bag(x0, y0 + y); bag(x0 + 10, y0 + y); }
+      for (const x of [1, 2, 3, 7, 8, 9]) bag(x0 + x, y0 + 8);                       // 가운데 세 칸이 출입구
+      const cabins = [[x0 + 2, y0 + 1], [x0 + 7, y0 + 1]];
+      for (const [x, y] of cabins) lmSolid(wd, x, y, 2, 1);
+      lmSolid(wd, x0 + 5, y0 + 1, 1, 1);                                            // 투광등 기둥
+      lmSolid(wd, x0 + 7, y0 + 3, 2, 1);                                            // 천막
+      lmProp(wd, 'humvee', [[x0 + 2, y0 + 4]], { col: '#5b5a3c', w: 42, h: 24, a: Math.PI / 2 + (rng() - 0.5) * 0.3 });
+      lmProp(wd, 'humvee', [[x0 + 8, y0 + 6]], { col: '#8a7a5a', w: 42, h: 24, a: (rng() - 0.5) * 0.3 });
+      for (const x of [3, 7]) lmSolid(wd, x0 + x, y0 + 7, 1, 1);                     // 출입구 앞 콘크리트 방벽
+      // 그릴 때는 이어진 담을 한 덩어리로 (칸마다 그리면 34번 — 보스전 화면에서 프레임을 깎았다)
+      const runs = [[x0, y0, 11, 1], [x0, y0 + 1, 1, 8], [x0 + 10, y0 + 1, 1, 8], [x0 + 1, y0 + 8, 3, 1], [x0 + 7, y0 + 8, 3, 1]];
+      return { kind: 'checkpoint', x: x0, y: y0, w: 11, h: 9, rally: { tx: x0 + 5, ty: y0 + 5 }, bags, runs, cabins,
+        tent: { x: x0 + 7, y: y0 + 3 }, pole: [x0 + 5.5, y0 + 1.5], blocks: [[x0 + 3, y0 + 7], [x0 + 7, y0 + 7]] };
+    }
+  },
+  /* 화물 철로 — 블록을 가로지르는 두 가닥 선로와 멈춰 선 화차, 붉은 신호등 */
+  railyard: {
+    name: '화물 철로', w: 13, h: 9, ground: D_ASPHALT,
+    stamp(wd, x0, y0, rng) {
+      const cols = ['#6a3a2a', '#3a4a5a', '#5a4a2a', '#4a3a3a'];
+      const wag = (x, y, n) => lmProp(wd, 'wagon', Array.from({ length: n }, (_, i) => [x + i, y]), { col: cols[(rng() * cols.length) | 0], w: n * TILE - 10, h: 34 });
+      wag(x0 + 1, y0 + 2, 3); wag(x0 + 8, y0 + 2, 3); wag(x0 + 4, y0 + 6, 3);
+      lmSolid(wd, x0 + 12, y0 + 0, 1, 1);                                          // 신호기
+      return { kind: 'railyard', x: x0, y: y0, w: 13, h: 9, rally: { tx: x0 + 6, ty: y0 + 4 }, tracks: [y0 + 2, y0 + 6], signal: [x0 + 12.5, y0 + 0.5] };
+    }
+  },
+  /* 주유소 — 지붕 아래 주유기 넷, 매점, 가격 간판 */
+  gasstation: {
+    name: '주유소', w: 9, h: 9, ground: D_ASPHALT,
+    stamp(wd, x0, y0) {
+      lmSolid(wd, x0 + 5, y0 + 1, 3, 2);                                          // 매점
+      const pumps = [[x0 + 2, y0 + 4], [x0 + 2, y0 + 6], [x0 + 5, y0 + 4], [x0 + 5, y0 + 6]];
+      for (const [x, y] of pumps) lmSolid(wd, x, y, 1, 1);
+      lmSolid(wd, x0 + 8, y0 + 8, 1, 1);                                          // 간판 기둥
+      return { kind: 'gas', x: x0, y: y0, w: 9, h: 9, rally: { tx: x0 + 4, ty: y0 + 5 }, shop: { x: x0 + 5, y: y0 + 1, w: 3, h: 2 }, pumps,
+        canopy: { x: x0 + 1, y: y0 + 3, w: 6, h: 5 }, sign: [x0 + 8.5, y0 + 8.5] };
     }
   },
   /* 싱가포르 — 지붕 덮인 노천 식당가. 가장자리에 노점이 늘어서고 가운데에 둥근 탁자.

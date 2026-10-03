@@ -406,13 +406,16 @@ class World {
       const x = 1 + Math.floor(rng() * (this.w - 2)), y = 1 + Math.floor(rng() * (this.h - 2));
       if (!freeRoad(x, y)) continue;
       const vertical = this.dirm[y * this.w + x] === 1;
-      const kind = T.small && rng() < 0.3 ? T.small : 'car';
+      let kind = T.small && rng() < 0.3 ? T.small : 'car';
+      // 대피 행렬에서 버려진 군용차 (원작 트레일러의 험비) — 난수 순서를 흔들지 않게 좌표 해시로
+      const hv = ((x * 2654435761) ^ (y * 40503)) >>> 0;
+      if (kind === 'car' && hv % 9 === 0) kind = 'humvee';
       put(x, y, { x: x * TILE + TILE / 2, y: y * TILE + TILE / 2,
         // 열에 셋은 경보기가 달려 있다 (생성 순서를 흔들지 않게 난수 대신 좌표 해시)
         alarm: kind === 'car' && (((x * 92837111) ^ (y * 689287499)) >>> 0) % 10 < 3,
-        kind, col: T.carCols[(rng() * T.carCols.length) | 0],
+        kind, col: kind === 'humvee' ? (hv % 2 ? '#5b5a3c' : '#8a7a5a') : T.carCols[(rng() * T.carCols.length) | 0],
         a: (rng() - 0.5) * 0.5 + (vertical ? Math.PI / 2 : 0),
-        w: kind === 'car' ? 40 : 30, h: kind === 'car' ? 21 : 19, tiles: [[x, y]] });
+        w: kind === 'car' ? 40 : kind === 'humvee' ? 42 : 30, h: kind === 'car' ? 21 : kind === 'humvee' ? 24 : 19, tiles: [[x, y]] });
     }
     // 버스 · 트럭 · 컨테이너 — 두 칸, 도로 방향으로
     const longs = Math.floor(blocks * blocks * 0.6);
@@ -423,8 +426,9 @@ class World {
       const x2 = x + (vertical ? 0 : 1), y2 = y + (vertical ? 1 : 0);
       if (!freeRoad(x2, y2)) continue;
       const bus = rng() < 0.45;
+      const truck = !bus && (((x * 73856093) ^ (y * 83492791)) >>> 0) % 2 === 0;   // 컨테이너 절반은 박스 트럭으로
       put(x, y, { x: (x + x2) / 2 * TILE + TILE / 2, y: (y + y2) / 2 * TILE + TILE / 2,
-        kind: bus ? 'bus' : 'box', col: bus ? T.busCol : BOX_COLS[(rng() * BOX_COLS.length) | 0],
+        kind: bus ? 'bus' : truck ? 'truck' : 'box', col: bus ? T.busCol : BOX_COLS[(rng() * BOX_COLS.length) | 0],
         a: vertical ? Math.PI / 2 : 0, w: 90, h: bus ? 36 : 40, tiles: [[x, y], [x2, y2]] });
     }
     // 강 위의 배 (장식)

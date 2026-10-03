@@ -10,7 +10,7 @@ const LEVELS = [
     brief: '서울. 대피 방송이 끝난 지 아홉 시간. 야간 배송을 마치고 지하에서 올라왔을 때 도시는 이미 떠난 뒤였다. ' +
            '광화문 안뜰이 마지막 구조 집결지라고 했다. 가진 건 권총 한 자루와 손전등뿐이다.',
     goals: ['광화문 안뜰까지 이동', '길에 떨어진 무기를 주울 것'],
-    seed: 1041, blocks: 9, city: 'seoul', landmarks: ['gwanghwamun'], goal: 'gwanghwamun',
+    seed: 1042, blocks: 9, city: 'seoul', landmarks: ['gwanghwamun', 'checkpoint'], goal: 'gwanghwamun',   // 1041 은 검문소가 들어가며 시작 화면이 무거운 배치가 됐다 (55→59fps)
     objective: { type: 'escape' },
     spawn: { initial: 6, rate: 0.22, max: 14 },
     mix: { walker: 1, runner: 0, brute: 0 },
@@ -23,7 +23,7 @@ const LEVELS = [
     brief: '광화문은 비어 있었다. 대신 무전기 9번 채널에서 낯선 목소리가 들려온다. ' +
            '남산 아래로 가는 길에 군 보급 상자가 흩어져 있다 — 지금 챙기지 않으면 다음은 없다.',
     goals: ['보급 상자 3개 확보', '확보 후 집결지로 이동'],
-    seed: 2207, blocks: 8, city: 'seoul', landmarks: ['namsan'],
+    seed: 2207, blocks: 8, city: 'seoul', landmarks: ['namsan', 'gasstation'],
     objective: { type: 'collect', count: 3, item: '보급 상자' },
     spawn: { initial: 8, rate: 0.3, max: 18 },
     mix: { walker: 0.85, runner: 0.15, brute: 0 },
@@ -49,7 +49,7 @@ const LEVELS = [
     brief: '도쿄. 배는 스미다강 하구에 닿았다. 하루의 무선국은 아사쿠사의 셔터 내린 전파상 안에 있다. ' +
            '발전기 연료가 떨어져 송신이 곧 끊긴다. 연료통 네 개. 발전기 소음은 저들을 부를 것이다.',
     goals: ['연료통 4개 회수', '차단문으로 이동'],
-    seed: 4523, weepers: 1, blocks: 9, city: 'tokyo', river: true, landmarks: ['sensoji', 'tokyotower'],
+    seed: 4523, weepers: 1, blocks: 9, city: 'tokyo', river: true, landmarks: ['sensoji', 'tokyotower', 'railyard'],
     objective: { type: 'collect', count: 4, item: '연료통' },
     spawn: { initial: 12, rate: 0.5, max: 26 },
     mix: { walker: 0.45, runner: 0.33, brute: 0.05, crawler: 0.17, bloater: 0.07, screamer: 0.04 },
@@ -62,7 +62,7 @@ const LEVELS = [
     brief: '하루가 남쪽 선단의 교신을 잡았다. 마지막 배는 싱가포르에서 떠난다. 그곳으로 가는 화물선의 차단문은 ' +
            '시부야 교차로에서 원격으로만 열린다. 90초. 사방이 트여 있다 — 그만큼 사방에서 온다.',
     goals: ['90초 생존', '개방된 차단문으로 이동'],
-    seed: 5631, weepers: 1, blocks: 8, city: 'tokyo', landmarks: ['scramble'], goal: 'scramble',
+    seed: 5631, weepers: 1, blocks: 8, city: 'tokyo', landmarks: ['scramble', 'gasstation'], goal: 'scramble',
     objective: { type: 'survive', time: 90 },
     spawn: { initial: 9, rate: 0.55, max: 24 },
     mix: { walker: 0.4, runner: 0.33, brute: 0.05, crawler: 0.14, spitter: 0.08, bloater: 0.08, screamer: 0.03 },
@@ -88,7 +88,7 @@ const LEVELS = [
     brief: '방콕. 하루의 중계가 새 목소리를 이어 주었다 — 강 건너 진료소의 간호사 녹. 진료소에는 배터리가 필요하다. ' +
            '예비 배터리는 야시장 노점 사이에 흩어져 있다. 불빛이 꺼지면 방향도, 사격선도 사라진다.',
     goals: ['예비 배터리 5개 회수', '집결지로 이동'],
-    seed: 7854, weepers: 2, blocks: 9, city: 'bangkok', landmarks: ['nightmarket', 'democracy'],
+    seed: 7854, weepers: 2, blocks: 9, city: 'bangkok', landmarks: ['nightmarket', 'democracy', 'gasstation'],
     objective: { type: 'collect', count: 5, item: '예비 배터리' },
     spawn: { initial: 12, rate: 0.6, max: 28 },
     mix: { walker: 0.3, runner: 0.33, brute: 0.13, crawler: 0.12, spitter: 0.12, bloater: 0.1, screamer: 0.06 },
@@ -116,7 +116,7 @@ const LEVELS = [
     brief: '싱가포르. 육로로 사흘. 새벽호는 응답이 없다 — 항구까지 전파가 닿지 않는다. 시내의 비상 중계기 세 대를 ' +
            '다시 켜면 하루의 중계와 이어진다. 중계기는 켜지는 동안 소리를 낸다. 그 곁을 지켜야 한다.',
     goals: ['중계기 3대 가동 — 켜질 때까지 곁에 머물 것', '가동 후 집결지로 이동'],
-    seed: 9173, weepers: 1, blocks: 8, city: 'singapore', river: true, landmarks: ['supertree', 'hawker'],
+    seed: 9173, weepers: 1, blocks: 8, city: 'singapore', river: true, landmarks: ['supertree', 'hawker', 'railyard'],
     objective: { type: 'signal', count: 3, hold: 6 },
     spawn: { initial: 12, rate: 0.6, max: 26 },
     mix: { walker: 0.3, runner: 0.32, brute: 0.13, crawler: 0.11, spitter: 0.12, bloater: 0.1, screamer: 0.07 },
@@ -156,10 +156,10 @@ const SURVIVAL = {
 
 /** 서바이벌에서 고를 수 있는 도시와 그 랜드마크 */
 const SURVIVAL_CITIES = {
-  seoul:   { river: true,  landmarks: ['gwanghwamun', 'namsan'] },
-  tokyo:   { river: true,  landmarks: ['scramble', 'tokyotower', 'sensoji'] },
-  bangkok: { river: true,  landmarks: ['watarun', 'democracy', 'nightmarket'] },
-  singapore: { river: true, landmarks: ['port', 'supertree', 'hawker'] }
+  seoul:   { river: true,  landmarks: ['gwanghwamun', 'namsan', 'checkpoint'] },
+  tokyo:   { river: true,  landmarks: ['scramble', 'tokyotower', 'sensoji', 'railyard'] },
+  bangkok: { river: true,  landmarks: ['watarun', 'democracy', 'nightmarket', 'gasstation'] },
+  singapore: { river: true, landmarks: ['port', 'supertree', 'hawker', 'railyard'] }
 };
 
 /* 도전 — 원작의 '점수 도전 레벨'. 짧고 규칙이 하나씩 붙은 판에서 점수를 겨룬다.
@@ -167,7 +167,7 @@ const SURVIVAL_CITIES = {
 const ALL_GUNS = ['pistol', 'smg', 'shotgun', 'rifle'];
 const CHALLENGES = [
   { id: 'hunt', name: '사냥 시간', note: '2분 동안 최대한 많이. 연달아 쓰러뜨리면 배수가 오른다.',
-    city: 'seoul', seed: 31117, blocks: 8, river: true, landmarks: ['gwanghwamun'], time: 120, rules: { hordeEvery: 25 },
+    city: 'seoul', seed: 31117, blocks: 8, river: true, landmarks: ['gwanghwamun', 'checkpoint'], time: 120, rules: { hordeEvery: 25 },
     own: ['pistol', 'smg', 'shotgun'], startAmmo: { smg: 200, shell: 24, rifle: 0 }, startNades: 3,
     supplies: { ammo: 8, shells: 4, rounds: 0, medkit: 3, battery: 4, nade: 3 },
     spawn: { initial: 20, rate: 1.6, max: 44 }, mix: { walker: 0.55, runner: 0.3, crawler: 0.15 },

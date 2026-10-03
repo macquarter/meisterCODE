@@ -121,6 +121,10 @@ const MODELS = (() => {
     const hx = L * 1.2 + 0.8 + (hd.dx || 0), hy = hd.dy || 0, hz = 25 + bob + (hd.dz || 0), hr = hd.r || 3.3;
     R.ball(hx, hy, hz, hr, sk);
     if (o.hair) R.ball(hx - 1.3, hy, hz + 0.6, hr * 0.9, o.hair, false);
+    if (o.hood) {                                     // 방호복 두건과 어두운 보안경
+      R.ball(hx - 0.6, hy, hz + 0.4, hr * 1.12, o.hood, false);
+      R.ball(hx + hr * 0.75, hy, hz - 0.2, hr * 0.55, '#1c2a30', false);
+    }
     // 팔
     const S1 = 21 + bob, arms = o.arms || 'hang';
     for (const sd of [-1, 1]) {
@@ -168,8 +172,11 @@ const MODELS = (() => {
     z.look = {
       top: pick(SHIRTS), pants: pick(PANTS), skin: pick(SKINS), hair: pick(HAIRS),
       blood: r() < 0.55, tilt: (r() - 0.5) * 2.4,
-      noLeg: z.type === 'crawler' && r() < 0.5 ? (r() < 0.5 ? -1 : 1) : 0
+      noLeg: z.type === 'crawler' && r() < 0.5 ? (r() < 0.5 ? -1 : 1) : 0,
+      // 대피 요원이었던 것들 — 흰 방호복 (원작 트레일러 0:25 의 흰 옷 무리)
+      hazmat: (z.type === 'walker' || z.type === 'runner') && r() < 0.14
     };
+    if (z.look.hazmat) { z.look.top = '#d9d7cc'; z.look.pants = '#cfcdc2'; z.look.hair = null; }
     return z.look;
   }
   const blood = (R, x, z, r) => R.ball(x, 0.8, z, r, '#4a1512', false);
@@ -280,6 +287,7 @@ const MODELS = (() => {
             extra(R2, bob, L) { if (k.blood) blood(R2, L + 4.4, 19.5 + bob, 1.5); } };
       shadow(ctx, z.x, z.y, 11);
     }
+    if (k.hazmat && !t.boss && !t.bloat && !t.spit && !t.scream && t.size < 18) { o.hood = '#e2e0d6'; o.sleeve = k.top; }
     o.x = z.x; o.y = z.y; o.face = z.face; o.ph = ph; o.sway = o.sway ?? sway;
     R = humanRig(o);
     R.draw(ctx, over);
@@ -312,6 +320,7 @@ const MODELS = (() => {
                  skin: c.type === 'player' ? '#a8866e' : SKINS[(r() * SKINS.length) | 0],
                  a1: (r() - 0.5) * 1.2, a2: (r() - 0.5) * 1.2, l1: (r() - 0.5) * 0.8, l2: (r() - 0.5) * 0.8 };
       if (c.type === 'player') { c.look.top = '#2f3a44'; c.look.pants = '#262b31'; }
+      if (c.hazmat) { c.look.top = '#d9d7cc'; c.look.pants = '#cfcdc2'; }
     }
     // 쓰러진 몸은 움직이지 않는다 — 한 번 그려 둔 그림을 옮겨 찍는다 (시체 40구에서도 프레임이 버틴다)
     if (!c.img) {
@@ -493,8 +502,60 @@ const MODELS = (() => {
       (c2, f) => { for (let u = 0; u < 1; u += 0.2) patch(c2, f, u, u + 0.1, 0, 1, col); });
   }
 
+  /** 군용 차량 (험비) — 넓고 낮은 차체, 각진 실내, 지붕 해치, 앞 그릴과 예비 바퀴 */
+  function humvee(ctx, pr) {
+    const hx = pr.w / 2, hy = pr.h / 2, col = pr.col;
+    ctx.fillStyle = 'rgba(0,0,0,.45)';
+    shadowRect(ctx, pr, hx + 2, hy + 2);
+    wheels(ctx, pr, [-hx * 0.6, hx * 0.6], hy * 0.95, 5.2);
+    const at = box(ctx, pr.x, pr.y, pr.a, -hx, hx, -hy, hy, 4.5, 12, tone(col, 1.04), col, (c2, f, i) => {
+      if (i === 1) { for (let u = 0.22; u < 0.8; u += 0.09) patch(c2, f, u, u + 0.04, 0.35, 0.85, 'rgba(0,0,0,.35)'); patch(c2, f, 0.05, 0.16, 0.5, 0.8, '#d8d2b8'); patch(c2, f, 0.84, 0.95, 0.5, 0.8, '#d8d2b8'); }
+      else patch(c2, f, 0, 1, 0.25, 0.32, 'rgba(0,0,0,.25)');
+    });
+    box(ctx, pr.x, pr.y, pr.a, -hx * 0.72, hx * 0.22, -hy * 0.86, hy * 0.86, 12, 21, tone(col, 1.08), col, (c2, f, i) => {
+      if (i === 0 || i === 2) for (const u of [0.08, 0.55]) patch(c2, f, u, u + 0.34, 0.45, 0.85, GLASS);
+      else if (i === 1) patch(c2, f, 0.08, 0.92, 0.45, 0.88, GLASS);
+    });
+    box(ctx, pr.x, pr.y, pr.a, -hx * 0.4, -hx * 0.1, -hy * 0.3, hy * 0.3, 21, 23, tone(col, 0.9), tone(col, 0.8));   // 해치
+    const sp = at(-hx - 1.5, 0, 9);                                                                                  // 뒤에 단 예비 바퀴
+    ctx.fillStyle = '#121416'; ctx.beginPath(); ctx.ellipse(sp[0], sp[1], 4, 5, 0, 0, 6.283); ctx.fill();
+  }
+  /** 박스 트럭 — 낮은 운전석과 높은 짐칸 */
+  function truck(ctx, pr) {
+    const hx = pr.w / 2, hy = pr.h / 2, col = pr.col;
+    ctx.fillStyle = 'rgba(0,0,0,.45)';
+    shadowRect(ctx, pr, hx + 2, hy + 2);
+    wheels(ctx, pr, [-hx * 0.62, -hx * 0.38, hx * 0.68], hy * 0.9, 5);
+    box(ctx, pr.x, pr.y, pr.a, hx * 0.42, hx, -hy * 0.9, hy * 0.9, 4, 22, '#c9c4b8', '#b3ad9f', (c2, f, i) => {
+      if (i === 1) { patch(c2, f, 0.08, 0.92, 0.5, 0.9, GLASS); patch(c2, f, 0.06, 0.2, 0.12, 0.26, '#d8d2b8'); patch(c2, f, 0.8, 0.94, 0.12, 0.26, '#d8d2b8'); }
+      else if (i === 0 || i === 2) patch(c2, f, 0.35, 0.9, 0.52, 0.88, GLASS);
+    });
+    box(ctx, pr.x, pr.y, pr.a, -hx, hx * 0.38, -hy, hy, 4, 32, tone('#d9d6cf', 1.02), '#cfcbc2', (c2, f, i) => {
+      patch(c2, f, 0, 1, 0.42, 0.62, tone(col, 1));                                     // 회사 띠
+      if (i === 3) { patch(c2, f, 0.49, 0.51, 0.05, 0.95, 'rgba(0,0,0,.35)'); for (let v = 0.2; v < 0.9; v += 0.2) patch(c2, f, 0, 1, v, v + 0.012, 'rgba(0,0,0,.18)'); }
+    });
+  }
+
+  /** 화차 — 녹슨 유개차. 아래에 대차 둘, 옆면에 미닫이 문 */
+  function wagon(ctx, pr) {
+    const hx = pr.w / 2, hy = pr.h / 2, col = pr.col;
+    ctx.fillStyle = 'rgba(0,0,0,.45)';
+    shadowRect(ctx, pr, hx + 2, hy + 2);
+    box(ctx, pr.x, pr.y, pr.a, -hx * 0.9, -hx * 0.55, -hy * 0.8, hy * 0.8, 0, 6, '#1a1c1e', '#141618');
+    box(ctx, pr.x, pr.y, pr.a, hx * 0.55, hx * 0.9, -hy * 0.8, hy * 0.8, 0, 6, '#1a1c1e', '#141618');
+    box(ctx, pr.x, pr.y, pr.a, -hx, hx, -hy, hy, 6, 34, tone(col, 1.06), col, (c2, f, i) => {
+      const n = i === 0 || i === 2 ? 18 : 6;
+      for (let k = 1; k < n; k++) patch(c2, f, k / n - 0.006, k / n + 0.006, 0.04, 0.96, 'rgba(0,0,0,.22)');
+      if (i === 0 || i === 2) { patch(c2, f, 0.38, 0.62, 0.06, 0.92, tone(col, 0.82)); patch(c2, f, 0.495, 0.505, 0.06, 0.92, 'rgba(0,0,0,.5)'); }
+      patch(c2, f, 0, 1, 0.94, 1, 'rgba(255,255,255,.1)');
+    });
+  }
+
   function prop(ctx, pr) {
     if (pr.kind === 'car') car(ctx, pr);
+    else if (pr.kind === 'wagon') wagon(ctx, pr);
+    else if (pr.kind === 'humvee') humvee(ctx, pr);
+    else if (pr.kind === 'truck') truck(ctx, pr);
     else if (pr.kind === 'bus') bus(ctx, pr);
     else if (pr.kind === 'tuktuk') tuktuk(ctx, pr);
     else container(ctx, pr);
@@ -529,6 +590,16 @@ const MODELS = (() => {
       ctx.beginPath(); ctx.ellipse(x, cy, 16, 13.5, 0, 0, 6.283); ctx.fill();
       ctx.fillStyle = 'rgba(255,255,255,.18)';
       for (let k = 0; k < 4; k++) { ctx.beginPath(); ctx.moveTo(x, cy - 2); ctx.ellipse(x, cy, 16, 13.5, 0, k * 1.571, k * 1.571 + 0.55); ctx.fill(); }
+    } else if (d.kind === 'bin') {
+      // 골목의 파란 쓰레기통 둘 (트레일러의 벽돌 골목)
+      const a = d.wall === 'n' ? 0 : d.wall === 'w' || d.wall === 'e' ? Math.PI / 2 : 0;
+      const ox = d.wall === 'w' ? -5 : d.wall === 'e' ? 5 : 0, oy = d.wall === 'n' ? -5 : 0;
+      ctx.fillStyle = 'rgba(0,0,0,.4)'; ctx.beginPath(); ctx.ellipse(x + ox + 2, (y + oy + 3) * TL, 15, 8, 0, 0, 6.283); ctx.fill();
+      for (const k of [-1, 1]) {
+        const c = Math.cos(a), s = Math.sin(a), bx = x + ox + k * 7.5 * c, by = y + oy + k * 7.5 * s;
+        box(ctx, bx, by, a, -6, 6, -5.5, 5.5, 0, 15, '#2e5f8a', '#2a5478', (c2, f, i) => patch(c2, f, 0, 1, 0.85, 1, 'rgba(255,255,255,.12)'));
+        box(ctx, bx, by, a, -6.5, 6.5, -6, 6, 15, 17, '#1f4466', '#1b3b58');
+      }
     } else if (d.kind === 'shrine') {
       ctx.strokeStyle = '#6b5a3a'; ctx.lineWidth = 2.4;
       ctx.beginPath(); ctx.moveTo(x, y * TL); ctx.lineTo(x, y * TL - 14 * UP); ctx.stroke();
@@ -538,7 +609,7 @@ const MODELS = (() => {
       ctx.beginPath(); ctx.moveTo(a[0], a[1] + 3); ctx.lineTo(b[0], b[1]); ctx.lineTo(c[0], c[1] + 3); ctx.closePath(); ctx.fill();
     }
   }
-  const STANDING = { vending: 1, parasol: 1, cart: 1, shrine: 1 };
+  const STANDING = { vending: 1, parasol: 1, cart: 1, shrine: 1, bin: 1 };
 
   /** 머리 높이 (세계 px) — 어둠 속 눈이 이 높이에 뜬다 */
   function headZ(z) {

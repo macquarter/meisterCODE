@@ -28,6 +28,7 @@ const I18N = (() => {
     '잠김': 'Locked',
     '클리어': 'Cleared',
     '서울': 'Seoul', '도쿄': 'Tokyo', '방콕': 'Bangkok', '싱가포르': 'Singapore', '싱가포르강': 'Singapore River',
+    '대피 검문소': 'Evacuation Checkpoint', '화물 철로': 'Freight Yard', '주유소': 'Gas Station',
     '호커 센터': 'Hawker Centre', '수직 정원': 'Vertical Garden', '항만': 'Container Port',
     '항만 · 수직 정원 · 호커 센터 · 싱가포르강': 'Container Port · Vertical Garden · Hawker Centre · Singapore River',
     '한강': 'Han River', '스미다강': 'Sumida River', '짜오프라야강': 'Chao Phraya',

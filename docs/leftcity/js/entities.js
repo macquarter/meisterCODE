@@ -342,7 +342,7 @@ class Zombie {
     g.spawnBlood(this.x, this.y, ang, this.type === 'brute' ? 10 : 6);
     if (this.hp <= 0 && !this.dead) {
       this.dead = true;
-      g.corpses.push({ x: this.x, y: this.y, a: ang, type: this.type, age: 0 });   // 맞은 방향으로 쓰러진다
+      g.corpses.push({ x: this.x, y: this.y, a: ang, type: this.type, age: 0, hazmat: !!(this.look && this.look.hazmat) });   // 맞은 방향으로 쓰러진다
       g.spawnBlood(this.x, this.y, ang, 16);
       g.onKill(this);
       if (this.t.bloat) g.bloaterBurst(this);

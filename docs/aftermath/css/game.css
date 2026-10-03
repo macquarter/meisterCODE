@@ -505,3 +505,10 @@ body.ts-large #touch{--ts:1.14}
 }
 /* 아주 낮은 가로 화면에서는 '크게' 를 조금만 키운다 — 스틱이 미니맵에 닿지 않게 */
 @media (orientation:landscape) and (max-height:360px){ body.ts-large #touch{--ts:1.04} }
+
+/* ── 떠 있는 스틱 — 엄지가 닿은 자리에 생긴다 ── */
+#touch .pad.floating{transform-origin:center !important;opacity:.7;transition:none}
+.pad--aim{opacity:.3}
+.pad--aim::after{content:"조준";position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+  font-size:10px;letter-spacing:.14em;color:rgba(255,255,255,.55);pointer-events:none}
+.pad--aim.floating::after{content:none}

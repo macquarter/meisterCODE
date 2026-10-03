@@ -226,16 +226,18 @@
           </div>
           <p class="set__note">밤의 어둠 농도. 화면이 너무 어둡거나 밝은 곳에서 하면 조절하세요.</p>
 
-          <div class="set__row set__row--stack">
+          <div class="set__row set__row--stack touch-only">
             <div class="set__label">터치 조준</div>
             <div class="seg" id="setAim">
-              <button type="button" data-set="aim" data-val="turn">회전 스틱</button>
-              <button type="button" data-set="aim" data-val="drag">화면 드래그</button>
-              <button type="button" data-set="aim" data-val="stick">방향 스틱</button>
+              <button type="button" data-set="aim" data-val="auto">자동 조준</button>
+              <button type="button" data-set="aim" data-val="stick">조준 스틱</button>
+              <button type="button" data-set="aim" data-val="turn">회전(원작)</button>
+              <button type="button" data-set="aim" data-val="drag">드래그</button>
             </div>
           </div>
-          <p class="set__note">회전 스틱은 원작의 방식 — 오른쪽 스틱을 좌우로 민 만큼 손전등이 돈다.
-            화면 드래그는 오른쪽 화면 어디든 좌우로 끌어 돌린다.</p>
+          <p class="set__note touch-only"><b>자동 조준</b>(기본) — 손전등이 가까운 적을, 없으면 걷는 쪽을 저절로 비춘다. 오른쪽 화면을 끌면 그 방향을 곧바로 비추고, 톡 치면 가장 가까운 적으로 돌린다.
+            <b>조준 스틱</b>은 민 방향을 바로 비추는 트윈 스틱. <b>회전</b>은 원작처럼 좌우로 민 만큼 돈다.
+            어느 방식이든 왼쪽 화면 아무 데나 누르면 그 자리에 이동 스틱이 생긴다.</p>
 
           <div class="set__row set__row--stack">
             <div class="set__label">화질</div>
@@ -251,6 +253,15 @@
             <div class="set__label">FPS 표시</div>
             <button type="button" class="tog" data-set="fps" aria-pressed="false"><i></i></button>
           </div>
+
+          <div class="set__row set__row--stack desk-only">
+            <div class="set__label">손전등 방향</div>
+            <div class="seg" id="setDeskAim">
+              <button type="button" data-set="deskAim" data-val="mouse">마우스</button>
+              <button type="button" data-set="deskAim" data-val="auto">자동 조준</button>
+            </div>
+          </div>
+          <p class="set__note desk-only">자동 조준은 손전등이 가까운 적, 없으면 걷는 쪽을 저절로 비춘다 — 키보드만으로도 할 수 있다.</p>
 
           <div class="set__row set__row--stack touch-only">
             <div class="set__label">터치 버튼 크기</div>
@@ -331,6 +342,7 @@
         <div class="screen__side screen__actions">
           <button class="btn btn--primary" data-act="next">계속</button>
           <button class="btn" data-act="restart">재시도</button>
+          <button class="btn hidden" data-act="retryeasy">쉬운 난이도로 다시</button>
           <button class="btn btn--ghost" data-act="quit">타이틀로</button>
         </div>
       </div>

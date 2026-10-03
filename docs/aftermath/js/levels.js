@@ -64,24 +64,24 @@ const LEVELS = [
     goals: ['90초 생존', '개방된 차단문으로 이동'],
     seed: 5631, weepers: 1, blocks: 8, city: 'tokyo', landmarks: ['scramble'], goal: 'scramble',
     objective: { type: 'survive', time: 90 },
-    spawn: { initial: 10, rate: 0.75, max: 30 },
+    spawn: { initial: 9, rate: 0.55, max: 24 },
     mix: { walker: 0.4, runner: 0.33, brute: 0.05, crawler: 0.14, spitter: 0.08, bloater: 0.08 },
     own: ['pistol', 'smg', 'shotgun', 'rifle'], drops: [],
     startAmmo: { smg: 130, shell: 14, rifle: 10 }, startNades: 3,
-    supplies: { ammo: 5, shells: 4, rounds: 2, medkit: 3, battery: 3, nade: 3 }
+    supplies: { ammo: 8, shells: 4, rounds: 2, medkit: 3, battery: 3, nade: 3 }
   },
   {
     name: '거대한 것',
     brief: '도쿄 타워 공원. 무전에서 마지막으로 들린 단어는 "크다"였다. ' +
            '탄창 하나로는 멈추지 않는 개체가 이 구역을 돌아다닌다.',
-    goals: ['감염체 40기 소탕', '집결지로 이동'],
-    seed: 6742, weepers: 2, blocks: 9, city: 'tokyo', landmarks: ['tokyotower', 'scramble'],
-    objective: { type: 'purge', count: 40 },
-    spawn: { initial: 14, rate: 0.62, max: 28 },
+    goals: ['감염체 30기 소탕', '집결지로 이동'],
+    seed: 6742, weepers: 1, blocks: 9, city: 'tokyo', landmarks: ['tokyotower', 'scramble'],
+    objective: { type: 'purge', count: 30 },
+    spawn: { initial: 13, rate: 0.52, max: 22 },
     mix: { walker: 0.35, runner: 0.3, brute: 0.13, crawler: 0.12, spitter: 0.1, bloater: 0.08 },
     own: ['pistol', 'smg', 'shotgun', 'rifle'], drops: [],
     startAmmo: { smg: 140, shell: 16, rifle: 15 }, startNades: 4,
-    supplies: { ammo: 5, shells: 4, rounds: 2, medkit: 3, battery: 3, nade: 3 }
+    supplies: { ammo: 8, shells: 4, rounds: 2, medkit: 4, battery: 3, nade: 3 }
   },
   {
     name: '정전',
@@ -90,11 +90,11 @@ const LEVELS = [
     goals: ['예비 배터리 5개 회수', '집결지로 이동'],
     seed: 7854, weepers: 2, blocks: 9, city: 'bangkok', landmarks: ['nightmarket', 'democracy'],
     objective: { type: 'collect', count: 5 },
-    spawn: { initial: 14, rate: 0.7, max: 32 },
+    spawn: { initial: 12, rate: 0.6, max: 28 },
     mix: { walker: 0.3, runner: 0.33, brute: 0.13, crawler: 0.12, spitter: 0.12, bloater: 0.1 },
     own: ['pistol', 'smg', 'shotgun', 'rifle'], drops: [],
     startAmmo: { smg: 120, shell: 12, rifle: 10 }, startNades: 4,
-    supplies: { ammo: 5, shells: 3, rounds: 2, medkit: 3, battery: 2, nade: 3 },
+    supplies: { ammo: 6, shells: 3, rounds: 2, medkit: 3, battery: 2, nade: 3 },
     batteryDrain: 1.9
   },
   {
@@ -103,12 +103,13 @@ const LEVELS = [
            '그런데 다리 앞에 무언가가 서 있다. 저것은 걷지 않는다 — 기다리고 있다.',
     goals: ['그것을 쓰러뜨리고 다리를 건너라'],
     seed: 8967, weepers: 1, blocks: 10, city: 'bangkok', river: true, landmarks: ['watarun', 'democracy'],
+    approach: 52,                 // 다리 앞 — 넓어진 지도에서 출구 끝까지 걷게 하지 않는다 (98칸 → 약 52칸)
     objective: { type: 'boss' },
-    spawn: { initial: 18, rate: 0.95, max: 40 },
+    spawn: { initial: 12, rate: 0.62, max: 26 },
     mix: { walker: 0.26, runner: 0.32, brute: 0.18, crawler: 0.1, spitter: 0.14, bloater: 0.08 },
     own: ['pistol', 'smg', 'shotgun', 'rifle'], drops: [],
     startAmmo: { smg: 150, shell: 18, rifle: 20 }, startNades: 5,
-    supplies: { ammo: 6, shells: 5, rounds: 3, medkit: 3, battery: 4, nade: 4 }
+    supplies: { ammo: 9, shells: 5, rounds: 3, medkit: 4, battery: 4, nade: 4 }
   }
 ];
 

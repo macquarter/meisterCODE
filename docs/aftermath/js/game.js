@@ -234,61 +234,133 @@ function pollPad(dt) {
 }
 addEventListener('gamepaddisconnected', () => { PAD.connected = false; });
 
-/* 터치: 좌 = 이동 스틱, 우 = 회전(또는 조준) 스틱 */
+/* 터치: 좌 = 이동 스틱, 우 = 조준(또는 회전) 스틱.
+   모바일 슈터의 표준을 따른다 — 스틱은 '떠 있다': 엄지가 닿는 자리에 생기므로 정해진 원을 찾을 필요가 없다.
+   반응 곡선은 가운데가 섬세하고 끝에서 최대(데드존 12%). */
 function bindPad(el, onVec, axisX) {
   const knob = el.querySelector('i');
   let id = null, ox = 0, oy = 0;
   const R = 46;
-  const start = e => {
-    const t = e.changedTouches[0];
-    id = t.identifier;
-    const b = el.getBoundingClientRect();
-    ox = b.left + b.width / 2; oy = b.top + b.height / 2;
-    move(e); SFX.resume();
+  const track = t => {
+    let dx = t.clientX - ox, dy = t.clientY - oy;
+    const d = Math.hypot(dx, dy);
+    if (d > R) { dx = dx / d * R; dy = dy / d * R; }
+    if (axisX && axisX()) { dx = clamp(t.clientX - ox, -R, R); dy = 0; }
+    knob.style.transform = `translate(${dx}px,${dy}px)`;
+    const m = Math.min(1, d / R), k = m < 0.12 ? 0 : Math.pow((m - 0.12) / 0.88, 1.25);
+    const u = d > 0.001 ? k / m : 0;
+    onVec(dx / R * u, dy / R * u, k, false);
   };
-  const move = e => {
-    for (const t of e.changedTouches) {
-      if (t.identifier !== id) continue;
-      let dx = t.clientX - ox, dy = t.clientY - oy;
-      const d = Math.hypot(dx, dy);
-      if (d > R) { dx = dx / d * R; dy = dy / d * R; }
-      if (axisX && axisX()) { dx = clamp(t.clientX - ox, -R, R); dy = 0; }
-      knob.style.transform = `translate(${dx}px,${dy}px)`;
-      onVec(dx / R, dy / R, Math.min(1, d / R));
+  /** float = 엄지가 닿은 자리로 스틱을 옮긴다 */
+  const begin = (t, float) => {
+    id = t.identifier;
+    if (float) {
+      el.classList.add('floating');
+      el.style.left = (t.clientX - el.offsetWidth / 2) + 'px';
+      el.style.top = (t.clientY - el.offsetHeight / 2) + 'px';
+      el.style.right = 'auto'; el.style.bottom = 'auto';
+      ox = t.clientX; oy = t.clientY;
+    } else {
+      const b = el.getBoundingClientRect();
+      ox = b.left + b.width / 2; oy = b.top + b.height / 2;
     }
+    track(t); SFX.resume();
   };
   const end = e => {
     for (const t of e.changedTouches) {
       if (t.identifier !== id) continue;
       id = null; knob.style.transform = '';
-      onVec(0, 0, 0);
+      el.classList.remove('floating');
+      el.style.left = el.style.top = el.style.right = el.style.bottom = '';
+      onVec(0, 0, 0, true);
     }
   };
-  el.addEventListener('touchstart', e => { e.preventDefault(); start(e); }, { passive: false });
-  el.addEventListener('touchmove',  e => { e.preventDefault(); move(e); },  { passive: false });
-  el.addEventListener('touchend',   end);
-  el.addEventListener('touchcancel', end);
-}
-bindPad($('padMove'), (x, y) => { input.moveX = x; input.moveY = y; });
-/* 오른쪽 스틱은 설정에 따라 셋 중 하나로 동작한다.
-   turn  — 원작: 좌우로 민 만큼 손전등이 그 방향으로 돈다 (회전 속도 조절)
-   stick — 민 방향을 곧바로 바라본다 */
-const TURN_MAX = 3.4;   // rad/s
-bindPad($('padTurn'), (x, y, m) => {
-  if (SETTINGS.aim === 'turn') {
-    const k = Math.max(0, Math.abs(x) - 0.12) / 0.88;
-    input.turnRate = Math.sign(x) * Math.pow(k, 1.35) * TURN_MAX;
-    input.aimTouch = null;
-  } else {
-    input.turnRate = 0;
-    input.aimTouch = m > 0.35 ? Math.atan2(y / TILT, x) : null;     // 화면 방향 → 세계 방향
+  el.addEventListener('touchstart', e => { e.preventDefault(); if (id === null) begin(e.changedTouches[0], false); }, { passive: false });
+  // 스틱 위에서 시작한 손가락은 스틱으로, 화면에서 시작한(떠 있는) 손가락은 창으로 이벤트가 온다 — 둘 다 듣는다(두 번 와도 같은 값)
+  const mv = e => { for (const t of e.changedTouches) if (t.identifier === id) track(t); };
+  for (const tg of [el, window]) {
+    tg.addEventListener('touchmove', mv, { passive: true });
+    tg.addEventListener('touchend', end);
+    tg.addEventListener('touchcancel', end);
   }
+  return { begin, active: () => id !== null };
+}
+const movePad = bindPad($('padMove'), (x, y) => { input.moveX = x; input.moveY = y; });
+/* 오른쪽 스틱은 설정에 따라 넷 중 하나로 동작한다.
+   auto  — 자동 조준(기본): 손대지 않으면 손전등이 가까운 적, 없으면 걷는 쪽을 비춘다(Archero · Survivor.io).
+           끌면 그 방향을 곧바로 비추고, 짧게 톡 치면 가장 가까운 적으로 홱 돌린다(Brawl Stars 의 퀵 파이어)
+   stick — 민 방향을 곧바로 바라본다(트윈 스틱)
+   turn  — 원작: 좌우로 민 만큼 손전등이 그 방향으로 돈다 (회전 속도 조절)
+   drag  — 원작 1.1: 오른쪽 화면을 좌우로 끌어 돈다 */
+const TURN_MAX = 3.4;   // rad/s
+let aimTap = null;
+const aimPad = bindPad($('padTurn'), (x, y, m, released) => {
+  if (SETTINGS.aim === 'turn') {
+    input.turnRate = x * TURN_MAX;
+    input.aimTouch = null;
+    return;
+  }
+  input.turnRate = 0;
+  if (released) {
+    // 톡 치고 뗐다 — 가장 가까운 적을 비춘다
+    if (aimTap && performance.now() - aimTap.t < 240 && !aimTap.moved) {
+      const z = autoAimTarget(G, true);
+      if (z) { G.player.angle = Math.atan2(z.y - G.player.y, z.x - G.player.x); input.manualHoldT = 1.4; }
+    } else if (SETTINGS.aim === 'auto') input.manualHoldT = 0.9;   // 끌던 쪽을 잠깐 유지한 뒤 자동으로
+    input.aimTouch = null; aimTap = null;
+    return;
+  }
+  if (aimTap && m > 0.25) aimTap.moved = true;
+  input.aimTouch = m > 0.25 ? Math.atan2(y / TILT, x) : input.aimTouch;     // 화면 방향 → 세계 방향
 }, () => SETTINGS.aim === 'turn');
+
+/* 화면 아무 데나 — 왼쪽 절반은 이동 스틱, 오른쪽 절반은 조준 스틱이 그 자리에 생긴다 */
+view.addEventListener('touchstart', e => {
+  if (G.state !== 'play') return;
+  for (const t of e.changedTouches) {
+    if (t.clientX < innerWidth * 0.5) { if (!movePad.active()) movePad.begin(t, true); }
+    else if ((SETTINGS.aim === 'auto' || SETTINGS.aim === 'stick') && !aimPad.active()) {
+      aimTap = { t: performance.now(), moved: false };
+      aimPad.begin(t, true);
+    }
+  }
+  e.preventDefault(); SFX.resume();
+}, { passive: false });
+
+/** 자동 조준의 표적 — 불빛을 받으면 깨는 '우는 것'은 일부러 비추지 않는다.
+    가까운 순, 지금 보는 쪽이면 조금 더 우선. 벽 너머는 고르지 않는다 */
+function autoAimTarget(g, wide) {
+  const p = g.player, w = g.world, R = wide ? 460 : 380;
+  let best = null, bs = Infinity;
+  for (const z of g.zombies) {
+    if (z.dead || (z.t.weeper && !z.rage)) continue;
+    const dx = z.x - p.x, dy = z.y - p.y, d = Math.hypot(dx, dy);
+    if (d > R || (!z.aggro && d > 220)) continue;
+    const da = Math.abs(Math.atan2(Math.sin(Math.atan2(dy, dx) - p.angle), Math.cos(Math.atan2(dy, dx) - p.angle)));
+    const sc = d + da * 70 - (z.aggro ? 60 : 0);
+    if (sc < bs && w.los(p.x, p.y, z.x, z.y)) { bs = sc; best = z; }
+  }
+  return best;
+}
+/** 자동 조준 — 표적이 있으면 그쪽으로, 없으면 걷는 쪽으로 손전등을 돌린다 (부드럽게, 초당 최대 9 rad) */
+function autoFace(g, p, mx, my, dt) {
+  g.aimT = (g.aimT || 0) - dt;
+  if (g.aimT <= 0) { g.aimT = 0.1; g.aimTarget = autoAimTarget(g, false); }
+  const z = g.aimTarget && !g.aimTarget.dead ? g.aimTarget : null;
+  let want = null, rate = 9;
+  if (z) want = Math.atan2(z.y - p.y, z.x - p.x);
+  else if (Math.hypot(mx, my) > 0.2) { want = Math.atan2(my, mx); rate = 6; }
+  if (want === null) return;
+  const d = Math.atan2(Math.sin(want - p.angle), Math.cos(want - p.angle));
+  p.angle += clamp(d, -rate * dt, rate * dt);
+}
+const autoAimOn = () => isTouch ? SETTINGS.aim === 'auto' : SETTINGS.deskAim === 'auto';
 
 /** 원작에는 사격 버튼이 없다 — 자동 사격이 켜져 있으면 숨긴다. 드래그 조작이면 오른쪽 스틱도 숨긴다 */
 function applyTouchLayout() {
   $('btnFire').classList.toggle('hidden', SETTINGS.autofire);
   $('padTurn').classList.toggle('hidden', SETTINGS.aim === 'drag');
+  $('padTurn').classList.toggle('pad--aim', SETTINGS.aim === 'auto');
   $('padTurn').classList.toggle('pad--axis', SETTINGS.aim === 'turn');
   document.body.classList.toggle('nofire', SETTINGS.autofire);
 }
@@ -356,7 +428,8 @@ const Hints = (() => {
 
   // [키 표시, 설명]. 데스크톱과 터치가 다르면 그 자리에서 고른다.
   const TEXT = {
-    move:     () => !isTouch ? [['up', 'left', 'down', 'right'].map(a => KEYBIND.labelOf(a)).join(''), '이동 · 마우스로 손전등을 비춘다']
+    move:     () => !isTouch ? SETTINGS.deskAim === 'auto' ? [['up', 'left', 'down', 'right'].map(a => KEYBIND.labelOf(a)).join(''), '이동 · 손전등은 가까운 적과 걷는 쪽을 저절로 비춘다'] : [['up', 'left', 'down', 'right'].map(a => KEYBIND.labelOf(a)).join(''), '이동 · 마우스로 손전등을 비춘다']
+      : SETTINGS.aim === 'auto' ? ['왼쪽 화면', '아무 데나 눌러 끌면 걷는다 · 손전등은 가까운 적을 저절로 비춘다 · 오른쪽을 끌면 직접 비춘다']
       : ['왼쪽 스틱', SETTINGS.aim === 'turn' ? '이동 · 오른쪽 스틱을 좌우로 밀어 손전등을 돌린다'
         : SETTINGS.aim === 'drag' ? '이동 · 오른쪽 화면을 좌우로 끌어 손전등을 돌린다'
         : '이동 · 오른쪽 스틱으로 손전등을 비춘다'],
@@ -462,6 +535,7 @@ function worldTransform(c, cam, s = DPR) { c.setTransform(s, 0, 0, s * TILT, -ca
 /** 입체 모형용 — 세로를 줄이지 않은 화면 공간(cam 만큼만 옮김). 모형이 y·sin60 − z·cos60 를 스스로 계산한다 */
 function screenTransform(c, cam) { c.setTransform(DPR, 0, 0, DPR, -cam.x * DPR, -cam.y * DPR * TILT); }
 
+const SPITTER_CAP = 2;
 const CITY_NAME = { seoul: '서울', tokyo: '도쿄', bangkok: '방콕' };
 /** 처음 손전등이 벽이 아니라 갈 길을 비추도록 — 출구 쪽으로 몇 칸 따라간 곳과 트인 거리를 함께 본다 */
 function openingAngle(w, p) {
@@ -486,7 +560,7 @@ function openingAngle(w, p) {
 }
 
 /** 레벨 데이터 → 도시 생성 옵션 */
-const cityOpts = L => ({ theme: L.city, river: !!L.river, landmarks: L.landmarks || [], goal: L.goal });
+const cityOpts = L => ({ theme: L.city, river: !!L.river, landmarks: L.landmarks || [], goal: L.goal, approach: L.approach });
 
 /* 무기 실루엣 (무기 고르기 화면) */
 const ARM_ICON = {
@@ -497,6 +571,7 @@ const ARM_ICON = {
 };
 
 const G = {
+  deaths: {},                 // 챕터별 이번 세션 사망 수 — 쉬운 난이도 권유에 쓴다
   state: 'title',
   world: null, player: null, level: null, levelIndex: -1, survival: false,
   zombies: [], bullets: [], grenades: [], pickups: [], particles: [],
@@ -556,11 +631,12 @@ const G = {
     const w = this.world;
     this.player = new Player(w.spawn.x, w.spawn.y, L);
     this.player.angle = openingAngle(w, this.player);
+    this.lastHurt = null;
     this.hitDirs = [];
     this.zombies = []; this.bullets = []; this.grenades = []; this.pickups = [];
     this.spits = []; this.acids = [];
     this.particles = []; this.decals = []; this.corpses = []; this.flashes = [];
-    this.time = 0; this.shake = 0; this.kills = 0; this.score = 0;
+    this.time = 0; this.shake = 0; this.kills = 0; this.score = 0; this.spitGapT = 0;
     this.shots = 0; this.hits = 0; this.hitMark = 0;
     input.sprintLatch = false; input.idleT = 0; input.turnRate = 0; input.dragTurn = 0;
     Hints.begin(this);
@@ -674,12 +750,16 @@ const G = {
   /* ── 좀비 소환 ── */
   pickType() {
     const mix = this.level.mix;
+    // 특수 감염체 상한 (L4D 처럼) — 뱉는 것은 동시에 둘까지. 넘으면 그 자리는 다른 종류로
+    let spitters = 0;
+    for (const z of this.zombies) if (!z.dead && z.t.spit) spitters++;
+    const capped = k => k === 'spitter' && spitters >= SPITTER_CAP;
     let total = 0;
-    for (const k in mix) if (ZTYPES[k] && !ZTYPES[k].special) total += Math.max(0, mix[k]);
+    for (const k in mix) if (ZTYPES[k] && !ZTYPES[k].special && !capped(k)) total += Math.max(0, mix[k]);
     if (total <= 0) return 'walker';
     let r = Math.random() * total, acc = 0;
     for (const k in mix) {
-      if (!ZTYPES[k] || ZTYPES[k].special) continue;
+      if (!ZTYPES[k] || ZTYPES[k].special || capped(k)) continue;
       acc += Math.max(0, mix[k]);
       if (r <= acc) return k;
     }
@@ -1043,8 +1123,9 @@ const G = {
   },
 
   /** 어디서 맞았는가 — 화면 가장자리 쪽 붉은 호로 0.9초 보여 준다 (같은 쪽이면 갱신) */
-  hitFrom(x, y) {
+  hitFrom(x, y, kind) {
     buzz(28);
+    if (kind) this.lastHurt = kind;
     const p = this.player, a = Math.atan2(y - p.y, x - p.x);
     if (!this.hitDirs) this.hitDirs = [];
     for (const h of this.hitDirs) if (Math.abs(Math.atan2(Math.sin(h.a - a), Math.cos(h.a - a))) < 0.45) { h.a = a; h.t = 0.9; return; }
@@ -1146,8 +1227,10 @@ const G = {
       p.angle += input.turnRate * dt + input.dragTurn;
       input.dragTurn = 0;
     }
+    input.manualHoldT = (input.manualHoldT || 0) - dt;
     if (input.aimTouch !== null) p.angle = input.aimTouch;
     else if (PAD.aim !== null) p.angle = PAD.aim;
+    else if (autoAimOn() && !p.dead) { if (input.manualHoldT <= 0) autoFace(this, p, mx, my, dt); }
     else if (input.hasMouse) p.angle = Math.atan2(cam.y + input.my / TILT - p.y, cam.x + input.mx - p.x);   // 화면 → 세계 (기울기 되돌림)
 
     p.update(dt, this);
@@ -1194,11 +1277,12 @@ const G = {
       a.t -= dt;
       if (a.t <= 0) { this.acids.splice(i, 1); continue; }
       if (!p.dead && Math.hypot(p.x - a.x, p.y - a.y) < a.r)
-        acidDps = Math.max(acidDps, 13 * Math.min(1, a.t / a.max + 0.3));   // 식을수록 약해진다
+        acidDps = Math.max(acidDps, 10 * Math.min(1, a.t / a.max + 0.3));   // 식을수록 약해진다
     }
     // L4D 스피터처럼 서 있을수록 세진다 — 스쳐 지나가면 가볍고, 버티면 아프다
     p.inAcid = acidDps > 0 ? (p.inAcid || 0) + dt : Math.max(0, (p.inAcid || 0) - dt * 2);
     if (acidDps > 0) {
+      this.lastHurt = 'acid';
       p.hurt(acidDps * (0.3 + 0.7 * Math.min(1, p.inAcid / 1.6)) * SETTINGS.mod.dmg * dt);
       if (this.hurtSfxT <= 0) { this.hurtSfxT = 0.75; SFX.hurt(); }
     }
@@ -1459,12 +1543,20 @@ function render() {
   worldTransform(ctx, cam);
 
   for (const pk of g.pickups) drawPickup(pk, g.time, cam);
+  // 자동 조준의 표적 — 발밑에 옅은 노란 괄호. 무엇을 비추고 있는지 알 수 있게
+  const at = g.aimTarget;
+  if (at && !at.dead && autoAimOn() && at.lit > 0.2) {
+    const r = at.r + 7, k = 0.35 + Math.sin(g.time * 8) * 0.1;
+    ctx.strokeStyle = `rgba(240,180,41,${k})`; ctx.lineWidth = 2;
+    for (let i = 0; i < 4; i++) { const a = i * Math.PI / 2 + Math.PI / 4; ctx.beginPath(); ctx.arc(at.x, at.y, r, a - 0.35, a + 0.35); ctx.stroke(); }
+  }
   for (const gr of g.grenades) drawGrenade(gr);
   // 그것의 돌진 예고선 — 선딜 동안만 보이고, 비키라는 신호다
   if (g.boss && !g.boss.dead && g.boss.chargePhase === 'wind') {
     const b = g.boss, len = w.ray(b.x, b.y, b.chargeDir, 820);
     ctx.save();
-    ctx.strokeStyle = `rgba(214,60,42,${0.3 + Math.sin(g.time * 22) * 0.16})`;
+    // 방향이 굳으면 깜빡임을 멈추고 진해진다 — '지금 비켜라'
+    ctx.strokeStyle = b.chargeLocked ? 'rgba(236,72,48,.62)' : `rgba(214,60,42,${0.26 + Math.sin(g.time * 22) * 0.12})`;
     ctx.lineWidth = b.r * 1.8;
     ctx.beginPath();
     ctx.moveTo(b.x, b.y);
@@ -1474,7 +1566,13 @@ function render() {
   }
 
   for (const sp of g.spits) {
-    const r = 4.5 + Math.sin(sp.phase) * 0.9, sy = sp.y - SPIT_LIFT;
+    // 떨어질 곳 — 좁혀 들어오는 초록 고리. 여기서 비키면 된다
+    const k = Math.min(1, sp.t / sp.dur);
+    ctx.strokeStyle = `rgba(150,220,70,${0.25 + k * 0.45})`; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(sp.tx, sp.ty, 18 + (1 - k) * 26, 0, 6.283); ctx.stroke();
+    ctx.fillStyle = `rgba(120,190,50,${0.08 + k * 0.12})`;
+    ctx.beginPath(); ctx.arc(sp.tx, sp.ty, 18, 0, 6.283); ctx.fill();
+    const r = 4.5 + Math.sin(sp.phase) * 0.9, sy = sp.y - SPIT_LIFT - sp.h * ZK;
     ctx.fillStyle = 'rgba(0,0,0,.3)';
     ctx.beginPath(); ctx.arc(sp.x, sp.y, r, 0, 6.283); ctx.fill();
     ctx.fillStyle = '#7fbf33';
@@ -2522,6 +2620,9 @@ function drawGlow(cam, g, p, w) {
     ctx.beginPath(); ctx.arc(a.x, a.y, a.r * 1.5, 0, 6.283); ctx.fill();
   }
   for (const sp of g.spits) {
+    // 떨어질 곳은 어둠 속에서도 보여야 피한다
+    ctx.strokeStyle = `rgba(150,230,70,${0.18 + Math.min(1, sp.t / sp.dur) * 0.3})`; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(sp.tx, sp.ty, 18 + (1 - Math.min(1, sp.t / sp.dur)) * 26, 0, 6.283); ctx.stroke();
     const gr = ctx.createRadialGradient(sp.x, sp.y, 0, sp.x, sp.y, 26);
     gr.addColorStop(0, 'rgba(150,230,70,.30)');
     gr.addColorStop(1, 'rgba(90,170,30,0)');
@@ -3094,7 +3195,14 @@ const UI = {
         : G.levelIndex + 1 >= LEVELS.length
           ? '다리를 건넜다. 뒤돌아보지 않았다.'
           : '숨을 고를 시간은 짧다.')
-      : '불빛이 꺼졌다.';
+      : '불빛이 꺼졌다. ' + (DEATH_TIP[G.lastHurt] || DEATH_TIP.crowd);
+
+    // 같은 챕터에서 두 번 넘게 쓰러지면 한 단계 쉬운 난이도로 다시 할 수 있게 권한다 (강요하지 않는다)
+    if (!won && !G.survival) G.deaths[G.levelIndex] = (G.deaths[G.levelIndex] || 0) + 1;
+    const easier = !won && !G.survival && (G.deaths[G.levelIndex] || 0) >= 2 && G.difficulty !== 'easy';
+    const eb = s.querySelector('[data-act="retryeasy"]');
+    eb.classList.toggle('hidden', !easier);
+    if (easier) eb.textContent = `${DIFFICULTY[G.difficulty === 'hard' ? 'normal' : 'easy'].name} 난이도로 다시`;
 
     const r = this.rate(won);
     const best = won && !G.survival ? G.saveGrade(G.levelIndex, r.value) : false;
@@ -3122,6 +3230,19 @@ const UI = {
     $('touch').classList.add('hidden');
     this.show('scrResult');
   }
+};
+
+/** 무엇에 쓰러졌는가에 따른 한 줄 요령 */
+const DEATH_TIP = {
+  spit:   '초록 고리가 보이면 옆으로 — 산은 서 있던 자리로 떨어진다.',
+  acid:   '초록 웅덩이는 오래 서 있을수록 아프다. 지나가되 멈추지 말 것.',
+  charge: '붉은 선이 진해지면 방향이 굳은 것 — 그때 옆으로 비켜라. 벽에 박으면 비틀거린다.',
+  behemoth: '그것에게 붙지 말 것. 거리를 두고 돌진을 벽으로 유도하라.',
+  brute:  '덩치는 붙기 전에 — 샷건이나 수류탄으로.',
+  runner: '달리는 것은 멀리서 끊어 쏴라. 붙으면 밀치기로 떼어 낸다.',
+  crawler: '기는 것은 웅크렸다 튄다 — 튀는 순간 옆으로.',
+  bloater: '부푼 것은 멀리서 쏴라.',
+  crowd:  '둘러싸이면 밀치기로 떼어 내고 트인 길로 빠져나가라. 막다른 골목은 피할 것.'
 };
 
 /* 버튼 배선 */
@@ -3164,6 +3285,10 @@ document.addEventListener('click', e => {
     case 'start':    G.start(G.pendingLevel); break;
     case 'resume':   G.togglePause(); break;
     case 'restart':  G.start(G.survival ? 'survival' : G.levelIndex); break;
+    case 'retryeasy':
+      SETTINGS.set('difficulty', G.difficulty === 'hard' ? 'normal' : 'easy');
+      G.deaths[G.levelIndex] = 0;
+      G.start(G.levelIndex); break;
     case 'quit':     G.state = 'title'; SFX.ambience(false); UI.enterMenu(); break;
     case 'next':
       if (G.levelIndex + 1 < LEVELS.length) UI.brief(G.levelIndex + 1);

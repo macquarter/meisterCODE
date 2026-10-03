@@ -24,7 +24,7 @@ const ZTYPES = {
             body: '#4b5548', head: '#6d7466' },
   runner: { hp: 38,  speed: 112, dmg: 12, r: 11, size: 10, hear: 480, score: 18,
             body: '#5a4740', head: '#7d6455' },
-  brute:  { hp: 300, speed: 41,  dmg: 36, r: 20, size: 19, hear: 300, score: 60,
+  brute:  { hp: 300, speed: 41,  dmg: 30, r: 20, size: 19, hear: 300, score: 60,
             body: '#3f4a52', head: '#5b6a72' },
   // 기어다니는 것 — 바닥에 붙어 웅크렸다 튀어나온다. 약하지만 작고 빠르다
   crawler: { hp: 30, speed: 124, dmg: 11, r: 9,  size: 8,  hear: 300, score: 16,
@@ -32,7 +32,7 @@ const ZTYPES = {
   // 뱉는 것 — 거리를 두고 산을 뱉는다. 물러서는 것만으로는 안전하지 않다
   spitter: { hp: 74, speed: 46, dmg: 9, r: 14, size: 13, hear: 540, score: 38,
              body: '#44513f', head: '#6d7f52',
-             spit: { range: 310, hold: 215, cool: 2.8, speed: 340, dmg: 15, pool: 4.5 } },
+             spit: { range: 310, hold: 215, cool: 3.1, speed: 250, dmg: 12, pool: 4.0 } },
   // 우는 것 — 길가에 웅크려 운다. 불빛을 오래 비추거나, 가까이 가거나, 뛰거나, 곁에서 쏘면 깨어나
   // 끝까지 쫓아온다 (L4D 의 마녀). 무리처럼 생기지 않고 판마다 정해진 자리에 놓인다
   weeper: { hp: 280, speed: 250, dmg: 46, r: 12, size: 11, hear: 0, score: 120,
@@ -41,10 +41,10 @@ const ZTYPES = {
   bloater: { hp: 44, speed: 44, dmg: 0, r: 17, size: 17, hear: 300, score: 30,
              body: '#5f6b46', head: '#7d8a5a', bloat: true },
   // 그것 — 마지막 다리를 막아선 개체. 한 마리뿐이고, 죽어야 길이 열린다
-  behemoth: { hp: 1500, speed: 40, dmg: 44, r: 24, size: 26, hear: 1600, score: 500,
+  behemoth: { hp: 1150, speed: 40, dmg: 44, r: 24, size: 26, hear: 1600, score: 500,
               body: '#2f3a42', head: '#4a5a64', boss: true,
-              charge: { wind: 0.85, dash: 1.15, cool: 4.2, mul: 3.4, min: 190, max: 700, dmg: 42 },
-              roar: { cool: 9, spawn: 3, kind: 'crawler' } }
+              charge: { wind: 1.0, dash: 1.15, cool: 4.2, mul: 3.4, min: 190, max: 700, dmg: 42 },
+              roar: { cool: 12, spawn: 2, kind: 'crawler' } }
 };
 
 /* ── 플레이어 ──────────────────────────────── */
@@ -447,9 +447,11 @@ class Zombie {
 
       if (this.chargePhase === 'wind') {
         this.chargeT -= dt;
-        this.face = Math.atan2(dy, dx);
-        this.chargeDir = this.face;
-        if (this.chargeT <= 0) { this.chargePhase = 'dash'; this.chargeT = ch.dash; SFX.charge(d); }
+        // 선딜 앞부분만 플레이어를 따라 돌고, 마지막 0.4초는 방향을 굳힌다 — 예고선을 보고 옆으로 비킬 수 있게.
+        // (끝까지 따라 돌면 예고선이 플레이어를 쫓아다녀 피할 방법이 없었다)
+        if (this.chargeT > 0.4) { this.face = Math.atan2(dy, dx); this.chargeDir = this.face; }
+        else this.chargeLocked = true;
+        if (this.chargeT <= 0) { this.chargePhase = 'dash'; this.chargeT = ch.dash; this.chargeLocked = false; SFX.charge(d); }
         this.phase += dt * 14;
         return;                                   // 선딜 동안은 제자리 — 피할 틈을 준다
       }
@@ -467,7 +469,7 @@ class Zombie {
         this.x += nx; this.y += ny;
         if (!p.dead && Math.hypot(p.x - this.x, p.y - this.y) < this.r + p.r + 4) {
           p.hurt(ch.dmg * SETTINGS.mod.dmg);
-          g.hitFrom(this.x, this.y);
+          g.hitFrom(this.x, this.y, 'charge');
           g.world.slide(p, Math.cos(this.chargeDir) * 54, Math.sin(this.chargeDir) * 54);
           g.shake = Math.min(24, g.shake + 16);
           SFX.hurt();
@@ -479,7 +481,7 @@ class Zombie {
       }
       this.chargeT -= dt;
       if (this.chargeT <= 0 && d > ch.min && d < ch.max && g.world.los(this.x, this.y, p.x, p.y)) {
-        this.chargePhase = 'wind'; this.chargeT = ch.wind;
+        this.chargePhase = 'wind'; this.chargeT = ch.wind; this.chargeLocked = false;
         SFX.growl(d);
       }
     }
@@ -488,10 +490,12 @@ class Zombie {
     const sp = this.t.spit;
     if (sp && this.aggro) {
       this.spitT -= dt;
-      if (d < sp.range && this.spitT <= 0 && g.world.los(this.x, this.y, p.x, p.y)) {
+      // 여럿이 한꺼번에 뱉지 않는다 — 모든 뱉는 것이 1.6초 간격을 나눠 쓴다(웅덩이가 겹겹이 깔리던 문제)
+      if (d < sp.range && this.spitT <= 0 && g.time >= (g.spitGapT || 0) && g.world.los(this.x, this.y, p.x, p.y)) {
         this.spitT = sp.cool * (0.85 + Math.random() * 0.3);
+        g.spitGapT = g.time + 1.6;
         const a = Math.atan2(dy, dx);
-        g.spits.push(new Spit(this.x + Math.cos(a) * 16, this.y + Math.sin(a) * 16, a, sp));
+        g.spits.push(new Spit(this.x + Math.cos(a) * 16, this.y + Math.sin(a) * 16, a, sp, p.x, p.y));
         this.face = a;
         SFX.spit(d);
       }
@@ -550,7 +554,7 @@ class Zombie {
       p.grabN = (p.grabN || 0) + (this.t.boss ? 0 : 1);
       // 여럿이 붙어도 피해는 덜 늘어난다 — 포위의 무서움은 피해보다 발이 묶이는 데서 온다
       p.hurt(this.t.dmg * SETTINGS.mod.dmg * dt / (1 + 0.3 * Math.max(0, (p.grabbed || 0) - 1)));
-      g.hitFrom(this.x, this.y);
+      g.hitFrom(this.x, this.y, this.type);
       g.shake = Math.min(10, g.shake + 14 * dt);
       const push = 46 * dt;
       g.world.slide(p, (p.x - this.x) / d * push, (p.y - this.y) / d * push);
@@ -649,20 +653,35 @@ class Grenade {
 
 /* ── 보급품 / 무기 / 목표물 ────────────────── */
 /** 뱉는 것의 산 덩이. 벽이나 플레이어에 닿으면 터져 웅덩이를 남긴다 */
+/** 뱉은 산 — L4D 의 스피터처럼 '그 자리'로 포물선을 그리며 떨어진다.
+    던질 때 서 있던 곳을 겨누므로 움직이면 피하고, 서 있으면 맞는다. 땅에는 떨어질 곳이 미리 표시된다.
+    (예전엔 플레이어보다 두 배 빠른 직선탄이라 뒤로 물러나도 피할 수 없었다 — 후반 사망 원인 1위) */
 class Spit {
-  constructor(x, y, ang, sp) {
-    this.x = x; this.y = y;
+  constructor(x, y, ang, sp, tx, ty) {
+    this.x = this.x0 = x; this.y = this.y0 = y;
+    const d0 = tx !== undefined ? Math.hypot(tx - x, ty - y) : sp.range;
+    const d = Math.min(sp.range, Math.max(60, d0));
+    this.tx = x + Math.cos(ang) * d; this.ty = y + Math.sin(ang) * d;
+    this.dur = d / sp.speed;
+    this.t = 0;
+    this.h = 0;                                   // 그리기용 높이 (세계 px)
     this.vx = Math.cos(ang) * sp.speed;
     this.vy = Math.sin(ang) * sp.speed;
     this.sp = sp;
-    this.life = sp.range / sp.speed + 0.25;
     this.phase = Math.random() * 6.28;
     this.dead = false;
   }
   burst(g) {
     if (this.dead) return;
     this.dead = true;
-    g.acids.push({ x: this.x, y: this.y, r: 44 + Math.random() * 10,
+    const p = g.player;
+    // 떨어진 자리에 아직 서 있었다면 직격
+    if (!p.dead && Math.hypot(p.x - this.x, p.y - this.y) < p.r + 16) {
+      p.hurt(this.sp.dmg * SETTINGS.mod.dmg);
+      g.hitFrom(this.x0, this.y0, 'spit');
+      SFX.hurt();
+    }
+    g.acids.push({ x: this.x, y: this.y, r: 34 + Math.random() * 8,
                    t: this.sp.pool, max: this.sp.pool, phase: Math.random() * 6.28 });
     for (let i = 0; i < 9; i++) {
       const a = Math.random() * 6.283, v = 30 + Math.random() * 90;
@@ -672,23 +691,15 @@ class Spit {
     SFX.spitHit(Math.hypot(this.x - g.player.x, this.y - g.player.y));
   }
   update(dt, g) {
-    this.life -= dt;
+    this.t += dt;
     this.phase += dt * 14;
-    if (this.life <= 0) { this.burst(g); return; }
-    const steps = 2;
-    for (let i = 0; i < steps; i++) {
-      this.x += this.vx * dt / steps;
-      this.y += this.vy * dt / steps;
-      if (g.world.solid(this.x, this.y)) { this.burst(g); return; }
-      const p = g.player;
-      if (!p.dead && Math.hypot(p.x - this.x, p.y - this.y) < p.r + 5) {
-        p.hurt(this.sp.dmg * SETTINGS.mod.dmg);
-        g.hitFrom(this.x, this.y);
-        SFX.hurt();
-        this.burst(g);
-        return;
-      }
-    }
+    const k = Math.min(1, this.t / this.dur);
+    const nx = this.x0 + (this.tx - this.x0) * k, ny = this.y0 + (this.ty - this.y0) * k;
+    // 벽(건물)에 막히면 거기서 터진다 — 낮게 날 때만
+    this.h = Math.sin(k * Math.PI) * Math.min(70, this.dur * 90);
+    if (this.h < 24 && g.world.solid(nx, ny)) { this.burst(g); return; }
+    this.x = nx; this.y = ny;
+    if (k >= 1) this.burst(g);
   }
 }
 

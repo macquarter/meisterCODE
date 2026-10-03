@@ -13,7 +13,8 @@ const DIFFICULTY = {
             hp: 1.32, dmg: 1.45, spawn: 1.34, max: 1.3, battery: 1.25, loot: 0.68, score: 1.35 }
 };
 
-const AIM_MODES = ['turn', 'drag', 'stick'];
+const AIM_MODES = ['auto', 'stick', 'turn', 'drag'];
+const DESK_AIMS = ['mouse', 'auto'];
 const QUALITY_MODES = ['auto', 'high', 'low'];
 const TOUCH_SIZES = ['small', 'normal', 'large'];
 
@@ -26,7 +27,10 @@ const SETTINGS = (() => {
     flash: true,           // 피격 섬광 · 번개 · 총구 화염
     shake: true,           // 화면 흔들림
     autofire: true,        // 불빛 안의 적 자동 사격
-    aim: 'turn',           // 터치 조준: turn = 회전 스틱(원작) · drag = 화면 드래그(원작 1.1) · stick = 방향 스틱
+    aim: 'auto',           // 터치 조준: auto = 자동 조준(가까운 적 · 이동 방향, 오른쪽을 끌면 직접) · stick = 조준 스틱
+                           //            turn = 회전 스틱(원작) · drag = 화면 드래그(원작 1.1)
+    deskAim: 'mouse',      // 데스크톱 손전등: mouse = 마우스 · auto = 자동 조준
+    ctlv: 2,               // 조작 설정 판 — 1 은 회전 스틱이 기본이던 시절
     hints: true,           // 처음 마주치는 조작·적에 대한 한 줄 도움말
     music: true,           // 긴장도에 따라 변하는 음악
     quality: 'auto',       // 그리기 해상도: auto = 프레임에 맞춰 스스로 낮추고 올린다 · high · low
@@ -39,15 +43,22 @@ const SETTINGS = (() => {
   try {
     const raw = JSON.parse(localStorage.getItem(KEY) || '{}');
     for (const k in DEF) if (k in raw && typeof raw[k] === typeof DEF[k]) state[k] = raw[k];
+    // 판 표시가 없는 저장값은 예전 판(1)이다. 저장값이 아예 없으면 새 판
+    if (!('ctlv' in raw) && Object.keys(raw).length) state.ctlv = 1;
   } catch (e) { /* 손상된 저장값은 기본값으로 */ }
   if (!DIFFICULTY[state.difficulty]) state.difficulty = DEF.difficulty;
   if (!AIM_MODES.includes(state.aim)) state.aim = DEF.aim;
+  if (!DESK_AIMS.includes(state.deskAim)) state.deskAim = DEF.deskAim;
+  // 예전 기본값(회전 스틱)을 그대로 쓰던 사람은 새 기본값(자동 조준)으로 — 어렵다는 피드백
+  let migrated = false;
+  if ((state.ctlv | 0) < 2) { if (state.aim === 'turn') state.aim = 'auto'; state.ctlv = 2; migrated = true; }
   if (!QUALITY_MODES.includes(state.quality)) state.quality = DEF.quality;
   if (!TOUCH_SIZES.includes(state.touchSize)) state.touchSize = DEF.touchSize;
   state.volume = Math.max(0, Math.min(100, state.volume | 0));
   state.brightness = Math.max(0, Math.min(100, state.brightness | 0));
 
   const listeners = [];
+  if (migrated) try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) { /* 사생활 보호 모드 */ }
   function save() {
     try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) { /* 사생활 보호 모드 */ }
   }
@@ -61,6 +72,7 @@ const SETTINGS = (() => {
     get autofire()   { return state.autofire; },
     get hints()      { return state.hints; },
     get aim()        { return state.aim; },
+    get deskAim()    { return state.deskAim; },
     get music()      { return state.music; },
     get quality()    { return state.quality; },
     get fps()        { return state.fps; },
@@ -75,6 +87,7 @@ const SETTINGS = (() => {
       if (k === 'volume' || k === 'brightness') v = Math.max(0, Math.min(100, v | 0));
       if (k === 'difficulty' && !DIFFICULTY[v]) return;
       if (k === 'aim' && !AIM_MODES.includes(v)) return;
+      if (k === 'deskAim' && !DESK_AIMS.includes(v)) return;
       if (k === 'quality' && !QUALITY_MODES.includes(v)) return;
       if (k === 'touchSize' && !TOUCH_SIZES.includes(v)) return;
       if (typeof DEF[k] === 'boolean') v = !!v;

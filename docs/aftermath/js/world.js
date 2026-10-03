@@ -63,6 +63,22 @@ class World {
       this.indexProps();
       this.buildShapes();
     }
+    // 마지막 장처럼 '다리 앞'에서 시작하는 판 — 출구까지 도로로 approach 칸 남짓한 트인 곳
+    if (opts.approach) this.spawn = this.tileCenter(this.approachTile(opts.approach));
+  }
+
+  /** 출구까지의 도로 거리가 n 칸 안팎이고, 트였으며 지도 가장자리 구조물에 끼지 않는 칸 */
+  approachTile(n) {
+    let best = -1, bs = -Infinity;
+    for (const i of this.reach) {
+      const d = this.toExit[i];
+      if (d < 0 || Math.abs(d - n) > 8) continue;
+      const x = i % this.w, y = (i / this.w) | 0;
+      if (this.deco[i] !== D_ASPHALT && this.deco[i] !== D_SIDEWALK) continue;
+      const sc = this.roadNeighbours(x, y) * 3 - Math.abs(d - n);
+      if (sc > bs) { bs = sc; best = i; }
+    }
+    return best >= 0 ? best : this.idx(Math.floor(this.spawn.x / TILE), Math.floor(this.spawn.y / TILE));
   }
 
   /** 칸 → 구조물 번호 (총알·폭발이 무엇을 맞혔는지 알기 위해) */

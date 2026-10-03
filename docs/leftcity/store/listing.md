@@ -51,7 +51,7 @@ On radio channel 9, a stranger's voice: "This is Haru. If you can hear me, say s
 ## 자산
 - 아이콘: `icons/icon-512.png` (마스커블: `icons/icon-maskable-512.png`)
 - 대표 이미지 1024×500: `store/feature-1024x500.jpg`
-- 스크린샷 1920×1080 (한국어): `store/00-title.jpg` ~ `store/05-singapore-pier.jpg`
+- 스크린샷 1920×1080 (한국어): `store/00-title.jpg` ~ `store/06-evac-base.jpg`
 - 스크린샷 1920×1080 (영어): `store/en/` 같은 이름
 - 개인정보 처리방침: `privacy.html` (연락처를 채워 넣을 것)
 

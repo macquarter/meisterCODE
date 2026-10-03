@@ -52,8 +52,8 @@ const LEVELS = [
     goals: ['출입 카드 3장 확보', '본영 헬기장으로 이동'],
     seed: 3907, weepers: 1, blocks: 9, city: 'base', river: true, landmarks: ['evacbase', 'checkpoint', 'railyard'], goal: 'evacbase',
     objective: { type: 'collect', count: 3, item: '출입 카드' },
-    spawn: { initial: 11, rate: 0.45, max: 24 },
-    mix: { walker: 0.5, runner: 0.3, brute: 0.04, crawler: 0.16, bloater: 0.06 },
+    spawn: { initial: 14, rate: 0.52, max: 26 },
+    mix: { walker: 0.48, runner: 0.32, brute: 0.07, crawler: 0.16, bloater: 0.07 },
     own: ['pistol', 'smg', 'shotgun'], drops: ['rifle'],            // 군 기지 — 소총은 여기서 줍는다
     startAmmo: { smg: 100, shell: 8, rifle: 0 }, startNades: 3,
     supplies: { ammo: 4, shells: 3, rounds: 1, medkit: 2, battery: 3, nade: 3 }

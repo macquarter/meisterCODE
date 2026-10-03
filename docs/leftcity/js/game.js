@@ -1996,7 +1996,8 @@ function render() {
   const g = G, p = g.player, w = g.world;
   g.frameNo = (g.frameNo || 0) + 1;                   // 프레임마다 한 번 만드는 것들(그림자)의 열쇠
   MODELS.outline = texOn();                          // 인물 윤곽 · 빛 층 · 그림자 · 물결은 세부 묘사 단계(자동 화질이 버거우면 끈다)
-  if (!R3 && window.R3D && window.R3D.ok) R3 = window.R3D;
+  if (R3 && !R3.ok) R3 = null;                         // 3D 를 접었으면(WebGL 실패) 2D 로 그린다
+  else if (!R3 && window.R3D && window.R3D.ok) R3 = window.R3D;
   if (R3) { render3D(g, p); return; }
   const cam = g.camera();
   placeCompass(...toScreen(cam, p.x, p.y));

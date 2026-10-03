@@ -11,8 +11,44 @@
    ═══════════════════════════════════════════ */
 import * as THREE from '../vendor/three.module.min.js';
 
-const R3D = { ok: false };
+const R3D = { ok: false, failed: '' };
 window.R3D = R3D;
+
+/* ── 안 될 때는 2D 로 — WebGL2 가 없거나(오래된 기기 · 막힌 브라우저) 만들다 실패하면
+   3D 를 접고 2D 판의 그리기로 돌아간다. 왜 그런지는 화면 위에 잠깐 알린다 ── */
+function fail(why, e) {
+  if (R3D.failed) return;
+  R3D.ok = false;
+  R3D.failed = why + (e ? ' — ' + String(e && e.message || e).slice(0, 160) : '');
+  try { console.warn('[LEFT CITY 3D] 2D 로 전환:', R3D.failed); } catch (_) { /* 무시 */ }
+  try { if (cv) cv.remove(); } catch (_) { /* 무시 */ }
+  try { if (renderer) renderer.dispose(); } catch (_) { /* 무시 */ }
+  document.documentElement.classList.add('r3d-off');
+  const n = document.createElement('div');
+  n.id = 'r3dNote';
+  n.setAttribute('role', 'status');
+  n.style.cssText = 'position:fixed;left:50%;top:calc(10px + env(safe-area-inset-top));transform:translateX(-50%);z-index:50;'
+    + 'max-width:min(560px,calc(100vw - 32px));padding:9px 14px;background:rgba(7,9,12,.92);border:1px solid rgba(240,180,41,.5);'
+    + 'border-radius:3px;font-size:12.5px;line-height:1.55;color:#e8e6e0;pointer-events:auto;cursor:pointer';
+  const ko = why === 'webgl2' ? '이 기기 · 브라우저에서 WebGL2 를 쓸 수 없어 3D 대신 2D 로 실행합니다.'
+    : why === 'lost' ? '그래픽 장치가 3D 화면을 놓쳐 2D 로 이어서 실행합니다.'
+    : '3D 화면을 만들지 못해 2D 로 실행합니다.';
+  n.innerHTML = '<b style="color:#f0b429">3D 판</b> ' + ko + '<br><small style="opacity:.6"></small>';
+  n.querySelector('small').textContent = R3D.failed + ' · 누르면 닫힘';
+  n.onclick = () => n.remove();
+  document.body.appendChild(n);
+  setTimeout(() => { try { n.remove(); } catch (_) { /* 무시 */ } }, 12000);
+}
+function hasGL2() {
+  try {
+    const c = document.createElement('canvas');
+    const gl = c.getContext('webgl2');
+    if (!gl) return false;
+    const lose = gl.getExtension('WEBGL_lose_context');
+    if (lose) lose.loseContext();
+    return true;
+  } catch (e) { return false; }
+}
 
 /* ── 설정 ── */
 const CH = 16;                         // 덩어리 한 변(칸)
@@ -391,15 +427,19 @@ function fencePanel(B, w, x, y, X0, Z0, X1, Z1) {
 
 function syncChunks(w, px, pz) {
   const ccx = Math.floor(px / TILE / CH), ccy = Math.floor(pz / TILE / CH);
-  const need = new Set();
+  const need = new Set(), miss = [];
   for (let dy = -3; dy <= 1; dy++) for (let dx = -2; dx <= 2; dx++) {
     const key = (ccx + dx) + ',' + (ccy + dy);
     need.add(key);
-    if (!chunks.has(key)) {
-      const g = buildChunk(w, ccx + dx, ccy + dy);
-      chunks.set(key, g); scene.add(g);
-      break;                                              // 한 프레임에 하나씩 — 끊김 없이
-    }
+    if (!chunks.has(key)) miss.push([Math.max(Math.abs(dx), Math.abs(dy)), dx, dy, key]);
+  }
+  // 발밑과 바로 곁(3×3)은 곧바로 — 시작 화면이 비지 않게. 그 바깥은 가까운 것부터 한 프레임에 하나씩
+  miss.sort((a, b) => a[0] - b[0]);
+  for (let i = 0; i < miss.length; i++) {
+    const [d, dx, dy, key] = miss[i];
+    if (d > 1 && i > 0) break;
+    const g = buildChunk(w, ccx + dx, ccy + dy);
+    chunks.set(key, g); scene.add(g);
   }
   for (const [key, g] of chunks) {
     if (need.has(key)) continue;
@@ -633,7 +673,14 @@ function init() {
   cv.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;display:block';
   const stage = document.getElementById('stage');
   stage.insertBefore(cv, stage.firstChild);
+  cv.addEventListener('webglcontextlost', e => { e.preventDefault(); fail('lost'); });
   renderer = new THREE.WebGLRenderer({ canvas: cv, antialias: true, powerPreference: 'high-performance' });
+  // 셰이더가 이 기기에서 안 엮이면(빛 · 균일 변수 한도 등) 검은 화면 대신 2D 로
+  renderer.debug.onShaderError = (gl, prog, vs, fs) => {
+    let msg = '';
+    try { msg = gl.getProgramInfoLog(prog) || gl.getShaderInfoLog(fs) || gl.getShaderInfoLog(vs) || ''; } catch (_) { /* 무시 */ }
+    fail('shader', msg.trim() || 'compile');
+  };
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
@@ -702,9 +749,24 @@ function init() {
   window.addEventListener('resize', size);
   size();
 }
+/* 느린 기기 — 프레임이 오래 걸리면 해상도 → 그림자 → 해상도 순으로 한 단계씩 내린다('높음' 설정이면 그대로) */
+const PERF = { ema: 16, last: 0, since: 0, level: 0 };
+const PR_CAP = [1.5, 0.85, 0.85, 0.6];
+function perfStep(now) {
+  const dt = now - PERF.last;
+  PERF.last = now;
+  if (dt > 400) { PERF.since = now; return; }           // 메뉴 · 탭 전환 뒤 — 다시 재기 시작
+  PERF.ema += (dt - PERF.ema) * 0.05;
+  if (SETTINGS.quality === 'high' || PERF.level >= 3 || document.hidden) return;
+  if (now - PERF.since > 2500 && PERF.ema > 42) {
+    PERF.level++; PERF.since = now; PERF.ema = 30;
+    if (PERF.level === 2) { renderer.shadowMap.enabled = false; spot.castShadow = false; scene.traverse(o => { if (o.material) for (const m of [].concat(o.material)) m.needsUpdate = true; }); }
+    size();
+  }
+}
 function size() {
   if (!renderer) return;
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, SETTINGS.quality === 'low' ? 0.75 : 1.5));
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, SETTINGS.quality === 'low' ? 0.75 : PR_CAP[PERF.level]));
   renderer.setSize(window.innerWidth, window.innerHeight, false);
   camera.aspect = window.innerWidth / Math.max(1, window.innerHeight);
   camera.updateProjectionMatrix();
@@ -746,11 +808,16 @@ R3D.unproject = (sx, sy) => {
   ray.setFromCamera(ndc, camera);
   return ray.ray.intersectPlane(plane, hit) ? [hit.x, hit.z] : null;
 };
+R3D.info = () => renderer ? { chunks: chunks.size, calls: renderer.info.render.calls, tris: renderer.info.render.triangles, programs: renderer.info.programs.length, level: PERF.level, ms: Math.round(PERF.ema), failed: R3D.failed } : null;
 R3D.hide = () => { if (cv) cv.style.display = 'none'; };
 
 /* ═══════════ 매 프레임 ═══════════ */
 R3D.render = g => {
+  try { draw3(g); } catch (e) { fail('init', e); }
+};
+function draw3(g) {
   if (!renderer) init();
+  perfStep(performance.now());
   const w = g.world, p = g.player;
   if (w !== curWorld) resetWorld(w);
   cv.style.display = '';
@@ -1205,4 +1272,4 @@ function updateLandmarks(g, w) {
   }
 }
 
-R3D.ok = true;
+if (hasGL2()) R3D.ok = true; else fail('webgl2');

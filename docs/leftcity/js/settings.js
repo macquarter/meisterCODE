@@ -3,8 +3,26 @@
    localStorage 에 저장되며 audio/entities/game 보다 먼저 로드된다.
    ═══════════════════════════════════════════ */
 
+/* 저장소가 막힌 곳(쿠키 차단 · 샌드박스 iframe)에서는 localStorage 를 읽기만 해도 예외가 난다.
+   그때는 메모리 저장소로 바꿔 끼워 게임이 멈추지 않게 한다 — 기록은 탭을 닫으면 사라진다 */
+(() => {
+  let ok = false;
+  try { const s = window.localStorage; s.setItem('aftermath.probe', '1'); s.removeItem('aftermath.probe'); ok = true; } catch (e) { /* 막힘 */ }
+  if (ok) return;
+  const m = new Map();
+  const mem = {
+    getItem: k => (m.has(String(k)) ? m.get(String(k)) : null),
+    setItem: (k, v) => { m.set(String(k), String(v)); },
+    removeItem: k => { m.delete(String(k)); },
+    clear: () => m.clear(),
+    key: i => [...m.keys()][i] ?? null,
+    get length() { return m.size; }
+  };
+  try { Object.defineProperty(window, 'localStorage', { value: mem, configurable: true }); } catch (e) { /* 바꿀 수 없음 */ }
+})();
+
 /** 제품 정보 — 이름 · 판. 출시 이름이 정해지면 여기와 index.html · manifest 를 함께 바꾼다 */
-const APP = { name: 'LEFT CITY', subtitle: '남겨진 도시', version: '1.0.0-rc.7' };
+const APP = { name: 'LEFT CITY', subtitle: '남겨진 도시', version: '1.0.0-rc.8' };
 const APP_VERSION = APP.version;
 
 /** 난이도 배수. 1 = 기준값(잔존) */

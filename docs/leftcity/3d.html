@@ -20,8 +20,9 @@
 <meta property="og:type" content="website">
 <link rel="stylesheet" href="css/game.css">
 <style>/* 3D 판: 세계는 WebGL 캔버스(#view3d)에, 2D 캔버스는 그 위의 투명한 표시 층 */
-#view{background:transparent !important;position:relative;z-index:1}
-#view3d{z-index:0}</style>
+html:not(.r3d-off) #view{background:transparent !important}
+/* 쌓임 순서는 문서 순서로 — #view3d(맨 앞에 끼움) → #view → HUD · 메뉴. #view 에 z-index 를 주면 메뉴를 덮어 버린다 */
+#view{position:relative}</style>
 </head>
 <body>
 
@@ -448,6 +449,23 @@
 <script src="js/models.js"></script>
 <script src="js/game.js"></script>
 <script type="module" src="js/r3d.js"></script>
+<script>
+/* 3D 모듈이 아예 못 떴을 때(파일로 직접 열기 — 브라우저가 file:// 의 모듈을 막는다, 아주 오래된 브라우저 등)
+   2D 로 돌아가 그린다는 것을 알린다. 모듈이 떠서 스스로 실패를 알렸다면(R3D.failed) 조용히 있는다 */
+addEventListener('load', () => setTimeout(() => {
+  if (window.R3D) return;
+  document.documentElement.classList.add('r3d-off');
+  const n = document.createElement('div');
+  n.setAttribute('role', 'status');
+  n.style.cssText = 'position:fixed;left:50%;top:calc(10px + env(safe-area-inset-top));transform:translateX(-50%);z-index:50;max-width:min(560px,calc(100vw - 32px));padding:9px 14px;background:rgba(7,9,12,.92);border:1px solid rgba(240,180,41,.5);border-radius:3px;font-size:12.5px;line-height:1.55;color:#e8e6e0;cursor:pointer';
+  n.innerHTML = '<b style="color:#f0b429">3D 판</b> ' + (location.protocol === 'file:'
+    ? '파일로 직접 열면 브라우저가 3D 모듈을 막습니다. 웹 주소(http)로 열어 주세요 — 지금은 2D 로 실행합니다.'
+    : '3D 모듈을 불러오지 못해 2D 로 실행합니다.') + '<br><small style="opacity:.6">누르면 닫힘</small>';
+  n.onclick = () => n.remove();
+  document.body.appendChild(n);
+  setTimeout(() => n.remove(), 12000);
+}, 1500));
+</script>
 <script>
 /* 설치형(PWA) — http(s) 로 열렸을 때만 오프라인 캐시를 건다. 파일로 열거나 다른 페이지에 끼워 넣으면 건너뛴다 */
 if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {

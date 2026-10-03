@@ -642,7 +642,8 @@ class World {
   }
 
   /* ── 시야 (DDA 레이캐스트) ──────────────── */
-  ray(ox, oy, ang, maxD) {
+  /** over = 빛처럼 낮은 탈것 위로는 지나간다 (차 한 대가 칸 모양의 그늘을 만들지 않게) */
+  ray(ox, oy, ang, maxD, over = false) {
     if (this.solid(ox, oy)) return 0;
     const dx = Math.cos(ang), dy = Math.sin(ang);
     const px = ox / TILE, py = oy / TILE;
@@ -658,16 +659,17 @@ class World {
     while (t < maxT) {
       if (sx < sy) { t = sx; sx += ddx; mx += stepX; }
       else { t = sy; sy += ddy; my += stepY; }
-      if (this.grid[this.idx(mx, my)] === T_WALL) return Math.min(t * TILE, maxD);
+      const i = this.idx(mx, my);
+      if (this.grid[i] === T_WALL && !(over && this.deco[i] === D_PROP)) return Math.min(t * TILE, maxD);
     }
     return maxD;
   }
 
   /** 두 점 사이가 트여 있는가 */
-  los(x1, y1, x2, y2) {
+  los(x1, y1, x2, y2, over = false) {
     const d = Math.hypot(x2 - x1, y2 - y1);
     if (d < 1) return true;
-    return this.ray(x1, y1, Math.atan2(y2 - y1, x2 - x1), d + 1) >= d - 1;
+    return this.ray(x1, y1, Math.atan2(y2 - y1, x2 - x1), d + 1, over) >= d - 1;
   }
 
   /* ── 추격 경로 (흐름장) ─────────────────────
@@ -713,7 +715,7 @@ class World {
     const pts = [px, py];
     for (let i = 0; i <= rays; i++) {
       const a = ang - half + (2 * half) * (i / rays);
-      const d = this.ray(px, py, a, range);
+      const d = this.ray(px, py, a, range, true);
       pts.push(px + Math.cos(a) * d, py + Math.sin(a) * d);
     }
     return pts;

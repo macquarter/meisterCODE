@@ -295,6 +295,8 @@ const VH = () => H / TILT;
 function toScreen(cam, x, y) { return [x - cam.x, (y - cam.y) * TILT]; }
 /** 세계 그리기용 변환을 건다 (DPR 포함) */
 function worldTransform(c, cam) { c.setTransform(DPR, 0, 0, DPR * TILT, -cam.x * DPR, -cam.y * DPR * TILT); }
+/** 입체 모형용 — 세로를 줄이지 않은 화면 공간(cam 만큼만 옮김). 모형이 y·sin60 − z·cos60 를 스스로 계산한다 */
+function screenTransform(c, cam) { c.setTransform(DPR, 0, 0, DPR, -cam.x * DPR, -cam.y * DPR * TILT); }
 
 /** 레벨 데이터 → 도시 생성 옵션 */
 const cityOpts = L => ({ theme: L.city, river: !!L.river, landmarks: L.landmarks || [], goal: L.goal });
@@ -924,6 +926,9 @@ const G = {
       if (Math.floor(p.walkPhase / Math.PI) !== Math.floor(before / Math.PI))
         SFX.step(p.sprinting, this.onPuddle(p.x, p.y));
     }
+    // 걸음 폭 — 멈추면 다리가 천천히 모인다
+    const strideTo = !p.dead && (mx || my) ? Math.min(1, ml * 1.6) * (p.sprinting ? 1.25 : 1) : 0;
+    p.stride = (p.stride || 0) + (strideTo - (p.stride || 0)) * Math.min(1, dt * 10);
 
     /* 조준 */
     const cam = this.camera();
@@ -1022,7 +1027,7 @@ const G = {
         if (d > range) continue;
         const a = Math.atan2(z.y - p.y, z.x - p.x);
         let da = Math.abs(((a - p.angle + Math.PI * 3) % (Math.PI * 2)) - Math.PI);
-        if (da < CONE_HALF && w.los(p.x, p.y, z.x, z.y)) z.lit = 1;
+        if (da < CONE_HALF && w.los(p.x, p.y, z.x, z.y, true)) z.lit = 1;
       }
     }
 
@@ -1194,7 +1199,7 @@ function render() {
   worldTransform(ctx, cam);
 
   drawGround(cam, w);
-  drawProps(cam, w);
+  drawDecorFlat(cam, w);
   drawExit(g, w);
 
   /* 혈흔 */
@@ -1240,9 +1245,12 @@ function render() {
   ctx.globalAlpha = 1;
 
   /* 시체 */
-  for (const c of g.corpses) drawCorpse(c);
+  screenTransform(ctx, cam);
+  for (const c of g.corpses) drawCorpse(c, cam);
+  if (p.dead) drawCorpse(p.corpse || (p.corpse = { x: p.x, y: p.y, a: p.angle, type: 'player', age: 2 }), cam);
+  worldTransform(ctx, cam);
 
-  for (const pk of g.pickups) drawPickup(pk, g.time);
+  for (const pk of g.pickups) drawPickup(pk, g.time, cam);
   for (const gr of g.grenades) drawGrenade(gr);
   // 그것의 돌진 예고선 — 선딜 동안만 보이고, 비키라는 신호다
   if (g.boss && !g.boss.dead && g.boss.chargePhase === 'wind') {
@@ -1257,23 +1265,22 @@ function render() {
     ctx.restore();
   }
 
-  for (const z of g.zombies) drawZombie(z);
   for (const sp of g.spits) {
-    const r = 4.5 + Math.sin(sp.phase) * 0.9;
-    ctx.fillStyle = '#7fbf33';
+    const r = 4.5 + Math.sin(sp.phase) * 0.9, sy = sp.y - SPIT_LIFT;
+    ctx.fillStyle = 'rgba(0,0,0,.3)';
     ctx.beginPath(); ctx.arc(sp.x, sp.y, r, 0, 6.283); ctx.fill();
+    ctx.fillStyle = '#7fbf33';
+    ctx.beginPath(); ctx.arc(sp.x, sy, r, 0, 6.283); ctx.fill();
     ctx.fillStyle = 'rgba(190,240,130,.75)';
-    ctx.beginPath(); ctx.arc(sp.x - sp.vx * 0.004, sp.y - sp.vy * 0.004, r * 0.5, 0, 6.283); ctx.fill();
+    ctx.beginPath(); ctx.arc(sp.x - sp.vx * 0.004, sy - sp.vy * 0.004, r * 0.5, 0, 6.283); ctx.fill();
   }
-  if (!p.dead) drawPlayer(p);
-  else drawCorpse({ x: p.x, y: p.y, a: p.angle, type: 'player', age: 2 });
 
-  /* 예광탄 */
+  /* 예광탄 — 총구 높이로 날아간다 */
   ctx.lineCap = 'round';
   for (const b of g.bullets) {
     ctx.strokeStyle = 'rgba(255,232,170,.85)';
     ctx.lineWidth = 2;
-    ctx.beginPath(); ctx.moveTo(b.px, b.py); ctx.lineTo(b.x, b.y); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(b.px, b.py - GUN_LIFT); ctx.lineTo(b.x, b.y - GUN_LIFT); ctx.stroke();
   }
 
   for (const q of g.particles) {
@@ -1282,8 +1289,9 @@ function render() {
     ctx.beginPath(); ctx.arc(q.x, q.y, q.size, 0, 6.283); ctx.fill();
   }
   ctx.globalAlpha = 1;
-  drawBuildings(cam, w);
+  drawCity(cam, g, w);
   drawLandmarksTop(cam, w, g);
+  drawXray(cam, g, w);
   ctx.restore();
 
   drawDarkness(cam, g, p, w);
@@ -1652,8 +1660,20 @@ function drawLandmarksTop(cam, w, g) {
     if (d.x < cam.x - 80 || d.x > cam.x + W + 80 || d.y < cam.y - 80 || d.y > cam.y + VH() + 80) continue;
     const [x, y] = liftPt(E, d.x, d.y, 0.1);
     ctx.fillStyle = 'rgba(0,0,0,.35)'; ctx.beginPath(); ctx.arc(d.x + 4, d.y + 5, d.r, 0, 6.283); ctx.fill();
-    ctx.fillStyle = '#1e3020'; ctx.beginPath(); ctx.arc(x, y, d.r, 0, 6.283); ctx.fill();
-    ctx.fillStyle = '#26402a'; ctx.beginPath(); ctx.arc(x - d.r * 0.25, y - d.r * 0.25, d.r * 0.62, 0, 6.283); ctx.fill();
+    // 줄기 — 밑동에서 잎 덩어리까지
+    ctx.strokeStyle = '#2b2219'; ctx.lineWidth = 5; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(d.x, d.y); ctx.lineTo(x, y + d.r * 0.3); ctx.stroke();
+    // 잎 — 덩어리 여럿, 아래쪽은 어둡고 위쪽에 빛
+    const h = ((d.x * 31 + d.y * 17) | 0) >>> 0;
+    ctx.fillStyle = '#18281a';
+    ctx.beginPath(); ctx.arc(x, y + 2, d.r, 0, 6.283); ctx.fill();
+    ctx.fillStyle = '#1e3020';
+    for (let k = 0; k < 5; k++) {
+      const a = k * 1.257 + (h % 7), rr = d.r * (0.5 + ((h >> k) & 3) * 0.06);
+      ctx.beginPath(); ctx.arc(x + Math.cos(a) * d.r * 0.45, y + Math.sin(a) * d.r * 0.4 - 1, rr, 0, 6.283); ctx.fill();
+    }
+    ctx.fillStyle = '#26402a'; ctx.beginPath(); ctx.arc(x - d.r * 0.25, y - d.r * 0.3, d.r * 0.55, 0, 6.283); ctx.fill();
+    ctx.fillStyle = 'rgba(120,160,110,.12)'; ctx.beginPath(); ctx.arc(x - d.r * 0.35, y - d.r * 0.42, d.r * 0.28, 0, 6.283); ctx.fill();
   }
   for (const lm of w.landmarks) {
     if (!lmVisible(cam, lm, 300)) continue;
@@ -1841,163 +1861,206 @@ function liftPoly(poly, w, E) {
     if (dy >= 0) continue;                       // 보이는 벽(남쪽 면)에 닿은 빛만 — 북쪽으로 가던 빛
     const tx = Math.floor((x + dx / d * 3) / TILE), ty = Math.floor((y + dy / d * 3) / TILE);
     if (w.deco[w.idx(tx, ty)] !== D_BUILDING) continue;
-    const q = liftPt(E, x, y, BLD_H);
+    const q = liftPt(E, x, y, bldH(w, tx, ty));
     poly[i] = q[0]; poly[i + 1] = q[1];
   }
   return poly;
 }
 
-function drawBuildings(cam, w) {
-  const E = eyeOf(cam), K = BLD_H;
-  const x0 = Math.floor(cam.x / TILE) - 1, y0 = Math.floor(cam.y / TILE) - 1;
-  // 지붕이 위로 떠 있으므로 화면 아래쪽 바깥의 건물도 그 지붕이 보일 수 있다 — 두 칸 더
-  const x1 = Math.ceil((cam.x + W) / TILE), y1 = Math.ceil((cam.y + VH()) / TILE) + 2;
+/** 필지마다 높이가 다르다 — 2‒4층. 세계마다 한 번 계산해 둔다 */
+function bldH(w, x, y) {
+  if (!w._bh) {
+    w._bh = new Float32Array(w.w * w.h);
+    for (let i = 0; i < w._bh.length; i++) {
+      const l = w.lot[i] || (((i % w.w) >> 2) * 31 + ((i / w.w | 0) >> 2) * 17 + 1);
+      w._bh[i] = BLD_H * (0.8 + ((Math.imul(l, 2654435761) >>> 0) % 6) * 0.1);
+    }
+  }
+  return w._bh[w.idx(x, y)];
+}
+const FLOOR = 34;                                   // 한 층 높이 (세계 px)
+const ZK = 1 / 480 * HSC;                           // 높이 1px → 세계 y 위로
+const GUN_LIFT = 20 * 1.12 * ZK, SPIT_LIFT = 17 * ZK;
+const WALLS = ['#262e39', '#2f2b29', '#2a3131', '#34302c', '#29313a', '#30343a'];
+const lotHash = (w, x, y) => Math.imul(w.lot[w.idx(x, y)] || (x * 7 + y * 13), 2246822519) >>> 0;
+
+/** 건물 한 줄 — 남쪽 벽면(창문·가게 앞) → 지붕(난간·옥상 설비).
+    한 줄씩 북쪽부터 그리고 그 사이사이에 서 있는 것들을 끼워 넣어, 남쪽 건물이 북쪽의 사람을 가린다 */
+function buildingRow(w, r, x0, x1) {
   const isB = (x, y) => w.deco[w.idx(x, y)] === D_BUILDING;
-
-  // 벽면 — 60° 카메라에서 보이는 것은 남쪽 면뿐이다
-  const faces = { s: [] };
-  for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
-    if (!isB(x, y) || isB(x, y + 1)) continue;
-    const px = x * TILE, qx = px + TILE, qy = (y + 1) * TILE;
-    faces.s.push(px, qy, qx, qy);
-  }
-  const cols = { s: '#252d38' };
-  ctx.strokeStyle = 'rgba(0,0,0,.42)';
-  ctx.lineWidth = 2;
-  for (const k in faces) {
-    const f = faces[k];
-    if (!f.length) continue;
-    ctx.fillStyle = cols[k];
-    ctx.beginPath();
-    for (let i = 0; i < f.length; i += 4) {
-      const a = liftPt(E, f[i], f[i + 1], K), b = liftPt(E, f[i + 2], f[i + 3], K);
-      ctx.moveTo(f[i], f[i + 1]); ctx.lineTo(f[i + 2], f[i + 3]);
-      ctx.lineTo(b[0], b[1]); ctx.lineTo(a[0], a[1]); ctx.closePath();
-    }
-    ctx.fill();
-    // 층 구분선
-    ctx.beginPath();
-    for (let i = 0; i < f.length; i += 4) for (const t of [0.34, 0.67]) {
-      const a = liftPt(E, f[i], f[i + 1], K * t), b = liftPt(E, f[i + 2], f[i + 3], K * t);
-      ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]);
-    }
-    ctx.stroke();
-  }
-
-  // 지붕 — 바닥 평면을 높이만큼 위로 옮긴 좌표계에서 그린다
-  ctx.save();
-  ctx.translate(0, -K * HSC);
-  // 지붕 색은 필지마다 — 같은 건물은 한 색, 옆 건물은 다른 색으로 도시의 결이 보인다
   const roofs = w.theme.roofs, R = roofs.length;
-  for (let c = 0; c < R; c++) {
-    ctx.fillStyle = roofs[c];
-    ctx.beginPath();
-    for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
-      if (!isB(x, y)) continue;
-      const lot = w.lot[w.idx(x, y)];
-      const k = lot ? lot % R : (((x * 73856093) ^ (y * 19349663)) & 15) % R;
-      if (k === c) ctx.rect(x * TILE - 0.5, y * TILE - 0.5, TILE + 1, TILE + 1);
+  for (let x = x0; x <= x1; x++) {
+    if (!isB(x, r)) continue;
+    const h = bldH(w, x, r), hs = isB(x, r + 1) ? bldH(w, x, r + 1) : 0;
+    if (h <= hs + 1e-4) continue;
+    const px = x * TILE, base = (r + 1) * TILE, top = base - h * HSC, low = base - hs * HSC;
+    const lh = lotHash(w, x, r);
+    ctx.fillStyle = WALLS[lh % WALLS.length];
+    ctx.fillRect(px - 0.3, top, TILE + 0.6, low - top);
+    // 층마다 창 두 개. 1층은 셔터 내린 가게나 유리문
+    const hp = h * 480, hsp = hs * 480, nf = Math.floor(hp / FLOOR + 0.25);
+    for (let f = 0; f < nf; f++) {
+      const zb = f * FLOOR, zt = Math.min(hp - 5, zb + FLOOR);
+      if (zt <= hsp + 2) continue;
+      const wh = Math.imul(lh ^ (x * 977 + f * 131), 2654435761) >>> 0;
+      if (f === 0 && !hs) {
+        const y1 = base - 2 * ZK, y2 = base - 25 * ZK;
+        if (lh % 3 === 0) {
+          ctx.fillStyle = '#3a4047'; ctx.fillRect(px + 3, y2, TILE - 6, y1 - y2);
+          ctx.fillStyle = 'rgba(0,0,0,.35)';
+          for (let k = 3; k < 23; k += 3) ctx.fillRect(px + 3, base - k * ZK, TILE - 6, 0.8);
+        } else {
+          ctx.fillStyle = '#10161d'; ctx.fillRect(px + 4, y2, TILE - 8, y1 - y2);
+          ctx.fillStyle = 'rgba(150,180,210,.10)'; ctx.fillRect(px + 4, y2, TILE - 8, 2.5);
+          ctx.fillStyle = WALLS[lh % WALLS.length]; ctx.fillRect(px + TILE / 2 - 1, y2, 2, y1 - y2);
+        }
+        ctx.fillStyle = 'rgba(0,0,0,.4)'; ctx.fillRect(px, base - 28 * ZK, TILE, 2.4);   // 차양
+        continue;
+      }
+      const v0 = Math.max(hsp + 1, zb + 9), v1 = Math.min(zt - 1, zb + 27);
+      if (v1 <= v0) continue;
+      for (const [wx, k] of [[px + 6, 0], [px + 28, 1]]) {
+        const q = (wh >> (k * 7)) & 127;
+        ctx.fillStyle = q < 2 ? 'rgba(201,154,82,.55)' : q < 9 ? '#07090b' : '#121820';
+        ctx.fillRect(wx, base - v1 * ZK, 14, (v1 - v0) * ZK);
+        if (q >= 9) { ctx.fillStyle = 'rgba(150,180,210,.09)'; ctx.fillRect(wx, base - v1 * ZK, 14, 2); }
+      }
+      ctx.fillStyle = 'rgba(0,0,0,.28)'; ctx.fillRect(px, base - zb * ZK - 1, TILE, 1.6);       // 층 띠
     }
-    ctx.fill();
+    // 바닥 쪽 그늘 · 처마 밝은 선
+    if (!hs) { ctx.fillStyle = 'rgba(0,0,0,.3)'; ctx.fillRect(px, base - 5 * ZK, TILE, 5 * ZK); }
+    ctx.fillStyle = 'rgba(255,255,255,.06)'; ctx.fillRect(px, top, TILE, 2);
   }
-  // 필지 경계 — 같은 블록 안의 다른 건물 사이에 얕은 틈
-  ctx.strokeStyle = 'rgba(0,0,0,.35)'; ctx.lineWidth = 2;
-  ctx.beginPath();
-  for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
-    if (!isB(x, y)) continue;
-    const l = w.lot[w.idx(x, y)];
-    if (isB(x + 1, y) && w.lot[w.idx(x + 1, y)] !== l) { ctx.moveTo((x + 1) * TILE, y * TILE); ctx.lineTo((x + 1) * TILE, (y + 1) * TILE); }
-    if (isB(x, y + 1) && w.lot[w.idx(x, y + 1)] !== l) { ctx.moveTo(x * TILE, (y + 1) * TILE); ctx.lineTo((x + 1) * TILE, (y + 1) * TILE); }
+  // 지붕 — 필지마다 색과 높이
+  for (let x = x0; x <= x1; x++) {
+    if (!isB(x, r)) continue;
+    const i = w.idx(x, r), lot = w.lot[i], lift = bldH(w, x, r) * HSC;
+    const k = lot ? lot % R : (((x * 73856093) ^ (r * 19349663)) & 15) % R;
+    const px = x * TILE, py = r * TILE - lift;
+    ctx.fillStyle = roofs[k];
+    ctx.fillRect(px - 0.5, py - 0.5, TILE + 1, TILE + 1);
+    ctx.fillStyle = roofPattern();
+    ctx.fillRect(px - 0.5, py - 0.5, TILE + 1, TILE + 1);
+    // 난간 — 길이나 다른 건물과 맞닿은 가장자리
+    const same = (dx, dy) => isB(x + dx, r + dy) && w.lot[w.idx(x + dx, r + dy)] === lot;
+    ctx.fillStyle = 'rgba(160,176,198,.16)';
+    if (!same(0, 1)) ctx.fillRect(px, py + TILE - 3.5, TILE, 3);
+    if (!same(0, -1)) ctx.fillRect(px, py + 0.5, TILE, 3);
+    if (!same(-1, 0)) ctx.fillRect(px + 0.5, py, 3, TILE);
+    if (!same(1, 0)) ctx.fillRect(px + TILE - 3.5, py, 3, TILE);
+    ctx.fillStyle = 'rgba(0,0,0,.22)';
+    if (!same(0, -1)) ctx.fillRect(px, py + 3.5, TILE, 3);
+    if (!same(-1, 0)) ctx.fillRect(px + 3.5, py, 3, TILE);
+    // 옥상 설비 — 실외기 · 물탱크
+    if (same(1, 0) && same(0, 1)) {
+      const hh = ((x * 2654435761) ^ (r * 40503)) >>> 0;
+      if (hh % 9 === 0) {
+        const ux = px + 10 + (hh >> 4) % 16, uy = py + 10 + (hh >> 8) % 16;
+        ctx.fillStyle = 'rgba(0,0,0,.45)'; ctx.fillRect(ux + 3, uy + 4, 22, 16);
+        ctx.fillStyle = '#2a323c'; ctx.fillRect(ux, uy, 22, 16);
+        ctx.fillStyle = 'rgba(0,0,0,.35)'; ctx.beginPath(); ctx.arc(ux + 11, uy + 8, 5, 0, 6.283); ctx.fill();
+      } else if (hh % 41 === 1 && w.theme === THEMES.seoul) {   // 서울 옥상의 물탱크
+        const ux = px + 14 + (hh >> 5) % 12, uy = py + 14 + (hh >> 9) % 12;
+        ctx.fillStyle = 'rgba(0,0,0,.45)'; ctx.beginPath(); ctx.arc(ux + 4, uy + 5, 9, 0, 6.283); ctx.fill();
+        ctx.fillStyle = '#3d5a6a'; ctx.beginPath(); ctx.arc(ux, uy - 4, 9, 0, 6.283); ctx.fill();
+        ctx.fillRect(ux - 9, uy - 4, 18, 8);
+        ctx.fillStyle = '#4c6e80'; ctx.beginPath(); ctx.arc(ux, uy - 8, 9, 0, 6.283); ctx.fill();
+      }
+    }
   }
-  ctx.stroke();
-  // 난간선과 옥상 설비
-  ctx.strokeStyle = 'rgba(160,176,198,.16)';
-  ctx.lineWidth = 2.5;
-  ctx.beginPath();
-  for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
-    if (!isB(x, y)) continue;
-    const px = x * TILE, py = y * TILE;
-    if (!isB(x, y + 1)) { ctx.moveTo(px, py + TILE - 2); ctx.lineTo(px + TILE, py + TILE - 2); }
-    if (!isB(x, y - 1)) { ctx.moveTo(px, py + 2); ctx.lineTo(px + TILE, py + 2); }
-    if (!isB(x - 1, y)) { ctx.moveTo(px + 2, py); ctx.lineTo(px + 2, py + TILE); }
-    if (!isB(x + 1, y)) { ctx.moveTo(px + TILE - 2, py); ctx.lineTo(px + TILE - 2, py + TILE); }
-  }
-  ctx.stroke();
-  for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
-    if (!isB(x, y) || !isB(x + 1, y) || !isB(x, y + 1)) continue;
-    const h = ((x * 2654435761) ^ (y * 40503)) >>> 0;
-    if (h % 9 !== 0) continue;
-    const ux = x * TILE + 10 + (h >> 4) % 16, uy = y * TILE + 10 + (h >> 8) % 16;
-    ctx.fillStyle = 'rgba(0,0,0,.45)'; ctx.fillRect(ux + 3, uy + 4, 22, 16);
-    ctx.fillStyle = '#2a323c'; ctx.fillRect(ux, uy, 22, 16);
-    ctx.fillStyle = 'rgba(0,0,0,.35)'; ctx.beginPath(); ctx.arc(ux + 11, uy + 8, 5, 0, 6.283); ctx.fill();
-  }
-  ctx.restore();
 }
 
-/** 버려진 탈것과 화물 · 나라별 길가 장식 — 손전등에 색이 살아난다 */
-function drawProps(cam, w) {
-  const vis = (x, y, m) => !(x < cam.x - m || x > cam.x + W + m || y < cam.y - m || y > cam.y + VH() + m);
-  for (const pr of w.props) {
-    if (!vis(pr.x, pr.y, 90)) continue;
-    ctx.save();
-    ctx.translate(pr.x, pr.y); ctx.rotate(pr.a);
-    ctx.fillStyle = 'rgba(0,0,0,.5)';
-    ctx.fillRect(-pr.w / 2 - 2, -pr.h / 2 + 3, pr.w + 4, pr.h);
-    if (pr.kind === 'tuktuk') {
-      // 뚝뚝 — 앞바퀴 하나, 지붕 천막
-      ctx.fillStyle = '#2a2d31'; ctx.fillRect(-pr.w / 2, -pr.h / 2, pr.w, pr.h);
-      ctx.fillStyle = pr.col; ctx.fillRect(-pr.w / 2 + 2, -pr.h / 2 - 1, pr.w * 0.62, pr.h + 2);
-      ctx.fillStyle = 'rgba(255,255,255,.18)'; ctx.fillRect(-pr.w / 2 + 2, -pr.h / 2 - 1, pr.w * 0.62, 3);
-      ctx.fillStyle = '#16181b'; ctx.beginPath(); ctx.arc(pr.w / 2 - 3, 0, 4, 0, 6.283); ctx.fill();
-      ctx.restore(); continue;
-    }
-    ctx.fillStyle = pr.col;
-    ctx.fillRect(-pr.w / 2, -pr.h / 2, pr.w, pr.h);
-    if (pr.kind === 'car') {
-      ctx.fillStyle = 'rgba(10,14,18,.85)';                 // 유리
-      ctx.fillRect(-pr.w * 0.16, -pr.h / 2 + 3, pr.w * 0.34, pr.h - 6);
-      ctx.fillStyle = 'rgba(255,255,255,.10)';              // 지붕 하이라이트
-      ctx.fillRect(-pr.w / 2, -pr.h / 2, pr.w, 3);
-    } else if (pr.kind === 'bus') {
-      ctx.fillStyle = 'rgba(10,14,18,.8)';                  // 옆 창 줄
-      for (let i = -pr.w / 2 + 8; i < pr.w / 2 - 10; i += 12) { ctx.fillRect(i, -pr.h / 2 + 2, 8, 4); ctx.fillRect(i, pr.h / 2 - 6, 8, 4); }
-      ctx.fillStyle = 'rgba(255,255,255,.12)'; ctx.fillRect(-pr.w / 2 + 4, -pr.h / 2 + 9, pr.w - 8, pr.h - 18);   // 지붕 환기구
-      ctx.fillStyle = 'rgba(10,14,18,.85)'; ctx.fillRect(pr.w / 2 - 7, -pr.h / 2 + 3, 5, pr.h - 6);            // 앞유리
-    } else {
-      ctx.fillStyle = 'rgba(0,0,0,.26)';                    // 컨테이너 골판
-      for (let i = -pr.w / 2 + 6; i < pr.w / 2 - 2; i += 8) ctx.fillRect(i, -pr.h / 2 + 2, 3, pr.h - 4);
-      ctx.strokeStyle = 'rgba(255,255,255,.12)'; ctx.lineWidth = 1;
-      ctx.strokeRect(-pr.w / 2 + .5, -pr.h / 2 + .5, pr.w - 1, pr.h - 1);
-    }
-    ctx.restore();
+/** 옥상 방수층 — 얼룩과 시트 이음매. 한 번 만들어 무늬로 깐다 */
+let roofPat = null;
+function roofPattern() {
+  if (roofPat) return roofPat;
+  const c = document.createElement('canvas');
+  c.width = c.height = 96;
+  const x = c.getContext('2d');
+  let seed = 7;
+  const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  for (let i = 0; i < 70; i++) {
+    x.fillStyle = rnd() < 0.5 ? 'rgba(255,255,255,.02)' : 'rgba(0,0,0,.05)';
+    x.beginPath(); x.ellipse(rnd() * 96, rnd() * 96, 3 + rnd() * 10, 2 + rnd() * 6, rnd() * 3, 0, 6.283); x.fill();
   }
-  // 길가 장식 (밟고 지나갈 수 있는 것들)
+  x.fillStyle = 'rgba(0,0,0,.14)';
+  for (let k = 0; k < 96; k += 32) { x.fillRect(0, k, 96, 1); x.fillRect(k + 11, 0, 1, 96); }
+  roofPat = ctx.createPattern(c, 'repeat');
+  return roofPat;
+}
+
+/** 도시 — 건물 줄과 서 있는 것(사람 · 감염체 · 탈것 · 길가 장식)을 북쪽부터 번갈아 그린다 */
+function drawCity(cam, g, w) {
+  const x0 = Math.floor(cam.x / TILE) - 1, y0 = Math.floor(cam.y / TILE) - 1;
+  // 지붕이 위로 떠 있으므로 화면 아래쪽 바깥의 건물도 그 지붕이 보일 수 있다
+  const x1 = Math.ceil((cam.x + W) / TILE), y1 = Math.ceil((cam.y + VH()) / TILE) + 3;
+  const rows = [];
+  for (let r = y0; r <= y1; r++) rows.push([]);
+  const put = (x, y, f, o, m = 90) => {
+    if (x < cam.x - m || x > cam.x + W + m || y < cam.y - m || y > cam.y + VH() + m * 2) return;
+    rows[clamp(Math.floor(y / TILE), y0, y1) - y0].push({ y, f, o });
+  };
+  for (const pr of w.props) put(pr.x, pr.y, 2, pr);
+  for (const d of w.decor) if (MODELS.STANDING[d.kind]) put(d.x, d.y, 3, d, 60);
+  let shown = 0;
+  for (const z of g.zombies) { put(z.x, z.y, 0, z, 120); if (z.lit > 0.05) shown++; }
+  // 화면에 감염체가 많이 드러나면 인형을 간단하게 그려 프레임을 지킨다
+  MODELS.lod = shown + (g.lightning > 0.1 ? g.zombies.length : 0) > 22 ? 1 : 0;
+  if (!g.player.dead) put(g.player.x, g.player.y, 1, g.player, 120);
+  for (let r = y0; r <= y1; r++) {
+    worldTransform(ctx, cam);
+    buildingRow(w, r, x0, x1);
+    const L = rows[r - y0];
+    if (!L.length) continue;
+    L.sort((a, b) => a.y - b.y);
+    screenTransform(ctx, cam);
+    for (const it of L) {
+      if (it.f === 0) drawZombie(it.o);
+      else if (it.f === 1) drawPlayer(it.o);
+      else if (it.f === 2) MODELS.prop(ctx, it.o);
+      else { const d = it.o, o = DECOR_OFF[d.wall] || DECOR_OFF.s; MODELS.decor(ctx, d, d.x + o[0], d.y + o[1]); }
+    }
+  }
+  worldTransform(ctx, cam);
+}
+
+/** 남쪽 건물에 가려진 생존자 — 윤곽을 비쳐 보인다 */
+function drawXray(cam, g, w) {
+  const p = g.player;
+  if (p.dead) return;
+  const tx = Math.floor(p.x / TILE), ty = Math.floor(p.y / TILE);
+  let hid = false;
+  for (let k = 1; k <= 3 && !hid; k++) for (let x = Math.floor((p.x - 7) / TILE); x <= Math.floor((p.x + 7) / TILE); x++) {
+    if (w.deco[w.idx(x, ty + k)] !== D_BUILDING) continue;
+    if ((ty + k) * TILE - bldH(w, x, ty + k) * HSC < p.y - 4) { hid = true; break; }
+  }
+  if (!hid) return;
+  screenTransform(ctx, cam);
+  ctx.globalAlpha = 0.42;
+  MODELS.player(ctx, p, '#a9bccd');
+  for (const z of g.zombies) {
+    if (z.lit < 0.3 || Math.hypot(z.x - p.x, z.y - p.y) > 200) continue;
+    MODELS.zombie(ctx, z, '#b9776a');
+  }
+  ctx.globalAlpha = 1;
+  worldTransform(ctx, cam);
+}
+
+const DECOR_OFF = { n: [0, -16], w: [-16, 0], e: [16, 0], s: [0, 0] };
+/** 바닥에 붙은 장식 — 강 위의 배, 세워 둔 자전거. 서 있는 장식은 drawCity 에서 입체로 */
+function drawDecorFlat(cam, w) {
+  const vis = (x, y, m) => !(x < cam.x - m || x > cam.x + W + m || y < cam.y - m || y > cam.y + VH() + m);
   for (const d of w.decor) {
     if (!vis(d.x, d.y, 60)) continue;
-    const off = d.wall === 'n' ? [0, -16] : d.wall === 'w' ? [-16, 0] : d.wall === 'e' ? [16, 0] : [0, 0];
-    const x = d.x + off[0], y = d.y + off[1];
+    const o = DECOR_OFF[d.wall] || DECOR_OFF.s, x = d.x + o[0], y = d.y + o[1];
     if (d.kind === 'boat') {
       ctx.save(); ctx.translate(d.x, d.y); ctx.rotate(d.a);
       ctx.fillStyle = '#3a2c22'; ctx.beginPath(); ctx.ellipse(0, 0, 44, 9, 0, 0, 6.283); ctx.fill();
       ctx.fillStyle = '#4c3a2c'; ctx.fillRect(-20, -5, 26, 10);
       ctx.restore();
-    } else if (d.kind === 'vending') {
-      ctx.fillStyle = '#d9dde2'; ctx.fillRect(x - 9, y - 7, 18, 14);
-      ctx.fillStyle = '#7a8b99'; ctx.fillRect(x - 7, y - 5, 14, 6);
-    } else if (d.kind === 'cart') {
-      ctx.fillStyle = '#5a4030'; ctx.fillRect(x - 12, y - 7, 24, 14);
-      ctx.fillStyle = d.col; ctx.globalAlpha = 0.7; ctx.beginPath(); ctx.arc(x, y, 15, 0, 6.283); ctx.fill(); ctx.globalAlpha = 1;
-    } else if (d.kind === 'parasol') {
-      ctx.fillStyle = '#3d4248'; ctx.fillRect(x - 10, y - 10, 20, 20);
-      ctx.fillStyle = d.col; ctx.globalAlpha = 0.55; ctx.beginPath(); ctx.arc(x, y, 16, 0, 6.283); ctx.fill(); ctx.globalAlpha = 1;
     } else if (d.kind === 'bike') {
       ctx.strokeStyle = '#6a737c'; ctx.lineWidth = 1.5;
       ctx.beginPath(); ctx.arc(x - 7, y, 5, 0, 6.283); ctx.arc(x + 7, y, 5, 0, 6.283); ctx.moveTo(x - 7, y); ctx.lineTo(x + 7, y); ctx.stroke();
-    } else if (d.kind === 'shrine') {
-      ctx.fillStyle = '#6b5a3a'; ctx.fillRect(x - 2, y - 2, 4, 10);
-      ctx.fillStyle = '#c9a34a'; ctx.fillRect(x - 8, y - 9, 16, 10);
-      ctx.fillStyle = '#8a3a2a'; ctx.beginPath(); ctx.moveTo(x - 10, y - 9); ctx.lineTo(x, y - 16); ctx.lineTo(x + 10, y - 9); ctx.fill();
     }
   }
 }
@@ -2019,148 +2082,53 @@ function drawExit(g, w) {
 }
 
 function drawPlayer(p) {
-  const bob = Math.sin(p.walkPhase) * 1.4;
-  ctx.save();
-  ctx.translate(p.x, p.y + bob);
-  ctx.rotate(p.angle);
-  // 그림자
-  ctx.fillStyle = 'rgba(0,0,0,.45)';
-  ctx.beginPath(); ctx.ellipse(0, 3, 14, 11, 0, 0, 6.283); ctx.fill();
-  // 몸통
-  ctx.fillStyle = p.hurtFlash > 0.05 ? '#8c4a45' : '#2f3a44';
-  ctx.beginPath(); ctx.arc(0, 0, 11, 0, 6.283); ctx.fill();
-  ctx.strokeStyle = 'rgba(190,210,230,.28)'; ctx.lineWidth = 1.5; ctx.stroke();
-  // 어깨
-  ctx.fillStyle = '#39454f';
-  ctx.fillRect(-4, -12, 9, 5); ctx.fillRect(-4, 7, 9, 5);
-  // 근접 밀치기 — 총을 앞으로 내지르는 모션
+  MODELS.player(ctx, p);
+  // 근접 밀치기 — 가슴 높이에서 반원으로 휘두른다
   const sw = p.meleeAnim > 0 ? Math.sin((1 - p.meleeAnim / 0.2) * Math.PI) : 0;
-  // 총 + 손전등
-  ctx.fillStyle = '#1a1f25';
-  ctx.fillRect(6 + sw * 9, -3, 17, 6);
-  ctx.fillStyle = '#f4e2a8';
-  ctx.fillRect(21 + sw * 9, -2, 4, 4);
   if (sw > 0.02) {
     ctx.strokeStyle = `rgba(226,238,250,${0.3 * sw})`;
     ctx.lineWidth = 2.5;
-    ctx.beginPath(); ctx.arc(0, 0, 34, -1.0, 1.0); ctx.stroke();
+    ctx.beginPath(); ctx.ellipse(p.x, p.y * TILT - 10, 34, 34 * TILT, 0, p.angle - 1, p.angle + 1); ctx.stroke();
   }
-  ctx.restore();
 }
 
 function drawZombie(z) {
-  const sway = Math.sin(z.phase) * (z.aggro ? 3.2 : 1.6);
-  const S = z.t.size;
   // Darkwood 처럼 — 거리·건물 같은 정적인 것은 어둠 속에서도 희미하게 보이지만,
   // 적은 손전등 원뿔 안에서만 형체가 있다. 밖에서는 붉은 눈(발광 층)만 남는다.
   // 바로 곁(손이 닿는 거리)과 번개만 예외다 — "번개가 치면 무리가 보인다"
   const p = G.player, d = Math.hypot(z.x - p.x, z.y - p.y);
   const vis = Math.max(z.lit, clamp((120 - d) / 50, 0, 1), G.lightning * 1.4, z.t.boss ? 0.5 : 0);
   if (vis <= 0.01) return;
-  ctx.save();
-  const a0 = clamp(vis, 0, 1);
-  ctx.globalAlpha = a0;
-  ctx.translate(z.x, z.y);
-  ctx.rotate(z.face);
-  ctx.fillStyle = 'rgba(0,0,0,.42)';
-  ctx.beginPath(); ctx.ellipse(0, 3, S + 3, S, 0, 0, 6.283); ctx.fill();
-
-  if (z.t.weeper) {
-    // 우는 것 — 무릎을 끌어안고 웅크린 창백한 형체, 늘어진 검은 머리. 깨어나면 일어서 긴 손톱을 뻗는다
-    if (!z.rage) {
-      const sob = Math.sin(z.phase * 3) * (1 + (z.startle || 0) * 2);
-      ctx.fillStyle = z.t.body;
-      ctx.beginPath(); ctx.ellipse(-2, 0, S * 1.05, S * 0.9 + sob * 0.4, 0, 0, 6.283); ctx.fill();
-      ctx.fillStyle = '#141414';
-      ctx.beginPath(); ctx.ellipse(S * 0.35, 0, S * 0.62, S * 0.7, 0, 0, 6.283); ctx.fill();      // 늘어뜨린 머리카락
-      ctx.fillStyle = z.t.head;
-      ctx.fillRect(S * 0.2, -S * 0.75, S * 0.9, 3); ctx.fillRect(S * 0.2, S * 0.75 - 3, S * 0.9, 3);  // 무릎을 감싼 팔
-    } else {
-      ctx.fillStyle = z.t.body;
-      ctx.beginPath(); ctx.ellipse(0, 0, S * 0.9, S * 0.75, 0, 0, 6.283); ctx.fill();
-      ctx.strokeStyle = z.t.head; ctx.lineWidth = 2.5;
-      ctx.beginPath();
-      for (const s2 of [-1, 1]) { ctx.moveTo(2, s2 * S * 0.6); ctx.lineTo(S * 2.1, s2 * (S * 0.5 + sway)); }
-      ctx.stroke();
-      ctx.fillStyle = '#141414'; ctx.beginPath(); ctx.arc(S * 0.4, 0, S * 0.55, 0, 6.283); ctx.fill();
-    }
-  } else if (z.t.bloat) {
-    // 부푼 것 — 터질 듯한 몸통에 고름 주머니
-    const pulse = 1 + Math.sin(z.phase * 0.8) * 0.04;
-    ctx.fillStyle = z.t.body;
-    ctx.beginPath(); ctx.ellipse(-2, 0, S * 1.08 * pulse, S * pulse, 0, 0, 6.283); ctx.fill();
-    ctx.fillStyle = 'rgba(183,201,106,.55)';
-    for (const [bx, by, br] of [[-6, -7, 4], [3, 8, 5], [-9, 6, 3], [6, -4, 3]]) { ctx.beginPath(); ctx.arc(bx, by, br, 0, 6.283); ctx.fill(); }
-    ctx.fillStyle = z.t.head;
-    ctx.beginPath(); ctx.arc(S * 0.7, 0, S * 0.36, 0, 6.283); ctx.fill();
-  } else if (z.t.boss) {
-    // 그것 — 굽은 등과 비대한 팔. 돌진 선딜에는 몸이 부풀어 오른다
-    const w = z.chargePhase === 'wind' ? 1 + Math.sin(z.phase * 2) * 0.09 : 1;
-    ctx.fillStyle = z.t.body;
-    ctx.beginPath(); ctx.ellipse(0, 0, S * 1.12 * w, S * w, 0, 0, 6.283); ctx.fill();
-    ctx.fillStyle = z.t.head;
-    ctx.fillRect(S * 0.2, -S - 2 + sway * 0.6, S * 1.5, 8);
-    ctx.fillRect(S * 0.2, S - 6 - sway * 0.6, S * 1.5, 8);
-    ctx.beginPath(); ctx.arc(S * 0.72, sway * 0.3, S * 0.46, 0, 6.283); ctx.fill();
-    // 등줄기
-    ctx.fillStyle = 'rgba(16,20,24,.55)';
-    for (let i = -2; i <= 2; i++) {
-      ctx.beginPath(); ctx.ellipse(-S * 0.45, i * S * 0.3, S * 0.2, S * 0.12, 0, 0, 6.283); ctx.fill();
-    }
-  } else if (z.t.crawl) {
-    // 기어다니는 것 — 바닥에 눌린 납작한 실루엣, 팔은 옆으로 넓게
-    ctx.fillStyle = z.t.body;
-    ctx.beginPath(); ctx.ellipse(0, 0, S * 1.5, S * 0.78, 0, 0, 6.283); ctx.fill();
-    ctx.fillStyle = z.t.head;
-    const reach = S * (z.lunging ? 1.9 : 1.2);
-    ctx.fillRect(S * 0.5, -S - 1 + sway * 0.5, reach, 3);
-    ctx.fillRect(S * 0.5, S - 2 - sway * 0.5, reach, 3);
-    ctx.beginPath(); ctx.arc(S * 1.1, sway * 0.2, S * 0.5, 0, 6.283); ctx.fill();
-  } else {
-    ctx.fillStyle = z.t.body;
-    ctx.beginPath(); ctx.arc(0, 0, S, 0, 6.283); ctx.fill();
-    // 팔 — 앞으로 뻗은
-    ctx.fillStyle = z.t.head;
-    ctx.fillRect(2, -S + 1 + sway * 0.4, S + 4, 4);
-    ctx.fillRect(2, S - 5 - sway * 0.4, S + 4, 4);
-    // 머리
-    ctx.beginPath(); ctx.arc(S * 0.42, sway * 0.3, S * 0.52, 0, 6.283); ctx.fill();
-    // 뱉는 것 — 등에 부푼 산 주머니
-    if (z.t.spit) {
-      const pulse = 0.82 + Math.sin(z.phase * 1.4) * 0.14;
-      ctx.fillStyle = `rgba(126,186,48,${z.spitT < 0.5 ? 0.95 : 0.6})`;
-      ctx.beginPath(); ctx.ellipse(-S * 0.5, 0, S * 0.62 * pulse, S * 0.52 * pulse, 0, 0, 6.283); ctx.fill();
-    }
-  }
-  // 피해 표시
-  if (z.hp < z.hpMax) {
-    ctx.globalAlpha = a0 * clamp(1 - z.hp / z.hpMax, 0, 1) * 0.5;
-    ctx.fillStyle = '#6b1310';
-    ctx.beginPath(); ctx.arc(0, 0, z.t.size * 0.8, 0, 6.283); ctx.fill();
-  }
-  // 맞은 순간 하얗게 번쩍인다
-  if (z.flash > 0) {
-    ctx.globalAlpha = a0 * 0.75;
-    ctx.fillStyle = '#f4f1ea';
-    ctx.beginPath(); ctx.arc(0, 0, z.t.size * 1.02, 0, 6.283); ctx.fill();
-  }
+  if (z.hp < z.hpMax * 0.5 && z.look) z.look.blood = true;
+  ctx.globalAlpha = clamp(vis, 0, 1);
+  MODELS.zombie(ctx, z, z.flash > 0 ? '#f4f1ea' : null);    // 맞은 순간 하얗게 번쩍인다
   ctx.globalAlpha = 1;
-  ctx.restore();
 }
 
-function drawCorpse(c) {
-  ctx.save();
-  ctx.translate(c.x, c.y); ctx.rotate(c.a);
+function drawCorpse(c, cam) {
+  if (c.x < cam.x - 60 || c.x > cam.x + W + 60 || c.y < cam.y - 60 || c.y > cam.y + VH() + 60) return;
   ctx.globalAlpha = clamp(1 - c.age / 240, 0.25, 1);
-  ctx.fillStyle = c.type === 'player' ? '#3a2f2c' : '#2a2f28';
-  ctx.beginPath(); ctx.ellipse(0, 0, 15, 9, 0, 0, 6.283); ctx.fill();
-  ctx.fillStyle = 'rgba(90,16,12,.5)';
-  ctx.beginPath(); ctx.ellipse(-4, 0, 20, 13, 0, 0, 6.283); ctx.fill();
+  MODELS.corpse(ctx, c);
   ctx.globalAlpha = 1;
-  ctx.restore();
 }
 
-function drawPickup(pk, time) {
+function drawPickup(pk, time, cam) {
+  if (pk.p.icon === 'goal') {
+    // 보급 상자 — 끈으로 묶은 나무 궤짝이 바닥에 놓여 있다
+    screenTransform(ctx, cam);
+    ctx.fillStyle = 'rgba(0,0,0,.45)';
+    ctx.beginPath(); ctx.ellipse(pk.x + 2, (pk.y + 3) * TILT, 15, 9, 0, 0, 6.283); ctx.fill();
+    const at = MODELS.box(ctx, pk.x, pk.y, 0.35, -10, 10, -8, 8, 0, 15, '#6a8a96', '#4f6e7a', (c2, f) => {
+      c2.fillStyle = 'rgba(0,0,0,.3)';
+      for (const u of [0.22, 0.78]) { const a = f(u - 0.03, 0), b = f(u + 0.03, 0), c = f(u + 0.03, 1), e = f(u - 0.03, 1);
+        c2.beginPath(); c2.moveTo(a[0], a[1]); c2.lineTo(b[0], b[1]); c2.lineTo(c[0], c[1]); c2.lineTo(e[0], e[1]); c2.fill(); }
+    });
+    ctx.strokeStyle = 'rgba(0,0,0,.35)'; ctx.lineWidth = 1.6;
+    ctx.beginPath(); for (const lx of [-5.6, 5.6]) { const a = at(lx, -8, 15), b = at(lx, 8, 15); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]); } ctx.stroke();
+    ctx.fillStyle = '#59b7d8'; { const c = at(0, 0, 15); ctx.fillRect(c[0] - 3, c[1] - 1.5, 6, 3); }
+    worldTransform(ctx, cam);
+    return;
+  }
   const y = pk.y + Math.sin(pk.bob) * 2.5;
   ctx.save();
   ctx.translate(pk.x, y);
@@ -2341,8 +2309,9 @@ function drawGlow(cam, g, p, w) {
     if (d > 560) continue;
     const a = clamp((1 - d / 560) * 0.5, 0, 0.5) * (0.7 + Math.sin(g.time * 6 + z.phase) * 0.3);
     ctx.fillStyle = `rgba(190,40,30,${a})`;
-    const ex = z.x + Math.cos(z.face) * z.t.size * 0.6;
-    const ey = z.y + Math.sin(z.face) * z.t.size * 0.6;
+    const hz = MODELS.headZ(z) * ZK, fw = z.t.crawl ? 8 : 4 + z.t.size * 0.12;
+    const ex = z.x + Math.cos(z.face) * fw;
+    const ey = z.y + Math.sin(z.face) * fw - hz;
     const nx = -Math.sin(z.face) * 2.6, ny = Math.cos(z.face) * 2.6;
     ctx.beginPath(); ctx.arc(ex + nx, ey + ny, 1.7, 0, 6.283); ctx.fill();
     ctx.beginPath(); ctx.arc(ex - nx, ey - ny, 1.7, 0, 6.283); ctx.fill();
@@ -2391,7 +2360,7 @@ function drawGlow(cam, g, p, w) {
 
   // 총구 · 폭발
   if (p.muzzle > 0) {
-    const mx = p.x + Math.cos(p.angle) * 22, my = p.y + Math.sin(p.angle) * 22;
+    const mx = p.x + Math.cos(p.angle) * 22, my = p.y + Math.sin(p.angle) * 22 - GUN_LIFT;
     const gr = ctx.createRadialGradient(mx, my, 0, mx, my, 60);
     gr.addColorStop(0, 'rgba(255,220,150,.55)');
     gr.addColorStop(1, 'rgba(0,0,0,0)');

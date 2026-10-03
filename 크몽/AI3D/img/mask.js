@@ -1,8 +1,9 @@
-// 대시보드 스크린샷 → 크몽 게시용: 필요한 영역만 자르고, 외부 연락 경로(핸들·채널명)를 블러 처리
+// 대시보드 스크린샷 → 크몽 게시용: 필요한 영역만 자르고, 업체를 알아볼 수 있는 문구·외부 연락 경로(핸들·채널명)를 블러 처리
+// 원본(dash-kpi.png, dash-sns.png)은 업체명이 보여 NDA 대상이라 저장소에 올리지 않는다 (.gitignore)
 const { chromium } = require("playwright");
 const fs = require("fs"), path = require("path");
 const JOBS = [
-  { src: "dash-kpi.png", out: "dash-kpi-crop.png", crop: [340, 96, 1540, 810], blur: [] },
+  { src: "dash-kpi.png", out: "dash-kpi-crop.png", crop: [340, 96, 1540, 810], blur: [[358, 146, 340, 24], [362, 412, 282, 188]] },
   { src: "dash-kpi.png", out: "dash-chart.png", crop: [360, 640, 1508, 262], blur: [] },
   { src: "dash-sns.png", out: "dash-sns-row1.png", crop: [348, 168, 1528, 256],
     blur: [[380, 230, 120, 24], [686, 230, 120, 24], [1036, 210, 116, 26], [1378, 210, 66, 26]] },

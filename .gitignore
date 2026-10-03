@@ -10,3 +10,6 @@ node_modules/
 # 크몽 렌더링용 웹폰트 (fonts/fetch.sh 로 내려받음)
 크몽/fonts/*.woff2
 크몽/fonts/fraunces-src.css
+# NDA: 업체명이 보이는 원본 대시보드 캡처
+크몽/AI3D/img/dash-kpi.png
+크몽/AI3D/img/dash-sns.png

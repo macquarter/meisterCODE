@@ -1,0 +1,191 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>MEISTERCODE 06번 카드 — 바리에이션 4안</title>
+<link rel="stylesheet" href="../css/base.css">
+<link rel="stylesheet" href="../시안/thumb.css">
+<style>
+/* 간격은 4px 단위, 글자는 본문 13px·캡션 12px 아래로 내리지 않는다 (모바일 0.6배 축소 기준) */
+body{display:flex;flex-direction:column;align-items:center;gap:12px;padding:32px 0;background:#E9ECF1}
+.vl{width:652px;margin-top:20px;font-size:15px;font-weight:900;color:#0A1220;letter-spacing:-.03em}
+.vl span{font-weight:600;color:#5A6577;margin-left:8px}
+.card{width:652px;height:488px;position:relative;overflow:hidden;background:#000;color:#fff;display:flex;flex-direction:column}
+.top{position:absolute;z-index:3;left:36px;right:36px;top:24px;display:flex;justify-content:space-between;font-size:12px;font-weight:800;color:#7A8597}
+.top b{color:#fff;font-weight:900}.top b span{color:var(--blue)}
+.in{position:relative;z-index:2;flex:1;display:flex;flex-direction:column;justify-content:center;padding:52px 36px 28px}
+.eyebrow{font-size:14px;font-weight:800;color:var(--blue-lit);margin-bottom:8px;letter-spacing:-.02em}
+.h{font-size:30px;font-weight:900;line-height:1.2;letter-spacing:-.05em}
+.src{margin-top:12px;font-size:12px;font-weight:600;color:#8892A2;line-height:1.5}
+/* 대시보드 실제 화면 일부 (KPI 줄) */
+.dimg{background:url(img/dash-kpi-crop.png) 0 0/100% auto no-repeat;aspect-ratio:1540/300;border-radius:4px}
+.ck{display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:50%;background:#fff;flex:0 0 16px}
+.ck svg{width:10px;height:10px;stroke:var(--blue);fill:none;stroke-width:3.4;stroke-linecap:round;stroke-linejoin:round}
+
+/* ── A: 영수증 + 도장 ── */
+.va .wrap{position:relative;margin-top:16px;height:250px}
+.va .receipt{position:absolute;left:0;top:0;width:360px;background:#F7F8FA;color:#0A1220;border-radius:6px 6px 0 0;padding:12px 18px 10px;
+  box-shadow:0 18px 40px rgba(0,0,0,.55);font-size:13px}
+.va .receipt::after{content:"";position:absolute;left:0;right:0;bottom:-8px;height:8px;
+  background:linear-gradient(-45deg,transparent 6px,#F7F8FA 0) 0 0/12px 8px repeat-x,linear-gradient(45deg,transparent 6px,#F7F8FA 0) 0 0/12px 8px repeat-x}
+.va .receipt h4{font-size:12px;font-weight:900;color:#7A8597;letter-spacing:.04em;padding-bottom:6px;border-bottom:1.5px dashed #C7CED9}
+.va .receipt p{display:flex;justify-content:space-between;gap:8px;padding:4px 0;font-weight:700;letter-spacing:-.03em;color:#3B4656}
+.va .receipt p b{font-weight:900;color:#0A1220;white-space:nowrap}
+.va .receipt p.rep{color:#7A8597}.a .receipt p.rep b{color:#7A8597;font-weight:800}
+.va .receipt .tot{margin-top:4px;padding-top:8px;border-top:1.5px dashed #C7CED9;font-size:15px;font-weight:900;color:#0A1220;align-items:baseline}
+.va .receipt .tot b{font-size:24px;letter-spacing:-.05em}
+.va .stamp{position:absolute;right:0;top:18px;width:232px;background:var(--blue);border-radius:14px;padding:18px 20px 16px;transform:rotate(-4deg);
+  box-shadow:0 18px 44px rgba(46,123,246,.5);border:2px solid rgba(255,255,255,.35)}
+.va .stamp small{display:block;font-size:13px;font-weight:900;color:rgba(255,255,255,.88)}
+.va .stamp > b{display:block;font-size:50px;font-weight:900;letter-spacing:-.06em;line-height:1.04;margin:4px 0 4px}
+.va .stamp > span{display:block;font-size:13px;font-weight:700;color:rgba(255,255,255,.92)}
+.va .stamp .dash{margin-top:12px;padding-top:12px;border-top:1px solid rgba(255,255,255,.28)}
+.va .stamp .dash .dimg{margin-bottom:8px;box-shadow:0 0 0 1px rgba(255,255,255,.25)}
+.va .stamp .dash p{font-size:13px;font-weight:900;line-height:1.45;letter-spacing:-.03em}
+
+/* ── B: 업체 5곳 vs 1곳 ── */
+.vb .vs{display:flex;gap:12px;margin-top:16px;align-items:stretch}
+.vb .five{flex:1.25;display:flex;flex-direction:column;gap:6px}
+.vb .five .v{display:flex;align-items:center;gap:8px;background:#0E141D;border:1px solid rgba(255,255,255,.13);border-radius:8px;padding:8px 12px}
+.vb .five .v i{font-style:normal;font-size:12px;font-weight:900;color:#7A8597;flex:0 0 40px}
+.vb .five .v span{flex:1;font-size:13px;font-weight:800;color:#E3E8EF;letter-spacing:-.03em}
+.vb .five .v em{font-style:normal;font-size:12px;font-weight:700;color:#7A8597;margin-right:4px}
+.vb .five .v b{font-size:13px;font-weight:900;white-space:nowrap}
+.vb .five .sum{display:flex;justify-content:space-between;align-items:baseline;padding:4px 2px 0;white-space:nowrap}
+.vb .five .sum span{font-size:13px;font-weight:800;color:#FF7A6E;letter-spacing:-.03em}
+.vb .five .sum2{display:flex;justify-content:flex-end;align-items:baseline;gap:6px;white-space:nowrap}
+.vb .five .sum b{font-size:22px;font-weight:900;letter-spacing:-.05em}
+.vb .five .sum b small{font-size:12px;font-weight:800;color:#AEB7C4;margin-right:4px}
+.vb .one{flex:1;background:var(--blue);border-radius:12px;padding:16px 18px;display:flex;flex-direction:column;box-shadow:0 16px 40px rgba(46,123,246,.4)}
+.vb .one small{font-size:13px;font-weight:900;color:rgba(255,255,255,.88)}
+.vb .one > b{font-size:46px;font-weight:900;letter-spacing:-.06em;line-height:1.05;margin:4px 0 2px}
+.vb .one > span{font-size:13px;font-weight:700;color:rgba(255,255,255,.92)}
+.vb .one .dash{margin-top:auto;background:rgba(0,0,0,.22);border-radius:8px;padding:8px}
+.vb .one .dash .dimg{margin-bottom:8px}
+.vb .one .dash p{font-size:13px;font-weight:900;letter-spacing:-.03em;line-height:1.4}
+
+/* ── C: 막대 비교 ── */
+.vc .rows{margin-top:20px}
+.vc .lab{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px}
+.vc .lab span{font-size:14px;font-weight:800;color:#CFD6E1}
+.vc .lab b{font-size:22px;font-weight:900;letter-spacing:-.04em;color:#E3E8EF}
+.vc .bar{display:flex;height:40px;width:100%;gap:2px}
+.vc .bar i{display:block;height:100%}
+.vc .bar i:first-child{border-radius:6px 0 0 6px}
+.vc .bar .rg{flex:1;border-radius:0 6px 6px 0;border:1px dashed rgba(255,255,255,.3);
+  background:repeating-linear-gradient(135deg,rgba(255,255,255,.12) 0 6px,transparent 6px 12px)}
+.vc .lg{display:flex;flex-wrap:wrap;gap:4px 10px;margin-top:8px;font-size:12px;font-weight:700;color:#AEB7C4}
+.vc .lg em{font-style:normal;display:inline-flex;align-items:center;gap:4px}
+.vc .lg em::before{content:"";width:8px;height:8px;border-radius:2px;background:var(--c)}
+.vc .lg em.hx::before{background:repeating-linear-gradient(135deg,rgba(255,255,255,.5) 0 2px,transparent 2px 4px);outline:1px dashed rgba(255,255,255,.4)}
+.vc .us{display:flex;align-items:center;gap:16px;margin-top:20px}
+.vc .us .bl{height:52px;width:36.9%;flex:0 0 36.9%;background:var(--blue);border-radius:6px;box-shadow:0 0 32px rgba(46,123,246,.55);
+  display:flex;align-items:center;padding:0 14px;font-size:13px;font-weight:900}
+.vc .us b{font-size:40px;font-weight:900;letter-spacing:-.06em;color:var(--blue-lit);line-height:1}
+.vc .us small{display:block;font-size:12px;font-weight:700;color:#AEB7C4;margin-top:4px}
+.vc .strip{display:flex;align-items:center;gap:14px;margin-top:20px;padding:10px 14px;border-radius:10px;background:#0E141D;border:1px solid rgba(46,123,246,.45)}
+.vc .strip .dimg{width:150px;flex:0 0 150px}
+.vc .strip p{font-size:15px;font-weight:900;letter-spacing:-.035em;line-height:1.35}
+.vc .strip p small{display:block;font-size:12px;font-weight:700;color:#AEB7C4;margin-top:2px}
+
+/* ── D: 거대 숫자 + 파란 띠 ── */
+.vd .up{position:relative;z-index:2;flex:1;padding:64px 36px 0;display:flex;flex-direction:column;justify-content:center}
+.vd .up .big{font-size:68px;font-weight:900;letter-spacing:-.06em;line-height:1.02;color:#E3E8EF}
+.vd .up .big small{font-size:30px;margin-right:6px;color:#AEB7C4}
+.vd .up .sub{margin-top:8px;font-size:22px;font-weight:900;letter-spacing:-.045em;color:var(--blue-lit)}
+.vd .up .src{margin-top:8px}
+.vd .down{position:relative;z-index:2;background:var(--blue);padding:20px 36px 20px;display:flex;align-items:center;gap:20px}
+.vd .down .l{flex:0 0 auto}
+.vd .down .l small{display:block;font-size:13px;font-weight:900;color:rgba(255,255,255,.88)}
+.vd .down .l b{display:block;font-size:52px;font-weight:900;letter-spacing:-.06em;line-height:1.04;margin:2px 0}
+.vd .down .l span{font-size:13px;font-weight:700;color:rgba(255,255,255,.92)}
+.vd .down .r{flex:1;min-width:0}
+.vd .down .win{box-shadow:0 12px 30px rgba(0,0,0,.35)}
+.vd .down .win .dimg{border-radius:0}
+.vd .down .r p{margin-top:8px;font-size:14px;font-weight:900;letter-spacing:-.035em}
+</style>
+
+<!-- ═════ A ═════ -->
+<p class="vl">A안 · 영수증 + 도장<span>지금 컨셉을 살리고, 취소선 대신 도장으로 대비</span></p>
+<section class="card va">
+  <div class="beam"></div>
+  <div class="top"><b>MEISTER<span>CODE</span></b><span>06 / 09</span></div>
+  <div class="in">
+    <p class="eyebrow">5곳에 따로 맡기면</p>
+    <p class="h">원래는 이만큼<br><span class="b">들어가야 하는 일입니다</span></p>
+    <div class="wrap">
+      <div class="receipt"><h4>외주 견적서 · 주 5회 운영 기준</h4>
+        <p>AI 3D 쇼츠 영상 20편<b>260만원</b></p>
+        <p>인스타그램 운영<b>52~130만원</b></p>
+        <p>스레드 운영 + 댓글 응대<b>52~130만원</b></p>
+        <p>네이버 블로그 운영<b>22~133만원</b></p>
+        <p>홈페이지 기술 블로그<b>22~133만원</b></p>
+        <p class="rep">성과 보고<b>업체마다 따로</b></p>
+        <p class="tot">합계<b>월 408~786만원</b></p></div>
+      <div class="stamp"><small>마이스터코드 한 곳에</small><b>290만원</b><span>다섯 가지 전부 · 월 콘텐츠 100건</span>
+        <div class="dash"><div class="dimg"></div><p>운영은 전달되는 대시보드<br>하나로 확인하시면 됩니다</p></div></div>
+    </div>
+    <p class="src">크몽 공개 가격(2026년 10월) 기준. 쇼츠는 일반 숏폼 평균 13만원으로 낮춰 계산 · VAT 별도</p>
+  </div>
+</section>
+
+<!-- ═════ B ═════ -->
+<p class="vl">B안 · 업체 5곳 vs 1곳<span>비용에 번거로움(계약·연락·보고 5군데)을 더해 대비</span></p>
+<section class="card vb">
+  <div class="beam"></div>
+  <div class="top"><b>MEISTER<span>CODE</span></b><span>06 / 09</span></div>
+  <div class="in">
+    <p class="eyebrow">따로 맡기면 얼마일까</p>
+    <p class="h">원래는 다섯 곳에<br><span class="b">따로 맡겨야 하는 일입니다</span></p>
+    <div class="vs">
+      <div class="five">
+        <div class="v"><i>업체 1</i><span>AI 3D 쇼츠 20편</span><b>260만</b></div>
+        <div class="v"><i>업체 2</i><span>인스타그램 운영</span><b>52만~</b></div>
+        <div class="v"><i>업체 3</i><span>스레드 + 댓글 응대</span><b>52만~</b></div>
+        <div class="v"><i>업체 4</i><span>네이버 블로그</span><b>22만~</b></div>
+        <div class="v"><i>업체 5</i><span>홈페이지 블로그</span><b>22만~</b></div>
+        <div class="sum"><span>계약 5번 · 연락 5곳 · 보고 5가지</span></div>
+        <div class="sum sum2"><b><small>낮게 잡아도</small>월 408만원</b></div>
+      </div>
+      <div class="one"><small>마이스터코드 한 곳</small><b>290만원</b><span>계약 1번 · 월 콘텐츠 100건</span>
+        <div class="dash"><div class="dimg"></div><p>운영은 전달되는 대시보드로<br>확인하시면 됩니다</p></div></div>
+    </div>
+    <p class="src">크몽 공개 가격(2026년 10월) 기준 하단값. 쇼츠는 일반 숏폼 평균 13만원으로 낮춰 계산 · VAT 별도</p>
+  </div>
+</section>
+
+<!-- ═════ C ═════ -->
+<p class="vl">C안 · 막대 비교<span>길이로 한눈에 대비, 대시보드는 아래 띠로</span></p>
+<section class="card vc">
+  <div class="beam"></div>
+  <div class="top"><b>MEISTER<span>CODE</span></b><span>06 / 09</span></div>
+  <div class="in">
+    <p class="h">원래는 이만큼<br><span class="b">들어가야 하는 일입니다</span></p>
+    <div class="rows">
+      <div class="lab"><span>5곳에 따로 맡기면 · 주 5회 운영</span><b>월 408~786만원</b></div>
+      <div class="bar">
+        <i style="width:33.08%;background:#7A8597"></i><i style="width:6.62%;background:#5F6A7A"></i><i style="width:6.62%;background:#4D5767"></i><i style="width:2.8%;background:#3F4856"></i><i style="width:2.8%;background:#353D49"></i><i class="rg"></i>
+      </div>
+      <div class="lg"><em style="--c:#7A8597">3D 쇼츠 20편 260만</em><em style="--c:#5F6A7A">인스타 52만~</em><em style="--c:#4D5767">스레드 52만~</em><em style="--c:#3F4856">네이버 22만~</em><em style="--c:#353D49">홈페이지 22만~</em><em class="hx">시세 상단까지</em></div>
+      <div class="us"><div class="bl">마이스터코드</div><div><b>290만원</b><small>한 곳에 전부 · 월 콘텐츠 100건</small></div></div>
+    </div>
+    <div class="strip"><div class="dimg"></div><p>운영은, 전달되는 대시보드를 확인하시면 됩니다<small>다섯 채널의 발행·조회를 한 화면에서</small></p></div>
+    <p class="src">크몽 공개 가격(2026년 10월) 기준. 쇼츠는 일반 숏폼 평균 13만원으로 낮춰 계산 · VAT 별도</p>
+  </div>
+</section>
+
+<!-- ═════ D ═════ -->
+<p class="vl">D안 · 거대 숫자 + 파란 띠<span>원래 금액을 주인공으로, 모바일 축소에서도 읽히게</span></p>
+<section class="card vd">
+  <div class="beam"></div>
+  <div class="top"><b>MEISTER<span>CODE</span></b><span>06 / 09</span></div>
+  <div class="up">
+    <p class="eyebrow">쇼츠 · 인스타 · 스레드 · 네이버 · 홈페이지, 5곳에 따로 맡기면</p>
+    <p class="big"><small>월</small>408~786만원</p>
+    <p class="sub">원래는 이만큼 들어가야 하는 일입니다</p>
+    <p class="src">크몽 공개 가격(2026년 10월) 기준, 주 5회 운영 · 쇼츠는 일반 숏폼 평균 13만원으로 낮춰 계산</p>
+  </div>
+  <div class="down">
+    <div class="l"><small>마이스터코드는 한 곳에서</small><b>290만원</b><span>5개 채널 전부 · 월 100건 · VAT 별도</span></div>
+    <div class="r"><div class="win"><div class="win__bar"><i class="dot d1"></i><i class="dot d2"></i><i class="dot d3"></i><i class="url"></i></div><div class="dimg"></div></div>
+      <p>운영은 전달되는 대시보드로 확인하시면 됩니다</p></div>
+  </div>
+</section>

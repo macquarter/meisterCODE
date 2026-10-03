@@ -1,0 +1,504 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>MEISTERCODE 홍보 전담 — 크몽 이미지 9장</title>
+<link rel="stylesheet" href="../css/base.css">
+<link rel="stylesheet" href="../시안/thumb.css">
+<style>
+/* 간격은 4px 단위, 글자는 본문 13px·캡션 12px 아래로 내리지 않는다 (모바일 0.6배 축소 기준) */
+body{display:flex;flex-direction:column;align-items:center;gap:32px;padding:32px 0}
+.card{width:652px;height:488px;position:relative;overflow:hidden;background:#000;color:#fff;display:flex;flex-direction:column}
+.card--paper{background:var(--paper);color:#0A1220}
+.top{position:absolute;z-index:3;left:36px;right:36px;top:24px;display:flex;justify-content:space-between;font-size:12px;font-weight:800;color:#7A8597}
+.top b{color:#fff;font-weight:900}.top b span{color:var(--blue)}
+.card--paper .top b{color:#0A1220}
+.in{position:relative;z-index:2;flex:1;display:flex;flex-direction:column;justify-content:center;padding:52px 36px 28px}
+.row2{flex-direction:row;align-items:center;gap:24px}
+.row2 .l{flex:1;min-width:0}
+.eyebrow{font-size:14px;font-weight:800;color:var(--blue-lit);margin-bottom:8px;letter-spacing:-.02em}
+.card--paper .eyebrow{color:var(--blue)}
+.h{font-size:34px;font-weight:900;line-height:1.2;letter-spacing:-.05em}
+.h.s{font-size:30px}
+.p{font-size:14px;font-weight:600;line-height:1.6;color:#AEB7C4;letter-spacing:-.028em}
+.card--paper .p{color:var(--gray-d)}
+.hit{margin-top:16px;font-size:17px;font-weight:800;letter-spacing:-.035em}
+
+/* ── 01 썸네일 ── */
+.c1 .main{gap:8px;padding-right:20px}
+.c1 .l{width:58%}
+.c1 h1{font-size:39px;font-weight:900;line-height:1.16;letter-spacing:-.055em;margin-bottom:12px}
+.c1 .sub{margin-bottom:16px;font-size:14px;color:#CFD6E1}
+.c1 .p-big{font-size:46px}
+.c1 .r{width:42%;display:flex;justify-content:center}
+.c1 .fly{width:256px;height:256px}
+
+/* ── 02 PAS ── */
+.pain{margin-top:20px}
+.pain div{display:flex;align-items:baseline;gap:12px;padding:12px 0;border-bottom:1px solid rgba(255,255,255,.1)}
+.pain div:first-child{border-top:1px solid rgba(255,255,255,.1)}
+.pain b{flex:0 0 112px;font-size:15px;font-weight:900;color:#FF7A6E;letter-spacing:-.03em}
+.pain span{font-size:15px;font-weight:700;color:#E3E8EF;letter-spacing:-.03em}
+
+/* ── 03 BAB 하루 ── */
+.day{display:flex;gap:12px;margin-top:20px}
+.day > div{flex:1;border-radius:12px;padding:16px}
+.day .bf{background:#fff;border:1px solid #DFE4EC}
+.day .af{background:var(--blue);color:#fff;flex:1.15}
+.day h4{font-size:13px;font-weight:900;letter-spacing:.02em;margin-bottom:8px}
+.day .bf h4{color:#7A8597}
+.day p{display:flex;gap:12px;padding:6px 0;font-size:13px;font-weight:700;letter-spacing:-.03em;border-bottom:1px solid rgba(10,18,32,.08)}
+.day .af p{border-bottom-color:rgba(255,255,255,.18)}
+.day p:last-child{border-bottom:0}
+.day p i{font-style:normal;flex:0 0 44px;font-weight:900}
+.day .bf p{color:#3B4656}.day .bf p i{color:#9AA4B4}
+.day .bf p.x{color:#D93A3A}
+.day .af p i{color:rgba(255,255,255,.75)}
+.day .af p.ok{font-weight:900}
+.btn{display:inline-block;background:#fff;color:var(--blue);font-size:12px;font-weight:900;padding:1px 8px;border-radius:4px;margin:0 4px}
+
+/* ── 04 대시보드 ── */
+.c4 .hd{position:relative;z-index:3;display:flex;justify-content:space-between;align-items:flex-start;padding:60px 36px 0}
+.c4 .zero{text-align:right;margin-top:-4px}
+.c4 .zero span{display:block;font-size:15px;font-weight:900;color:#CFD6E1}
+.c4 .zero b{display:block;font-size:80px;font-weight:900;letter-spacing:-.06em;line-height:.95;color:var(--blue-lit);text-shadow:0 0 40px rgba(46,123,246,.75)}
+.c4 .zero small{display:block;font-size:12px;font-weight:700;color:#AEB7C4;margin-top:4px}
+.c4 .stats{position:absolute;left:28px;bottom:40px;z-index:4;background:rgba(5,8,13,.86);border:1px solid rgba(255,255,255,.14);border-radius:10px;padding:10px 14px}
+.c4 .stats p{display:flex;align-items:baseline;gap:8px;line-height:1;margin-bottom:8px}
+.c4 .stats p:last-child{margin-bottom:0}
+.c4 .stats b{font-size:18px;font-weight:900;letter-spacing:-.045em;min-width:72px}
+.c4 .stats span{font-size:12px;font-weight:700;color:#AEB7C4}
+.c4 .stats{bottom:36px;padding:8px 12px}
+.c4 .stats p{margin-bottom:6px}
+.c4 .stats b{font-size:17px}
+.c4 .stats .ttl{font-size:12px;font-weight:900;color:var(--blue-lit);margin-bottom:8px}
+.c4 .stage{position:absolute;left:0;right:0;top:176px;bottom:0;z-index:2}
+.c4 .win{position:absolute;border-radius:10px}
+.c4 .win img{display:block;width:100%}
+.c4 .back{left:176px;top:4px;width:476px;transform:perspective(1600px) rotateY(-14deg) rotateX(6deg);transform-origin:left top}
+.c4 .front{left:28px;top:76px;width:356px;transform:perspective(1600px) rotateY(-8deg) rotateX(4deg);transform-origin:left top;
+  box-shadow:0 26px 60px rgba(0,0,0,.85),0 0 0 1px rgba(46,123,246,.5)}
+.c4 .pin{position:absolute;z-index:4;display:inline-flex;align-items:center;gap:6px;background:#fff;color:#0A1220;font-size:13px;font-weight:900;
+  letter-spacing:-.03em;padding:4px 10px 4px 4px;border-radius:20px;box-shadow:0 8px 20px rgba(0,0,0,.5)}
+.c4 .pin i{font-style:normal;width:20px;height:20px;border-radius:50%;background:var(--blue);color:#fff;font-size:12px;display:flex;align-items:center;justify-content:center}
+.c4 .fade{position:absolute;left:0;right:0;bottom:0;height:56px;z-index:3;background:linear-gradient(transparent,rgba(0,0,0,.92) 60%)}
+.c4 .note{position:absolute;left:36px;right:36px;bottom:12px;z-index:4;font-size:12px;font-weight:600;color:#8892A2}
+
+/* B: 오른쪽 세로 성과 컬럼 */
+.vb4 .back{left:120px;width:440px}
+.vb4 .front{width:330px}
+.vb4 .col{position:absolute;z-index:5;right:24px;top:52px;bottom:40px;width:184px;background:rgba(5,8,13,.88);border:1px solid rgba(46,123,246,.5);
+  border-radius:14px;padding:16px 16px 12px;display:flex;flex-direction:column;box-shadow:0 20px 50px rgba(0,0,0,.7)}
+.vb4 .col .z span{display:block;font-size:13px;font-weight:900;color:#CFD6E1}
+.vb4 .col .z b{display:block;font-size:68px;font-weight:900;letter-spacing:-.06em;line-height:.95;color:var(--blue-lit);text-shadow:0 0 36px rgba(46,123,246,.75)}
+.vb4 .col .z small{display:block;font-size:12px;font-weight:700;color:#AEB7C4;margin-top:4px;padding-bottom:12px;border-bottom:1px solid rgba(255,255,255,.14)}
+.vb4 .col .m{margin-top:12px}
+.vb4 .col .m b{display:block;font-size:24px;font-weight:900;letter-spacing:-.05em;line-height:1.05}
+.vb4 .col .m span{font-size:12px;font-weight:700;color:#AEB7C4}
+/* ── 04 실증 대시보드 (구) ── */
+.dash{margin-top:20px;background:#0B1119;border:1px solid rgba(255,255,255,.12);border-radius:14px;padding:16px 18px;display:flex;gap:20px;align-items:stretch}
+.dash .kp{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;flex:0 0 300px}
+.dash .kp div{background:rgba(255,255,255,.04);border-radius:10px;padding:12px}
+.dash .kp div.on{background:var(--blue)}
+.dash .kp b{display:block;font-size:26px;font-weight:900;letter-spacing:-.05em;line-height:1.1}
+.dash .kp span{font-size:12px;font-weight:700;color:#AEB7C4}
+.dash .kp div.on span{color:rgba(255,255,255,.9)}
+.dash .ch{flex:1;display:flex;flex-direction:column}
+.dash .live{font-size:12px;font-weight:900;color:#2ED573;margin-bottom:8px}
+.dash .live::before{content:"● "}
+.bars{flex:1;display:flex;align-items:flex-end;gap:4px;border-bottom:1px solid rgba(255,255,255,.12)}
+.bars i{flex:1;background:rgba(90,160,255,.35);border-radius:3px 3px 0 0}
+.bars i.on{background:var(--blue)}
+.sync{display:flex;gap:4px;margin-top:8px}
+.sync span{flex:1;text-align:center;font-size:12px;font-weight:800;padding:4px 0;border-radius:6px;background:rgba(46,123,246,.18);color:#9CC4FF}
+.sync span.nx{background:rgba(255,255,255,.05);color:#7A8597}
+.cap{margin-top:12px;font-size:12px;font-weight:600;color:#7A8597}
+
+/* ── 05 최저가 탈출 ── */
+.vs{display:flex;gap:12px;margin-top:20px}
+.vs > div{border-radius:12px;padding:16px}
+.vs .bad{flex:1;border:1px solid rgba(255,122,110,.4);background:rgba(255,122,110,.06)}
+.vs .good{flex:1.25;background:var(--blue)}
+.vs small{display:block;font-size:12px;font-weight:900;letter-spacing:.02em}
+.vs .bad small{color:#FF9A90}.vs .good small{color:rgba(255,255,255,.8)}
+.vs b{display:block;font-size:20px;font-weight:900;letter-spacing:-.045em;margin:8px 0;line-height:1.3}
+.vs .bad b{color:#FF9A90}
+.vs span{font-size:13px;font-weight:700;letter-spacing:-.03em;opacity:.9}
+.jump{display:flex;align-items:center;gap:16px;margin-top:16px;padding:16px;border-radius:12px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1)}
+.jump .from{font-size:20px;font-weight:900;color:#7A8597;text-decoration:line-through;text-decoration-thickness:2px}
+.jump .arr{width:28px;height:2px;background:var(--blue-lit);position:relative}
+.jump .arr::after{content:"";position:absolute;right:-2px;top:-5px;border:6px solid transparent;border-left:8px solid var(--blue-lit)}
+.jump .to{font-size:28px;font-weight:900;color:#fff;letter-spacing:-.05em}
+.jump .to em{font-style:normal;color:var(--blue-lit)}
+.jump p{margin-left:auto;font-size:12px;font-weight:700;color:#AEB7C4;text-align:right;line-height:1.5}
+
+/* ── 06 루프 혜택 ── */
+.c6 .fly{width:240px;height:240px;flex:0 0 240px}
+.ben{margin-top:16px}
+.ben div{padding:10px 0;border-bottom:1px solid rgba(255,255,255,.1)}
+.ben div:first-child{border-top:1px solid rgba(255,255,255,.1)}
+.ben b{display:block;font-size:15px;font-weight:900;letter-spacing:-.035em}
+.ben span{font-size:13px;font-weight:600;color:#AEB7C4}
+.chips{display:flex;flex-wrap:wrap;gap:4px;margin-top:12px}
+.chips span{font-size:12px;font-weight:800;color:#9CC4FF;border:1px solid rgba(90,160,255,.35);padding:4px 8px;border-radius:6px}
+
+/* ── 07 5채널 ── */
+.c7 .in{padding-right:28px}
+.phone{position:relative;flex:0 0 168px;width:168px;height:300px;border-radius:24px;background:#05080F;border:6px solid #1A212C;overflow:hidden}
+.phone svg.iso{position:absolute;left:-48px;top:36px;width:280px;height:280px}
+.phone::after{content:"";position:absolute;left:0;right:0;bottom:0;height:46%;background:linear-gradient(rgba(5,8,15,0),rgba(5,8,15,.95));z-index:1}
+.sbt{position:absolute;left:8px;right:8px;bottom:28px;text-align:center;z-index:2;font-weight:900;letter-spacing:-.05em;font-size:19px;line-height:1.2;color:#fff;-webkit-text-stroke:5px #000;paint-order:stroke fill}
+.sbt em{font-style:normal;color:#FFD84D}
+.spoke div{display:flex;align-items:center;gap:12px;padding:9px 0;border-bottom:1px solid rgba(255,255,255,.1)}
+.spoke div:first-child{border-top:1px solid rgba(255,255,255,.1)}
+.spoke b{flex:0 0 104px;font-size:14px;font-weight:900;letter-spacing:-.03em}
+.spoke span{font-size:13px;font-weight:700;color:#CFD6E1;letter-spacing:-.03em}
+.spoke span em{font-style:normal;color:var(--blue-lit)}
+
+/* ── 08 앵커링 ── */
+.cost{display:flex;gap:8px;margin-top:20px;align-items:flex-end}
+.cost > div{border-radius:12px;padding:16px;background:#fff;border:1px solid #DFE4EC;flex:1}
+.cost .us{flex:1.3;background:var(--blue);border-color:var(--blue);color:#fff;padding:20px 16px}
+.cost h4{font-size:13px;font-weight:900;color:#7A8597}
+.cost .us h4{color:rgba(255,255,255,.85)}
+.cost .v{font-size:21px;white-space:nowrap;font-weight:900;letter-spacing:-.05em;margin:4px 0 8px;color:#3B4656}
+.cost .us .v{font-size:32px;color:#fff}
+.cost p{font-size:12px;font-weight:700;line-height:1.6;color:#5A6577}
+.cost .us p{color:#fff;font-size:13px}
+.cost .day1{display:inline-block;margin-bottom:8px;font-size:12px;font-weight:900;background:#fff;color:var(--blue);padding:2px 8px;border-radius:4px}
+.src{margin-top:12px;font-size:12px;font-weight:600;color:#8892A2;word-break:keep-all}
+
+/* ── 09 행동 ── */
+.price{display:flex;gap:8px;margin-top:12px}
+.pr{flex:1;border:1px solid rgba(255,255,255,.14);border-radius:12px;padding:12px 12px 14px;position:relative;background:rgba(255,255,255,.03)}
+.pr.on{flex:1.2;background:var(--blue);border-color:var(--blue)}
+.all{margin-top:16px;font-size:13px;font-weight:700;color:#CFD6E1;letter-spacing:-.025em}
+.all b{color:var(--blue-lit);font-weight:900;margin-right:8px}
+.pr .n{font-size:13px;font-weight:900;color:#AEB7C4}
+.pr.on .n{color:rgba(255,255,255,.9)}
+.pr .c{font-size:16px;font-weight:900;letter-spacing:-.04em;margin-top:4px;line-height:1}
+.pr .c b{font-size:36px;letter-spacing:-.05em;margin-right:2px}
+.pr .v{font-size:20px;font-weight:900;letter-spacing:-.05em;color:var(--blue-lit);margin-top:8px}
+.pr.on .v{color:#fff;font-size:22px}
+.pr .d{font-size:12px;font-weight:700;color:#AEB7C4;margin-top:4px;line-height:1.5}
+.pr.on .d{color:rgba(255,255,255,.92)}
+.pr .flag{position:absolute;top:-10px;right:12px;background:#fff;color:#0A1220;font-size:12px;font-weight:900;padding:2px 8px;border-radius:4px}
+.cta{display:flex;align-items:center;gap:12px;margin-top:16px;padding:14px 16px;border-radius:12px;background:#fff;color:#0A1220}
+.cta b{font-size:16px;font-weight:900;letter-spacing:-.035em}
+.cta b em{font-style:normal;color:var(--blue)}
+.cta span{margin-left:auto;font-size:13px;font-weight:900;color:#fff;background:var(--blue);padding:8px 12px;border-radius:8px;white-space:nowrap}
+.fine{margin-top:8px;font-size:12px;font-weight:600;color:#7A8597}
+
+.proof{display:inline-block;margin-bottom:14px;font-size:12px;font-weight:800;color:#CFD6E1;border:1px solid rgba(255,255,255,.18);padding:4px 10px;border-radius:6px}
+.proof b{color:var(--blue-lit)}
+.note{margin-top:8px;font-size:12px;font-weight:700;color:#7A8597}
+.tbl{width:100%;border-collapse:separate;border-spacing:0;margin-top:20px;font-size:13px}
+.tbl th,.tbl td{padding:10px 12px;text-align:left;border-bottom:1px solid #DFE4EC;letter-spacing:-.03em}
+.tbl th{font-size:12px;font-weight:900;color:#5A6577}
+.tbl td{font-weight:700;color:#3B4656}
+.tbl td:first-child{font-weight:800;color:#7A8597;width:20%}
+.tbl .us{background:var(--blue);color:#fff;font-weight:900;border-bottom-color:rgba(255,255,255,.2)}
+.tbl th.us{color:#fff;border-radius:10px 10px 0 0}
+.tbl tr:last-child .us{border-radius:0 0 10px 10px}
+.ex{position:absolute;right:12px;top:12px;z-index:3;font-size:12px;font-weight:900;background:rgba(0,0,0,.6);padding:2px 8px;border-radius:4px;color:#CFD6E1}
+.ask{margin-top:16px;padding:14px 16px;border-radius:12px;background:#fff;color:#0A1220;font-size:15px;font-weight:900;letter-spacing:-.035em}
+.ask em{font-style:normal;color:var(--blue)}
+.ask small{display:block;margin-top:4px;font-size:12px;font-weight:700;color:#5A6577}
+.jump .from{text-decoration:none}
+
+.shot{border-radius:12px;overflow:hidden;border:1px solid rgba(255,255,255,.14);background:#0B1119}
+.shot img{display:block;width:100%}
+.shot .bar{display:flex;align-items:center;gap:8px;padding:8px 12px;font-size:12px;font-weight:800;color:#AEB7C4;border-bottom:1px solid rgba(255,255,255,.08)}
+.shot .bar i{width:8px;height:8px;border-radius:50%;background:#2ED573}
+.kv{display:flex;gap:8px;margin-top:12px}
+.kv div{flex:1;border-radius:10px;padding:10px 12px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1)}
+.kv div.on{background:var(--blue);border-color:var(--blue)}
+.kv b{display:block;font-size:20px;font-weight:900;letter-spacing:-.045em}
+.kv span{font-size:12px;font-weight:700;color:#AEB7C4}
+.kv div.on span{color:rgba(255,255,255,.9)}
+.org{display:flex;gap:12px;margin-top:18px;align-items:stretch}
+.org .team{flex:1.35;background:#fff;border:1px solid #DFE4EC;border-radius:12px;padding:12px 16px}
+.org .team p{display:flex;justify-content:space-between;gap:8px;padding:7px 0;border-bottom:1px solid #EEF1F5;font-size:13px;font-weight:700;color:#3B4656;letter-spacing:-.03em}
+.org .team p b{font-weight:900;color:#0A1220;white-space:nowrap}
+.org .team p.sum{border-bottom:0;padding-top:9px;font-size:15px;color:#0A1220;font-weight:900}
+.org .team p.sum b{color:#D93A3A;font-size:17px}
+.org .eng{flex:1;background:var(--blue);color:#fff;border-radius:12px;padding:16px;display:flex;flex-direction:column;justify-content:center}
+.org .eng small{font-size:12px;font-weight:900;color:rgba(255,255,255,.8)}
+.org .eng b{display:block;font-size:30px;font-weight:900;letter-spacing:-.05em;margin:6px 0}
+.org .eng span{font-size:13px;font-weight:700;line-height:1.6}
+.facts{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+.facts span{font-size:13px;font-weight:800;color:#E3E8EF;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.12);padding:6px 10px;border-radius:8px}
+.facts span b{color:var(--blue-lit)}
+
+/* 01 오늘의 발행 목록 */
+.todo{width:100%;max-width:252px;margin-left:auto;background:#0B1119;border:1px solid rgba(255,255,255,.14);border-radius:14px;overflow:hidden;box-shadow:0 20px 44px rgba(0,0,0,.6)}
+.todo .hd{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;font-size:12px;font-weight:900;border-bottom:1px solid rgba(255,255,255,.08)}
+.todo .hd span{color:var(--blue-lit)}
+.todo p{display:flex;align-items:center;gap:8px;padding:9px 14px;font-size:13px;font-weight:800;border-bottom:1px solid rgba(255,255,255,.06);letter-spacing:-.03em}
+.todo p:last-child{border-bottom:0}
+.todo p i{flex:0 0 18px;height:18px;border-radius:50%;background:var(--blue);display:flex;align-items:center;justify-content:center}
+.todo p i svg{width:11px;height:11px;stroke:#fff;stroke-width:3.2;fill:none;stroke-linecap:round;stroke-linejoin:round}
+.todo p em{margin-left:auto;font-style:normal;font-size:12px;font-weight:700;color:#7A8597}
+/* 06 효율 계산 */
+.calc{display:flex;gap:12px;margin-top:18px;align-items:stretch}
+.calc .set{flex:1.3;border:1px solid rgba(255,255,255,.12);border-radius:12px;padding:12px 16px;background:rgba(255,255,255,.03)}
+.calc .set h4{font-size:12px;font-weight:900;color:#7A8597;margin-bottom:4px}
+.calc .set p{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.07);font-size:13px;font-weight:700;color:#E3E8EF;letter-spacing:-.03em}
+.calc .set p:last-child{border-bottom:0}
+.calc .set p span{color:#7A8597;font-weight:600}
+.calc .cmp{flex:1;display:flex;flex-direction:column;gap:8px}
+.calc .cmp div{flex:1;border-radius:12px;padding:12px 14px;display:flex;flex-direction:column;justify-content:center}
+.calc .them{border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.03)}
+.calc .us{background:var(--blue)}
+.calc small{font-size:12px;font-weight:800;color:#AEB7C4}
+.calc .us small{color:rgba(255,255,255,.85)}
+.calc b{font-size:24px;font-weight:900;letter-spacing:-.05em;margin:2px 0}
+.calc .them b{color:#CFD6E1}
+.calc span.d{font-size:12px;font-weight:700;color:#AEB7C4}
+.calc .us span.d{color:#fff}
+
+/* 06 영수증 */
+/* 06 분량별 비교: 트랙 전체 = 786만원, 모든 막대가 같은 축척 */
+.cm{margin-top:16px}
+.cm-key{display:flex;gap:16px;margin-bottom:4px;font-size:12px;font-weight:800;color:#AEB7C4}
+.cm-key em{font-style:normal;display:inline-flex;align-items:center;gap:6px}
+.cm-key em::before{content:"";width:12px;height:8px;border-radius:2px;background:var(--c)}
+.cm-key em.hx::before{background:repeating-linear-gradient(135deg,rgba(255,255,255,.5) 0 2px,transparent 2px 4px);outline:1px dashed rgba(255,255,255,.4)}
+.cm-row{display:flex;align-items:center;gap:12px;padding:8px 0;border-top:1px solid rgba(255,255,255,.09)}
+.cm-row .t{flex:0 0 64px}
+.cm-row .t b{display:block;font-size:15px;font-weight:900;letter-spacing:-.035em}
+.cm-row .t small{font-size:12px;font-weight:700;color:#7A8597}
+.cm-row .tr{flex:1;display:flex;flex-direction:column;gap:4px}
+.cm-row .g{display:flex;height:14px}
+.cm-row .g i{display:block;height:100%;background:#6B7686;border-radius:3px 0 0 3px}
+.cm-row .g .rg{border-radius:0 3px 3px 0;border:1px dashed rgba(255,255,255,.3);border-left:0;
+  background:repeating-linear-gradient(135deg,rgba(255,255,255,.14) 0 5px,transparent 5px 10px)}
+.cm-row .u{height:20px;background:var(--blue);border-radius:3px;box-shadow:0 0 18px rgba(46,123,246,.7)}
+.cm-row .v{flex:0 0 116px;text-align:right}
+.cm-row .v b{display:block;font-size:24px;font-weight:900;letter-spacing:-.05em;color:var(--blue-lit);line-height:1.05}
+.cm-row .v small{font-size:12px;font-weight:700;color:#7A8597}
+.cm-gain{display:flex;margin-top:12px;border-top:1px solid rgba(255,255,255,.14);padding-top:12px}
+.cm-gain div{flex:1}
+.cm-gain div + div{border-left:1px solid rgba(255,255,255,.12);padding-left:20px}
+.cm-gain b{display:block;font-size:20px;font-weight:900;letter-spacing:-.045em}
+.cm-gain span{font-size:12px;font-weight:700;color:#AEB7C4}
+/* 07 방사형 */
+.c7b .in{flex-direction:row;align-items:center;gap:8px;padding-right:20px}
+.c7b .l{flex:0 0 250px}
+.burst{flex:1;position:relative;height:330px}
+.burst svg.lines{position:absolute;inset:0;width:100%;height:100%}
+.hub{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:112px;height:112px;border-radius:50%;
+  background:radial-gradient(circle,#2E7BF6 0%,#1B5FD9 70%);display:flex;flex-direction:column;align-items:center;justify-content:center;
+  box-shadow:0 0 0 10px rgba(46,123,246,.18),0 0 60px rgba(46,123,246,.6);text-align:center}
+.hub small{font-size:12px;font-weight:800;color:rgba(255,255,255,.85)}
+.hub b{font-size:26px;font-weight:900;letter-spacing:-.04em;line-height:1.1}
+.node{position:absolute;transform:translate(-50%,-50%);background:#0B1119;border:1.5px solid rgba(90,160,255,.55);border-radius:10px;
+  padding:7px 10px;text-align:center;min-width:96px;box-shadow:0 8px 20px rgba(0,0,0,.5)}
+.node b{display:block;font-size:13px;font-weight:900;letter-spacing:-.03em}
+.node span{font-size:12px;font-weight:700;color:#9CC4FF}
+.node.hot{background:var(--blue);border-color:var(--blue)}
+.node.hot span{color:#fff}
+.c7b .sub2{margin-top:12px;font-size:14px;font-weight:700;color:#CFD6E1;line-height:1.6;letter-spacing:-.03em}
+.c7b .sub2 b{color:#fff}
+/* 08 극적 대비 */
+.drama{display:flex;gap:14px;margin-top:16px;align-items:stretch}
+.drama .ten{flex:1.1;background:#fff;border:1px solid #DFE4EC;border-radius:12px;padding:12px 16px}
+.drama .ten p{display:flex;justify-content:space-between;padding:5px 0;font-size:13px;font-weight:700;color:#5A6577;border-bottom:1px solid #EEF1F5;letter-spacing:-.03em}
+.drama .ten p b{color:#0A1220;font-weight:900}
+.drama .ten .cost{border-bottom:0;padding-top:10px;display:block;text-align:right}
+.drama .ten .cost em{font-style:normal;font-size:12px;font-weight:800;color:#7A8597;display:block}
+.drama .ten .cost strong{font-size:26px;font-weight:900;color:#D93A3A;letter-spacing:-.05em;position:relative;display:inline-block}
+.drama .ten .cost strong::after{content:"";position:absolute;left:-6px;right:-6px;top:50%;height:4px;background:#D93A3A;transform:rotate(-7deg);border-radius:2px}
+.drama .one{flex:1;background:var(--blue);color:#fff;border-radius:12px;padding:18px;display:flex;flex-direction:column;justify-content:center;
+  box-shadow:0 18px 40px rgba(46,123,246,.35)}
+.drama .one small{font-size:13px;font-weight:900;color:rgba(255,255,255,.85)}
+.drama .one b{font-size:44px;font-weight:900;letter-spacing:-.06em;line-height:1.05;margin:6px 0}
+.drama .one span{font-size:13px;font-weight:700;line-height:1.6}
+</style>
+
+<!-- ═════ 01 [Attention] 엄두 안 나던 홍보 ═════ -->
+<section class="card c1">
+  <div class="beam"></div>
+  <div class="main">
+    <div class="l"><span class="tag">설비·시공 사장님 홍보 전담</span>
+      <h1 style="font-size:36px">엄두 안 나던 홍보,<br><span class="b">5개 채널 한 번에</span><br>대신 해드립니다</h1>
+      <p class="proof">실제 운영 사례 · 광고비 0원 · <b>스레드 조회 1.1만 회</b></p>
+      <div class="p-row"><span class="p-lab">콘텐츠 20건부터 · 5개 채널 · 3D 쇼츠 포함</span></div>
+      <span class="p-big">월 79만원</span><p class="p-note">VAT 별도 · 월 60건·100건 패키지 있음</p></div>
+    <div class="r"><div class="todo">
+      <div class="hd">오늘의 홍보<span>11:00 발행 완료</span></div>
+      <p><i><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></i>유튜브 쇼츠<em>3D 영상</em></p>
+      <p><i><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></i>인스타그램<em>릴스·카드</em></p>
+      <p><i><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></i>스레드<em>댓글 응대</em></p>
+      <p><i><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></i>네이버 블로그<em>원고</em></p>
+      <p><i><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></i>홈페이지 블로그<em>기술 글</em></p>
+    </div></div>
+  </div>
+  <div class="foot"><span class="foot__m">MEISTER<span>CODE</span></span><span class="foot__s"></span><span class="foot__t">결국엔 사람의 손이 닿아야 합니다</span></div>
+</section>
+
+<!-- ═════ 02 [Interest] 공감 ═════ -->
+<section class="card">
+  <div class="beam"></div>
+  <div class="top"><b>MEISTER<span>CODE</span></b><span>02 / 09</span></div>
+  <div class="in">
+    <p class="eyebrow">설비·시공 사장님, 솔직히</p>
+    <p class="h">홍보, 해야 하는 건 아는데<br><span class="b">손도 못 대고 계시죠?</span></p>
+    <div class="pain">
+      <div><b>직접 하자니</b><span>현장 끝나면 기운이 없어 한 달에 두세 개</span></div>
+      <div><b>맡기자니</b><span>블로그·인스타·영상 따로 계약, 따로 연락</span></div>
+      <div><b>영상까지는</b><span>촬영·편집·3D는 생각만 해도 막막</span></div>
+    </div>
+    <p class="hit">그래서 다들, 하고 싶어도 <span class="b">엄두를 못 냅니다.</span></p>
+  </div>
+</section>
+
+<!-- ═════ 03 [Interest] 사장님의 하루 ═════ -->
+<section class="card card--paper">
+  <div class="top"><b>MEISTER<span>CODE</span></b><span>03 / 09</span></div>
+  <div class="in">
+    <p class="h s">사장님이 할 일은<br><span class="b">사진 올리고, 확인 누르기</span></p>
+    <div class="day">
+      <div class="bf"><h4>지금</h4>
+        <p><i>18:00</i>현장 마감</p>
+        <p><i>21:00</i>사진 고르고 보정</p>
+        <p><i>23:00</i>글 쓰고 영상 편집</p>
+        <p class="x"><i>다음 날</i>업로드 깜빡</p></div>
+      <div class="af"><h4>마이스터코드에 맡긴 후 · 주 5회 기준</h4>
+        <p><i>18:00</i>현장 사진 + 한 줄 메모</p>
+        <p><i>21:00</i>영상·글 완성본 도착</p>
+        <p class="ok"><i>21:30</i>휴대폰으로 보고<span class="btn">확인</span></p>
+        <p class="ok"><i>11:00</i>5개 채널 발행 완료</p></div>
+    </div>
+    <p class="note" style="color:#5A6577">AI가 빠르게 짓고, 사람이 끝까지 책임집니다.</p>
+  </div>
+</section>
+
+<!-- ═════ 04 [Desire] 전달되는 대시보드 ═════ -->
+<section class="card c4 vb4">
+  <div class="beam"></div>
+  <div class="top"><b>MEISTER<span>CODE</span></b><span>04 / 09</span></div>
+  <div class="hd">
+    <div><p class="eyebrow">실제 운영 화면 · 배관 누수 진단 업체</p>
+      <p class="h s">운영은, 전달되는<br><span class="b">대시보드 하나면 충분합니다</span></p></div>
+  </div>
+  <div class="stage">
+    <div class="win back"><div class="win__bar"><i class="dot d1"></i><i class="dot d2"></i><i class="dot d3"></i><i class="url"></i></div><img src="img/dash-kpi-crop.png" alt="운영 대시보드 핵심 지표"></div>
+    <div class="win front"><div class="win__bar"><i class="dot d1"></i><i class="dot d2"></i><i class="dot d3"></i><i class="url"></i></div><img src="img/dash-sns-row1.png" alt="SNS 채널 운영 현황"></div>
+    <span class="pin" style="left:300px;top:20px"><i>1</i>오늘·이번 달 숫자</span>
+    <span class="pin" style="left:300px;top:196px"><i>2</i>방문 추이</span>
+    <span class="pin" style="left:40px;top:44px"><i>3</i>채널별 발행·조회</span>
+  </div>
+  <div class="col">
+    <div class="z"><span>광고비</span><b>0원</b><small>아래 성과, 전부 광고 없이</small></div>
+    <div class="m"><b>+66%</b><span>방문 증가 · 전주 대비</span></div>
+    <div class="m"><b>1.1만 회</b><span>스레드 조회</span></div>
+    <div class="m"><b>9,276회</b><span>유튜브 쇼츠 조회</span></div>
+  </div>
+  <div class="fade"></div>
+  <p class="note">2026.10.03 실제 화면 · 업체명·계정명은 가렸습니다 · 1개 업체 사례이며 결과는 업종·지역·계정 상태에 따라 다릅니다</p>
+</section>
+
+<!-- ═════ 05 [Desire] 공포 대신 과학 ═════ -->
+<section class="card">
+  <div class="beam"></div>
+  <div class="top"><b>MEISTER<span>CODE</span></b><span>05 / 09</span></div>
+  <div class="in">
+    <p class="h s">"어디가 제일 싸요?" 대신<br><span class="b">"여기 맡기고 싶어요"</span></p>
+    <div class="vs">
+      <div class="bad"><small>공포로 설득하는 홍보</small><b>"벽 다 깨야 합니다"</b><span>결국 가격 비교로 이어지기 쉽습니다</span></div>
+      <div class="good"><small>마이스터코드가 만드는 홍보 · AI 3D 재현</small><b>"벽 안 깨고 50mm 구멍 하나로"</b><span>원인과 공법을 미리 눈으로 보여줌</span></div>
+    </div>
+    <div class="jump"><span class="from">10만원</span><span class="arr"></span><span class="to"><em>150~400</em>만원</span>
+      <p>문의 유형 변화 · 운영 사례 데이터<br>1개 업체 사례이며 단가 상승을 보장하지 않습니다</p></div>
+  </div>
+</section>
+
+<!-- ═════ 06 [Desire] 분량별 비교 ═════ -->
+<section class="card">
+  <div class="beam"></div>
+  <div class="top"><b>MEISTER<span>CODE</span></b><span>06 / 09</span></div>
+  <div class="in">
+    <p class="eyebrow">월 20건부터 100건까지, 같은 분량끼리 비교하면</p>
+    <p class="h s">같은 다섯 채널,<br><span class="b">계산서가 다릅니다</span></p>
+    <div class="cm">
+      <div class="cm-key"><em style="--c:#6B7686">5곳에 따로 맡기면 (시세 중간값)</em><em class="hx">시세 상단까지</em><em style="--c:var(--blue)">마이스터코드</em></div>
+      <div class="cm-row"><div class="t"><b>월 20건</b><small>주 1회</small></div>
+        <div class="tr"><div class="g"><i style="width:49.49%"></i><i class="rg" style="width:24.05%"></i></div><div class="u" style="width:10.05%"></div></div>
+        <div class="v"><b>79만원</b><small>따로 약 389만원</small></div></div>
+      <div class="cm-row"><div class="t"><b>월 60건</b><small>주 3회</small></div>
+        <div class="tr"><div class="g"><i style="width:62.72%"></i><i class="rg" style="width:24.05%"></i></div><div class="u" style="width:24.05%"></div></div>
+        <div class="v"><b>189만원</b><small>따로 약 493만원</small></div></div>
+      <div class="cm-row"><div class="t"><b>월 100건</b><small>주 5회</small></div>
+        <div class="tr"><div class="g"><i style="width:75.95%"></i><i class="rg" style="width:24.05%"></i></div><div class="u" style="width:36.90%"></div></div>
+        <div class="v"><b>290만원</b><small>따로 약 597만원</small></div></div>
+      <div class="cm-gain">
+        <div><b>매달 300만원+</b><span>어느 분량이든, 시세 중간값과 비교하면</span></div>
+        <div><b>5곳 → 1곳</b><span>계약도, 연락도, 확인도 한 곳에서</span></div>
+      </div>
+    </div>
+    <p class="src">회색은 크몽 공개 가격(2026년 10월) 기준: 쇼츠는 편수 × 일반 숏폼 평균 13만원, 나머지 4개 채널은 월 운영 시세 범위의 중간값 · 판매자별 구성 상이 · VAT 별도</p>
+  </div>
+</section>
+
+<!-- ═════ 07 [Desire] 오전 11시, 다섯 곳 동시에 ═════ -->
+<section class="card c7b">
+  <div class="beam"></div>
+  <div class="top"><b>MEISTER<span>CODE</span></b><span>07 / 09</span></div>
+  <div class="in">
+    <div class="l">
+      <p class="eyebrow">발행일 오전 11시</p>
+      <p class="h s">사진 한 장이,<br><span class="b">다섯 곳에서</span><br>동시에 켜집니다</p>
+      <p class="sub2">어제 올린 현장 사진 한 장이<br>영상·카드뉴스·블로그 글이 되어<br><b>오전 11시 한꺼번에</b> 올라가고,<br>스레드 댓글 응대까지 끝냅니다.</p>
+    </div>
+    <div class="burst">
+      <svg class="lines" viewBox="0 0 100 100" preserveAspectRatio="none">
+        <g stroke="#5AA0FF" stroke-opacity=".75" stroke-width="2.2" vector-effect="non-scaling-stroke" fill="none"><line x1="50" y1="50" x2="50" y2="11" vector-effect="non-scaling-stroke"/><line x1="50" y1="50" x2="88" y2="36" vector-effect="non-scaling-stroke"/><line x1="50" y1="50" x2="78" y2="88" vector-effect="non-scaling-stroke"/><line x1="50" y1="50" x2="22" y2="88" vector-effect="non-scaling-stroke"/><line x1="50" y1="50" x2="12" y2="36" vector-effect="non-scaling-stroke"/></g>
+        <g fill="#9CC4FF"><circle cx="50.0" cy="25.8" r="1.1"/><circle cx="73.6" cy="41.3" r="1.1"/><circle cx="67.4" cy="73.6" r="1.1"/><circle cx="32.6" cy="73.6" r="1.1"/><circle cx="26.4" cy="41.3" r="1.1"/></g>
+      </svg>
+      <div class="hub"><small>현장 사진</small><b>1장</b><small>→ 11:00</small></div>
+      <div class="node" style="left:50%;top:11%"><b>유튜브 쇼츠</b><span>AI 3D 영상</span></div>
+      <div class="node" style="left:88%;top:36%"><b>인스타그램</b><span>릴스·카드뉴스</span></div>
+      <div class="node hot" style="left:78%;top:88%"><b>스레드</b><span>글 + 댓글 응대</span></div>
+      <div class="node" style="left:22%;top:88%"><b>네이버 블로그</b><span>검색용 원고</span></div>
+      <div class="node" style="left:12%;top:36%"><b>홈페이지</b><span>기술 블로그</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- ═════ 08 [Desire] 10명의 비용 대신 1명의 비용 ═════ -->
+<section class="card card--paper">
+  <div class="top"><b>MEISTER<span>CODE</span></b><span>08 / 09</span></div>
+  <div class="in">
+    <p class="h s">10명의 비용 대신,<br><span class="b">1명의 비용으로 전부</span></p>
+    <div class="drama">
+      <div class="ten">
+        <p>3D 영상 · 모션그래픽<b>2명</b></p>
+        <p>테크니컬 카피라이터<b>2명</b></p>
+        <p>SNS 5개 채널 운영 · 댓글<b>4명</b></p>
+        <p>Three.js · GSAP 프론트엔드<b>1명</b></p>
+        <p>DevOps · 운영 자동화<b>1명</b></p>
+        <p class="cost"><em>직접 뽑으면 · 10명 인건비</em><strong>월 3,000만원+</strong></p>
+      </div>
+      <div class="one"><small>마이스터코드 · 월 콘텐츠 100건</small><b>290만원</b><span>직원 1명 인건비 수준으로<br>10명이 하던 일 전부<br>VAT 별도</span></div>
+    </div>
+    <p class="src">인원은 5개 채널 주 5회 운영 기준 당사 산정 예시, 인건비는 1인 월 300만원(신입 기준) 가정이며 4대보험·퇴직금 별도</p>
+  </div>
+</section>
+
+<!-- ═════ 09 [Action] ═════ -->
+<section class="card">
+  <div class="beam"></div>
+  <div class="top"><b>MEISTER<span>CODE</span></b><span>09 / 09</span></div>
+  <div class="in">
+    <p class="h s">이제 홍보는,<br><span class="b">마이스터코드가 대신 챙깁니다</span></p>
+    <p class="all"><b>세 패키지 모두</b>AI 3D 쇼츠 · 5개 채널 동시 발행 · 스레드 댓글 응대 · 성과 대시보드</p>
+    <div class="price">
+      <div class="pr"><p class="n">주 1회 발행</p><p class="c">월 <b>20</b>건</p><p class="v">79만원</p><p class="d">3D 쇼츠 4편 포함</p></div>
+      <div class="pr on"><span class="flag">추천</span><p class="n">주 3회 발행</p><p class="c">월 <b>60</b>건</p><p class="v">189만원</p><p class="d">3D 쇼츠 12편 포함</p></div>
+      <div class="pr"><p class="n">주 5회 발행</p><p class="c">월 <b>100</b>건</p><p class="v">290만원</p><p class="d">3D 쇼츠 20편 포함</p></div>
+    </div>
+    <div class="ask">아래 <em>문의하기</em>로 업종만 알려주세요<small>우리 업종에 맞는지부터 답해드립니다</small></div>
+    <p class="fine">VAT 별도 · 건수는 4주 기준 발행 횟수 × 5개 채널 · 홈페이지 채널은 홈페이지 보유 시<br>매일 발행·3D 홈페이지 구축은 상담 후 견적 · 착수일은 상담 후 확정 · 영상은 AI 3D 재현</p>
+  </div>
+</section>
+
+<script src="iso.js"></script>

@@ -1,0 +1,404 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>MEISTERCODE 04번 카드 — 성과 영역 바리에이션 3안</title>
+<link rel="stylesheet" href="../css/base.css">
+<link rel="stylesheet" href="../시안/thumb.css">
+<style>
+/* 간격은 4px 단위, 글자는 본문 13px·캡션 12px 아래로 내리지 않는다 (모바일 0.6배 축소 기준) */
+body{display:flex;flex-direction:column;align-items:center;gap:32px;padding:32px 0}
+.card{width:652px;height:488px;position:relative;overflow:hidden;background:#000;color:#fff;display:flex;flex-direction:column}
+.card--paper{background:var(--paper);color:#0A1220}
+.top{position:absolute;z-index:3;left:36px;right:36px;top:24px;display:flex;justify-content:space-between;font-size:12px;font-weight:800;color:#7A8597}
+.top b{color:#fff;font-weight:900}.top b span{color:var(--blue)}
+.card--paper .top b{color:#0A1220}
+.in{position:relative;z-index:2;flex:1;display:flex;flex-direction:column;justify-content:center;padding:52px 36px 28px}
+.row2{flex-direction:row;align-items:center;gap:24px}
+.row2 .l{flex:1;min-width:0}
+.eyebrow{font-size:14px;font-weight:800;color:var(--blue-lit);margin-bottom:8px;letter-spacing:-.02em}
+.card--paper .eyebrow{color:var(--blue)}
+.h{font-size:34px;font-weight:900;line-height:1.2;letter-spacing:-.05em}
+.h.s{font-size:30px}
+.p{font-size:14px;font-weight:600;line-height:1.6;color:#AEB7C4;letter-spacing:-.028em}
+.card--paper .p{color:var(--gray-d)}
+.hit{margin-top:16px;font-size:17px;font-weight:800;letter-spacing:-.035em}
+
+/* ── 01 썸네일 ── */
+.c1 .main{gap:8px;padding-right:20px}
+.c1 .l{width:58%}
+.c1 h1{font-size:39px;font-weight:900;line-height:1.16;letter-spacing:-.055em;margin-bottom:12px}
+.c1 .sub{margin-bottom:16px;font-size:14px;color:#CFD6E1}
+.c1 .p-big{font-size:46px}
+.c1 .r{width:42%;display:flex;justify-content:center}
+.c1 .fly{width:256px;height:256px}
+
+/* ── 02 PAS ── */
+.pain{margin-top:20px}
+.pain div{display:flex;align-items:baseline;gap:12px;padding:12px 0;border-bottom:1px solid rgba(255,255,255,.1)}
+.pain div:first-child{border-top:1px solid rgba(255,255,255,.1)}
+.pain b{flex:0 0 112px;font-size:15px;font-weight:900;color:#FF7A6E;letter-spacing:-.03em}
+.pain span{font-size:15px;font-weight:700;color:#E3E8EF;letter-spacing:-.03em}
+
+/* ── 03 BAB 하루 ── */
+.day{display:flex;gap:12px;margin-top:20px}
+.day > div{flex:1;border-radius:12px;padding:16px}
+.day .bf{background:#fff;border:1px solid #DFE4EC}
+.day .af{background:var(--blue);color:#fff;flex:1.15}
+.day h4{font-size:13px;font-weight:900;letter-spacing:.02em;margin-bottom:8px}
+.day .bf h4{color:#7A8597}
+.day p{display:flex;gap:12px;padding:6px 0;font-size:13px;font-weight:700;letter-spacing:-.03em;border-bottom:1px solid rgba(10,18,32,.08)}
+.day .af p{border-bottom-color:rgba(255,255,255,.18)}
+.day p:last-child{border-bottom:0}
+.day p i{font-style:normal;flex:0 0 44px;font-weight:900}
+.day .bf p{color:#3B4656}.day .bf p i{color:#9AA4B4}
+.day .bf p.x{color:#D93A3A}
+.day .af p i{color:rgba(255,255,255,.75)}
+.day .af p.ok{font-weight:900}
+.btn{display:inline-block;background:#fff;color:var(--blue);font-size:12px;font-weight:900;padding:1px 8px;border-radius:4px;margin:0 4px}
+
+/* ── 04 대시보드 ── */
+.c4 .hd{position:relative;z-index:3;display:flex;justify-content:space-between;align-items:flex-start;padding:60px 36px 0}
+.c4 .zero{text-align:right;margin-top:-4px}
+.c4 .zero span{display:block;font-size:15px;font-weight:900;color:#CFD6E1}
+.c4 .zero b{display:block;font-size:80px;font-weight:900;letter-spacing:-.06em;line-height:.95;color:var(--blue-lit);text-shadow:0 0 40px rgba(46,123,246,.75)}
+.c4 .zero small{display:block;font-size:12px;font-weight:700;color:#AEB7C4;margin-top:4px}
+.c4 .stats{position:absolute;left:28px;bottom:40px;z-index:4;background:rgba(5,8,13,.86);border:1px solid rgba(255,255,255,.14);border-radius:10px;padding:10px 14px}
+.c4 .stats p{display:flex;align-items:baseline;gap:8px;line-height:1;margin-bottom:8px}
+.c4 .stats p:last-child{margin-bottom:0}
+.c4 .stats b{font-size:18px;font-weight:900;letter-spacing:-.045em;min-width:72px}
+.c4 .stats span{font-size:12px;font-weight:700;color:#AEB7C4}
+.c4 .stage{position:absolute;left:0;right:0;top:176px;bottom:0;z-index:2}
+.c4 .win{position:absolute;border-radius:10px}
+.c4 .win img{display:block;width:100%}
+.c4 .back{left:176px;top:4px;width:476px;transform:perspective(1600px) rotateY(-14deg) rotateX(6deg);transform-origin:left top}
+.c4 .front{left:28px;top:76px;width:356px;transform:perspective(1600px) rotateY(-8deg) rotateX(4deg);transform-origin:left top;
+  box-shadow:0 26px 60px rgba(0,0,0,.85),0 0 0 1px rgba(46,123,246,.5)}
+.c4 .pin{position:absolute;z-index:4;display:inline-flex;align-items:center;gap:6px;background:#fff;color:#0A1220;font-size:13px;font-weight:900;
+  letter-spacing:-.03em;padding:4px 10px 4px 4px;border-radius:20px;box-shadow:0 8px 20px rgba(0,0,0,.5)}
+.c4 .pin i{font-style:normal;width:20px;height:20px;border-radius:50%;background:var(--blue);color:#fff;font-size:12px;display:flex;align-items:center;justify-content:center}
+.c4 .fade{position:absolute;left:0;right:0;bottom:0;height:56px;z-index:3;background:linear-gradient(transparent,rgba(0,0,0,.92) 60%)}
+.c4 .note{position:absolute;left:36px;right:36px;bottom:12px;z-index:4;font-size:12px;font-weight:600;color:#8892A2}
+
+/* ── 04 실증 대시보드 (구) ── */
+.dash{margin-top:20px;background:#0B1119;border:1px solid rgba(255,255,255,.12);border-radius:14px;padding:16px 18px;display:flex;gap:20px;align-items:stretch}
+.dash .kp{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;flex:0 0 300px}
+.dash .kp div{background:rgba(255,255,255,.04);border-radius:10px;padding:12px}
+.dash .kp div.on{background:var(--blue)}
+.dash .kp b{display:block;font-size:26px;font-weight:900;letter-spacing:-.05em;line-height:1.1}
+.dash .kp span{font-size:12px;font-weight:700;color:#AEB7C4}
+.dash .kp div.on span{color:rgba(255,255,255,.9)}
+.dash .ch{flex:1;display:flex;flex-direction:column}
+.dash .live{font-size:12px;font-weight:900;color:#2ED573;margin-bottom:8px}
+.dash .live::before{content:"● "}
+.bars{flex:1;display:flex;align-items:flex-end;gap:4px;border-bottom:1px solid rgba(255,255,255,.12)}
+.bars i{flex:1;background:rgba(90,160,255,.35);border-radius:3px 3px 0 0}
+.bars i.on{background:var(--blue)}
+.sync{display:flex;gap:4px;margin-top:8px}
+.sync span{flex:1;text-align:center;font-size:12px;font-weight:800;padding:4px 0;border-radius:6px;background:rgba(46,123,246,.18);color:#9CC4FF}
+.sync span.nx{background:rgba(255,255,255,.05);color:#7A8597}
+.cap{margin-top:12px;font-size:12px;font-weight:600;color:#7A8597}
+
+/* ── 05 최저가 탈출 ── */
+.vs{display:flex;gap:12px;margin-top:20px}
+.vs > div{border-radius:12px;padding:16px}
+.vs .bad{flex:1;border:1px solid rgba(255,122,110,.4);background:rgba(255,122,110,.06)}
+.vs .good{flex:1.25;background:var(--blue)}
+.vs small{display:block;font-size:12px;font-weight:900;letter-spacing:.02em}
+.vs .bad small{color:#FF9A90}.vs .good small{color:rgba(255,255,255,.8)}
+.vs b{display:block;font-size:20px;font-weight:900;letter-spacing:-.045em;margin:8px 0;line-height:1.3}
+.vs .bad b{color:#FF9A90}
+.vs span{font-size:13px;font-weight:700;letter-spacing:-.03em;opacity:.9}
+.jump{display:flex;align-items:center;gap:16px;margin-top:16px;padding:16px;border-radius:12px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1)}
+.jump .from{font-size:20px;font-weight:900;color:#7A8597;text-decoration:line-through;text-decoration-thickness:2px}
+.jump .arr{width:28px;height:2px;background:var(--blue-lit);position:relative}
+.jump .arr::after{content:"";position:absolute;right:-2px;top:-5px;border:6px solid transparent;border-left:8px solid var(--blue-lit)}
+.jump .to{font-size:28px;font-weight:900;color:#fff;letter-spacing:-.05em}
+.jump .to em{font-style:normal;color:var(--blue-lit)}
+.jump p{margin-left:auto;font-size:12px;font-weight:700;color:#AEB7C4;text-align:right;line-height:1.5}
+
+/* ── 06 루프 혜택 ── */
+.c6 .fly{width:240px;height:240px;flex:0 0 240px}
+.ben{margin-top:16px}
+.ben div{padding:10px 0;border-bottom:1px solid rgba(255,255,255,.1)}
+.ben div:first-child{border-top:1px solid rgba(255,255,255,.1)}
+.ben b{display:block;font-size:15px;font-weight:900;letter-spacing:-.035em}
+.ben span{font-size:13px;font-weight:600;color:#AEB7C4}
+.chips{display:flex;flex-wrap:wrap;gap:4px;margin-top:12px}
+.chips span{font-size:12px;font-weight:800;color:#9CC4FF;border:1px solid rgba(90,160,255,.35);padding:4px 8px;border-radius:6px}
+
+/* ── 07 5채널 ── */
+.c7 .in{padding-right:28px}
+.phone{position:relative;flex:0 0 168px;width:168px;height:300px;border-radius:24px;background:#05080F;border:6px solid #1A212C;overflow:hidden}
+.phone svg.iso{position:absolute;left:-48px;top:36px;width:280px;height:280px}
+.phone::after{content:"";position:absolute;left:0;right:0;bottom:0;height:46%;background:linear-gradient(rgba(5,8,15,0),rgba(5,8,15,.95));z-index:1}
+.sbt{position:absolute;left:8px;right:8px;bottom:28px;text-align:center;z-index:2;font-weight:900;letter-spacing:-.05em;font-size:19px;line-height:1.2;color:#fff;-webkit-text-stroke:5px #000;paint-order:stroke fill}
+.sbt em{font-style:normal;color:#FFD84D}
+.spoke div{display:flex;align-items:center;gap:12px;padding:9px 0;border-bottom:1px solid rgba(255,255,255,.1)}
+.spoke div:first-child{border-top:1px solid rgba(255,255,255,.1)}
+.spoke b{flex:0 0 104px;font-size:14px;font-weight:900;letter-spacing:-.03em}
+.spoke span{font-size:13px;font-weight:700;color:#CFD6E1;letter-spacing:-.03em}
+.spoke span em{font-style:normal;color:var(--blue-lit)}
+
+/* ── 08 앵커링 ── */
+.cost{display:flex;gap:8px;margin-top:20px;align-items:flex-end}
+.cost > div{border-radius:12px;padding:16px;background:#fff;border:1px solid #DFE4EC;flex:1}
+.cost .us{flex:1.3;background:var(--blue);border-color:var(--blue);color:#fff;padding:20px 16px}
+.cost h4{font-size:13px;font-weight:900;color:#7A8597}
+.cost .us h4{color:rgba(255,255,255,.85)}
+.cost .v{font-size:21px;white-space:nowrap;font-weight:900;letter-spacing:-.05em;margin:4px 0 8px;color:#3B4656}
+.cost .us .v{font-size:32px;color:#fff}
+.cost p{font-size:12px;font-weight:700;line-height:1.6;color:#5A6577}
+.cost .us p{color:#fff;font-size:13px}
+.cost .day1{display:inline-block;margin-bottom:8px;font-size:12px;font-weight:900;background:#fff;color:var(--blue);padding:2px 8px;border-radius:4px}
+.src{margin-top:12px;font-size:12px;font-weight:600;color:#8892A2;word-break:keep-all}
+
+/* ── 09 행동 ── */
+.price{display:flex;gap:8px;margin-top:12px}
+.pr{flex:1;border:1px solid rgba(255,255,255,.14);border-radius:12px;padding:12px 12px 14px;position:relative;background:rgba(255,255,255,.03)}
+.pr.on{flex:1.2;background:var(--blue);border-color:var(--blue)}
+.all{margin-top:16px;font-size:13px;font-weight:700;color:#CFD6E1;letter-spacing:-.025em}
+.all b{color:var(--blue-lit);font-weight:900;margin-right:8px}
+.pr .n{font-size:13px;font-weight:900;color:#AEB7C4}
+.pr.on .n{color:rgba(255,255,255,.9)}
+.pr .c{font-size:16px;font-weight:900;letter-spacing:-.04em;margin-top:4px;line-height:1}
+.pr .c b{font-size:36px;letter-spacing:-.05em;margin-right:2px}
+.pr .v{font-size:20px;font-weight:900;letter-spacing:-.05em;color:var(--blue-lit);margin-top:8px}
+.pr.on .v{color:#fff;font-size:22px}
+.pr .d{font-size:12px;font-weight:700;color:#AEB7C4;margin-top:4px;line-height:1.5}
+.pr.on .d{color:rgba(255,255,255,.92)}
+.pr .flag{position:absolute;top:-10px;right:12px;background:#fff;color:#0A1220;font-size:12px;font-weight:900;padding:2px 8px;border-radius:4px}
+.cta{display:flex;align-items:center;gap:12px;margin-top:16px;padding:14px 16px;border-radius:12px;background:#fff;color:#0A1220}
+.cta b{font-size:16px;font-weight:900;letter-spacing:-.035em}
+.cta b em{font-style:normal;color:var(--blue)}
+.cta span{margin-left:auto;font-size:13px;font-weight:900;color:#fff;background:var(--blue);padding:8px 12px;border-radius:8px;white-space:nowrap}
+.fine{margin-top:8px;font-size:12px;font-weight:600;color:#7A8597}
+
+.proof{display:inline-block;margin-bottom:14px;font-size:12px;font-weight:800;color:#CFD6E1;border:1px solid rgba(255,255,255,.18);padding:4px 10px;border-radius:6px}
+.proof b{color:var(--blue-lit)}
+.note{margin-top:8px;font-size:12px;font-weight:700;color:#7A8597}
+.tbl{width:100%;border-collapse:separate;border-spacing:0;margin-top:20px;font-size:13px}
+.tbl th,.tbl td{padding:10px 12px;text-align:left;border-bottom:1px solid #DFE4EC;letter-spacing:-.03em}
+.tbl th{font-size:12px;font-weight:900;color:#5A6577}
+.tbl td{font-weight:700;color:#3B4656}
+.tbl td:first-child{font-weight:800;color:#7A8597;width:20%}
+.tbl .us{background:var(--blue);color:#fff;font-weight:900;border-bottom-color:rgba(255,255,255,.2)}
+.tbl th.us{color:#fff;border-radius:10px 10px 0 0}
+.tbl tr:last-child .us{border-radius:0 0 10px 10px}
+.ex{position:absolute;right:12px;top:12px;z-index:3;font-size:12px;font-weight:900;background:rgba(0,0,0,.6);padding:2px 8px;border-radius:4px;color:#CFD6E1}
+.ask{margin-top:16px;padding:14px 16px;border-radius:12px;background:#fff;color:#0A1220;font-size:15px;font-weight:900;letter-spacing:-.035em}
+.ask em{font-style:normal;color:var(--blue)}
+.ask small{display:block;margin-top:4px;font-size:12px;font-weight:700;color:#5A6577}
+.jump .from{text-decoration:none}
+
+.shot{border-radius:12px;overflow:hidden;border:1px solid rgba(255,255,255,.14);background:#0B1119}
+.shot img{display:block;width:100%}
+.shot .bar{display:flex;align-items:center;gap:8px;padding:8px 12px;font-size:12px;font-weight:800;color:#AEB7C4;border-bottom:1px solid rgba(255,255,255,.08)}
+.shot .bar i{width:8px;height:8px;border-radius:50%;background:#2ED573}
+.kv{display:flex;gap:8px;margin-top:12px}
+.kv div{flex:1;border-radius:10px;padding:10px 12px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1)}
+.kv div.on{background:var(--blue);border-color:var(--blue)}
+.kv b{display:block;font-size:20px;font-weight:900;letter-spacing:-.045em}
+.kv span{font-size:12px;font-weight:700;color:#AEB7C4}
+.kv div.on span{color:rgba(255,255,255,.9)}
+.org{display:flex;gap:12px;margin-top:18px;align-items:stretch}
+.org .team{flex:1.35;background:#fff;border:1px solid #DFE4EC;border-radius:12px;padding:12px 16px}
+.org .team p{display:flex;justify-content:space-between;gap:8px;padding:7px 0;border-bottom:1px solid #EEF1F5;font-size:13px;font-weight:700;color:#3B4656;letter-spacing:-.03em}
+.org .team p b{font-weight:900;color:#0A1220;white-space:nowrap}
+.org .team p.sum{border-bottom:0;padding-top:9px;font-size:15px;color:#0A1220;font-weight:900}
+.org .team p.sum b{color:#D93A3A;font-size:17px}
+.org .eng{flex:1;background:var(--blue);color:#fff;border-radius:12px;padding:16px;display:flex;flex-direction:column;justify-content:center}
+.org .eng small{font-size:12px;font-weight:900;color:rgba(255,255,255,.8)}
+.org .eng b{display:block;font-size:30px;font-weight:900;letter-spacing:-.05em;margin:6px 0}
+.org .eng span{font-size:13px;font-weight:700;line-height:1.6}
+.facts{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+.facts span{font-size:13px;font-weight:800;color:#E3E8EF;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.12);padding:6px 10px;border-radius:8px}
+.facts span b{color:var(--blue-lit)}
+
+/* 01 오늘의 발행 목록 */
+.todo{width:100%;max-width:252px;margin-left:auto;background:#0B1119;border:1px solid rgba(255,255,255,.14);border-radius:14px;overflow:hidden;box-shadow:0 20px 44px rgba(0,0,0,.6)}
+.todo .hd{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;font-size:12px;font-weight:900;border-bottom:1px solid rgba(255,255,255,.08)}
+.todo .hd span{color:var(--blue-lit)}
+.todo p{display:flex;align-items:center;gap:8px;padding:9px 14px;font-size:13px;font-weight:800;border-bottom:1px solid rgba(255,255,255,.06);letter-spacing:-.03em}
+.todo p:last-child{border-bottom:0}
+.todo p i{flex:0 0 18px;height:18px;border-radius:50%;background:var(--blue);display:flex;align-items:center;justify-content:center}
+.todo p i svg{width:11px;height:11px;stroke:#fff;stroke-width:3.2;fill:none;stroke-linecap:round;stroke-linejoin:round}
+.todo p em{margin-left:auto;font-style:normal;font-size:12px;font-weight:700;color:#7A8597}
+/* 06 효율 계산 */
+.calc{display:flex;gap:12px;margin-top:18px;align-items:stretch}
+.calc .set{flex:1.3;border:1px solid rgba(255,255,255,.12);border-radius:12px;padding:12px 16px;background:rgba(255,255,255,.03)}
+.calc .set h4{font-size:12px;font-weight:900;color:#7A8597;margin-bottom:4px}
+.calc .set p{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.07);font-size:13px;font-weight:700;color:#E3E8EF;letter-spacing:-.03em}
+.calc .set p:last-child{border-bottom:0}
+.calc .set p span{color:#7A8597;font-weight:600}
+.calc .cmp{flex:1;display:flex;flex-direction:column;gap:8px}
+.calc .cmp div{flex:1;border-radius:12px;padding:12px 14px;display:flex;flex-direction:column;justify-content:center}
+.calc .them{border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.03)}
+.calc .us{background:var(--blue)}
+.calc small{font-size:12px;font-weight:800;color:#AEB7C4}
+.calc .us small{color:rgba(255,255,255,.85)}
+.calc b{font-size:24px;font-weight:900;letter-spacing:-.05em;margin:2px 0}
+.calc .them b{color:#CFD6E1}
+.calc span.d{font-size:12px;font-weight:700;color:#AEB7C4}
+.calc .us span.d{color:#fff}
+
+/* 06 영수증 */
+/* 06 분량별 비교: 트랙 전체 = 786만원, 모든 막대가 같은 축척 */
+.cm{margin-top:16px}
+.cm-key{display:flex;gap:16px;margin-bottom:4px;font-size:12px;font-weight:800;color:#AEB7C4}
+.cm-key em{font-style:normal;display:inline-flex;align-items:center;gap:6px}
+.cm-key em::before{content:"";width:12px;height:8px;border-radius:2px;background:var(--c)}
+.cm-key em.hx::before{background:repeating-linear-gradient(135deg,rgba(255,255,255,.5) 0 2px,transparent 2px 4px);outline:1px dashed rgba(255,255,255,.4)}
+.cm-row{display:flex;align-items:center;gap:12px;padding:8px 0;border-top:1px solid rgba(255,255,255,.09)}
+.cm-row .t{flex:0 0 64px}
+.cm-row .t b{display:block;font-size:15px;font-weight:900;letter-spacing:-.035em}
+.cm-row .t small{font-size:12px;font-weight:700;color:#7A8597}
+.cm-row .tr{flex:1;display:flex;flex-direction:column;gap:4px}
+.cm-row .g{display:flex;height:14px}
+.cm-row .g i{display:block;height:100%;background:#6B7686;border-radius:3px 0 0 3px}
+.cm-row .g .rg{border-radius:0 3px 3px 0;border:1px dashed rgba(255,255,255,.3);border-left:0;
+  background:repeating-linear-gradient(135deg,rgba(255,255,255,.14) 0 5px,transparent 5px 10px)}
+.cm-row .u{height:20px;background:var(--blue);border-radius:3px;box-shadow:0 0 18px rgba(46,123,246,.7)}
+.cm-row .v{flex:0 0 116px;text-align:right}
+.cm-row .v b{display:block;font-size:24px;font-weight:900;letter-spacing:-.05em;color:var(--blue-lit);line-height:1.05}
+.cm-row .v small{font-size:12px;font-weight:700;color:#7A8597}
+.cm-gain{display:flex;margin-top:12px;border-top:1px solid rgba(255,255,255,.14);padding-top:12px}
+.cm-gain div{flex:1}
+.cm-gain div + div{border-left:1px solid rgba(255,255,255,.12);padding-left:20px}
+.cm-gain b{display:block;font-size:20px;font-weight:900;letter-spacing:-.045em}
+.cm-gain span{font-size:12px;font-weight:700;color:#AEB7C4}
+/* 07 방사형 */
+.c7b .in{flex-direction:row;align-items:center;gap:8px;padding-right:20px}
+.c7b .l{flex:0 0 250px}
+.burst{flex:1;position:relative;height:330px}
+.burst svg.lines{position:absolute;inset:0;width:100%;height:100%}
+.hub{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:112px;height:112px;border-radius:50%;
+  background:radial-gradient(circle,#2E7BF6 0%,#1B5FD9 70%);display:flex;flex-direction:column;align-items:center;justify-content:center;
+  box-shadow:0 0 0 10px rgba(46,123,246,.18),0 0 60px rgba(46,123,246,.6);text-align:center}
+.hub small{font-size:12px;font-weight:800;color:rgba(255,255,255,.85)}
+.hub b{font-size:26px;font-weight:900;letter-spacing:-.04em;line-height:1.1}
+.node{position:absolute;transform:translate(-50%,-50%);background:#0B1119;border:1.5px solid rgba(90,160,255,.55);border-radius:10px;
+  padding:7px 10px;text-align:center;min-width:96px;box-shadow:0 8px 20px rgba(0,0,0,.5)}
+.node b{display:block;font-size:13px;font-weight:900;letter-spacing:-.03em}
+.node span{font-size:12px;font-weight:700;color:#9CC4FF}
+.node.hot{background:var(--blue);border-color:var(--blue)}
+.node.hot span{color:#fff}
+.c7b .sub2{margin-top:12px;font-size:14px;font-weight:700;color:#CFD6E1;line-height:1.6;letter-spacing:-.03em}
+.c7b .sub2 b{color:#fff}
+/* 08 극적 대비 */
+.drama{display:flex;gap:14px;margin-top:16px;align-items:stretch}
+.drama .ten{flex:1.1;background:#fff;border:1px solid #DFE4EC;border-radius:12px;padding:12px 16px}
+.drama .ten p{display:flex;justify-content:space-between;padding:5px 0;font-size:13px;font-weight:700;color:#5A6577;border-bottom:1px solid #EEF1F5;letter-spacing:-.03em}
+.drama .ten p b{color:#0A1220;font-weight:900}
+.drama .ten .cost{border-bottom:0;padding-top:10px;display:block;text-align:right}
+.drama .ten .cost em{font-style:normal;font-size:12px;font-weight:800;color:#7A8597;display:block}
+.drama .ten .cost strong{font-size:26px;font-weight:900;color:#D93A3A;letter-spacing:-.05em;position:relative;display:inline-block}
+.drama .ten .cost strong::after{content:"";position:absolute;left:-6px;right:-6px;top:50%;height:4px;background:#D93A3A;transform:rotate(-7deg);border-radius:2px}
+.drama .one{flex:1;background:var(--blue);color:#fff;border-radius:12px;padding:18px;display:flex;flex-direction:column;justify-content:center;
+  box-shadow:0 18px 40px rgba(46,123,246,.35)}
+.drama .one small{font-size:13px;font-weight:900;color:rgba(255,255,255,.85)}
+.drama .one b{font-size:44px;font-weight:900;letter-spacing:-.06em;line-height:1.05;margin:6px 0}
+.drama .one span{font-size:13px;font-weight:700;line-height:1.6}
+
+/* ── 04 바리에이션 ── */
+body{background:#E9ECF1;gap:12px}
+.vl{width:652px;margin-top:20px;font-size:15px;font-weight:900;color:#0A1220;letter-spacing:-.03em}
+.vl span{font-weight:600;color:#5A6577;margin-left:8px}
+.c4 .stats .ttl{font-size:12px;font-weight:900;color:var(--blue-lit);margin-bottom:8px}
+.va4 .stats{bottom:36px;padding:8px 12px}
+.va4 .stats p{margin-bottom:6px}
+.va4 .stats b{font-size:17px}
+.c4 .stats b em{font-style:normal;font-size:13px;margin-right:2px}
+/* B: 오른쪽 세로 성과 컬럼 */
+.vb4 .back{left:120px;width:440px}
+.vb4 .front{width:330px}
+.vb4 .col{position:absolute;z-index:5;right:24px;top:52px;bottom:40px;width:184px;background:rgba(5,8,13,.88);border:1px solid rgba(46,123,246,.5);
+  border-radius:14px;padding:16px 16px 12px;display:flex;flex-direction:column;box-shadow:0 20px 50px rgba(0,0,0,.7)}
+.vb4 .col .z span{display:block;font-size:13px;font-weight:900;color:#CFD6E1}
+.vb4 .col .z b{display:block;font-size:68px;font-weight:900;letter-spacing:-.06em;line-height:.95;color:var(--blue-lit);text-shadow:0 0 36px rgba(46,123,246,.75)}
+.vb4 .col .z small{display:block;font-size:12px;font-weight:700;color:#AEB7C4;margin-top:4px;padding-bottom:12px;border-bottom:1px solid rgba(255,255,255,.14)}
+.vb4 .col .m{margin-top:12px}
+.vb4 .col .m b{display:block;font-size:24px;font-weight:900;letter-spacing:-.05em;line-height:1.05}
+.vb4 .col .m span{font-size:12px;font-weight:700;color:#AEB7C4}
+/* C: 화면 위 데이터 핀 */
+.vc4 .dp{position:absolute;z-index:5;background:#fff;color:#0A1220;border-radius:10px;padding:6px 10px;box-shadow:0 10px 26px rgba(0,0,0,.55);line-height:1.1}
+.vc4 .dp b{display:block;font-size:20px;font-weight:900;letter-spacing:-.05em;color:var(--blue)}
+.vc4 .dp span{font-size:12px;font-weight:800;color:#3B4656}
+.vc4 .dp::after{content:"";position:absolute;width:10px;height:10px;background:#fff;transform:rotate(45deg)}
+.vc4 .dp.dn::after{left:20px;bottom:-5px}
+.vc4 .dp.up::after{left:20px;top:-5px}
+</style>
+
+<p class="vl">A안 · 성과 패널<span>0원은 제목 옆에 크게, 성과 3개는 좌하단 패널로</span></p>
+<!-- ═════ 04 [Desire] 전달되는 대시보드 ═════ -->
+<section class="card c4 va4">
+  <div class="beam"></div>
+  <div class="top"><b>MEISTER<span>CODE</span></b><span>04 / 09</span></div>
+  <div class="hd">
+    <div><p class="eyebrow">실제 운영 화면 · 배관 누수 진단 업체</p>
+      <p class="h s">운영은, 전달되는<br><span class="b">대시보드 하나면 충분합니다</span></p></div>
+    <div class="zero"><span>광고비</span><b>0원</b><small>아래 숫자, 전부 광고 없이</small></div>
+  </div>
+  <div class="stage">
+    <div class="win back"><div class="win__bar"><i class="dot d1"></i><i class="dot d2"></i><i class="dot d3"></i><i class="url"></i></div><img src="img/dash-kpi-crop.png" alt="운영 대시보드 핵심 지표"></div>
+    <div class="win front"><div class="win__bar"><i class="dot d1"></i><i class="dot d2"></i><i class="dot d3"></i><i class="url"></i></div><img src="img/dash-sns-row1.png" alt="SNS 채널 운영 현황"></div>
+    <span class="pin" style="left:432px;top:44px"><i>1</i>오늘·이번 달 숫자</span>
+    <span class="pin" style="left:448px;top:196px"><i>2</i>방문 추이</span>
+    <span class="pin" style="left:40px;top:44px"><i>3</i>채널별 발행·조회</span>
+  </div>
+  <div class="stats">
+    <p class="ttl">광고 없이 만든 성과</p>
+    <p><b>+66%</b><span>방문 증가 · 전주 대비</span></p>
+    <p><b>1.1만 회</b><span>스레드 조회</span></p>
+    <p><b>9,276회</b><span>유튜브 쇼츠 조회</span></p>
+  </div>
+  <div class="fade"></div>
+  <p class="note">2026.10.03 실제 화면 · 업체명·계정명은 가렸습니다 · 1개 업체 사례이며 결과는 업종·지역·계정 상태에 따라 다릅니다</p>
+</section>
+
+<p class="vl">B안 · 세로 성과 컬럼<span>0원과 성과를 오른쪽 한 기둥에 모아 숫자 흐름으로</span></p>
+<!-- ═════ 04 [Desire] 전달되는 대시보드 ═════ -->
+<section class="card c4 vb4">
+  <div class="beam"></div>
+  <div class="top"><b>MEISTER<span>CODE</span></b><span>04 / 09</span></div>
+  <div class="hd">
+    <div><p class="eyebrow">실제 운영 화면 · 배관 누수 진단 업체</p>
+      <p class="h s">운영은, 전달되는<br><span class="b">대시보드 하나면 충분합니다</span></p></div>
+  </div>
+  <div class="stage">
+    <div class="win back"><div class="win__bar"><i class="dot d1"></i><i class="dot d2"></i><i class="dot d3"></i><i class="url"></i></div><img src="img/dash-kpi-crop.png" alt="운영 대시보드 핵심 지표"></div>
+    <div class="win front"><div class="win__bar"><i class="dot d1"></i><i class="dot d2"></i><i class="dot d3"></i><i class="url"></i></div><img src="img/dash-sns-row1.png" alt="SNS 채널 운영 현황"></div>
+    <span class="pin" style="left:300px;top:20px"><i>1</i>오늘·이번 달 숫자</span>
+    <span class="pin" style="left:300px;top:196px"><i>2</i>방문 추이</span>
+    <span class="pin" style="left:40px;top:44px"><i>3</i>채널별 발행·조회</span>
+  </div>
+  <div class="col">
+    <div class="z"><span>광고비</span><b>0원</b><small>아래 성과, 전부 광고 없이</small></div>
+    <div class="m"><b>+66%</b><span>방문 증가 · 전주 대비</span></div>
+    <div class="m"><b>1.1만 회</b><span>스레드 조회</span></div>
+    <div class="m"><b>9,276회</b><span>유튜브 쇼츠 조회</span></div>
+  </div>
+  <div class="fade"></div>
+  <p class="note">2026.10.03 실제 화면 · 업체명·계정명은 가렸습니다 · 1개 업체 사례이며 결과는 업종·지역·계정 상태에 따라 다릅니다</p>
+</section>
+
+<p class="vl">C안 · 화면 위 데이터 핀<span>성과 숫자를 대시보드의 해당 위치에 직접 꽂아 증거처럼</span></p>
+<!-- ═════ 04 [Desire] 전달되는 대시보드 ═════ -->
+<section class="card c4 vc4">
+  <div class="beam"></div>
+  <div class="top"><b>MEISTER<span>CODE</span></b><span>04 / 09</span></div>
+  <div class="hd">
+    <div><p class="eyebrow">실제 운영 화면 · 배관 누수 진단 업체</p>
+      <p class="h s">운영은, 전달되는<br><span class="b">대시보드 하나면 충분합니다</span></p></div>
+    <div class="zero"><span>광고비</span><b>0원</b><small>화면 속 성과, 전부 광고 없이</small></div>
+  </div>
+  <div class="stage">
+    <div class="win back"><div class="win__bar"><i class="dot d1"></i><i class="dot d2"></i><i class="dot d3"></i><i class="url"></i></div><img src="img/dash-kpi-crop.png" alt="운영 대시보드 핵심 지표"></div>
+    <div class="win front"><div class="win__bar"><i class="dot d1"></i><i class="dot d2"></i><i class="dot d3"></i><i class="url"></i></div><img src="img/dash-sns-row1.png" alt="SNS 채널 운영 현황"></div>
+    <span class="dp dn" style="left:181px;top:4px"><b>1.1만 회</b><span>스레드 조회</span></span>
+    <span class="dp up" style="left:255px;top:166px"><b>9,276회</b><span>유튜브 쇼츠 조회</span></span>
+    <span class="dp dn" style="left:470px;top:150px"><b>+66%</b><span>방문 증가 · 전주 대비</span></span>
+  </div>
+
+  <div class="fade"></div>
+  <p class="note">2026.10.03 실제 화면 · 업체명·계정명은 가렸습니다 · 1개 업체 사례이며 결과는 업종·지역·계정 상태에 따라 다릅니다</p>
+</section>
+

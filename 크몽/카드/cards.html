@@ -1,0 +1,268 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>MEISTERCODE — 크몽 이미지 9장</title>
+<link rel="stylesheet" href="../css/base.css">
+<link rel="stylesheet" href="../시안/thumb.css">
+<style>
+body{display:flex;flex-direction:column;align-items:center;gap:30px;padding:30px 0}
+.card{width:652px;height:488px;position:relative;overflow:hidden;background:#000;color:#fff;
+  display:flex;flex-direction:column}
+.card--paper{background:var(--paper);color:#0A1220}
+.in{position:relative;z-index:2;flex:1;padding:36px 36px 0}
+
+/* 상단 공통: 로고 + 페이지 번호 */
+.top{position:absolute;z-index:3;left:36px;right:36px;top:22px;display:flex;justify-content:space-between;
+  font-size:11px;font-weight:800;letter-spacing:.04em;color:#6c7889}
+.top b{color:#fff;font-weight:900}.top b span{color:var(--blue)}
+.card--paper .top b{color:#0A1220}
+.in.pt{display:flex;flex-direction:column;justify-content:center;padding:48px 36px 22px}
+
+.eyebrow{font-size:13px;font-weight:800;color:var(--blue-lit);letter-spacing:-.02em;margin-bottom:8px}
+.card--paper .eyebrow{color:var(--blue)}
+.h{font-size:38px;font-weight:900;line-height:1.2;letter-spacing:-.05em}
+.h.s{font-size:32px}
+.p{font-size:14.5px;font-weight:500;line-height:1.65;color:var(--gray);letter-spacing:-.028em}
+.card--paper .p{color:var(--gray-d)}
+.rule{margin:18px 0}
+
+/* ── 02 공감 ── */
+.c2 .list{margin-top:20px;border-top:1px solid rgba(255,255,255,.09)}
+.c2 .row{display:flex;align-items:center;gap:14px;padding:11px 0;border-bottom:1px solid rgba(255,255,255,.09)}
+.ico{flex:0 0 36px;height:36px;border-radius:50%;background:var(--blue);display:flex;align-items:center;justify-content:center}
+.ico svg{width:18px;height:18px;stroke:#fff;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.row b{font-size:15.5px;font-weight:800;letter-spacing:-.035em;color:#fff}
+.row span{font-size:13px;font-weight:500;color:var(--gray);margin-left:8px}
+
+/* ── 03 진행 4단계 ── */
+.steps{display:flex;gap:10px;margin-top:26px}
+.st{flex:1;background:#fff;border:1px solid #DFE4EC;border-radius:12px;padding:16px 14px 18px;position:relative}
+.st.on{background:var(--blue);border-color:var(--blue);color:#fff;box-shadow:0 14px 34px rgba(46,123,246,.35)}
+.st i{font-style:normal;font-size:12px;font-weight:900;color:var(--blue)}
+.st.on i{color:rgba(255,255,255,.8)}
+.st b{display:block;font-size:17px;font-weight:900;letter-spacing:-.04em;margin:8px 0 6px;line-height:1.3}
+.st p{font-size:12px;font-weight:500;line-height:1.55;color:var(--gray-d);letter-spacing:-.025em}
+.st.on p{color:rgba(255,255,255,.9)}
+.arrow{position:absolute;right:-9px;top:50%;width:8px;height:8px;border-top:2px solid #9AA4B4;border-right:2px solid #9AA4B4;
+  transform:translateY(-50%) rotate(45deg);z-index:2}
+.note{margin-top:20px;font-size:13px;font-weight:700;color:var(--gray-d)}
+.note b{color:var(--blue)}
+
+/* ── 04 AI vs 사람 ── */
+.split{display:flex;margin-top:24px;border-radius:14px;overflow:hidden;border:1px solid rgba(255,255,255,.12)}
+.sp{flex:1;padding:20px 20px 22px}
+.sp.ai{background:rgba(255,255,255,.04)}
+.sp.hu{background:var(--blue)}
+.sp h4{font-size:13px;font-weight:800;letter-spacing:-.02em;color:var(--gray);margin-bottom:6px}
+.sp.hu h4{color:rgba(255,255,255,.8)}
+.sp strong{display:block;font-size:22px;font-weight:900;letter-spacing:-.045em;margin-bottom:12px}
+.sp li{list-style:none;font-size:13.5px;font-weight:600;line-height:1.9;letter-spacing:-.028em;color:#cfd6e1}
+.sp.hu li{color:#fff}
+.sp li::before{content:"—  ";color:var(--blue-lit)}
+.sp.hu li::before{color:rgba(255,255,255,.6)}
+
+/* ── 05~07 포트폴리오 ── */
+.pf .in{display:flex;gap:22px;align-items:center;padding:56px 32px 0 36px}
+.pf .l{width:38%}
+.pf .r{width:62%}
+.pf .no{font-size:12px;font-weight:900;color:var(--blue-lit);letter-spacing:.06em;margin-bottom:10px}
+.pf .name{font-size:30px;font-weight:900;letter-spacing:-.05em;line-height:1.15;margin-bottom:6px}
+.pf .ind{font-size:13px;font-weight:600;color:var(--gray);margin-bottom:16px}
+.pf .did{font-size:13.5px;font-weight:600;line-height:1.7;color:#cfd6e1;letter-spacing:-.028em}
+.pf .did b{color:#fff}
+.tags{display:flex;flex-wrap:wrap;gap:5px;margin-top:16px}
+.tags span{font-size:11px;font-weight:800;padding:4px 8px;border-radius:5px;background:rgba(46,123,246,.16);
+  color:var(--blue-lit);border:1px solid rgba(46,123,246,.35)}
+.shot{background:#0B1017;border:1px solid rgba(255,255,255,.14);border-radius:10px;overflow:hidden;
+  box-shadow:0 24px 50px rgba(0,0,0,.7),0 0 60px rgba(46,123,246,.16)}
+.shot .win__bar{height:22px}
+.shot img{display:block;width:100%;height:232px;object-fit:cover;object-position:top left}
+
+/* ── 08 기본 포함 ── */
+.inc{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:22px}
+.inc div{background:#fff;border:1px solid #DFE4EC;border-radius:11px;padding:15px 14px}
+.inc b{display:block;font-size:15.5px;font-weight:900;letter-spacing:-.04em;margin-top:9px;color:#0A1220}
+.inc span{font-size:12px;font-weight:500;color:var(--gray-d);letter-spacing:-.02em}
+.inc svg{width:22px;height:22px;stroke:var(--blue);fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+
+/* ── 09 가격 + 약속 ── */
+.price{display:flex;gap:9px;margin-top:20px}
+.pr{flex:1;border:1px solid rgba(255,255,255,.14);border-radius:12px;padding:14px 14px 15px;position:relative;
+  background:rgba(255,255,255,.03)}
+.pr.on{background:var(--blue);border-color:var(--blue);box-shadow:0 14px 34px rgba(46,123,246,.35)}
+.pr .n{font-size:14px;font-weight:900;letter-spacing:-.03em}
+.pr .n small{font-size:11px;color:var(--blue-lit);margin-left:4px}
+.pr.on .n small{color:rgba(255,255,255,.85)}
+.pr .o{font-size:12px;font-weight:600;color:#6c7889;text-decoration:line-through;margin-top:10px}
+.pr.on .o{color:rgba(255,255,255,.6)}
+.pr .v{font-size:28px;font-weight:900;letter-spacing:-.05em;color:var(--blue-lit);line-height:1.1}
+.pr.on .v{color:#fff}
+.pr .d{font-size:11.5px;font-weight:600;color:var(--gray);margin-top:4px}
+.pr.on .d{color:rgba(255,255,255,.85)}
+.pr .flag{position:absolute;top:-9px;right:10px;background:#fff;color:#0A1220;font-size:10px;font-weight:900;
+  padding:3px 7px;border-radius:4px}
+.promise{display:flex;gap:16px;margin-top:16px;padding:12px 14px;border-radius:10px;background:rgba(255,255,255,.04);
+  border:1px solid rgba(255,255,255,.08)}
+.promise div{flex:1;font-size:12px;font-weight:600;color:var(--gray);letter-spacing:-.02em}
+.promise b{display:block;font-size:13.5px;font-weight:800;color:#fff;margin-bottom:2px}
+</style>
+
+<!-- ═════════ 01 썸네일 (B안-1) ═════════ -->
+<section class="card c1">
+  <div class="beam"></div>
+  <div class="main" style="flex:1;display:flex;align-items:center;padding:0 28px 0 34px;position:relative;z-index:2;gap:16px">
+    <div style="width:54%"><span class="tag">제조업·수출기업 전문</span>
+      <h1 style="font-size:40px;font-weight:900;line-height:1.18;letter-spacing:-.052em;margin-bottom:12px"><span class="b">시안 3개</span><br>먼저 보고<br>고르세요</h1>
+      <p class="sub" style="margin-bottom:17px">AI챗봇 · 다국어 · CMS 전부 기본 포함</p>
+      <div class="p-row"><span class="p-old">45만원</span><span class="p-lab">런칭특가</span></div>
+      <span class="p-big" style="font-size:52px">29만원~</span><p class="p-note">선착순 10팀</p></div>
+    <div style="width:46%;position:relative;height:330px">
+      <div class="win" style="position:absolute;width:196px;overflow:visible;left:0;top:52px;transform:rotate(-7deg);opacity:.55">
+        <span class="lab1">A</span><div class="win__bar" style="border-radius:9px 9px 0 0"><i class="dot d1"></i><i class="dot d2"></i><i class="dot d3"></i></div>
+        <div class="pg"><div class="hero" style="background:linear-gradient(135deg,#2a3546,#151c27)"></div><div class="ln" style="width:70%"></div><div class="ln" style="width:45%"></div><div class="grid"><i></i><i></i><i></i></div></div></div>
+      <div class="win" style="position:absolute;width:196px;overflow:visible;left:52px;top:18px;transform:rotate(3deg);opacity:.75">
+        <span class="lab1">B</span><div class="win__bar" style="border-radius:9px 9px 0 0"><i class="dot d1"></i><i class="dot d2"></i><i class="dot d3"></i></div>
+        <div class="pg"><div class="hero" style="background:linear-gradient(135deg,#e8edf5,#b9c4d6)"></div><div class="ln" style="width:60%"></div><div class="ln" style="width:80%"></div><div class="grid"><i></i><i></i></div></div></div>
+      <div class="win" style="position:absolute;width:196px;overflow:visible;z-index:3;left:74px;top:104px;border:2px solid var(--blue);box-shadow:0 24px 50px rgba(0,0,0,.8),0 0 50px rgba(46,123,246,.45)">
+        <span class="lab1 on">C · 선택</span><span class="ck"><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span>
+        <div class="win__bar" style="border-radius:9px 9px 0 0"><i class="dot d1"></i><i class="dot d2"></i><i class="dot d3"></i><i class="url"></i></div>
+        <div class="pg"><div class="hero" style="background:linear-gradient(135deg,#2E7BF6,#163f8a)"></div><div class="ln" style="width:75%;background:rgba(255,255,255,.35)"></div><div class="ln" style="width:50%"></div><div class="grid"><i></i><i></i><i></i></div></div></div>
+    </div>
+  </div>
+  <div class="foot"><span class="foot__m">MEISTER<span>CODE</span></span><span class="foot__s"></span><span class="foot__t">결국엔 사람의 손이 닿아야 합니다</span></div>
+</section>
+<style>
+.c1 .pg{padding:9px}.c1 .hero{height:44px;border-radius:4px;margin-bottom:6px}
+.c1 .ln{height:5px;border-radius:3px;background:rgba(255,255,255,.18);margin-bottom:4px}
+.c1 .grid{display:flex;gap:4px;margin-top:6px}.c1 .grid i{flex:1;height:26px;border-radius:3px;background:rgba(255,255,255,.07)}
+.lab1{position:absolute;top:-11px;left:10px;font-size:10px;font-weight:900;background:#1C2530;color:#aab4c3;padding:3px 8px;border-radius:4px}
+.lab1.on{background:var(--blue);color:#fff}
+.ck{position:absolute;right:-10px;top:-10px;width:26px;height:26px;border-radius:50%;background:var(--blue);display:flex;align-items:center;justify-content:center;box-shadow:0 6px 16px rgba(46,123,246,.6)}
+.ck svg{width:14px;stroke:#fff;stroke-width:3;fill:none;stroke-linecap:round;stroke-linejoin:round}
+</style>
+
+<!-- ═════════ 02 공감: 만든 다음은요? ═════════ -->
+<section class="card c2">
+  <div class="beam"></div>
+  <div class="top"><b>MEISTER<span>CODE</span></b><span>02 / 09</span></div>
+  <div class="in pt">
+    <p class="eyebrow">홈페이지 제작 업체, 다 비슷해 보이시죠?</p>
+    <p class="h">만드는 건 다 해줍니다.<br><span class="b">근데 만든 다음은요?</span></p>
+    <div class="list">
+      <div class="row"><span class="ico"><svg viewBox="0 0 24 24"><path d="M6 8h12l-1 12H7z"/><path d="M9 8a3 3 0 0 1 6 0"/></svg></span><b>제품이 바뀌면</b><span>페이지도 바뀌어야 하고</span></div>
+      <div class="row"><span class="ico"><svg viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M9 3v4M15 3v4"/></svg></span><b>시즌이 바뀌면</b><span>배너도 바뀌어야 하고</span></div>
+      <div class="row"><span class="ico"><svg viewBox="0 0 24 24"><path d="M4 5h16v11H9l-5 4z"/></svg></span><b>고객이 물으면</b><span>답변도 바뀌어야 합니다</span></div>
+    </div>
+    <p class="p" style="margin-top:16px;color:#fff;font-weight:700;font-size:16px">그래서, <span class="b">결국엔 사람의 손이 닿아야 합니다.</span></p>
+  </div>
+</section>
+
+<!-- ═════════ 03 진행 방식: 시안 3개 ═════════ -->
+<section class="card card--paper c3">
+  <div class="top"><b>MEISTER<span>CODE</span></b><span>03 / 09</span></div>
+  <div class="in pt">
+    <p class="eyebrow">진행 방식</p>
+    <p class="h">돈 내기 전에 걱정되는 것,<br><span class="b">시안 3개</span>로 먼저 풉니다</p>
+    <div class="steps">
+      <div class="st"><i>01</i><b>문의</b><p>업종·제품·참고 사이트만 알려주세요</p><span class="arrow"></span></div>
+      <div class="st on"><i>02</i><b>시안 3개</b><p>방향이 다른 초안 3개를 먼저 만들어 드립니다</p><span class="arrow"></span></div>
+      <div class="st"><i>03</i><b>선택</b><p>마음에 드는 안을 고르시면 그 방향으로</p><span class="arrow"></span></div>
+      <div class="st"><i>04</i><b>완성·인도</b><p>사람이 다듬어 소스코드까지 넘겨드립니다</p></div>
+    </div>
+    <p class="note">시안 선택 후 <b>수정 2회</b> 포함 · 고르기 전까지 방향을 강요하지 않습니다</p>
+  </div>
+</section>
+
+<!-- ═════════ 04 AI가 짓고 사람이 책임진다 ═════════ -->
+<section class="card c4">
+  <div class="beam"></div>
+  <div class="top"><b>MEISTER<span>CODE</span></b><span>04 / 09</span></div>
+  <div class="in pt">
+    <p class="eyebrow">시안 3개가 가능한 이유</p>
+    <p class="h">AI가 빠르게 짓고,<br><span class="b">사람이 끝까지</span> 책임집니다</p>
+    <div class="split">
+      <div class="sp ai"><h4>AI가 하는 일</h4><strong>빠르게</strong>
+        <ul><li>방향이 다른 시안 3개 초안</li><li>다국어 번역 초벌</li><li>24시간 챗봇 응대</li></ul></div>
+      <div class="sp hu"><h4>사람이 하는 일</h4><strong>끝까지</strong>
+        <ul><li>업종에 맞게 구조·문구 다듬기</li><li>제품·인증서 정리, 최종 검수</li><li>오픈 후 수정·관리</li></ul></div>
+    </div>
+  </div>
+</section>
+
+<!-- ═════════ 05 포트폴리오: 태승전자 ═════════ -->
+<section class="card pf">
+  <div class="beam"></div>
+  <div class="top"><b>MEISTER<span>CODE</span></b><span>05 / 09</span></div>
+  <div class="in">
+    <div class="l"><p class="no">PORTFOLIO 01</p>
+      <p class="name">태승전자</p><p class="ind">제어보드 제조 · 가전·산업용·의료기기</p>
+      <p class="did">사업영역 4개를<br><b>사진 카드 한 화면</b>에.<br>바이어가 업종부터 고르게 했습니다.</p>
+      <div class="tags"><span>다크 테마</span><span>사업영역 필터</span><span>다국어</span></div></div>
+    <div class="r"><div class="shot"><div class="win__bar"><i class="dot d1"></i><i class="dot d2"></i><i class="dot d3"></i><i class="url"></i></div>
+      <img src="img/taeseung.webp" alt="태승전자"></div></div>
+  </div>
+</section>
+
+<!-- ═════════ 06 포트폴리오: 유성에이스 ═════════ -->
+<section class="card pf">
+  <div class="beam"></div>
+  <div class="top"><b>MEISTER<span>CODE</span></b><span>06 / 09</span></div>
+  <div class="in">
+    <div class="l"><p class="no">PORTFOLIO 02</p>
+      <p class="name">유성에이스</p><p class="ind">후드·배기 설비 제조 · 시공</p>
+      <p class="did">수십 개 제품을<br><b>시리즈 대분류</b>로 정리.<br>원하는 라인을 두 번 클릭에 찾습니다.</p>
+      <div class="tags"><span>제품 카탈로그</span><span>시공 갤러리</span><span>다국어</span></div></div>
+    <div class="r"><div class="shot"><div class="win__bar"><i class="dot d1"></i><i class="dot d2"></i><i class="dot d3"></i><i class="url"></i></div>
+      <img src="img/yusung.webp" alt="유성에이스"></div></div>
+  </div>
+</section>
+
+<!-- ═════════ 07 포트폴리오: 마이스터가드 ═════════ -->
+<section class="card pf">
+  <div class="beam"></div>
+  <div class="top"><b>MEISTER<span>CODE</span></b><span>07 / 09</span></div>
+  <div class="in">
+    <div class="l"><p class="no">PORTFOLIO 03</p>
+      <p class="name">마이스터가드</p><p class="ind">시설 순회점검 서비스</p>
+      <p class="did">설명하기 어려운 서비스를<br><b>3D 동네 지도</b>로.<br>스크롤하면 하루 동선이 보입니다.</p>
+      <div class="tags"><span>3D 인터랙션</span><span>스크롤 연출</span><span>도입 문의</span></div></div>
+    <div class="r"><div class="shot"><div class="win__bar"><i class="dot d1"></i><i class="dot d2"></i><i class="dot d3"></i><i class="url"></i></div>
+      <img src="img/meisterguard.png" alt="마이스터가드"></div></div>
+  </div>
+</section>
+
+<!-- ═════════ 08 전부 기본 포함 ═════════ -->
+<section class="card card--paper c8">
+  <div class="top"><b>MEISTER<span>CODE</span></b><span>08 / 09</span></div>
+  <div class="in pt">
+    <p class="eyebrow">마이스터코드는</p>
+    <p class="h s">옵션으로 안 팝니다. <span class="b">전부 기본</span>입니다.</p>
+    <div class="inc">
+      <div><svg viewBox="0 0 24 24"><path d="M4 5h16v11H9l-5 4z"/><path d="M8 10h8"/></svg><b>AI챗봇</b><span>24시간 자동 응대</span></div>
+      <div><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.7 2.5 15.3 0 18M12 3c-2.5 2.7-2.5 15.3 0 18"/></svg><b>외국어 1개</b><span>영문 등 해외 바이어용</span></div>
+      <div><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8 21h8M12 17v4"/></svg><b>관리자 CMS</b><span>대표님이 직접 수정</span></div>
+      <div><svg viewBox="0 0 24 24"><rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18h2"/></svg><b>반응형</b><span>PC · 모바일 모두</span></div>
+      <div><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="6" rx="1.5"/><rect x="3" y="14" width="18" height="6" rx="1.5"/></svg><b>호스팅 관리</b><span>서버 걱정 없이</span></div>
+      <div><svg viewBox="0 0 24 24"><path d="M8 7l-5 5 5 5M16 7l5 5-5 5"/></svg><b>소스코드 100%</b><span>락인 없이 인도</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- ═════════ 09 가격 + 약속 ═════════ -->
+<section class="card c9">
+  <div class="beam"></div>
+  <div class="top"><b>MEISTER<span>CODE</span></b><span>09 / 09</span></div>
+  <div class="in pt">
+    <p class="h s">오픈 기념 <span class="b">선착순 10팀</span> 런칭특가</p>
+    <div class="price">
+      <div class="pr"><p class="n">원페이지</p><p class="o">45만원</p><p class="v">29만원</p><p class="d">3~5일 · 랜딩·홍보</p></div>
+      <div class="pr on"><span class="flag">추천</span><p class="n">비즈니스<small>5p+</small></p><p class="o">89만원</p><p class="v">59만원</p><p class="d">7~10일 · 회사소개+카탈로그</p></div>
+      <div class="pr"><p class="n">엔터프라이즈<small>10p+</small></p><p class="o">150만원</p><p class="v">99만원~</p><p class="d">2~4주 · 다국어+1·맞춤</p></div>
+    </div>
+    <div class="promise">
+      <div><b>동시 진행 3팀까지</b>한 팀 한 팀 끝까지 보려고</div>
+      <div><b>수정 2회 포함</b>시안 선택 후 기준</div>
+      <div><b>상담 평일 10–18시</b>챗봇은 24시간</div>
+    </div>
+    <p class="p" style="margin-top:12px;font-size:11.5px;color:#6c7889">VAT 별도 · 10팀 마감 후 정가로 전환됩니다</p>
+  </div>
+</section>

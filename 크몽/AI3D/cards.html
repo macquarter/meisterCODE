@@ -82,6 +82,17 @@ body{display:flex;flex-direction:column;align-items:center;gap:32px;padding:32px
 .c4 .fade{position:absolute;left:0;right:0;bottom:0;height:56px;z-index:3;background:linear-gradient(transparent,rgba(0,0,0,.92) 60%)}
 .c4 .note{position:absolute;left:36px;right:36px;bottom:12px;z-index:4;font-size:12px;font-weight:600;color:#8892A2}
 
+/* B: 오른쪽 세로 성과 컬럼 */
+.vb4 .back{left:120px;width:440px}
+.vb4 .front{width:330px}
+.vb4 .col{position:absolute;z-index:5;right:24px;top:52px;bottom:40px;width:184px;background:rgba(5,8,13,.88);border:1px solid rgba(46,123,246,.5);
+  border-radius:14px;padding:16px 16px 12px;display:flex;flex-direction:column;box-shadow:0 20px 50px rgba(0,0,0,.7)}
+.vb4 .col .z span{display:block;font-size:13px;font-weight:900;color:#CFD6E1}
+.vb4 .col .z b{display:block;font-size:68px;font-weight:900;letter-spacing:-.06em;line-height:.95;color:var(--blue-lit);text-shadow:0 0 36px rgba(46,123,246,.75)}
+.vb4 .col .z small{display:block;font-size:12px;font-weight:700;color:#AEB7C4;margin-top:4px;padding-bottom:12px;border-bottom:1px solid rgba(255,255,255,.14)}
+.vb4 .col .m{margin-top:12px}
+.vb4 .col .m b{display:block;font-size:24px;font-weight:900;letter-spacing:-.05em;line-height:1.05}
+.vb4 .col .m span{font-size:12px;font-weight:700;color:#AEB7C4}
 /* ── 04 실증 대시보드 (구) ── */
 .dash{margin-top:20px;background:#0B1119;border:1px solid rgba(255,255,255,.12);border-radius:14px;padding:16px 18px;display:flex;gap:20px;align-items:stretch}
 .dash .kp{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;flex:0 0 300px}
@@ -362,26 +373,25 @@ body{display:flex;flex-direction:column;align-items:center;gap:32px;padding:32px
 </section>
 
 <!-- ═════ 04 [Desire] 전달되는 대시보드 ═════ -->
-<section class="card c4">
+<section class="card c4 vb4">
   <div class="beam"></div>
   <div class="top"><b>MEISTER<span>CODE</span></b><span>04 / 09</span></div>
   <div class="hd">
     <div><p class="eyebrow">실제 운영 화면 · 배관 누수 진단 업체</p>
       <p class="h s">운영은, 전달되는<br><span class="b">대시보드 하나면 충분합니다</span></p></div>
-    <div class="zero"><span>광고비</span><b>0원</b><small>아래 숫자, 전부 광고 없이</small></div>
   </div>
   <div class="stage">
     <div class="win back"><div class="win__bar"><i class="dot d1"></i><i class="dot d2"></i><i class="dot d3"></i><i class="url"></i></div><img src="img/dash-kpi-crop.png" alt="운영 대시보드 핵심 지표"></div>
     <div class="win front"><div class="win__bar"><i class="dot d1"></i><i class="dot d2"></i><i class="dot d3"></i><i class="url"></i></div><img src="img/dash-sns-row1.png" alt="SNS 채널 운영 현황"></div>
-    <span class="pin" style="left:432px;top:44px"><i>1</i>오늘·이번 달 숫자</span>
-    <span class="pin" style="left:448px;top:196px"><i>2</i>방문 추이</span>
+    <span class="pin" style="left:300px;top:20px"><i>1</i>오늘·이번 달 숫자</span>
+    <span class="pin" style="left:300px;top:196px"><i>2</i>방문 추이</span>
     <span class="pin" style="left:40px;top:44px"><i>3</i>채널별 발행·조회</span>
   </div>
-  <div class="stats">
-    <p class="ttl">광고 없이 만든 성과</p>
-    <p><b>+66%</b><span>방문 증가 · 전주 대비</span></p>
-    <p><b>1.1만 회</b><span>스레드 조회</span></p>
-    <p><b>9,276회</b><span>유튜브 쇼츠 조회</span></p>
+  <div class="col">
+    <div class="z"><span>광고비</span><b>0원</b><small>아래 성과, 전부 광고 없이</small></div>
+    <div class="m"><b>+66%</b><span>방문 증가 · 전주 대비</span></div>
+    <div class="m"><b>1.1만 회</b><span>스레드 조회</span></div>
+    <div class="m"><b>9,276회</b><span>유튜브 쇼츠 조회</span></div>
   </div>
   <div class="fade"></div>
   <p class="note">2026.10.03 실제 화면 · 업체명·계정명은 가렸습니다 · 1개 업체 사례이며 결과는 업종·지역·계정 상태에 따라 다릅니다</p>

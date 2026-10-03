@@ -129,12 +129,17 @@ body{display:flex;flex-direction:column;align-items:center;gap:32px;padding:32px
 .src{margin-top:12px;font-size:12px;font-weight:600;color:#8892A2}
 
 /* ── 09 행동 ── */
-.price{display:flex;gap:8px;margin-top:16px}
+.price{display:flex;gap:8px;margin-top:12px}
 .pr{flex:1;border:1px solid rgba(255,255,255,.14);border-radius:12px;padding:12px 12px 14px;position:relative;background:rgba(255,255,255,.03)}
 .pr.on{flex:1.2;background:var(--blue);border-color:var(--blue)}
-.pr .n{font-size:13px;font-weight:900}
-.pr .v{font-size:24px;font-weight:900;letter-spacing:-.05em;color:var(--blue-lit);margin-top:4px}
-.pr.on .v{color:#fff;font-size:28px}
+.all{margin-top:16px;font-size:13px;font-weight:700;color:#CFD6E1;letter-spacing:-.025em}
+.all b{color:var(--blue-lit);font-weight:900;margin-right:8px}
+.pr .n{font-size:13px;font-weight:900;color:#AEB7C4}
+.pr.on .n{color:rgba(255,255,255,.9)}
+.pr .c{font-size:16px;font-weight:900;letter-spacing:-.04em;margin-top:4px;line-height:1}
+.pr .c b{font-size:36px;letter-spacing:-.05em;margin-right:2px}
+.pr .v{font-size:20px;font-weight:900;letter-spacing:-.05em;color:var(--blue-lit);margin-top:8px}
+.pr.on .v{color:#fff;font-size:22px}
 .pr .d{font-size:12px;font-weight:700;color:#AEB7C4;margin-top:4px;line-height:1.5}
 .pr.on .d{color:rgba(255,255,255,.92)}
 .pr .flag{position:absolute;top:-10px;right:12px;background:#fff;color:#0A1220;font-size:12px;font-weight:900;padding:2px 8px;border-radius:4px}
@@ -267,10 +272,10 @@ body{display:flex;flex-direction:column;align-items:center;gap:32px;padding:32px
   <div class="beam"></div>
   <div class="main">
     <div class="l"><span class="tag">설비·시공 사장님 홍보 전담</span>
-      <h1 style="font-size:36px">엄두 안 나던 홍보,<br><span class="b">5개 채널 매일</span><br>대신 해드립니다</h1>
+      <h1 style="font-size:36px">엄두 안 나던 홍보,<br><span class="b">5개 채널 한 번에</span><br>대신 해드립니다</h1>
       <p class="proof">누수퀵 운영 중 · 광고비 0원 · <b>콘텐츠 144건</b></p>
-      <div class="p-row"><span class="p-lab">파일럿부터 · 2주 · 3개 채널 · 쇼츠 6편</span></div>
-      <span class="p-big">99만원</span><p class="p-note">VAT 별도 · 월 운영 패키지 있음</p></div>
+      <div class="p-row"><span class="p-lab">콘텐츠 20건부터 · 5개 채널 · 3D 쇼츠 포함</span></div>
+      <span class="p-big">월 79만원</span><p class="p-note">VAT 별도 · 월 60건·100건 패키지 있음</p></div>
     <div class="r"><div class="todo">
       <div class="hd">오늘의 홍보<span>11:00 발행 완료</span></div>
       <p><i><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></i>유튜브 쇼츠<em>3D 영상</em></p>
@@ -361,14 +366,14 @@ body{display:flex;flex-direction:column;align-items:center;gap:32px;padding:32px
     <p class="eyebrow">따로 맡기면 얼마일까</p>
     <p class="h s">원래는 이만큼<br><span class="b">들어가야 하는 일입니다</span></p>
     <div class="rc">
-      <div class="receipt"><h4>외주 견적서 · 월 기준</h4>
+      <div class="receipt"><h4>외주 견적서 · 주 5회 운영 기준</h4>
         <p>AI 3D 쇼츠 영상 20편<b>260만원</b></p>
         <p>인스타그램 운영<b>52~130만원</b></p>
         <p>스레드 운영 + 댓글 응대<b>52~130만원</b></p>
         <p>네이버 블로그 운영<b>22~133만원</b></p>
         <p>홈페이지 기술 블로그<b>22~133만원</b></p>
         <p class="tot">합계<b>408~786만원</b></p></div>
-      <div class="now"><small>마이스터코드 월 운영</small><b>290만원</b><span>위 다섯 가지 전부<br>성과 대시보드 포함<br>VAT 별도</span></div>
+      <div class="now"><small>마이스터코드 · 월 콘텐츠 100건</small><b>290만원</b><span>위 다섯 가지 전부<br>성과 대시보드 포함<br>VAT 별도</span></div>
     </div>
     <p class="src" style="margin-top:16px">크몽 공개 가격(2026년 10월) 기준. 쇼츠는 3D가 아닌 일반 숏폼 평균 13만원으로 낮춰 계산, 스레드·홈페이지 블로그는 SNS·블로그 운영 시세 준용</p>
   </div>
@@ -380,7 +385,7 @@ body{display:flex;flex-direction:column;align-items:center;gap:32px;padding:32px
   <div class="top"><b>MEISTER<span>CODE</span></b><span>07 / 09</span></div>
   <div class="in">
     <div class="l">
-      <p class="eyebrow">매일 오전 11시</p>
+      <p class="eyebrow">발행일 오전 11시</p>
       <p class="h s">사진 한 장이,<br><span class="b">다섯 곳에서</span><br>동시에 켜집니다</p>
       <p class="sub2">어제 올린 현장 사진 한 장이<br>영상·카드뉴스·블로그 글이 되어<br><b>오전 11시 한꺼번에</b> 올라가고,<br>스레드 댓글 응대까지 끝냅니다.</p>
     </div>
@@ -413,7 +418,7 @@ body{display:flex;flex-direction:column;align-items:center;gap:32px;padding:32px
         <p>DevOps · 운영 자동화<b>1명</b></p>
         <p class="cost"><em>직접 뽑으면 · 10명 인건비</em><strong>월 3,000만원+</strong></p>
       </div>
-      <div class="one"><small>마이스터코드 월 운영</small><b>290만원</b><span>직원 1명 인건비 수준으로<br>10명이 하던 일 전부<br>VAT 별도</span></div>
+      <div class="one"><small>마이스터코드 · 월 콘텐츠 100건</small><b>290만원</b><span>직원 1명 인건비 수준으로<br>10명이 하던 일 전부<br>VAT 별도</span></div>
     </div>
     <p class="src">인원은 5개 채널 주 5회 운영 기준 당사 산정 예시, 인건비는 1인 월 300만원(신입 기준) 가정이며 4대보험·퇴직금 별도</p>
   </div>
@@ -425,13 +430,14 @@ body{display:flex;flex-direction:column;align-items:center;gap:32px;padding:32px
   <div class="top"><b>MEISTER<span>CODE</span></b><span>09 / 09</span></div>
   <div class="in">
     <p class="h s">이제 홍보는,<br><span class="b">마이스터코드가 대신 챙깁니다</span></p>
+    <p class="all"><b>세 패키지 모두</b>AI 3D 쇼츠 · 5개 채널 동시 발행 · 스레드 댓글 응대 · 성과 대시보드</p>
     <div class="price">
-      <div class="pr"><p class="n">2주 파일럿</p><p class="v">99만원</p><p class="d">쇼츠 6편 · 유튜브·인스타·스레드</p></div>
-      <div class="pr on"><span class="flag">추천</span><p class="n">월 운영 · 주 5회</p><p class="v">290만원</p><p class="d">5개 채널 · 스레드 댓글 · 성과 대시보드</p></div>
-      <div class="pr"><p class="n">매일 운영 + 3D 웹</p><p class="v">별도 견적</p><p class="d">매일 11시 · 3D 메인 웹 구축</p></div>
+      <div class="pr"><p class="n">주 1회 발행</p><p class="c">월 <b>20</b>건</p><p class="v">79만원</p><p class="d">3D 쇼츠 4편 포함</p></div>
+      <div class="pr on"><span class="flag">추천</span><p class="n">주 3회 발행</p><p class="c">월 <b>60</b>건</p><p class="v">189만원</p><p class="d">3D 쇼츠 12편 포함</p></div>
+      <div class="pr"><p class="n">주 5회 발행</p><p class="c">월 <b>100</b>건</p><p class="v">290만원</p><p class="d">3D 쇼츠 20편 포함</p></div>
     </div>
     <div class="ask">아래 <em>문의하기</em>로 업종만 알려주세요<small>우리 업종에 맞는지부터 답해드립니다</small></div>
-    <p class="fine">VAT 별도 · 홈페이지 채널은 홈페이지 보유 시 · 착수일·세팅 기간은 상담 후 확정 · 영상은 AI 3D 재현</p>
+    <p class="fine">VAT 별도 · 건수는 4주 기준 발행 횟수 × 5개 채널 · 홈페이지 채널은 홈페이지 보유 시<br>매일 발행·3D 홈페이지 구축은 상담 후 견적 · 착수일은 상담 후 확정 · 영상은 AI 3D 재현</p>
   </div>
 </section>
 

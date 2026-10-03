@@ -694,6 +694,11 @@ function init() {
   exitBeam = new THREE.Mesh(new THREE.CylinderGeometry(30, 34, 260, 24, 1, true), new THREE.MeshBasicMaterial({ color: 0x50c8ff, transparent: true, opacity: 0.08, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
   scene.add(exitRing, exitBeam);
   for (let i = 0; i < 6; i++) { const n = part(GEO.ico, mat('#3a4a2a', { roughness: 0.5 }), 0, 0, 0, 3.2, 3.2, 3.2); n.visible = false; nadeMeshes.push(n); scene.add(n); }
+  // 총구 불꽃 · 폭발 섬광 — 빛(점광원)과 함께 보이는 밝은 판
+  const addSprite = (c, sz) => { const m = new THREE.Sprite(new THREE.SpriteMaterial({ map: TEX.glow, color: c, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false })); m.scale.set(sz, sz, 1); m.visible = false; scene.add(m); return m; };
+  R3D._flash = addSprite(0xffd090, 34);
+  R3D._boom = addSprite(0xffe0a0, 220);
+  R3D._boomCore = addSprite(0xffffff, 90);
   window.addEventListener('resize', size);
   size();
 }
@@ -1000,10 +1005,19 @@ function updateLights(g, p, w) {
   muzzle.position.set(p.x + ca * 24, 24, p.y + sa * 24);
   R3D._fill.position.set(p.x - ca * 20, 70, p.y - sa * 20 + 30);
   muzzle.intensity = p.muzzle > 0 ? 7 : 0;
+  R3D._flash.visible = p.muzzle > 0 && !p.dead;
+  if (R3D._flash.visible) { R3D._flash.position.set(p.x + ca * 34, 22, p.y + sa * 34); const k = 0.8 + Math.random() * 0.5; R3D._flash.scale.set(30 * k, 30 * k, 1); }
   // 폭발 섬광
   let fl = null;
   for (const f of g.flashes) if (!fl || f.t < fl.t) fl = f;
   if (fl) { const k = 1 - fl.t / fl.life; blast.position.set(fl.x, 40, fl.y); blast.intensity = 14 * k; } else blast.intensity = 0;
+  const big = fl && fl.burst !== undefined;
+  R3D._boom.visible = R3D._boomCore.visible = !!big;
+  if (big) {
+    const k = 1 - fl.t / fl.life;
+    R3D._boom.position.set(fl.x, 26, fl.y); R3D._boom.scale.set(120 + (1 - k) * 160, 120 + (1 - k) * 160, 1); R3D._boom.material.opacity = k;
+    R3D._boomCore.position.set(fl.x, 28, fl.y); R3D._boomCore.scale.set(70 * k + 20, 70 * k + 20, 1); R3D._boomCore.material.opacity = k;
+  }
   // 번개 — 하늘빛이 순간 밝아진다
   const L = SETTINGS.flash ? g.lightning : g.lightning * 0.3;
   hemi.intensity = 0.85 + L * 3 + (SETTINGS.brightness - 50) * 0.012;

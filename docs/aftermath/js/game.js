@@ -18,24 +18,32 @@ const mctx = mask.getContext('2d');
    레티나 1440×900(2880×1800, 518만 픽셀)에서 17fps, 같은 장면 1280×800(102만)에서 59fps.
    그래서 기기 배율을 그대로 쓰지 않고 픽셀 예산 안에서 고르고(DPR), '자동'이면 실제 프레임을 보고
    해상도를 계단식으로 낮추거나 올린다. 어둠 막은 어차피 부드러운 빛이라 절반 해상도로 그린다. */
-let W = 0, H = 0, DPR = 1, MDPR = 0.5;
+/* 화면 확대(ZOOM) — 큰 모니터에서 사람이 개미만 해지고 더 멀리 보이던 문제. 화면 높이 800px 를 1배로
+   잡고 그보다 크면 확대한다(최대 2배). 그래서 1080p·1440p 에서도 보이는 도시의 넓이가 비슷하다.
+   W · H 는 '논리 화면'(세계를 그리는 단위)이고, DEV 는 기기 배율, DPR = DEV × ZOOM 이 캔버스 배율이다. */
+let W = 0, H = 0, DPR = 1, MDPR = 0.5, DEV = 1, ZOOM = 1, HUDZ = 1;
 const BUDGET = { high: 3.6e6, auto: 2.2e6, low: 0.85e6 };
 const RES = { max: 1, ema: 16.7, holdT: 0, okT: 0, ceil: 9 };
 function maxDPR() {
   const dev = Math.min(window.devicePixelRatio || 1, 2);
-  const cap = Math.sqrt(BUDGET[SETTINGS.quality] / Math.max(1, W * H));
+  const cap = Math.sqrt(BUDGET[SETTINGS.quality] / Math.max(1, innerWidth * innerHeight));
   return Math.max(0.5, Math.min(dev, cap));
 }
 function applyScale(s) {
-  DPR = s; MDPR = s * 0.5;
+  DEV = s; DPR = s * ZOOM; MDPR = DPR * 0.5;
+  window.AFT_SCALE = DPR;          // 모형이 미리 그려 두는 그림(시체)의 해상도
   view.width = Math.max(1, Math.floor(W * DPR)); view.height = Math.max(1, Math.floor(H * DPR));
   mask.width = Math.max(1, Math.ceil(W * MDPR)); mask.height = Math.max(1, Math.ceil(H * MDPR));
-  view.style.width = W + 'px'; view.style.height = H + 'px';
+  view.style.width = innerWidth + 'px'; view.style.height = innerHeight + 'px';
   ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
   mctx.setTransform(MDPR, 0, 0, MDPR, 0, 0);
 }
 function resize() {
-  W = window.innerWidth; H = window.innerHeight;
+  ZOOM = Math.max(1, Math.min(2, window.innerHeight / 800));
+  W = window.innerWidth / ZOOM; H = window.innerHeight / ZOOM;
+  // 글자 · HUD 도 큰 화면에서는 함께 키운다(데스크톱만 — 터치는 손가락 크기가 기준)
+  HUDZ = matchMedia('(hover:none) and (pointer:coarse)').matches ? 1 : Math.max(1, Math.min(1.5, 1 + (ZOOM - 1) * 0.8));
+  document.documentElement.style.setProperty('--hudz', HUDZ);
   RES.max = maxDPR(); RES.ceil = 9; RES.holdT = 1;
   applyScale(RES.max);
 }
@@ -48,14 +56,14 @@ function adaptRes(ms) {
   RES.holdT -= ms / 1000;
   if (RES.holdT > 0) return;
   // 무리가 몰려오는 순간의 짧은 끊김에는 반응하지 않는다. 1배 밑으로는 정말 버거울 때만
-  if (RES.ema > 22 && DPR > 0.55 && (DPR > 1.01 || RES.ema > 27)) {
-    RES.ceil = Math.min(RES.ceil, DPR * 0.97);
-    applyScale(Math.max(0.5, DPR * 0.82));
+  if (RES.ema > 22 && DEV > 0.55 && (DEV > 1.01 || RES.ema > 27)) {
+    RES.ceil = Math.min(RES.ceil, DEV * 0.97);
+    applyScale(Math.max(0.5, DEV * 0.82));
     RES.ema = 16.7; RES.holdT = 1.2; RES.okT = 0;
   } else if (RES.ema < 18) {
     RES.okT += ms / 1000;
-    const up = Math.min(RES.max, RES.ceil, DPR * 1.1);
-    if (RES.okT > 4 && up > DPR + 0.02) { applyScale(up); RES.holdT = 1.2; RES.okT = 0; }
+    const up = Math.min(RES.max, RES.ceil, DEV * 1.1);
+    if (RES.okT > 4 && up > DEV + 0.02) { applyScale(up); RES.holdT = 1.2; RES.okT = 0; }
   } else RES.okT = 0;
 }
 window.addEventListener('resize', resize);
@@ -65,6 +73,23 @@ document.addEventListener('visibilitychange', () => {
   if (document.hidden && typeof G !== 'undefined' && G.state === 'play') G.togglePause();
 });
 SETTINGS.onChange(k => { if (k === 'quality' || k === null) resize(); });
+/* 언어 — 고정 문구를 바꾸고, 지금 열린 화면을 새 언어로 다시 그린다 */
+I18N.set(SETTINGS.lang);
+document.addEventListener('DOMContentLoaded', () => I18N.apply());
+if (document.readyState !== 'loading') I18N.apply();
+SETTINGS.onChange(k => {
+  if (k !== 'lang' && k !== null) return;
+  I18N.set(SETTINGS.lang);
+  I18N.apply();
+  if (typeof UI === 'undefined') return;
+  const open = id => !$(id).classList.contains('hidden');
+  if (open('scrTitle')) UI.enterMenu();
+  if (open('scrSettings')) UI.syncSettings();
+  if (open('scrChapters')) UI.buildChapters();
+  if (open('scrHowto')) UI.buildHowto();
+  if (open('scrKeys')) UI.buildKeys();
+  if (G.state === 'play' || G.state === 'pause') G.refreshHud();
+});
 
 const isTouch = matchMedia('(hover:none) and (pointer:coarse)').matches;
 if (isTouch) document.body.classList.add('touch');
@@ -134,7 +159,7 @@ addEventListener('keydown', e => {
 addEventListener('keyup', e => { keys[e.code] = false; });
 addEventListener('blur', () => { for (const k in keys) keys[k] = false; input.firing = false; });
 
-view.addEventListener('mousemove', e => { input.mx = e.clientX; input.my = e.clientY; input.hasMouse = true; PAD.aim = null; });
+view.addEventListener('mousemove', e => { input.mx = e.clientX / ZOOM; input.my = e.clientY / ZOOM; input.hasMouse = true; PAD.aim = null; });
 view.addEventListener('mousedown', e => {
   SFX.resume();
   if (e.button === 0) { input.firing = true; return; }
@@ -186,7 +211,7 @@ function pollPad(dt) {
     if (PAD.connected) { PAD.connected = false; PAD.mx = PAD.my = 0; PAD.fire = PAD.sprint = false; PAD.aim = null; }
     return;
   }
-  if (!PAD.connected) { PAD.connected = true; if (G.state === 'play') G.toast('게임패드 연결 — 배치는 일시정지 › 조작법', 3); }
+  if (!PAD.connected) { PAD.connected = true; if (G.state === 'play') G.toast(T('게임패드 연결 — 배치는 일시정지 › 조작법'), 3); }
   const btn = i => !!gp.buttons[i] && (gp.buttons[i].pressed || gp.buttons[i].value > 0.45);
   const down = i => btn(i) && !PAD.prev[i];
   const dz = v => Math.abs(v) < 0.18 ? 0 : (v - Math.sign(v) * 0.18) / 0.82;
@@ -428,31 +453,31 @@ const Hints = (() => {
 
   // [키 표시, 설명]. 데스크톱과 터치가 다르면 그 자리에서 고른다.
   const TEXT = {
-    move:     () => !isTouch ? SETTINGS.deskAim === 'auto' ? [['up', 'left', 'down', 'right'].map(a => KEYBIND.labelOf(a)).join(''), '이동 · 손전등은 가까운 적과 걷는 쪽을 저절로 비춘다'] : [['up', 'left', 'down', 'right'].map(a => KEYBIND.labelOf(a)).join(''), '이동 · 마우스로 손전등을 비춘다']
-      : SETTINGS.aim === 'auto' ? ['왼쪽 화면', '아무 데나 눌러 끌면 걷는다 · 손전등은 가까운 적을 저절로 비춘다 · 오른쪽을 끌면 직접 비춘다']
-      : ['왼쪽 스틱', SETTINGS.aim === 'turn' ? '이동 · 오른쪽 스틱을 좌우로 밀어 손전등을 돌린다'
-        : SETTINGS.aim === 'drag' ? '이동 · 오른쪽 화면을 좌우로 끌어 손전등을 돌린다'
-        : '이동 · 오른쪽 스틱으로 손전등을 비춘다'],
+    move:     () => !isTouch ? SETTINGS.deskAim === 'auto' ? [['up', 'left', 'down', 'right'].map(a => KEYBIND.labelOf(a)).join(''), T('이동 · 손전등은 가까운 적과 걷는 쪽을 저절로 비춘다')] : [['up', 'left', 'down', 'right'].map(a => KEYBIND.labelOf(a)).join(''), T('이동 · 마우스로 손전등을 비춘다')]
+      : SETTINGS.aim === 'auto' ? [T('왼쪽 화면'), T('아무 데나 눌러 끌면 걷는다 · 손전등은 가까운 적을 저절로 비춘다 · 오른쪽을 끌면 직접 비춘다')]
+      : [T('왼쪽 스틱'), SETTINGS.aim === 'turn' ? T('이동 · 오른쪽 스틱을 좌우로 밀어 손전등을 돌린다')
+        : SETTINGS.aim === 'drag' ? T('이동 · 오른쪽 화면을 좌우로 끌어 손전등을 돌린다')
+        : T('이동 · 오른쪽 스틱으로 손전등을 비춘다')],
     autofire: () => SETTINGS.autofire
-      ? (isTouch ? ['자동 사격', '불빛에 들어온 적은 저절로 쏜다 — 손전등을 적에게 돌리자']
-                 : ['클릭', '불빛 안에 들어온 적은 자동으로 쏜다. 직접 쏠 수도 있다'])
-      : [isTouch ? '사격' : '클릭', '사격 — 손전등이 비추는 쪽으로만 나간다'],
-    reload:   () => [isTouch ? '장전' : KEYBIND.labelOf('reload'), '재장전 — 탄창이 비면 자동으로도 갈아 끼운다'],
-    melee:    () => [isTouch ? '밀치기' : KEYBIND.labelOf('melee') + ' · 우클릭', '붙잡히면 발이 묶인다 — 밀쳐내고 빠져나가라'],
-    weeper:   () => ['우는 것', '울음소리가 들리면 불빛을 돌리고 멀리 돌아가라 — 깨우면 끝까지 쫓아온다'],
-    bloater:  () => ['부푼 것', '가까이서 터지면 담즙을 뒤집어쓴다 — 멀리서 쏴라'],
-    bile:     () => ['담즙', '냄새를 맡고 무리가 몰려온다 — 등을 벽에 대고 수류탄을 준비하라'],
-    horde:    () => ['무리', '붉은 호가 가리키는 쪽에서 몰려온다 — 불빛을 그쪽으로 돌리거나 질주로 거리를 벌려라'],
-    sprint:   () => isTouch ? ['질주', '한 번 누르면 계속 달린다 · 발소리가 커서 멀리서도 깨운다']
-                            : [KEYBIND.labelOf('sprint'), '질주 — 빠르지만 발소리가 커서 멀리서도 깨운다'],
-    pickup:   () => ['', '빛나는 물건은 밟으면 줍는다'],
-    battery:  () => [isTouch ? '손전등' : KEYBIND.labelOf('light'), '손전등을 꺼서 배터리를 아낀다 · 노란 상자로 채운다'],
-    nade:     () => [isTouch ? '수류탄' : KEYBIND.labelOf('nade'), '무리가 몰렸다 — 수류탄'],
-    runner:   () => ['달리는 것', '약하지만 빠르다. 멀리 있을 때 끊어 쏘자'],
-    brute:    () => ['거대한 것', '잘 밀리지 않는다. 수류탄을 아끼지 말 것'],
-    crawler:  () => ['기어다니는 것', '웅크렸다 튄다. 일정하게 다가오지 않는다'],
-    spitter:  () => ['뱉는 것', '거리를 두고 산을 뱉는다. 초록 웅덩이는 밟지 말 것'],
-    behemoth: () => ['그것', '붉은 선이 뜨면 옆으로 비켜라. 벽에 박으면 비틀거린다']
+      ? (isTouch ? [T('자동 사격'), T('불빛에 들어온 적은 저절로 쏜다 — 손전등을 적에게 돌리자')]
+                 : [T('클릭'), T('불빛 안에 들어온 적은 자동으로 쏜다. 직접 쏠 수도 있다')])
+      : [isTouch ? T('사격') : T('클릭'), T('사격 — 손전등이 비추는 쪽으로만 나간다')],
+    reload:   () => [isTouch ? T('장전') : KEYBIND.labelOf('reload'), T('재장전 — 탄창이 비면 자동으로도 갈아 끼운다')],
+    melee:    () => [isTouch ? T('밀치기') : KEYBIND.labelOf('melee') + T(' · 우클릭'), T('붙잡히면 발이 묶인다 — 밀쳐내고 빠져나가라')],
+    weeper:   () => [T('우는 것'), T('울음소리가 들리면 불빛을 돌리고 멀리 돌아가라 — 깨우면 끝까지 쫓아온다')],
+    bloater:  () => [T('부푼 것'), T('가까이서 터지면 담즙을 뒤집어쓴다 — 멀리서 쏴라')],
+    bile:     () => [T('담즙'), T('냄새를 맡고 무리가 몰려온다 — 등을 벽에 대고 수류탄을 준비하라')],
+    horde:    () => [T('무리'), T('붉은 호가 가리키는 쪽에서 몰려온다 — 불빛을 그쪽으로 돌리거나 질주로 거리를 벌려라')],
+    sprint:   () => isTouch ? [T('질주'), T('한 번 누르면 계속 달린다 · 발소리가 커서 멀리서도 깨운다')]
+                            : [KEYBIND.labelOf('sprint'), T('질주 — 빠르지만 발소리가 커서 멀리서도 깨운다')],
+    pickup:   () => ['', T('빛나는 물건은 밟으면 줍는다')],
+    battery:  () => [isTouch ? T('손전등') : KEYBIND.labelOf('light'), T('손전등을 꺼서 배터리를 아낀다 · 노란 상자로 채운다')],
+    nade:     () => [isTouch ? T('수류탄') : KEYBIND.labelOf('nade'), T('무리가 몰렸다 — 수류탄')],
+    runner:   () => [T('달리는 것'), T('약하지만 빠르다. 멀리 있을 때 끊어 쏘자')],
+    brute:    () => [T('거대한 것'), T('잘 밀리지 않는다. 수류탄을 아끼지 말 것')],
+    crawler:  () => [T('기어다니는 것'), T('웅크렸다 튄다. 일정하게 다가오지 않는다')],
+    spitter:  () => [T('뱉는 것'), T('거리를 두고 산을 뱉는다. 초록 웅덩이는 밟지 말 것')],
+    behemoth: () => [T('그것'), T('붉은 선이 뜨면 옆으로 비켜라. 벽에 박으면 비틀거린다')]
   };
   // 지금 당장 알아야 하는 것은 줄 앞으로 끼워 넣는다
   const URGENT = new Set(['bile', 'weeper', 'horde', 'melee', 'reload', 'nade', 'runner', 'brute', 'crawler', 'spitter', 'behemoth']);
@@ -611,7 +636,7 @@ const G = {
 
   toast(msg, dur = 2.2) {
     const el = $('toast');
-    el.textContent = msg; el.classList.add('show');
+    el.textContent = T(msg); el.classList.add('show');
     this.toastT = dur;
   },
 
@@ -836,8 +861,8 @@ const G = {
     const a = Math.atan2(spot.y - p.y, spot.x - p.x);
     SFX.horde(Math.hypot(spot.x - p.x, spot.y - p.y) * 1.6, a - p.angle);   // 아직 멀다
     this.hordeAt = { x: spot.x, y: spot.y, t: 4.2 };
-    const side = Math.abs(((a - p.angle + Math.PI * 3) % (Math.PI * 2)) - Math.PI) > 2.2 ? '뒤에서' : '옆에서';
-    this.toast(`무리가 온다 — ${side}`);
+    const side = Math.abs(((a - p.angle + Math.PI * 3) % (Math.PI * 2)) - Math.PI) > 2.2 ? T('뒤에서') : T('옆에서');
+    this.toast(T('무리가 온다 — {side}', { side }));
     return true;
   },
   /** 예고했던 무리를 내보낸다 */
@@ -885,7 +910,7 @@ const G = {
     SFX.splat();
     this.stress(30);
     if (!fresh) return;
-    this.toast('담즙을 뒤집어썼다 — 무리가 몰려온다');
+    this.toast(T('담즙을 뒤집어썼다 — 무리가 몰려온다'));
     for (const z of this.zombies) if (!z.t.weeper && Math.hypot(z.x - p.x, z.y - p.y) < 700) z.aggro = true;
     if (D) {
       if (D.pending) D.pending.n += 3;
@@ -898,7 +923,7 @@ const G = {
     if (!pr || !pr.alarm || pr.ringing) return;
     pr.ringing = 7;
     SFX.alarm(Math.hypot(pr.x - this.player.x, pr.y - this.player.y));
-    this.toast('경보가 울린다 — 무리가 몰려온다');
+    this.toast(T('경보가 울린다 — 무리가 몰려온다'));
     // 숨 고르기 중이어도 경보는 무리를 부른다
     this.callHorde(this.hordeSize() + 2, pr);
   },
@@ -1006,7 +1031,7 @@ const G = {
     const p = this.player;
     p.lightOn = !p.lightOn;
     SFX.click();
-    this.toast(p.lightOn ? '손전등 ON' : '손전등 OFF — 배터리 절약');
+    this.toast(p.lightOn ? T('손전등 ON') : T('손전등 OFF — 배터리 절약'));
     this.refreshHud();
   },
 
@@ -1048,19 +1073,19 @@ const G = {
       this.boss = null;
       this.shake = Math.min(26, this.shake + 20);
       SFX.explode();
-      if (this.level.objective.type === 'endless') this.toast('그것을 쓰러뜨렸다');
-      else if (!this.exitOpen) this.openExit('그것이 쓰러졌다 — 다리가 열렸다');
+      if (this.level.objective.type === 'endless') this.toast(T('그것을 쓰러뜨렸다'));
+      else if (!this.exitOpen) this.openExit(T('그것이 쓰러졌다 — 다리가 열렸다'));
     }
     if (this.level.objective.type === 'purge' && !this.exitOpen) {
       this.goalsLeft = Math.max(0, this.goalsTotal - this.kills);
-      if (this.goalsLeft === 0) this.openExit('소탕 완료 — 집결지가 표시되었다');
+      if (this.goalsLeft === 0) this.openExit(T('소탕 완료 — 집결지가 표시되었다'));
     }
   },
   onGoalItem() {
     this.goalsLeft--;
     SFX.objective();
-    if (this.goalsLeft > 0) this.toast(`보급 상자 확보 — ${this.goalsLeft}개 남음`);
-    else this.openExit('전부 확보했다 — 집결지로 이동하라');
+    if (this.goalsLeft > 0) this.toast(T('{item} 확보 — {n}개 남음', { item: T(this.level.objective.item || '보급 상자'), n: this.goalsLeft }));
+    else this.openExit(T('전부 확보했다 — 집결지로 이동하라'));
   },
   openExit(msg) {
     this.exitOpen = true;
@@ -1095,11 +1120,11 @@ const G = {
       const w = WEAPONS[k], own = p.owned.has(k);
       const mag = p.magOf(w), res = p.reserveOf(w);
       const empty = own && w.ammoKey && mag + res <= 0;
-      const ammo = !own ? '없음' : w.ammoKey ? `${mag} / ${res}` : `${mag} / ∞`;
+      const ammo = !own ? T('없음') : w.ammoKey ? `${mag} / ${res}` : `${mag} / ∞`;
       return `<button class="arm${k === p.wpn ? ' on' : ''}${empty ? ' empty' : ''}" data-k="${k}"${own ? '' : ' disabled'}>
-        ${ARM_ICON[k]}<b>${w.name}</b><span>${ammo}</span>${isTouch ? '' : `<kbd>${KEYBIND.labelOf('w' + w.slot)}</kbd>`}</button>`;
+        ${ARM_ICON[k]}<b>${T(w.name)}</b><span>${ammo}</span>${isTouch ? '' : `<kbd>${KEYBIND.labelOf('w' + w.slot)}</kbd>`}</button>`;
     }).join('');
-    $('armsNote').textContent = isTouch ? '무기를 누르면 바로 이어집니다' : `무기 키 또는 클릭 · ${KEYBIND.labelOf('arms')} 로 닫기`;
+    $('armsNote').textContent = isTouch ? T('무기를 누르면 바로 이어집니다') : T('무기 키 또는 클릭 · {k} 로 닫기', { k: KEYBIND.labelOf('arms') });
     $('arms').classList.remove('hidden');
     SFX.click();
   },
@@ -1117,7 +1142,7 @@ const G = {
     this.state = 'map';
     input.firing = false;
     drawBigMap(this);
-    $('bigMapNote').textContent = isTouch ? '화면을 누르면 닫힙니다' : `${KEYBIND.labelOf('map')} 또는 Esc 로 닫기`;
+    $('bigMapNote').textContent = isTouch ? T('화면을 누르면 닫힙니다') : T('{k} 또는 Esc 로 닫기', { k: KEYBIND.labelOf('map') });
     $('bigmap').classList.remove('hidden');
     SFX.click();
   },
@@ -1363,7 +1388,7 @@ const G = {
           this.boss.aggro = true;
           this.zombies.push(this.boss);
           SFX.roar(0);
-          this.toast('무언가 큰 것이 내려왔다');
+          this.toast(T('무언가 큰 것이 내려왔다'));
           this.nextBossT = this.time + 150;
         } else {
           this.nextBossT = this.time + 15;    // 자리가 없으면 곧 다시 본다
@@ -1393,7 +1418,7 @@ const G = {
     const ob = this.level.objective;
     if (ob.type === 'survive' && !this.exitOpen) {
       this.surviveLeft -= dt;
-      if (this.surviveLeft <= 0) { this.surviveLeft = 0; this.openExit('차단문 개방 — 지금이다'); }
+      if (this.surviveLeft <= 0) { this.surviveLeft = 0; this.openExit(T('차단문 개방 — 지금이다')); }
     }
     if (this.exitOpen && ob.type !== 'endless' &&
         Math.hypot(p.x - w.exit.x, p.y - w.exit.y) < 44) {
@@ -1649,8 +1674,8 @@ function placeCompass(sx, sy) {
   if (sx === compassX && sy === compassY) return;
   compassX = sx; compassY = sy;
   const el = $('hudCompass');
-  el.style.left = sx + 'px';
-  el.style.top = sy + 'px';
+  el.style.left = sx * ZOOM / HUDZ + 'px';
+  el.style.top = sy * ZOOM / HUDZ + 'px';
 }
 
 /**
@@ -2816,7 +2841,7 @@ const Minimap = {
 /** 게임 중 전체 지도 — 지금 있는 곳 · 바라보는 쪽 · 남은 보급 상자 · 집결지 · 랜드마크 */
 function drawBigMap(g) {
   const w = g.world, cv = $('bigMapCv'), img = Minimap.img || mapImage(w);
-  const css = Math.floor(Math.min(W - 32, H - 96, 720));
+  const css = Math.floor(Math.min(innerWidth - 32, innerHeight - 96, 720));
   const dpr = Math.min(2, window.devicePixelRatio || 1);
   cv.width = cv.height = Math.floor(css * dpr); cv.style.width = cv.style.height = css + 'px';
   const c = cv.getContext('2d');
@@ -2829,9 +2854,9 @@ function drawBigMap(g) {
   const fold = (x, y) => { const WW = w.w * TILE, HH = w.h * TILE; x %= WW; if (x < 0) x += WW; y %= HH; if (y < 0) y += HH; return [ox + x / TILE * k, oy + y / TILE * k]; };
   c.font = '600 12px ' + getComputedStyle(document.body).fontFamily; c.textAlign = 'center'; c.textBaseline = 'bottom';
   for (const lm of w.landmarks) {
-    const x = ox + (lm.x + lm.w / 2) * k, y = oy + lm.y * k, tw = c.measureText(lm.name).width;
+    const x = ox + (lm.x + lm.w / 2) * k, y = oy + lm.y * k, tw = c.measureText(T(lm.name)).width;
     c.fillStyle = 'rgba(0,0,0,.65)'; c.fillRect(x - tw / 2 - 4, y - 17, tw + 8, 16);
-    c.fillStyle = '#f2c98a'; c.fillText(lm.name, x, y - 3);
+    c.fillStyle = '#f2c98a'; c.fillText(T(lm.name), x, y - 3);
   }
   const mark = (x, y, col, r) => { const [sx, sy] = fold(x, y); c.fillStyle = col; c.beginPath(); c.arc(sx, sy, r, 0, 6.283); c.fill(); c.strokeStyle = 'rgba(0,0,0,.75)'; c.lineWidth = 2; c.stroke(); };
   for (const pk of g.pickups) if (pk.type === 'goal') mark(pk.x, pk.y, '#59b7d8', 5);
@@ -2862,8 +2887,8 @@ function drawBriefMap(L) {
   c.font = '600 11px sans-serif'; c.textAlign = 'center'; c.textBaseline = 'bottom';
   for (const lm of w.landmarks) {
     const x = ox + (lm.x + lm.w / 2) * k, y = oy + lm.y * k;
-    c.fillStyle = 'rgba(0,0,0,.6)'; c.fillRect(x - c.measureText(lm.name).width / 2 - 3, y - 15, c.measureText(lm.name).width + 6, 14);
-    c.fillStyle = '#f2c98a'; c.fillText(lm.name, x, y - 2);
+    c.fillStyle = 'rgba(0,0,0,.6)'; c.fillRect(x - c.measureText(T(lm.name)).width / 2 - 3, y - 15, c.measureText(T(lm.name)).width + 6, 14);
+    c.fillStyle = '#f2c98a'; c.fillText(T(lm.name), x, y - 2);
   }
   mark(w.spawn, '#f0b429');
   if (L.objective.type !== 'endless') mark(w.exit, '#78dcff');
@@ -2876,13 +2901,13 @@ G.refreshHud = function (force) {
   $('hudChapter').textContent = this.survival ? 'SURVIVAL' : `CHAPTER ${this.levelIndex + 1}`;
 
   let obj;
-  if (ob.type === 'endless') obj = `생존 ${Math.floor(this.time)}초 · 점수 ${this.score}`;
-  else if (this.exitOpen) obj = '집결지로 이동하라';
-  else if (ob.type === 'collect') obj = `보급 상자 ${this.goalsTotal - this.goalsLeft}/${this.goalsTotal} 확보`;
-  else if (ob.type === 'survive') obj = `${Math.ceil(this.surviveLeft)}초 버텨라`;
-  else if (ob.type === 'purge') obj = `감염체 ${this.kills}/${this.goalsTotal} 소탕`;
-  else if (ob.type === 'boss') obj = '그것을 쓰러뜨려라';
-  else obj = '탈출로를 찾아라';
+  if (ob.type === 'endless') obj = T('생존 {s}초 · 점수 {score}', { s: Math.floor(this.time), score: this.score });
+  else if (this.exitOpen) obj = T('집결지로 이동하라');
+  else if (ob.type === 'collect') obj = T('{item} {n}/{t} 확보', { item: T(ob.item || '보급 상자'), n: this.goalsTotal - this.goalsLeft, t: this.goalsTotal });
+  else if (ob.type === 'survive') obj = T('{s}초 버텨라', { s: Math.ceil(this.surviveLeft) });
+  else if (ob.type === 'purge') obj = T('감염체 {n}/{t} 소탕', { n: this.kills, t: this.goalsTotal });
+  else if (ob.type === 'boss') obj = T('그것을 쓰러뜨려라');
+  else obj = T('탈출로를 찾아라');
   $('hudObjective').textContent = obj;
 
   $('hudKills').textContent = this.kills;
@@ -2900,7 +2925,7 @@ G.refreshHud = function (force) {
   const wp = p.weapon, inMag = p.magOf(wp), spare = p.reserveOf(wp);
   $('hudAmmo').textContent = inMag;
   $('hudReserve').textContent = spare === Infinity ? '/ ∞' : '/ ' + spare;
-  $('hudWeapon').textContent = p.reloading ? '장전 중' : wp.name;
+  $('hudWeapon').textContent = p.reloading ? T('장전 중') : T(wp.name);
   const gun = document.querySelector('.ammo__gun');
   gun.classList.toggle('dry', inMag <= Math.max(1, wp.mag * 0.2));
   gun.classList.toggle('reloading', p.reloading);
@@ -2917,7 +2942,7 @@ G.refreshHud = function (force) {
   if (slots.dataset.sig !== sig) {
     slots.dataset.sig = sig;
     slots.innerHTML = SLOT_ORDER.filter(k => p.owned.has(k)).map(k =>
-      `<span class="${k === wp.key ? 'on' : ''}">${WEAPONS[k].slot} ${WEAPONS[k].name}</span>`).join('');
+      `<span class="${k === wp.key ? 'on' : ''}">${WEAPONS[k].slot} ${T(WEAPONS[k].name)}</span>`).join('');
   }
 
   const bossBar = $('bossBar');
@@ -2963,7 +2988,7 @@ G.refreshHud = function (force) {
 /* ═══════════ 화면 전환 ═══════════ */
 const UI = {
   screens: ['scrTitle', 'scrChapters', 'scrHowto', 'scrBrief', 'scrCity', 'scrPause', 'scrResult',
-            'scrSettings', 'scrEnding', 'scrKeys'],
+            'scrSettings', 'scrEnding', 'scrKeys', 'scrAbout'],
   settingsFrom: 'scrTitle',
   hideScreens() { this.screens.forEach(s => $(s).classList.add('hidden')); },
   show(id) { this.hideScreens(); $(id).classList.remove('hidden'); },
@@ -2972,18 +2997,18 @@ const UI = {
   buildHowto() {
     const k = a => `<kbd>${KEYBIND.labelOf(a)}</kbd>`;
     const rows = [
-      [k('up') + k('left') + k('down') + k('right'), '이동 (방향키도 됨)'],
-      ['<kbd>마우스</kbd>', '손전등 방향 · 조준'],
-      ['<kbd>클릭</kbd>' + k('fire'), '사격 (불빛 안의 적은 자동 사격)'],
-      [k('w1') + k('w2') + k('w3') + k('w4') + k('cycle'), '무기 전환 (권총 · SMG · 샷건 · 소총)'],
-      [k('arms'), '무기 고르기 — 고르는 동안 시간이 멈춘다'],
-      [k('reload'), '재장전 (약실이 비면 자동 장전)'],
-      [k('melee') + '<kbd>우클릭</kbd>', '근접 밀치기 — 달라붙은 적을 떼어낸다'],
-      [k('nade'), '수류탄 투척'],
-      [k('light'), '손전등 on / off (배터리 절약)'],
-      [k('sprint'), '전력 질주 (기력 소모 — 바닥나면 숨이 찬다)'],
-      [k('map'), '전체 지도 — 보는 동안 시간이 멈춘다'],
-      ['<kbd>Esc</kbd>', '일시정지']
+      [k('up') + k('left') + k('down') + k('right'), T('이동 (방향키도 됨)')],
+      [T('<kbd>마우스</kbd>'), T('손전등 방향 · 조준')],
+      [T('<kbd>클릭</kbd>') + k('fire'), T('사격 (불빛 안의 적은 자동 사격)')],
+      [k('w1') + k('w2') + k('w3') + k('w4') + k('cycle'), T('무기 전환 (권총 · SMG · 샷건 · 소총)')],
+      [k('arms'), T('무기 고르기 — 고르는 동안 시간이 멈춘다')],
+      [k('reload'), T('재장전 (약실이 비면 자동 장전)')],
+      [k('melee') + T('<kbd>우클릭</kbd>'), T('근접 밀치기 — 달라붙은 적을 떼어낸다')],
+      [k('nade'), T('수류탄 투척')],
+      [k('light'), T('손전등 on / off (배터리 절약)')],
+      [k('sprint'), T('전력 질주 (기력 소모 — 바닥나면 숨이 찬다)')],
+      [k('map'), T('전체 지도 — 보는 동안 시간이 멈춘다')],
+      ['<kbd>Esc</kbd>', T('일시정지')]
     ];
     $('howtoKeys').innerHTML = rows.map(([keys, txt]) => `<div>${keys}<span>${txt}</span></div>`).join('');
   },
@@ -2991,7 +3016,7 @@ const UI = {
   /** 키 설정 목록 */
   buildKeys() {
     $('keyList').innerHTML = KEYBIND.ACTIONS.map(a =>
-      `<div class="keymap__row"><span>${a.name}</span>` +
+      `<div class="keymap__row"><span>${T(a.name)}</span>` +
       `<button type="button" class="keymap__key${KEYBIND.code(a.id) !== a.def ? ' changed' : ''}" data-bind="${a.id}">${KEYBIND.labelOf(a.id)}</button></div>`).join('');
     $('keyReset').disabled = KEYBIND.isDefault();
   },
@@ -2999,8 +3024,8 @@ const UI = {
     this.cancelRebind();
     rebinding = id;
     const b = document.querySelector(`[data-bind="${id}"]`);
-    if (b) { b.classList.add('wait'); b.textContent = '키를 누르세요…'; }
-    $('keyMsg').textContent = `'${KEYBIND.nameOf(id)}' 에 쓸 키를 누르세요 · Esc 취소`;
+    if (b) { b.classList.add('wait'); b.textContent = T('키를 누르세요…'); }
+    $('keyMsg').textContent = T("'{a}' 에 쓸 키를 누르세요 · Esc 취소", { a: KEYBIND.nameOf(id) });
   },
   cancelRebind() {
     if (!rebinding) return;
@@ -3012,13 +3037,13 @@ const UI = {
     const id = rebinding;
     if (!id) return;
     if (code === 'Escape') { this.cancelRebind(); return; }
-    if (KEYBIND.reserved(code)) { $('keyMsg').textContent = `${KEYBIND.label(code)} 는 쓸 수 없습니다`; return; }
+    if (KEYBIND.reserved(code)) { $('keyMsg').textContent = T('{k} 는 쓸 수 없습니다', { k: KEYBIND.label(code) }); return; }
     rebinding = null;
     const swapped = KEYBIND.set(id, code);
     this.buildKeys();
     $('keyMsg').textContent = swapped
-      ? `${KEYBIND.label(code)} → ${KEYBIND.nameOf(id)} · '${KEYBIND.nameOf(swapped)}' 은(는) ${KEYBIND.labelOf(swapped)} 로 바꿨습니다`
-      : `${KEYBIND.label(code)} → ${KEYBIND.nameOf(id)}`;
+      ? T("{k} → {a} · '{b}' 은(는) {kb} 로 바꿨습니다", { k: KEYBIND.label(code), a: KEYBIND.nameOf(id), b: KEYBIND.nameOf(swapped), kb: KEYBIND.labelOf(swapped) })
+      : T('{k} → {a}', { k: KEYBIND.label(code), a: KEYBIND.nameOf(id) });
     for (const k of [id, swapped]) {
       const b = k && document.querySelector(`[data-bind="${k}"]`);
       if (b) { b.classList.add('flash'); setTimeout(() => b.classList.remove('flash'), 500); }
@@ -3036,12 +3061,13 @@ const UI = {
     $('arms').classList.add('hidden');
     $('hud').classList.add('hidden');
     $('touch').classList.add('hidden');
+    $('appVersion').textContent = 'v' + APP.version;
     const b = G.bestSurvival();
-    $('bestSurvival').textContent = b ? `${Math.floor(b / 60)}분 ${b % 60}초` : '—';
+    $('bestSurvival').textContent = b ? T('{m}분 {s}초', { m: Math.floor(b / 60), s: b % 60 }) : '—';
     // 원작처럼 서바이벌은 이야기를 끝까지 본 뒤에 열린다
     const open = G.survivalOpen();
     $('btnSurvival').disabled = !open;
-    $('btnSurvival').textContent = open ? '서바이벌' : `서바이벌 — 전역 완수 시 개방 (${Math.min(G.progress(), LEVELS.length)}/${LEVELS.length})`;
+    $('btnSurvival').textContent = open ? T('서바이벌') : T('서바이벌 — 전역 완수 시 개방 ({n}/{t})', { n: Math.min(G.progress(), LEVELS.length), t: LEVELS.length });
     this.show('scrTitle');
   },
   buildChapters() {
@@ -3055,13 +3081,13 @@ const UI = {
       el.className = 'chapter' + (locked ? ' chapter--locked' : '');
       if (!locked) { el.tabIndex = 0; el.setAttribute('role', 'button'); el.addEventListener('keydown', e => { if (e.code === 'Enter' || e.code === 'Space') { e.preventDefault(); el.click(); } }); }
       const best = grades[i] | 0;
-      const mark = locked ? '잠김'
+      const mark = locked ? T('잠김')
         : best ? `<b class="chapter__grade" data-g="${UI.letter(best)}">${UI.letter(best)}</b>` +
                  `<span class="chapter__score">${best}</span>`
-        : i < unlocked ? '클리어' : '▶';
+        : i < unlocked ? T('클리어') : '▶';
       el.innerHTML =
         `<span class="chapter__no">${String(i + 1).padStart(2, '0')}</span>` +
-        `<span class="chapter__name">${L.name}<span class="chapter__city">${CITY_NAME[L.city] || ''}</span><br><span class="chapter__goal">${L.goals[0]}</span></span>` +
+        `<span class="chapter__name">${T(L.name)}<span class="chapter__city">${T(CITY_NAME[L.city] || '')}</span><br><span class="chapter__goal">${T(L.goals[0])}</span></span>` +
         `<span class="chapter__mark">${mark}</span>`;
       if (!locked) el.addEventListener('click', () => { SFX.click(); UI.brief(i); });
       list.appendChild(el);
@@ -3071,9 +3097,9 @@ const UI = {
     G.pendingLevel = i;
     const L = LEVELS[i];
     $('briefNo').textContent = `CHAPTER ${i + 1}`;
-    $('briefTitle').textContent = L.name;
-    $('briefText').textContent = L.brief;
-    $('briefGoals').innerHTML = L.goals.map(g => `<li>${g}</li>`).join('');
+    $('briefTitle').textContent = T(L.name);
+    $('briefText').textContent = T(L.brief);
+    $('briefGoals').innerHTML = L.goals.map(g => `<li>${T(g)}</li>`).join('');
     drawBriefMap(L);
     this.show('scrBrief');
   },
@@ -3083,23 +3109,23 @@ const UI = {
     const t = Math.floor(G.time);
     const acc = G.shots ? Math.round(G.hits / G.shots * 100) : null;
     $('pauseWhere').textContent = G.survival
-      ? `서바이벌 · ${DIFFICULTY[G.difficulty].name}`
-      : `CHAPTER ${G.levelIndex + 1} — ${G.level.name} · ${DIFFICULTY[G.difficulty].name}`;
+      ? T('서바이벌 · {d}', { d: T(DIFFICULTY[G.difficulty].name) })
+      : `CHAPTER ${G.levelIndex + 1} — ${T(G.level.name)} · ${T(DIFFICULTY[G.difficulty].name)}`;
 
     const wp = p.weapon;
     const rows = [
-      ['경과', `${String((t / 60) | 0).padStart(2, '0')}:${String(t % 60).padStart(2, '0')}`],
-      ['처치', `${G.kills}기`],
-      ['명중률', acc === null ? '—' : `${acc}%`],
-      ['받은 피해', `${Math.round(p.dmgTaken)}`],
-      ['체력 · 배터리', `${Math.round(p.hp)} · ${Math.round(p.battery)}`],
-      ['장비', `${wp.name} ${p.magOf(wp)}${p.reserveOf(wp) === Infinity ? '' : '/' + p.reserveOf(wp)}`]
+      [T('경과'), `${String((t / 60) | 0).padStart(2, '0')}:${String(t % 60).padStart(2, '0')}`],
+      [T('처치'), T('{n}기', { n: G.kills })],
+      [T('명중률'), acc === null ? '—' : `${acc}%`],
+      [T('받은 피해'), `${Math.round(p.dmgTaken)}`],
+      [T('체력 · 배터리'), `${Math.round(p.hp)} · ${Math.round(p.battery)}`],
+      [T('장비'), `${T(wp.name)} ${p.magOf(wp)}${p.reserveOf(wp) === Infinity ? '' : '/' + p.reserveOf(wp)}`]
     ];
-    if (ob.type === 'collect') rows.push(['보급 상자', `${G.goalsTotal - G.goalsLeft}/${G.goalsTotal}`]);
-    if (ob.type === 'survive') rows.push(['남은 시간', `${Math.ceil(G.surviveLeft)}초`]);
-    if (ob.type === 'purge') rows.push(['소탕', `${G.kills}/${G.goalsTotal}`]);
-    if (ob.type === 'boss') rows.push(['그것', G.boss && !G.boss.dead
-      ? `${Math.max(0, Math.round(G.boss.hp / G.boss.hpMax * 100))}%` : '처치']);
+    if (ob.type === 'collect') rows.push([T(ob.item || '보급 상자'), `${G.goalsTotal - G.goalsLeft}/${G.goalsTotal}`]);
+    if (ob.type === 'survive') rows.push([T('남은 시간'), T('{s}초', { s: Math.ceil(G.surviveLeft) })]);
+    if (ob.type === 'purge') rows.push([T('소탕'), `${G.kills}/${G.goalsTotal}`]);
+    if (ob.type === 'boss') rows.push([T('그것'), G.boss && !G.boss.dead
+      ? `${Math.max(0, Math.round(G.boss.hp / G.boss.hpMax * 100))}%` : T('처치')]);
     $('pauseStats').innerHTML = rows.map(r =>
       `<div><dt>${r[0]}</dt><dd>${r[1]}</dd></div>`).join('');
     this.show('scrPause');
@@ -3113,18 +3139,18 @@ const UI = {
     const avg = done.length ? Math.round(sum / done.length) : 0;
 
     const rows = [
-      ['클리어', `${LEVELS.length}개 챕터`],
-      ['평가 남긴 챕터', `${done.length}/${LEVELS.length}`],
-      ['평균 평가', done.length ? `${UI.letter(avg)} (${avg})` : '—'],
-      ['최고 평가', done.length ? `${UI.letter(Math.max(...done))} (${Math.max(...done)})` : '—'],
-      ['난이도', DIFFICULTY[G.difficulty] ? DIFFICULTY[G.difficulty].name : '—'],
-      ['마지막 처치', `${G.kills}기`]
+      [T('클리어'), T('{n}개 챕터', { n: LEVELS.length })],
+      [T('평가 남긴 챕터'), `${done.length}/${LEVELS.length}`],
+      [T('평균 평가'), done.length ? `${UI.letter(avg)} (${avg})` : '—'],
+      [T('최고 평가'), done.length ? `${UI.letter(Math.max(...done))} (${Math.max(...done)})` : '—'],
+      [T('난이도'), DIFFICULTY[G.difficulty] ? T(DIFFICULTY[G.difficulty].name) : '—'],
+      [T('마지막 처치'), T('{n}기', { n: G.kills })]
     ];
     $('endingStats').innerHTML = rows.map(r =>
       `<div><dt>${r[0]}</dt><dd>${r[1]}</dd></div>`).join('');
     $('endingNote').textContent = done.length < LEVELS.length
-      ? '아직 평가가 남지 않은 챕터가 있다. 챕터 선택에서 다시 들어갈 수 있다.'
-      : '모든 챕터에 기록을 남겼다. 더 높은 난이도가 기다린다.';
+      ? T('아직 평가가 남지 않은 챕터가 있다. 챕터 선택에서 다시 들어갈 수 있다.')
+      : T('모든 챕터에 기록을 남겼다. 더 높은 난이도가 기다린다.');
 
     G.state = 'title';
     SFX.ambience(false);
@@ -3145,12 +3171,12 @@ const UI = {
       b.classList.toggle('on', b.dataset.val === SETTINGS.get(b.dataset.set));
     $('setBright').value = SETTINGS.brightness;
     $('setBrightVal').textContent = SETTINGS.brightness;
-    $('setDiffNote').textContent = `${SETTINGS.mod.name} — ${SETTINGS.mod.note}`;
+    $('setDiffNote').textContent = `${T(SETTINGS.mod.name)} — ${T(SETTINGS.mod.note)}`;
     for (const b of document.querySelectorAll('.tog[data-set]'))
       b.setAttribute('aria-pressed', String(!!SETTINGS.get(b.dataset.set)));
     const n = Hints.seenCount;
     $('hintsReset').disabled = n === 0;
-    $('hintsReset').textContent = n ? `본 도움말 ${n}개 — 처음부터 다시 보기` : '아직 본 도움말이 없다';
+    $('hintsReset').textContent = n ? T('본 도움말 {n}개 — 처음부터 다시 보기', { n }) : T('아직 본 도움말이 없다');
   },
 
   /** 플레이 결과를 0‒100 으로 환산하고 등급을 매긴다 */
@@ -3180,29 +3206,29 @@ const UI = {
   showResult(won) {
     const s = $('scrResult');
     s.classList.toggle('fail', !won);
-    $('resultTitle').textContent = won ? (G.survival ? '기록 종료' : '생존') : '사망';
+    $('resultTitle').textContent = won ? (G.survival ? T('기록 종료') : T('생존')) : T('사망');
     const nextBtn = s.querySelector('[data-act="next"]');
     if (won && !G.survival && G.levelIndex + 1 < LEVELS.length) {
       nextBtn.classList.remove('hidden');
-      nextBtn.textContent = `다음 챕터 — ${LEVELS[G.levelIndex + 1].name}`;
+      nextBtn.textContent = T('다음 챕터 — {name}', { name: T(LEVELS[G.levelIndex + 1].name) });
     } else if (won && !G.survival) {
       nextBtn.classList.remove('hidden');
-      nextBtn.textContent = '엔딩 보기';
+      nextBtn.textContent = T('엔딩 보기');
     } else nextBtn.classList.add('hidden');
 
     $('resultSub').textContent = won
-      ? (G.survival ? '도시는 여전히 그대로다.'
+      ? (G.survival ? T('도시는 여전히 그대로다.')
         : G.levelIndex + 1 >= LEVELS.length
-          ? '다리를 건넜다. 뒤돌아보지 않았다.'
-          : '숨을 고를 시간은 짧다.')
-      : '불빛이 꺼졌다. ' + (DEATH_TIP[G.lastHurt] || DEATH_TIP.crowd);
+          ? T('다리를 건넜다. 뒤돌아보지 않았다.')
+          : T('숨을 고를 시간은 짧다.'))
+      : T('불빛이 꺼졌다. ') + T(DEATH_TIP[G.lastHurt] || DEATH_TIP.crowd);
 
     // 같은 챕터에서 두 번 넘게 쓰러지면 한 단계 쉬운 난이도로 다시 할 수 있게 권한다 (강요하지 않는다)
     if (!won && !G.survival) G.deaths[G.levelIndex] = (G.deaths[G.levelIndex] || 0) + 1;
     const easier = !won && !G.survival && (G.deaths[G.levelIndex] || 0) >= 2 && G.difficulty !== 'easy';
     const eb = s.querySelector('[data-act="retryeasy"]');
     eb.classList.toggle('hidden', !easier);
-    if (easier) eb.textContent = `${DIFFICULTY[G.difficulty === 'hard' ? 'normal' : 'easy'].name} 난이도로 다시`;
+    if (easier) eb.textContent = T('{d} 난이도로 다시', { d: T(DIFFICULTY[G.difficulty === 'hard' ? 'normal' : 'easy'].name) });
 
     const r = this.rate(won);
     const best = won && !G.survival ? G.saveGrade(G.levelIndex, r.value) : false;
@@ -3210,19 +3236,19 @@ const UI = {
     gradeEl.hidden = false;
     gradeEl.dataset.g = r.grade;
     gradeEl.querySelector('b').textContent = r.grade;
-    gradeEl.querySelector('span').textContent = best ? `최고 기록 ${r.value}` : `평가 ${r.value}`;
+    gradeEl.querySelector('span').textContent = best ? T('최고 기록 {v}', { v: r.value }) : T('평가 {v}', { v: r.value });
     gradeEl.classList.toggle('best', best);
 
     const t = Math.floor(G.time);
     const rows = [
-      ['생존 시간', `${String((t / 60) | 0).padStart(2, '0')}:${String(t % 60).padStart(2, '0')}`],
-      ['처치', `${G.kills}기`],
-      ['명중률', G.shots ? `${Math.round(r.acc * 100)}% (${G.hits}/${G.shots})` : '—'],
-      ['받은 피해', `${Math.round(r.taken)}`],
-      ['점수', `${G.score}`],
-      ['난이도', DIFFICULTY[G.difficulty].name]
+      [T('생존 시간'), `${String((t / 60) | 0).padStart(2, '0')}:${String(t % 60).padStart(2, '0')}`],
+      [T('처치'), T('{n}기', { n: G.kills })],
+      [T('명중률'), G.shots ? `${Math.round(r.acc * 100)}% (${G.hits}/${G.shots})` : '—'],
+      [T('받은 피해'), `${Math.round(r.taken)}`],
+      [T('점수'), `${G.score}`],
+      [T('난이도'), T(DIFFICULTY[G.difficulty].name)]
     ];
-    if (G.survival) rows.push(['최고 기록', `${Math.floor(G.bestSurvival() / 60)}분 ${G.bestSurvival() % 60}초`]);
+    if (G.survival) rows.push([T('최고 기록'), T('{m}분 {s}초', { m: Math.floor(G.bestSurvival() / 60), s: G.bestSurvival() % 60 })]);
     $('resultStats').innerHTML = rows.map(r =>
       `<div><dt>${r[0]}</dt><dd>${r[1]}</dd></div>`).join('');
 
@@ -3266,7 +3292,7 @@ document.addEventListener('click', e => {
       if (UI.keysFrom === 'scrSettings' || !UI.settingsFrom) UI.settingsFrom = UI.settingsFrom || 'scrTitle';
       UI.buildKeys(); UI.show('scrKeys'); break;
     case 'keyreset':
-      UI.cancelRebind(); KEYBIND.reset(); UI.buildKeys(); $('keyMsg').textContent = '기본 키로 되돌렸습니다'; break;
+      UI.cancelRebind(); KEYBIND.reset(); UI.buildKeys(); $('keyMsg').textContent = T('기본 키로 되돌렸습니다'); break;
     case 'keyback':
       UI.cancelRebind();
       if (UI.keysFrom === 'scrHowto') { UI.buildHowto(); UI.show('scrHowto'); }
@@ -3282,6 +3308,25 @@ document.addEventListener('click', e => {
       else UI.enterMenu();
       break;
     case 'back':     UI.enterMenu(); break;
+    case 'about':
+      $('aboutVersion').textContent = `${APP.name} ${APP.version}`;
+      $('aboutMsg').textContent = '';
+      $('btnCopyErrors').disabled = !(localStorage.getItem('aftermath.errors') || '').length;
+      UI.show('scrAbout'); break;
+    case 'copyerrors': {
+      const log = localStorage.getItem('aftermath.errors') || '[]';
+      const text = `${APP.name} ${APP.version} · ${navigator.userAgent}\n${log}`;
+      (navigator.clipboard ? navigator.clipboard.writeText(text) : Promise.reject())
+        .then(() => { $('aboutMsg').textContent = T('오류 기록을 복사했습니다 — 제보할 때 붙여 넣어 주세요'); })
+        .catch(() => { $('aboutMsg').textContent = T('복사할 수 없는 환경입니다'); });
+      break;
+    }
+    case 'wipe':
+      if (confirm(T('챕터 진행 · 평가 · 서바이벌 기록을 지웁니다. 설정과 키 설정은 남습니다. 계속할까요?'))) {
+        for (const k of ['aftermath.progress', 'aftermath.grades', 'aftermath.best', 'aftermath.hints', 'aftermath.errors']) try { localStorage.removeItem(k); } catch (e) { /* 무시 */ }
+        $('aboutMsg').textContent = T('진행 기록을 지웠습니다');
+      }
+      break;
     case 'start':    G.start(G.pendingLevel); break;
     case 'resume':   G.togglePause(); break;
     case 'restart':  G.start(G.survival ? 'survival' : G.levelIndex); break;
@@ -3374,7 +3419,51 @@ function drawAttract(dt) {
 let last = performance.now();
 const fpsEl = $('fpsMeter');
 let fpsN = 0, fpsT = 0;
+/* ═══════════ 오류에 버티기 ═══════════
+   한 프레임에서 예외가 나도 루프는 계속 돈다(다음 프레임을 먼저 예약한다). 예전엔 예외 한 번에
+   requestAnimationFrame 이 다시 걸리지 않아 화면이 그대로 굳었다. 오류는 기기에 최근 20건만 남긴다
+   (버그 제보용 · 밖으로 보내지 않는다). 같은 오류가 계속되면 타이틀로 돌아갈 수 있는 안내를 띄운다. */
+let errRun = 0, errNoticeT = 0;
+function logError(kind, err) {
+  try {
+    const list = JSON.parse(localStorage.getItem('aftermath.errors') || '[]');
+    list.push({ t: new Date().toISOString(), v: APP_VERSION, kind, msg: String(err && (err.stack || err.message) || err).slice(0, 600), state: G.state });
+    localStorage.setItem('aftermath.errors', JSON.stringify(list.slice(-20)));
+  } catch (e) { /* 저장 불가여도 진행 */ }
+}
+function recoverCanvas() {
+  try {
+    if (ctx.reset) ctx.reset();
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
+    mctx.globalCompositeOperation = 'source-over';
+  } catch (e) { /* 무시 */ }
+}
+window.addEventListener('error', e => logError('error', e.error || e.message));
+window.addEventListener('unhandledrejection', e => logError('promise', e.reason));
+
 function frame(now) {
+  requestAnimationFrame(frame);
+  try {
+    step(now);
+    errRun = 0;
+  } catch (err) {
+    errRun++;
+    logError('frame', err);
+    recoverCanvas();
+    if (performance.now() > errNoticeT) {
+      errNoticeT = performance.now() + 8000;
+      console.error(err);
+    }
+    // 계속 같은 자리에서 넘어지면 게임을 멈추고 안내한다
+    if (errRun > 90 && (G.state === 'play' || G.state === 'map' || G.state === 'arms')) {
+      errRun = 0;
+      G.state = 'pause'; UI.showPause();
+      G.toast(T('문제가 생겨 일시정지했습니다 — 재시작하거나 타이틀로 돌아가세요'), 5);
+    }
+  }
+}
+function step(now) {
   const ms = now - last;
   const dt = Math.min(0.05, ms / 1000);
   last = now;
@@ -3384,7 +3473,7 @@ function frame(now) {
     fpsN++; fpsT += ms;
     if (fpsT >= 500) {
       fpsEl.hidden = false;
-      fpsEl.textContent = `${Math.round(fpsN * 1000 / fpsT)} fps · ${(W * DPR | 0)}×${(H * DPR | 0)}${SETTINGS.quality === 'auto' ? ' 자동' : ''}`;
+      fpsEl.textContent = `${Math.round(fpsN * 1000 / fpsT)} fps · ${(W * DPR | 0)}×${(H * DPR | 0)}${SETTINGS.quality === 'auto' ? T(' 자동') : ''}`;
       fpsN = 0; fpsT = 0;
     }
   } else if (!fpsEl.hidden) fpsEl.hidden = true;
@@ -3402,14 +3491,13 @@ function frame(now) {
   } else {
     drawAttract(dt);
   }
-  requestAnimationFrame(frame);
 }
 
 UI.enterMenu();
 requestAnimationFrame(frame);
 
 /** 세계 좌표 → 화면 좌표 (시험·도구용) */
-G.toScreen = (x, y) => toScreen(G.camera(), x, y);
+G.toScreen = (x, y) => toScreen(G.camera(), x, y).map(v => v * ZOOM);   // CSS px (마우스 좌표와 같은 단위)
 /** 짧은 진동 (엔티티에서 폭발 등에 쓴다) */
 G.buzz = buzz;
 /** 현재 어둠 농도 (0‒1) — 밝기 설정 확인용 */

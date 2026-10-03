@@ -306,7 +306,7 @@ const MODELS = (() => {
     // 쓰러진 몸은 움직이지 않는다 — 한 번 그려 둔 그림을 옮겨 찍는다 (시체 40구에서도 프레임이 버틴다)
     if (!c.img) {
       const S0 = c.type === 'brute' ? 1.6 : c.type === 'behemoth' ? 2.3 : c.type === 'bloater' ? 1.3 : 1.1;
-      const half = Math.ceil(26 * S0), dpr = Math.min(2, window.devicePixelRatio || 1);
+      const half = Math.ceil(26 * S0), dpr = Math.min(4, window.AFT_SCALE || window.devicePixelRatio || 1);
       const cv = document.createElement('canvas');
       cv.width = cv.height = half * 2 * dpr;
       const cx = cv.getContext('2d');

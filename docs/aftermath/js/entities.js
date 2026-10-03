@@ -195,7 +195,7 @@ class Player {
     this.cancelReload();
     this.wpn = key;
     SFX.click();
-    if (g) g.toast(`${WEAPONS[key].name} 장착`);
+    if (g) g.toast(T('{w} 장착', { w: T(WEAPONS[key].name) }));
   }
   cycle(g) {
     const list = SLOT_ORDER.filter(k => this.owned.has(k));

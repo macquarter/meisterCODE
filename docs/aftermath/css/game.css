@@ -512,3 +512,21 @@ body.ts-large #touch{--ts:1.14}
 .pad--aim::after{content:"조준";position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
   font-size:10px;letter-spacing:.14em;color:rgba(255,255,255,.55);pointer-events:none}
 .pad--aim.floating::after{content:none}
+
+/* ── 판 · 정보 ── */
+.version{margin-top:10px;font-size:10.5px;letter-spacing:.1em;color:var(--fog);opacity:.55}
+.linkbtn{background:none;border:none;padding:4px 2px;color:var(--fog);font:inherit;letter-spacing:inherit;
+  text-decoration:underline;text-underline-offset:3px;cursor:pointer}
+.linkbtn:hover,.linkbtn:focus-visible{color:var(--amber);outline:none}
+.about{display:grid;gap:12px;text-align:left;margin:6px 0 18px}
+.about>div{display:grid;grid-template-columns:76px 1fr;gap:12px;padding-bottom:10px;border-bottom:1px solid rgba(255,255,255,.07)}
+.about dt{font-size:11px;letter-spacing:.14em;color:var(--fog)}
+.about dd{font-size:13px;line-height:1.7;color:var(--bone)}
+.about a{color:var(--amber)}
+.about__tools{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+.about__tools .btn{width:auto;flex:1 1 180px}
+.about__msg{min-height:20px;font-size:12px;color:var(--amber);margin:8px 0}
+
+/* 큰 모니터 — 게임 화면을 키운 만큼(ZOOM) HUD 와 메뉴도 키운다 */
+body:not(.touch) #hud{zoom:var(--hudz,1)}
+body:not(.touch) .screen__inner,body:not(.touch) .arms,body:not(.touch) .bigmap__legend,body:not(.touch) .bigmap__note{zoom:var(--hudz,1)}

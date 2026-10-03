@@ -3,6 +3,10 @@
    localStorage 에 저장되며 audio/entities/game 보다 먼저 로드된다.
    ═══════════════════════════════════════════ */
 
+/** 제품 정보 — 이름 · 판. 출시 이름이 정해지면 여기와 index.html · manifest 를 함께 바꾼다 */
+const APP = { name: 'AFTERMATH', subtitle: '잔존', version: '1.0.0-rc.1' };
+const APP_VERSION = APP.version;
+
 /** 난이도 배수. 1 = 기준값(잔존) */
 const DIFFICULTY = {
   easy:   { key: 'easy',   name: '생존자', note: '여유 있게 도시를 둘러본다',
@@ -36,7 +40,8 @@ const SETTINGS = (() => {
     quality: 'auto',       // 그리기 해상도: auto = 프레임에 맞춰 스스로 낮추고 올린다 · high · low
     fps: false,            // 화면 구석에 FPS · 해상도 표시
     touchSize: 'normal',   // 터치 버튼 · 스틱 크기
-    haptics: true          // 맞거나 폭발이 가까우면 짧게 진동 (지원 기기)
+    haptics: true,         // 맞거나 폭발이 가까우면 짧게 진동 (지원 기기)
+    lang: 'auto'           // auto = 브라우저 언어(한국어면 한국어, 아니면 영어) · ko · en
   };
 
   const state = Object.assign({}, DEF);
@@ -54,6 +59,7 @@ const SETTINGS = (() => {
   if ((state.ctlv | 0) < 2) { if (state.aim === 'turn') state.aim = 'auto'; state.ctlv = 2; migrated = true; }
   if (!QUALITY_MODES.includes(state.quality)) state.quality = DEF.quality;
   if (!TOUCH_SIZES.includes(state.touchSize)) state.touchSize = DEF.touchSize;
+  if (!['auto', 'ko', 'en'].includes(state.lang)) state.lang = DEF.lang;
   state.volume = Math.max(0, Math.min(100, state.volume | 0));
   state.brightness = Math.max(0, Math.min(100, state.brightness | 0));
 
@@ -78,6 +84,7 @@ const SETTINGS = (() => {
     get fps()        { return state.fps; },
     get touchSize()  { return state.touchSize; },
     get haptics()    { return state.haptics; },
+    get lang()       { return state.lang; },
     /** 현재 난이도의 배수 묶음 */
     get mod()        { return DIFFICULTY[state.difficulty]; },
 
@@ -90,6 +97,7 @@ const SETTINGS = (() => {
       if (k === 'deskAim' && !DESK_AIMS.includes(v)) return;
       if (k === 'quality' && !QUALITY_MODES.includes(v)) return;
       if (k === 'touchSize' && !TOUCH_SIZES.includes(v)) return;
+      if (k === 'lang' && !['auto', 'ko', 'en'].includes(v)) return;
       if (typeof DEF[k] === 'boolean') v = !!v;
       if (state[k] === v) return;
       state[k] = v; save();
@@ -155,10 +163,10 @@ const KEYBIND = (() => {
   /** 사람이 읽는 키 이름 */
   function label(code) {
     if (!code) return '—';
-    if (NAMES[code]) return NAMES[code];
+    if (NAMES[code]) return typeof T === 'function' ? T(NAMES[code]) : NAMES[code];
     if (code.startsWith('Key')) return code.slice(3);
     if (code.startsWith('Digit')) return code.slice(5);
-    if (code.startsWith('Numpad')) return '숫자패드 ' + code.slice(6);
+    if (code.startsWith('Numpad')) return (typeof T === 'function' ? T('숫자패드 ') : '숫자패드 ') + code.slice(6);
     return code;
   }
 
@@ -195,7 +203,7 @@ const KEYBIND = (() => {
     label,
     /** 행동의 키 이름 (보조 키 포함 표기용) */
     labelOf(id) { return label(map[id]); },
-    nameOf(id) { return byId[id] ? byId[id].name : id; },
+    nameOf(id) { return byId[id] ? (typeof T === 'function' ? T(byId[id].name) : byId[id].name) : id; },
     onChange(fn) { listeners.push(fn); }
   };
 })();

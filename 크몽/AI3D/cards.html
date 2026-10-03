@@ -211,6 +211,55 @@ body{display:flex;flex-direction:column;align-items:center;gap:32px;padding:32px
 .calc .them b{color:#CFD6E1}
 .calc span.d{font-size:12px;font-weight:700;color:#AEB7C4}
 .calc .us span.d{color:#fff}
+
+/* 06 영수증 */
+.rc{display:flex;gap:16px;margin-top:16px;align-items:center}
+.receipt{flex:1.45;background:#F7F8FA;color:#0A1220;border-radius:6px 6px 0 0;padding:14px 18px 12px;position:relative;
+  box-shadow:0 18px 40px rgba(0,0,0,.55);font-size:13px}
+.receipt::after{content:"";position:absolute;left:0;right:0;bottom:-8px;height:8px;
+  background:linear-gradient(-45deg,transparent 6px,#F7F8FA 0) 0 0/12px 8px repeat-x,linear-gradient(45deg,transparent 6px,#F7F8FA 0) 0 0/12px 8px repeat-x}
+.receipt h4{font-size:12px;font-weight:900;color:#7A8597;letter-spacing:.04em;padding-bottom:6px;border-bottom:1.5px dashed #C7CED9}
+.receipt p{display:flex;justify-content:space-between;gap:8px;padding:5px 0;font-weight:700;letter-spacing:-.03em;color:#3B4656}
+.receipt p b{font-weight:900;color:#0A1220;white-space:nowrap}
+.receipt .tot{margin-top:4px;padding-top:8px;border-top:1.5px dashed #C7CED9;font-size:15px;font-weight:900;color:#0A1220}
+.receipt .tot b{font-size:19px;color:#D93A3A;position:relative}
+.receipt .tot b::after{content:"";position:absolute;left:-4px;right:-4px;top:52%;height:3px;background:#D93A3A;transform:rotate(-6deg)}
+.rc .now{flex:1;text-align:left}
+.rc .now small{display:block;font-size:13px;font-weight:800;color:#AEB7C4}
+.rc .now b{display:block;font-size:46px;font-weight:900;letter-spacing:-.06em;color:var(--blue-lit);line-height:1.05;margin:4px 0}
+.rc .now span{font-size:13px;font-weight:700;color:#CFD6E1;line-height:1.6}
+/* 07 방사형 */
+.c7b .in{flex-direction:row;align-items:center;gap:8px;padding-right:20px}
+.c7b .l{flex:0 0 250px}
+.burst{flex:1;position:relative;height:330px}
+.burst svg.lines{position:absolute;inset:0;width:100%;height:100%}
+.hub{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:112px;height:112px;border-radius:50%;
+  background:radial-gradient(circle,#2E7BF6 0%,#1B5FD9 70%);display:flex;flex-direction:column;align-items:center;justify-content:center;
+  box-shadow:0 0 0 10px rgba(46,123,246,.18),0 0 60px rgba(46,123,246,.6);text-align:center}
+.hub small{font-size:12px;font-weight:800;color:rgba(255,255,255,.85)}
+.hub b{font-size:26px;font-weight:900;letter-spacing:-.04em;line-height:1.1}
+.node{position:absolute;transform:translate(-50%,-50%);background:#0B1119;border:1.5px solid rgba(90,160,255,.55);border-radius:10px;
+  padding:7px 10px;text-align:center;min-width:96px;box-shadow:0 8px 20px rgba(0,0,0,.5)}
+.node b{display:block;font-size:13px;font-weight:900;letter-spacing:-.03em}
+.node span{font-size:12px;font-weight:700;color:#9CC4FF}
+.node.hot{background:var(--blue);border-color:var(--blue)}
+.node.hot span{color:#fff}
+.c7b .sub2{margin-top:12px;font-size:14px;font-weight:700;color:#CFD6E1;line-height:1.6;letter-spacing:-.03em}
+.c7b .sub2 b{color:#fff}
+/* 08 극적 대비 */
+.drama{display:flex;gap:14px;margin-top:16px;align-items:stretch}
+.drama .ten{flex:1.1;background:#fff;border:1px solid #DFE4EC;border-radius:12px;padding:12px 16px}
+.drama .ten p{display:flex;justify-content:space-between;padding:5px 0;font-size:13px;font-weight:700;color:#5A6577;border-bottom:1px solid #EEF1F5;letter-spacing:-.03em}
+.drama .ten p b{color:#0A1220;font-weight:900}
+.drama .ten .cost{border-bottom:0;padding-top:10px;display:block;text-align:right}
+.drama .ten .cost em{font-style:normal;font-size:12px;font-weight:800;color:#7A8597;display:block}
+.drama .ten .cost strong{font-size:26px;font-weight:900;color:#D93A3A;letter-spacing:-.05em;position:relative;display:inline-block}
+.drama .ten .cost strong::after{content:"";position:absolute;left:-6px;right:-6px;top:50%;height:4px;background:#D93A3A;transform:rotate(-7deg);border-radius:2px}
+.drama .one{flex:1;background:var(--blue);color:#fff;border-radius:12px;padding:18px;display:flex;flex-direction:column;justify-content:center;
+  box-shadow:0 18px 40px rgba(46,123,246,.35)}
+.drama .one small{font-size:13px;font-weight:900;color:rgba(255,255,255,.85)}
+.drama .one b{font-size:44px;font-weight:900;letter-spacing:-.06em;line-height:1.05;margin:6px 0}
+.drama .one span{font-size:13px;font-weight:700;line-height:1.6}
 </style>
 
 <!-- ═════ 01 [Attention] 엄두 안 나던 홍보 ═════ -->
@@ -223,7 +272,7 @@ body{display:flex;flex-direction:column;align-items:center;gap:32px;padding:32px
       <div class="p-row"><span class="p-lab">파일럿부터 · 2주 · 3개 채널 · 쇼츠 6편</span></div>
       <span class="p-big">99만원</span><p class="p-note">VAT 별도 · 월 운영 패키지 있음</p></div>
     <div class="r"><div class="todo">
-      <div class="hd">오늘의 홍보<span>09:00 발행 완료</span></div>
+      <div class="hd">오늘의 홍보<span>11:00 발행 완료</span></div>
       <p><i><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></i>유튜브 쇼츠<em>3D 영상</em></p>
       <p><i><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></i>인스타그램<em>릴스·카드</em></p>
       <p><i><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></i>스레드<em>댓글 응대</em></p>
@@ -265,7 +314,7 @@ body{display:flex;flex-direction:column;align-items:center;gap:32px;padding:32px
         <p><i>18:00</i>현장 사진 + 한 줄 메모</p>
         <p><i>21:00</i>영상·글 완성본 도착</p>
         <p class="ok"><i>21:30</i>휴대폰으로 보고<span class="btn">확인</span></p>
-        <p class="ok"><i>09:00</i>5개 채널 발행 완료</p></div>
+        <p class="ok"><i>11:00</i>5개 채널 발행 완료</p></div>
     </div>
     <p class="note" style="color:#5A6577">AI가 빠르게 짓고, 사람이 끝까지 책임집니다.</p>
   </div>
@@ -304,66 +353,69 @@ body{display:flex;flex-direction:column;align-items:center;gap:32px;padding:32px
   </div>
 </section>
 
-<!-- ═════ 06 [Desire] 효율 계산 ═════ -->
+<!-- ═════ 06 [Desire] 원래 드는 비용 ═════ -->
 <section class="card">
   <div class="beam"></div>
   <div class="top"><b>MEISTER<span>CODE</span></b><span>06 / 09</span></div>
   <div class="in">
-    <p class="eyebrow">계산해 보면</p>
-    <p class="h s">숏폼 한 편 값과 비슷하게,<br><span class="b">5개 채널 하루치 홍보</span></p>
-    <div class="calc">
-      <div class="set"><h4>발행 1회에 들어가는 것</h4>
-        <p>AI 3D 쇼츠 영상<span>1편</span></p>
-        <p>인스타 릴스·카드뉴스<span>1세트</span></p>
-        <p>스레드 글 + 댓글 응대<span>1세트</span></p>
-        <p>네이버 블로그 원고<span>1편</span></p>
-        <p>홈페이지 기술 글<span>1편</span></p></div>
-      <div class="cmp">
-        <div class="them"><small>크몽 숏폼 영상만 따로</small><b>약 13만원</b><span class="d">영상 1편 평균 · 발행은 직접</span></div>
-        <div class="us"><small>마이스터코드 발행 1회</small><b>약 14.5만원</b><span class="d">위 5가지 전부 · 발행까지</span></div>
-      </div>
+    <p class="eyebrow">따로 맡기면 얼마일까</p>
+    <p class="h s">원래는 이만큼<br><span class="b">들어가야 하는 일입니다</span></p>
+    <div class="rc">
+      <div class="receipt"><h4>외주 견적서 · 월 기준</h4>
+        <p>AI 3D 쇼츠 영상 20편<b>260만원</b></p>
+        <p>인스타그램 운영<b>52~130만원</b></p>
+        <p>스레드 운영 + 댓글 응대<b>52~130만원</b></p>
+        <p>네이버 블로그 운영<b>22~133만원</b></p>
+        <p>홈페이지 기술 블로그<b>22~133만원</b></p>
+        <p class="tot">합계<b>408~786만원</b></p></div>
+      <div class="now"><small>마이스터코드 월 운영</small><b>290만원</b><span>위 다섯 가지 전부<br>성과 대시보드 포함<br>VAT 별도</span></div>
     </div>
-    <p class="src">월 290만원 ÷ 주 5회(월 약 20회), VAT 별도 기준 · 숏폼 평균은 크몽 공개 가격(2026년 10월)</p>
+    <p class="src" style="margin-top:16px">크몽 공개 가격(2026년 10월) 기준. 쇼츠는 3D가 아닌 일반 숏폼 평균 13만원으로 낮춰 계산, 스레드·홈페이지 블로그는 SNS·블로그 운영 시세 준용</p>
   </div>
 </section>
 
-<!-- ═════ 07 [Desire] 5개 채널 + 댓글 ═════ -->
-<section class="card c7">
+<!-- ═════ 07 [Desire] 오전 11시, 다섯 곳 동시에 ═════ -->
+<section class="card c7b">
   <div class="beam"></div>
   <div class="top"><b>MEISTER<span>CODE</span></b><span>07 / 09</span></div>
-  <div class="in row2">
-    <div class="phone"><span class="ex">AI 3D 예시</span><svg class="iso" data-scan="1"></svg><p class="sbt">벽 <em>안 깨고</em><br>잡았습니다</p></div>
+  <div class="in">
     <div class="l">
-      <p class="eyebrow">아침 9시, 동시에</p>
-      <p class="h s">5개 채널 발행에,<br><span class="b">스레드 댓글 응대까지</span></p>
-      <div class="spoke" style="margin-top:16px">
-        <div><b>유튜브 쇼츠</b><span><em>쇼츠 피드</em>를 넘기는 사람에게</span></div>
-        <div><b>네이버 블로그</b><span><em>동네 이름으로</em> 검색하는 사람에게</span></div>
-        <div><b>홈페이지 블로그</b><span><em>견적 전에</em> 확인하는 사람에게</span></div>
-        <div><b>스레드</b><span><em>댓글로 대화하며</em> 퍼지는 곳에</span></div>
-        <div><b>인스타그램</b><span><em>저장해 두는</em> 사람에게</span></div>
-      </div>
+      <p class="eyebrow">매일 오전 11시</p>
+      <p class="h s">사진 한 장이,<br><span class="b">다섯 곳에서</span><br>동시에 켜집니다</p>
+      <p class="sub2">어제 올린 현장 사진 한 장이<br>영상·카드뉴스·블로그 글이 되어<br><b>오전 11시 한꺼번에</b> 올라가고,<br>스레드 댓글 응대까지 끝냅니다.</p>
+    </div>
+    <div class="burst">
+      <svg class="lines" viewBox="0 0 100 100" preserveAspectRatio="none">
+        <g stroke="#5AA0FF" stroke-opacity=".75" stroke-width="2.2" vector-effect="non-scaling-stroke" fill="none"><line x1="50" y1="50" x2="50" y2="11" vector-effect="non-scaling-stroke"/><line x1="50" y1="50" x2="88" y2="36" vector-effect="non-scaling-stroke"/><line x1="50" y1="50" x2="78" y2="88" vector-effect="non-scaling-stroke"/><line x1="50" y1="50" x2="22" y2="88" vector-effect="non-scaling-stroke"/><line x1="50" y1="50" x2="12" y2="36" vector-effect="non-scaling-stroke"/></g>
+        <g fill="#9CC4FF"><circle cx="50.0" cy="25.8" r="1.1"/><circle cx="73.6" cy="41.3" r="1.1"/><circle cx="67.4" cy="73.6" r="1.1"/><circle cx="32.6" cy="73.6" r="1.1"/><circle cx="26.4" cy="41.3" r="1.1"/></g>
+      </svg>
+      <div class="hub"><small>현장 사진</small><b>1장</b><small>→ 11:00</small></div>
+      <div class="node" style="left:50%;top:11%"><b>유튜브 쇼츠</b><span>AI 3D 영상</span></div>
+      <div class="node" style="left:88%;top:36%"><b>인스타그램</b><span>릴스·카드뉴스</span></div>
+      <div class="node hot" style="left:78%;top:88%"><b>스레드</b><span>글 + 댓글 응대</span></div>
+      <div class="node" style="left:22%;top:88%"><b>네이버 블로그</b><span>검색용 원고</span></div>
+      <div class="node" style="left:12%;top:36%"><b>홈페이지</b><span>기술 블로그</span></div>
     </div>
   </div>
 </section>
 
-<!-- ═════ 08 [Desire] 사람으로 꾸리면 10명 ═════ -->
+<!-- ═════ 08 [Desire] 10명의 비용 대신 1명의 비용 ═════ -->
 <section class="card card--paper">
   <div class="top"><b>MEISTER<span>CODE</span></b><span>08 / 09</span></div>
   <div class="in">
-    <p class="h s">직접 꾸리면 10명이 필요한 일,<br><span class="b">월 한 번 계약으로</span></p>
-    <div class="org">
-      <div class="team">
+    <p class="h s">10명의 비용 대신,<br><span class="b">1명의 비용으로 전부</span></p>
+    <div class="drama">
+      <div class="ten">
         <p>3D 영상 · 모션그래픽<b>2명</b></p>
-        <p>전문 테크니컬 카피라이터<b>2명</b></p>
-        <p>SNS 5개 채널 운영 · 댓글 응대<b>4명</b></p>
+        <p>테크니컬 카피라이터<b>2명</b></p>
+        <p>SNS 5개 채널 운영 · 댓글<b>4명</b></p>
         <p>Three.js · GSAP 프론트엔드<b>1명</b></p>
         <p>DevOps · 운영 자동화<b>1명</b></p>
-        <p class="sum">합계<b>10명</b></p>
+        <p class="cost"><em>직접 뽑으면 · 10명 인건비</em><strong>월 3,000만원+</strong></p>
       </div>
-      <div class="eng"><small>마이스터코드 월 운영</small><b>290만원</b><span>VAT 별도 · 주 5회<br>5개 채널 + 스레드 댓글<br>AI 3D 영상 · 성과 대시보드</span></div>
+      <div class="one"><small>마이스터코드 월 운영</small><b>290만원</b><span>직원 1명 인건비 수준으로<br>10명이 하던 일 전부<br>VAT 별도</span></div>
     </div>
-    <p class="src">인원은 5개 채널 주 5회 운영 기준 당사 산정 예시입니다. 채널 운영만 따로 맡겨도 크몽 기준 월 230~420만원이며, 3D 영상·개발·자동화는 별도입니다.</p>
+    <p class="src">인원은 5개 채널 주 5회 운영 기준 당사 산정 예시, 인건비는 1인 월 300만원(신입 기준) 가정이며 4대보험·퇴직금 별도</p>
   </div>
 </section>
 
@@ -376,7 +428,7 @@ body{display:flex;flex-direction:column;align-items:center;gap:32px;padding:32px
     <div class="price">
       <div class="pr"><p class="n">2주 파일럿</p><p class="v">99만원</p><p class="d">쇼츠 6편 · 유튜브·인스타·스레드</p></div>
       <div class="pr on"><span class="flag">추천</span><p class="n">월 운영 · 주 5회</p><p class="v">290만원</p><p class="d">5개 채널 · 스레드 댓글 · 성과 대시보드</p></div>
-      <div class="pr"><p class="n">매일 운영 + 3D 웹</p><p class="v">별도 견적</p><p class="d">매일 09시 · 3D 메인 웹 구축</p></div>
+      <div class="pr"><p class="n">매일 운영 + 3D 웹</p><p class="v">별도 견적</p><p class="d">매일 11시 · 3D 메인 웹 구축</p></div>
     </div>
     <div class="ask">아래 <em>문의하기</em>로 업종만 알려주세요<small>우리 업종에 맞는지부터 답해드립니다</small></div>
     <p class="fine">VAT 별도 · 홈페이지 채널은 홈페이지 보유 시 · 착수일·세팅 기간은 상담 후 확정 · 영상은 AI 3D 재현</p>

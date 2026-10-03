@@ -33,6 +33,8 @@
       <div class="boss__track"><i id="bossFill" style="width:100%"></i></div>
     </div>
 
+    <canvas class="minimap" id="minimap" width="168" height="168" aria-hidden="true"></canvas>
+
     <div class="hud__compass" id="hudCompass" aria-hidden="true">
       <svg viewBox="0 0 40 40"><path d="M20 4 L30 30 L20 24 L10 30 Z"/></svg>
       <em id="hudDistance">0m</em>
@@ -80,6 +82,12 @@
     <button class="tbtn tbtn--fire" id="btnFire">사격</button>
   </div>
 
+  <!-- 무기 고르기: 게임이 멈추고 뒤가 흐려진다 -->
+  <div id="arms" class="arms hidden" role="dialog" aria-label="무기 선택">
+    <div class="arms__row" id="armsRow"></div>
+    <p class="arms__note" id="armsNote">무기를 누르면 바로 이어집니다</p>
+  </div>
+
   <!-- ══════════ SCREENS ══════════ -->
   <div id="screens">
 
@@ -90,7 +98,7 @@
         <div class="menu">
           <button class="btn btn--primary" data-act="campaign">전역 시작</button>
           <button class="btn" data-act="chapters">챕터 선택</button>
-          <button class="btn" data-act="survival">서바이벌</button>
+          <button class="btn" data-act="survival" id="btnSurvival">서바이벌</button>
           <button class="btn btn--ghost" data-act="howto">조작법</button>
           <button class="btn btn--ghost" data-act="settings">설정</button>
         </div>
@@ -113,7 +121,8 @@
           <div><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd><span>이동</span></div>
           <div><kbd>마우스</kbd><span>손전등 방향 · 조준</span></div>
           <div><kbd>클릭</kbd><span>사격 (불빛 안의 적은 자동 사격)</span></div>
-          <div><kbd>1</kbd><kbd>2</kbd><kbd>3</kbd><kbd>Q</kbd><span>무기 전환 (권총 · SMG · 샷건)</span></div>
+          <div><kbd>1</kbd><kbd>2</kbd><kbd>3</kbd><kbd>4</kbd><kbd>Q</kbd><span>무기 전환 (권총 · SMG · 샷건 · 소총)</span></div>
+          <div><kbd>Tab</kbd><span>무기 고르기 — 고르는 동안 시간이 멈춘다</span></div>
           <div><kbd>R</kbd><span>재장전 (약실이 비면 자동 장전)</span></div>
           <div><kbd>E</kbd><kbd>우클릭</kbd><span>근접 밀치기 — 달라붙은 적을 떼어낸다</span></div>
           <div><kbd>G</kbd><span>수류탄 투척</span></div>
@@ -121,7 +130,8 @@
           <div><kbd>Shift</kbd><span>전력 질주 (기력 소모 — 바닥나면 숨이 찬다)</span></div>
           <div><kbd>Esc</kbd><span>일시정지</span></div>
         </div>
-        <p class="note">모바일에서는 화면 왼쪽이 이동 스틱, 오른쪽이 조준 스틱입니다.<br>
+        <p class="note">모바일에서는 원작처럼 왼쪽 스틱으로 걷고, 오른쪽 스틱을 좌우로 밀어 손전등을 돌립니다
+        (설정에서 화면 드래그·방향 스틱으로 바꿀 수 있습니다). 사격 버튼은 없습니다 — 불빛에 들어온 적을 저절로 쏩니다.<br>
 자동 사격·화면 흔들림·섬광 효과는 <b>설정</b>에서 끌 수 있습니다.<br>
         원작과 같이 <b>손전등이 비추는 방향으로만 사격</b>되며, 불빛 안에 적이 들어오면 <b>자동 사격</b>합니다.<br>
         무기는 바닥에 떨어진 <b>발광 아이콘</b>을 밟아 습득합니다.<br>
@@ -137,6 +147,8 @@
         <h2 id="briefTitle">첫 번째 밤</h2>
         <p class="brief__text" id="briefText"></p>
         <ul class="brief__goals" id="briefGoals"></ul>
+        <figure class="brief__map"><canvas id="briefMap" width="220" height="220" aria-label="구역 지도"></canvas>
+          <figcaption><i class="dot dot--start"></i>진입 <i class="dot dot--exit"></i>집결지</figcaption></figure>
         <button class="btn btn--primary" data-act="start">진입</button>
         <button class="btn btn--ghost" data-act="back">돌아가기</button>
       </div>
@@ -179,6 +191,24 @@
             <input type="range" id="setVolume" min="0" max="100" step="5" value="55"
                    aria-label="음량">
           </div>
+
+          <div class="set__row">
+            <div class="set__label">밝기 <b id="setBrightVal">50</b></div>
+            <input type="range" id="setBright" min="0" max="100" step="5" value="50"
+                   aria-label="밝기">
+          </div>
+          <p class="set__note">밤의 어둠 농도. 화면이 너무 어둡거나 밝은 곳에서 하면 조절하세요.</p>
+
+          <div class="set__row set__row--stack">
+            <div class="set__label">터치 조준</div>
+            <div class="seg" id="setAim">
+              <button type="button" data-set="aim" data-val="turn">회전 스틱</button>
+              <button type="button" data-set="aim" data-val="drag">화면 드래그</button>
+              <button type="button" data-set="aim" data-val="stick">방향 스틱</button>
+            </div>
+          </div>
+          <p class="set__note">회전 스틱은 원작의 방식 — 오른쪽 스틱을 좌우로 민 만큼 손전등이 돈다.
+            화면 드래그는 오른쪽 화면 어디든 좌우로 끌어 돌린다.</p>
 
           <div class="set__row set__row--stack">
             <div class="set__label">난이도</div>

@@ -51,9 +51,9 @@ const LEVELS = [
     objective: { type: 'collect', count: 4 },
     spawn: { initial: 12, rate: 0.5, max: 26 },
     mix: { walker: 0.45, runner: 0.33, brute: 0.05, crawler: 0.17 },
-    own: ['pistol', 'smg', 'shotgun'], drops: [],
-    startAmmo: { smg: 110, shell: 10 }, startNades: 3,
-    supplies: { ammo: 4, shells: 3, medkit: 2, battery: 3, nade: 2 }
+    own: ['pistol', 'smg', 'shotgun'], drops: ['rifle'],
+    startAmmo: { smg: 110, shell: 10, rifle: 0 }, startNades: 3,
+    supplies: { ammo: 4, shells: 3, rounds: 1, medkit: 2, battery: 3, nade: 2 }
   },
   {
     name: '버텨라',
@@ -64,9 +64,9 @@ const LEVELS = [
     objective: { type: 'survive', time: 90 },
     spawn: { initial: 10, rate: 0.75, max: 30 },
     mix: { walker: 0.4, runner: 0.33, brute: 0.05, crawler: 0.14, spitter: 0.08 },
-    own: ['pistol', 'smg', 'shotgun'], drops: [],
-    startAmmo: { smg: 130, shell: 14 }, startNades: 3,
-    supplies: { ammo: 5, shells: 4, medkit: 3, battery: 3, nade: 3 }
+    own: ['pistol', 'smg', 'shotgun', 'rifle'], drops: [],
+    startAmmo: { smg: 130, shell: 14, rifle: 10 }, startNades: 3,
+    supplies: { ammo: 5, shells: 4, rounds: 2, medkit: 3, battery: 3, nade: 3 }
   },
   {
     name: '거대한 것',
@@ -77,9 +77,9 @@ const LEVELS = [
     objective: { type: 'purge', count: 40 },
     spawn: { initial: 14, rate: 0.62, max: 28 },
     mix: { walker: 0.35, runner: 0.3, brute: 0.13, crawler: 0.12, spitter: 0.1 },
-    own: ['pistol', 'smg', 'shotgun'], drops: [],
-    startAmmo: { smg: 140, shell: 16 }, startNades: 4,
-    supplies: { ammo: 5, shells: 4, medkit: 3, battery: 3, nade: 3 }
+    own: ['pistol', 'smg', 'shotgun', 'rifle'], drops: [],
+    startAmmo: { smg: 140, shell: 16, rifle: 15 }, startNades: 4,
+    supplies: { ammo: 5, shells: 4, rounds: 2, medkit: 3, battery: 3, nade: 3 }
   },
   {
     name: '정전',
@@ -90,9 +90,9 @@ const LEVELS = [
     objective: { type: 'collect', count: 5 },
     spawn: { initial: 14, rate: 0.7, max: 32 },
     mix: { walker: 0.3, runner: 0.33, brute: 0.13, crawler: 0.12, spitter: 0.12 },
-    own: ['pistol', 'smg', 'shotgun'], drops: [],
-    startAmmo: { smg: 120, shell: 12 }, startNades: 4,
-    supplies: { ammo: 5, shells: 3, medkit: 3, battery: 2, nade: 3 },
+    own: ['pistol', 'smg', 'shotgun', 'rifle'], drops: [],
+    startAmmo: { smg: 120, shell: 12, rifle: 10 }, startNades: 4,
+    supplies: { ammo: 5, shells: 3, rounds: 2, medkit: 3, battery: 2, nade: 3 },
     batteryDrain: 1.9
   },
   {
@@ -104,9 +104,9 @@ const LEVELS = [
     objective: { type: 'boss' },
     spawn: { initial: 18, rate: 0.95, max: 40 },
     mix: { walker: 0.26, runner: 0.32, brute: 0.18, crawler: 0.1, spitter: 0.14 },
-    own: ['pistol', 'smg', 'shotgun'], drops: [],
-    startAmmo: { smg: 150, shell: 18 }, startNades: 5,
-    supplies: { ammo: 6, shells: 5, medkit: 3, battery: 4, nade: 4 }
+    own: ['pistol', 'smg', 'shotgun', 'rifle'], drops: [],
+    startAmmo: { smg: 150, shell: 18, rifle: 20 }, startNades: 5,
+    supplies: { ammo: 6, shells: 5, rounds: 3, medkit: 3, battery: 4, nade: 4 }
   }
 ];
 
@@ -119,7 +119,7 @@ const SURVIVAL = {
   objective: { type: 'endless' },
   spawn: { initial: 8, rate: 0.4, max: 46 },
   mix: { walker: 0.6, runner: 0.25, brute: 0, crawler: 0.15 },
-  own: ['pistol', 'smg'], drops: ['shotgun'],
-  startAmmo: { smg: 120, shell: 6 }, startNades: 3,
-  supplies: { ammo: 6, shells: 4, medkit: 3, battery: 4, nade: 3 }
+  own: ['pistol', 'smg'], drops: ['shotgun', 'rifle'],
+  startAmmo: { smg: 120, shell: 6, rifle: 0 }, startNades: 3,
+  supplies: { ammo: 6, shells: 4, rounds: 2, medkit: 3, battery: 4, nade: 3 }
 };

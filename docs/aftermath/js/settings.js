@@ -13,14 +13,18 @@ const DIFFICULTY = {
             hp: 1.32, dmg: 1.45, spawn: 1.34, max: 1.3, battery: 1.25, loot: 0.68, score: 1.35 }
 };
 
+const AIM_MODES = ['turn', 'drag', 'stick'];
+
 const SETTINGS = (() => {
   const KEY = 'aftermath.settings';
   const DEF = {
     volume: 55,            // 0‒100
+    brightness: 50,        // 0‒100, 밤의 어둠 농도 (원작 1.1 업데이트의 밝기 조절)
     difficulty: 'normal',
     flash: true,           // 피격 섬광 · 번개 · 총구 화염
     shake: true,           // 화면 흔들림
     autofire: true,        // 불빛 안의 적 자동 사격
+    aim: 'turn',           // 터치 조준: turn = 회전 스틱(원작) · drag = 화면 드래그(원작 1.1) · stick = 방향 스틱
     hints: true            // 처음 마주치는 조작·적에 대한 한 줄 도움말
   };
 
@@ -30,7 +34,9 @@ const SETTINGS = (() => {
     for (const k in DEF) if (k in raw && typeof raw[k] === typeof DEF[k]) state[k] = raw[k];
   } catch (e) { /* 손상된 저장값은 기본값으로 */ }
   if (!DIFFICULTY[state.difficulty]) state.difficulty = DEF.difficulty;
+  if (!AIM_MODES.includes(state.aim)) state.aim = DEF.aim;
   state.volume = Math.max(0, Math.min(100, state.volume | 0));
+  state.brightness = Math.max(0, Math.min(100, state.brightness | 0));
 
   const listeners = [];
   function save() {
@@ -39,19 +45,22 @@ const SETTINGS = (() => {
 
   return {
     get volume()     { return state.volume; },
+    get brightness() { return state.brightness; },
     get difficulty() { return state.difficulty; },
     get flash()      { return state.flash; },
     get shake()      { return state.shake; },
     get autofire()   { return state.autofire; },
     get hints()      { return state.hints; },
+    get aim()        { return state.aim; },
     /** 현재 난이도의 배수 묶음 */
     get mod()        { return DIFFICULTY[state.difficulty]; },
 
     get(k) { return state[k]; },
     set(k, v) {
       if (!(k in DEF)) return;
-      if (k === 'volume') v = Math.max(0, Math.min(100, v | 0));
+      if (k === 'volume' || k === 'brightness') v = Math.max(0, Math.min(100, v | 0));
       if (k === 'difficulty' && !DIFFICULTY[v]) return;
+      if (k === 'aim' && !AIM_MODES.includes(v)) return;
       if (typeof DEF[k] === 'boolean') v = !!v;
       if (state[k] === v) return;
       state[k] = v; save();

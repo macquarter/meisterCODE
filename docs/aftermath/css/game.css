@@ -129,6 +129,12 @@ body.touch #hint{top:calc(150px + env(safe-area-inset-top));font-size:12px}
   border-radius:50%;background:rgba(255,255,255,.14);
   border:1px solid rgba(255,255,255,.2)}
 .pad--move{left:calc(16px + env(safe-area-inset-left))}
+/* 회전 스틱: 좌우로만 움직이는 가로 홈 */
+.pad--axis{border-radius:66px/40px;height:84px;bottom:calc(40px + env(safe-area-inset-bottom))}
+.pad--axis::before,.pad--axis::after{content:"";position:absolute;top:50%;margin-top:-6px;
+  border:6px solid transparent;opacity:.45}
+.pad--axis::before{left:8px;border-right-color:rgba(255,255,255,.6);border-left:0}
+.pad--axis::after{right:8px;border-left-color:rgba(255,255,255,.6);border-right:0}
 .pad--turn{right:calc(16px + env(safe-area-inset-right))}
 .tbtn{position:absolute;pointer-events:auto;border-radius:50%;
   border:1px solid rgba(255,255,255,.16);background:rgba(255,255,255,.06);
@@ -157,6 +163,50 @@ body.touch #hint{top:calc(150px + env(safe-area-inset-top));font-size:12px}
 @media (max-width:357px){
   .tbtn--light{left:calc(22px + env(safe-area-inset-left));bottom:calc(316px + env(safe-area-inset-bottom))}
 }
+
+/* ── 미니맵 (원작 1.1) ─────────────────────── */
+.minimap{position:absolute;top:calc(44px + env(safe-area-inset-top));right:max(14px,env(safe-area-inset-right));
+  width:84px;height:84px;border-radius:50%;opacity:.82;
+  border:1px solid rgba(255,255,255,.14);background:rgba(4,6,9,.55)}
+body.touch .minimap{right:auto;left:max(14px,env(safe-area-inset-left));top:calc(62px + env(safe-area-inset-top));
+  width:72px;height:72px}
+@media (orientation:landscape) and (max-height:520px){
+  body.touch .minimap{top:calc(98px + env(safe-area-inset-top));width:64px;height:64px}
+}
+@media (orientation:portrait){
+  body.touch .minimap{top:calc(64px + env(safe-area-inset-top))}
+  /* 세로: 게이지를 왼쪽에 세로로 쌓아 오른쪽 수류탄 버튼 자리를 비운다 */
+  body.touch .hud__bottom{flex-direction:column;align-items:flex-start;gap:7px}
+  body.touch .gauge{width:min(120px,32vw)}
+}
+
+/* 브리핑의 구역 지도 */
+.brief__map{margin:0 auto 18px;width:min(220px,62vw);text-align:center}
+.brief__map canvas{width:100%;height:auto;aspect-ratio:1;border:1px solid rgba(255,255,255,.1);
+  border-radius:4px;background:#07090c}
+.brief__map figcaption{font-size:11px;color:var(--fog);margin-top:6px;letter-spacing:.06em}
+.dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin:0 4px 0 10px;vertical-align:0}
+.dot--start{background:var(--amber)}
+.dot--exit{background:#78dcff}
+.btn[disabled]{opacity:.38;cursor:default;transform:none}
+
+/* ── 무기 고르기 ──────────────────────────── */
+.arms{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:16px;background:rgba(4,6,9,.55);-webkit-backdrop-filter:blur(5px);backdrop-filter:blur(5px);
+  pointer-events:auto;padding:16px}
+.arms__row{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;max-width:min(560px,100%)}
+.arm{width:118px;padding:12px 8px 10px;border-radius:6px;cursor:pointer;
+  border:1px solid rgba(255,255,255,.14);background:rgba(18,22,28,.82);color:var(--bone);
+  font-family:var(--font);display:flex;flex-direction:column;align-items:center;gap:6px}
+.arm svg{width:84px;height:34px;fill:currentColor;opacity:.85}
+.arm b{font-size:12px;letter-spacing:.1em;font-weight:600}
+.arm span{font-size:11px;color:var(--fog);font-variant-numeric:tabular-nums}
+.arm kbd{min-width:0;padding:1px 6px;font-size:10px;opacity:.6}
+.arm.on{border-color:var(--blood);background:rgba(120,24,20,.42);box-shadow:0 0 0 1px var(--blood) inset}
+.arm[disabled]{opacity:.28;cursor:default}
+.arm.empty span{color:var(--blood)}
+.arms__note{font-size:11px;color:var(--fog);letter-spacing:.08em}
+@media (max-width:520px){ .arm{width:calc(50% - 5px)} }
 
 /* ── 스크린 ───────────────────────────────── */
 #screens{position:absolute;inset:0;pointer-events:none}
@@ -309,4 +359,23 @@ body.touch .hud__compass em{top:60px}
   .ammo{gap:12px}
   .ammo b{font-size:21px}
   .result__stats{grid-template-columns:1fr}
+}
+
+/* 터치 · 가로 화면 — 원작의 화면 방향. 세로 공간이 좁으므로
+   게이지는 왼쪽 위 임무 글 아래, 탄약은 오른쪽 위, 버튼은 모두 아래쪽 띠에 모은다 */
+@media (orientation:landscape) and (max-height:520px){
+  body.touch .hud__bottom{position:absolute;top:calc(60px + env(safe-area-inset-top));
+    left:max(14px,env(safe-area-inset-left));margin:0;flex-wrap:nowrap;gap:10px}
+  body.touch .gauge{width:min(92px,15vw)}
+  body.touch .ammo{position:fixed;top:calc(40px + env(safe-area-inset-top))}
+  body.touch .boss{top:calc(100px + env(safe-area-inset-top))}
+  body.touch #hint{top:calc(124px + env(safe-area-inset-top))}
+  .tbtn--nade{right:calc(160px + env(safe-area-inset-right));bottom:calc(18px + env(safe-area-inset-bottom))}
+  .tbtn--swap{right:calc(164px + env(safe-area-inset-right));bottom:calc(84px + env(safe-area-inset-bottom))}
+  .tbtn--melee{right:calc(96px + env(safe-area-inset-right));bottom:calc(156px + env(safe-area-inset-bottom))}
+  .tbtn--fire{right:calc(26px + env(safe-area-inset-right));bottom:calc(152px + env(safe-area-inset-bottom));
+    width:60px;height:60px}
+  .tbtn--reload{left:calc(160px + env(safe-area-inset-left));bottom:calc(18px + env(safe-area-inset-bottom))}
+  .tbtn--sprint{left:calc(160px + env(safe-area-inset-left));bottom:calc(76px + env(safe-area-inset-bottom))}
+  .tbtn--light{left:calc(160px + env(safe-area-inset-left));bottom:calc(134px + env(safe-area-inset-bottom))}
 }

@@ -32,19 +32,26 @@ if (isTouch) document.body.classList.add('touch');
 
 /* ═══════════ 입력 ═══════════ */
 const keys = Object.create(null);
-const input = { mx: W / 2, my: H / 2, firing: false, moveX: 0, moveY: 0, aimTouch: null, hasMouse: !isTouch,
+const input = { mx: W / 2, my: H / 2, firing: false, moveX: 0, moveY: 0, aimTouch: null, turnRate: 0, dragTurn: 0, hasMouse: !isTouch,
                 // 터치 질주는 누르고 있는 버튼이 아니라 걸쇠다 — 두 엄지가 이미 스틱 위에 있어서
                 sprintLatch: false, idleT: 0 };
 
 addEventListener('keydown', e => {
   keys[e.code] = true;
   if (['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space'].includes(e.code)) e.preventDefault();
+  if (G.state === 'arms') {
+    const pick = { Digit1: 'pistol', Digit2: 'smg', Digit3: 'shotgun', Digit4: 'rifle' }[e.code];
+    if (pick || e.code === 'Escape' || e.code === 'Tab') { e.preventDefault(); G.closeArms(pick); }
+    return;
+  }
+  if (e.code === 'Tab' && G.state === 'play') { e.preventDefault(); G.openArms(); return; }
   if (e.code === 'Escape') G.togglePause();
   if (e.code === 'KeyG' && G.state === 'play') G.player.throwNade(G);
   if (G.state === 'play') {
     if (e.code === 'Digit1') G.player.select('pistol', G);
     if (e.code === 'Digit2') G.player.select('smg', G);
     if (e.code === 'Digit3') G.player.select('shotgun', G);
+    if (e.code === 'Digit4') G.player.select('rifle', G);
     if (e.code === 'KeyQ')   G.player.cycle(G);
     if (e.code === 'KeyR')   G.player.reload(G);
     if (e.code === 'KeyE')   G.player.melee(G);
@@ -63,8 +70,8 @@ view.addEventListener('mousedown', e => {
 addEventListener('mouseup', () => { input.firing = false; });
 view.addEventListener('contextmenu', e => e.preventDefault());
 
-/* 터치: 좌 = 이동 스틱, 우 = 조준 스틱 */
-function bindPad(el, onVec) {
+/* 터치: 좌 = 이동 스틱, 우 = 회전(또는 조준) 스틱 */
+function bindPad(el, onVec, axisX) {
   const knob = el.querySelector('i');
   let id = null, ox = 0, oy = 0;
   const R = 46;
@@ -81,6 +88,7 @@ function bindPad(el, onVec) {
       let dx = t.clientX - ox, dy = t.clientY - oy;
       const d = Math.hypot(dx, dy);
       if (d > R) { dx = dx / d * R; dy = dy / d * R; }
+      if (axisX && axisX()) { dx = clamp(t.clientX - ox, -R, R); dy = 0; }
       knob.style.transform = `translate(${dx}px,${dy}px)`;
       onVec(dx / R, dy / R, Math.min(1, d / R));
     }
@@ -98,15 +106,64 @@ function bindPad(el, onVec) {
   el.addEventListener('touchcancel', end);
 }
 bindPad($('padMove'), (x, y) => { input.moveX = x; input.moveY = y; });
-bindPad($('padTurn'), (x, y, m) => { input.aimTouch = m > 0.35 ? Math.atan2(y, x) : null; });
+/* 오른쪽 스틱은 설정에 따라 셋 중 하나로 동작한다.
+   turn  — 원작: 좌우로 민 만큼 손전등이 그 방향으로 돈다 (회전 속도 조절)
+   stick — 민 방향을 곧바로 바라본다 */
+const TURN_MAX = 3.4;   // rad/s
+bindPad($('padTurn'), (x, y, m) => {
+  if (SETTINGS.aim === 'turn') {
+    const k = Math.max(0, Math.abs(x) - 0.12) / 0.88;
+    input.turnRate = Math.sign(x) * Math.pow(k, 1.35) * TURN_MAX;
+    input.aimTouch = null;
+  } else {
+    input.turnRate = 0;
+    input.aimTouch = m > 0.35 ? Math.atan2(y, x) : null;
+  }
+}, () => SETTINGS.aim === 'turn');
+
+/** 원작에는 사격 버튼이 없다 — 자동 사격이 켜져 있으면 숨긴다. 드래그 조작이면 오른쪽 스틱도 숨긴다 */
+function applyTouchLayout() {
+  $('btnFire').classList.toggle('hidden', SETTINGS.autofire);
+  $('padTurn').classList.toggle('hidden', SETTINGS.aim === 'drag');
+  $('padTurn').classList.toggle('pad--axis', SETTINGS.aim === 'turn');
+  document.body.classList.toggle('nofire', SETTINGS.autofire);
+}
+SETTINGS.onChange(applyTouchLayout);
+applyTouchLayout();
+
+/* drag — 원작 1.1 의 선택 조작: 화면 오른쪽 절반 어디든 좌우로 끌어 돈다 */
+(() => {
+  let id = null, lx = 0;
+  view.addEventListener('touchstart', e => {
+    if (SETTINGS.aim !== 'drag' || G.state !== 'play') return;
+    for (const t of e.changedTouches) {
+      if (id === null && t.clientX > innerWidth * 0.45) { id = t.identifier; lx = t.clientX; }
+    }
+    e.preventDefault(); SFX.resume();
+  }, { passive: false });
+  view.addEventListener('touchmove', e => {
+    for (const t of e.changedTouches) if (t.identifier === id) {
+      input.dragTurn += (t.clientX - lx) * 0.0105; lx = t.clientX;
+    }
+    if (id !== null) e.preventDefault();
+  }, { passive: false });
+  const end = e => { for (const t of e.changedTouches) if (t.identifier === id) id = null; };
+  view.addEventListener('touchend', end);
+  view.addEventListener('touchcancel', end);
+})();
 $('btnFire').addEventListener('touchstart', e => { e.preventDefault(); input.firing = true; SFX.resume(); }, { passive: false });
 $('btnFire').addEventListener('touchend', () => { input.firing = false; });
 $('btnNade').addEventListener('touchstart', e => {
   e.preventDefault(); if (G.state === 'play') G.player.throwNade(G);
 }, { passive: false });
 $('btnSwap').addEventListener('touchstart', e => {
-  e.preventDefault(); if (G.state === 'play') G.player.cycle(G);
+  e.preventDefault(); if (G.state === 'play') G.openArms();
 }, { passive: false });
+$('arms').addEventListener('click', e => {
+  const b = e.target.closest('.arm');
+  if (b && b.disabled) return;
+  G.closeArms(b ? b.dataset.k : null);
+});
 $('btnMelee').addEventListener('touchstart', e => {
   e.preventDefault(); if (G.state === 'play') G.player.melee(G);
 }, { passive: false });
@@ -134,10 +191,13 @@ const Hints = (() => {
 
   // [키 표시, 설명]. 데스크톱과 터치가 다르면 그 자리에서 고른다.
   const TEXT = {
-    move:     () => isTouch ? ['왼쪽 스틱', '이동 · 오른쪽 스틱으로 손전등을 돌린다']
-                            : ['WASD', '이동 · 마우스로 손전등을 비춘다'],
+    move:     () => !isTouch ? ['WASD', '이동 · 마우스로 손전등을 비춘다']
+      : ['왼쪽 스틱', SETTINGS.aim === 'turn' ? '이동 · 오른쪽 스틱을 좌우로 밀어 손전등을 돌린다'
+        : SETTINGS.aim === 'drag' ? '이동 · 오른쪽 화면을 좌우로 끌어 손전등을 돌린다'
+        : '이동 · 오른쪽 스틱으로 손전등을 비춘다'],
     autofire: () => SETTINGS.autofire
-      ? [isTouch ? '사격' : '클릭', '불빛 안에 들어온 적은 자동으로 쏜다. 직접 쏠 수도 있다']
+      ? (isTouch ? ['자동 사격', '불빛에 들어온 적은 저절로 쏜다 — 손전등을 적에게 돌리자']
+                 : ['클릭', '불빛 안에 들어온 적은 자동으로 쏜다. 직접 쏠 수도 있다'])
       : [isTouch ? '사격' : '클릭', '사격 — 손전등이 비추는 쪽으로만 나간다'],
     reload:   () => [isTouch ? '장전' : 'R', '재장전 — 탄창이 비면 자동으로도 갈아 끼운다'],
     melee:    () => [isTouch ? '밀치기' : 'E · 우클릭', '달라붙은 적을 밀쳐낸다'],
@@ -218,6 +278,14 @@ const Hints = (() => {
 window.Hints = Hints;
 
 /* ═══════════ 게임 ═══════════ */
+/* 무기 실루엣 (무기 고르기 화면) */
+const ARM_ICON = {
+  pistol:  '<svg viewBox="0 0 84 34"><path d="M24 9h34v7H40l-3 4h-4l2 10h-9l-3-12-3-2z"/></svg>',
+  smg:     '<svg viewBox="0 0 84 34"><path d="M12 10h52v6h6v3H52l-2 4h-6l-2 8h-7l2-8h-6l-2 5h-6l1-6H18l-6-4z"/></svg>',
+  shotgun: '<svg viewBox="0 0 84 34"><path d="M4 12h56v3h20v4H54l-2 3H30l-8 7H8l8-9H4z"/></svg>',
+  rifle:   '<svg viewBox="0 0 84 34"><path d="M2 14h50v-3h10v3h20v3H54l-3 4H38l-2 9h-6l1-9H22l-12 6H2l6-7H2z"/></svg>'
+};
+
 const G = {
   state: 'title',
   world: null, player: null, level: null, levelIndex: -1, survival: false,
@@ -234,6 +302,7 @@ const G = {
 
   /* ── 진행도 저장 ── */
   progress() { return +(localStorage.getItem('aftermath.progress') || 0); },
+  survivalOpen() { return this.progress() >= LEVELS.length || this.bestSurvival() > 0; },
   saveProgress(i) {
     if (i > this.progress()) localStorage.setItem('aftermath.progress', i);
   },
@@ -271,6 +340,7 @@ const G = {
       : LEVELS[index];
     this.level = L;
     this.world = new World(L.seed, L.blocks);
+    Minimap.reset(this.world);
 
     const w = this.world;
     this.player = new Player(w.spawn.x, w.spawn.y, L);
@@ -279,7 +349,7 @@ const G = {
     this.particles = []; this.decals = []; this.corpses = []; this.flashes = [];
     this.time = 0; this.shake = 0; this.kills = 0; this.score = 0;
     this.shots = 0; this.hits = 0; this.hitMark = 0;
-    input.sprintLatch = false; input.idleT = 0;
+    input.sprintLatch = false; input.idleT = 0; input.turnRate = 0; input.dragTurn = 0;
     Hints.begin(this);
     this.difficulty = SETTINGS.difficulty;   // 진입 시점의 난이도로 전적을 기록한다
     this.spawnT = 0; this.waveScale = 1; this.lightning = 0;
@@ -305,6 +375,7 @@ const G = {
     };
     place('ammo', L.supplies.ammo, 260);
     place('shells', L.supplies.shells, 300);
+    place('rounds', L.supplies.rounds | 0, 320);
     place('medkit', L.supplies.medkit, 300);
     place('battery', L.supplies.battery, 260);
     place('nade', L.supplies.nade, 300);
@@ -387,7 +458,7 @@ const G = {
     const a = Math.atan2(p.y - this.player.y, p.x - this.player.x);
     let da = Math.abs(((a - this.player.angle + Math.PI * 3) % (Math.PI * 2)) - Math.PI);
     const d = Math.hypot(p.x - this.player.x, p.y - this.player.y);
-    if (da < 0.5 && d < this.player.lightRange + 90) return;
+    if (da < CONE_HALF + 0.05 && d < this.player.lightRange + 90) return;
     this.zombies.push(new Zombie(p.x, p.y, this.pickType()));
   },
 
@@ -471,6 +542,31 @@ const G = {
     }
   },
 
+  /** 원작처럼 무기 고르는 동안은 시간이 멈춘다 */
+  openArms() {
+    if (this.state !== 'play' || this.player.dead) return;
+    this.state = 'arms';
+    input.firing = false;
+    const p = this.player;
+    $('armsRow').innerHTML = SLOT_ORDER.map(k => {
+      const w = WEAPONS[k], own = p.owned.has(k);
+      const mag = p.magOf(w), res = p.reserveOf(w);
+      const empty = own && w.ammoKey && mag + res <= 0;
+      const ammo = !own ? '없음' : w.ammoKey ? `${mag} / ${res}` : `${mag} / ∞`;
+      return `<button class="arm${k === p.wpn ? ' on' : ''}${empty ? ' empty' : ''}" data-k="${k}"${own ? '' : ' disabled'}>
+        ${ARM_ICON[k]}<b>${w.name}</b><span>${ammo}</span>${isTouch ? '' : `<kbd>${w.slot}</kbd>`}</button>`;
+    }).join('');
+    $('armsNote').textContent = isTouch ? '무기를 누르면 바로 이어집니다' : '숫자키 또는 클릭 · Tab 으로 닫기';
+    $('arms').classList.remove('hidden');
+    SFX.click();
+  },
+  closeArms(key) {
+    if (this.state !== 'arms') return;
+    $('arms').classList.add('hidden');
+    this.state = 'play';
+    if (key) this.player.select(key, this);
+  },
+
   togglePause() {
     if (this.state === 'play') { this.state = 'pause'; UI.showPause(); }
     else if (this.state === 'pause') { this.state = 'play'; UI.hideScreens(); }
@@ -543,6 +639,10 @@ const G = {
 
     /* 조준 */
     const cam = this.camera();
+    if (!p.dead && (input.turnRate || input.dragTurn)) {
+      p.angle += input.turnRate * dt + input.dragTurn;
+      input.dragTurn = 0;
+    }
     if (input.aimTouch !== null) p.angle = input.aimTouch;
     else if (input.hasMouse) p.angle = Math.atan2(input.my - (p.y - cam.y), input.mx - (p.x - cam.x));
 
@@ -550,11 +650,11 @@ const G = {
 
     /* 사격: 수동 + 불빛 안 자동사격 */
     if (!p.dead) {
-      let wantFire = input.firing || keys.Space;
-      if (!wantFire && SETTINGS.autofire) wantFire = !!this.autoTarget();
-      if (wantFire) {
-        if (p.cool <= 0) p.fire(this);
-      }
+      const manual = input.firing || keys.Space;
+      // 원작: 불빛을 적에게 비추면 사격은 저절로 된다. 불빛 안의 표적을 향해 쏜다
+      const tgt = !manual && SETTINGS.autofire ? this.autoTarget() : null;
+      if (p.cool <= 0 && (manual || tgt))
+        p.fire(this, tgt ? Math.atan2(tgt.y - p.y, tgt.x - p.x) : undefined);
     }
 
     /* 엔티티 */
@@ -613,7 +713,7 @@ const G = {
         if (d > range) continue;
         const a = Math.atan2(z.y - p.y, z.x - p.x);
         let da = Math.abs(((a - p.angle + Math.PI * 3) % (Math.PI * 2)) - Math.PI);
-        if (da < 0.46 && w.los(p.x, p.y, z.x, z.y)) z.lit = 1;
+        if (da < CONE_HALF && w.los(p.x, p.y, z.x, z.y)) z.lit = 1;
       }
     }
 
@@ -668,6 +768,7 @@ const G = {
       };
       if (this.pickups.length < 6 && Math.random() < dt * 0.35) {
         const types = ['ammo', 'ammo', 'shells', 'medkit', 'battery', 'nade'];
+        if (p.owned.has('rifle')) types.push('rounds');
         const q = this.world.pickPoint(p.x, p.y, 300, 1400);
         this.pickups.push(new Pickup(q.x, q.y, types[(Math.random() * types.length) | 0]));
       }
@@ -713,7 +814,7 @@ const G = {
       if (d > range || d > bd) continue;
       const a = Math.atan2(z.y - p.y, z.x - p.x);
       let da = Math.abs(((a - p.angle + Math.PI * 3) % (Math.PI * 2)) - Math.PI);
-      if (da > 0.30) continue;
+      if (da > (isTouch ? 0.42 : 0.30)) continue;   // 터치는 회전 조작이라 조금 더 너그럽게
       if (!this.world.los(p.x, p.y, z.x, z.y)) continue;
       best = z; bd = d;
     }
@@ -744,12 +845,13 @@ const G = {
     const lead = 62;
     // 플레이어를 놓을 화면 위치. 터치는 아래 40%를 스틱·버튼이, 위 10%를 HUD 가 덮으므로
     // 그 사이 트인 띠의 가운데쯤(40%)에 둔다 — 화면 정중앙이면 지도 끝에서 버튼 밑에 깔린다.
-    const fy = isTouch ? H * 0.40 : H / 2;
+    const fy = focusY();
     let x = p.x + Math.cos(p.angle) * lead - W / 2;
     let y = p.y + Math.sin(p.angle) * lead - fy;
     // 지도 밖 허공이 보이지 않게 가둔다. 단, 위아래 UI 띠가 어차피 가리는 만큼은 넘어가도 된다
     // — 그래야 지도 끝에서도 플레이어가 탄약·게이지 밑에 깔리지 않는다.
-    const over0 = isTouch ? H * 0.10 : 70, over1 = isTouch ? H * 0.40 : 130;
+    const port = isTouch && H > W;
+    const over0 = port ? H * 0.10 : isTouch ? H * 0.22 : 70, over1 = port ? H * 0.40 : isTouch ? H * 0.30 : 130;
     const mx = w.w * TILE - W, my = w.h * TILE - H;
     x = mx > 0 ? clamp(x, 0, mx) : mx / 2;
     y = my > 0 ? clamp(y, -over0, my + over1) : my / 2;
@@ -760,6 +862,10 @@ const G = {
     return { x, y };
   }
 };
+
+/** 플레이어를 놓을 화면 높이. 세로 터치 화면은 아래 40% 를 스틱·버튼이 덮어 위쪽(40%)에,
+    가로 화면은 버튼이 양옆으로 비켜 있으니 가운데에 둔다 */
+function focusY() { return isTouch && H > W ? H * 0.40 : H / 2; }
 
 /* ═══════════ 렌더 ═══════════ */
 function render() {
@@ -842,6 +948,7 @@ function render() {
     ctx.beginPath(); ctx.arc(q.x, q.y, q.size, 0, 6.283); ctx.fill();
   }
   ctx.globalAlpha = 1;
+  drawBuildings(cam, w);
   ctx.restore();
 
   drawDarkness(cam, g, p, w);
@@ -946,6 +1053,16 @@ function drawGround(cam, w) {
           ctx.fillStyle = 'rgba(140,160,185,.09)';
           ctx.fillRect(px + TILE - 4, py, 4, TILE);
         }
+      } else if (d === D_RUBBLE) {
+        // 무너진 잔해 — 지나갈 수 없는 칸이므로 반드시 보이게 그린다
+        ctx.fillStyle = '#232932';
+        ctx.fillRect(px, py, TILE, TILE);
+        for (let k = 0; k < 6; k++) {
+          const h = ((x * 374761393 + y * 668265263 + k * 2246822519) >>> 0);
+          const rx = px + 4 + h % 34, ry = py + 4 + (h >> 7) % 34, rs = 7 + (h >> 13) % 9;
+          ctx.fillStyle = 'rgba(0,0,0,.45)'; ctx.fillRect(rx + 2, ry + 3, rs, rs * 0.8);
+          ctx.fillStyle = k & 1 ? '#3b3f44' : '#45484b'; ctx.fillRect(rx, ry, rs, rs * 0.8);
+        }
       } else if (d === D_PROP) {
         // 구조물이 놓인 자리의 아스팔트 (구조물 자체는 뒤에서 그린다)
         ctx.fillStyle = n < 6 ? '#272d36' : '#232932';
@@ -983,6 +1100,106 @@ function drawGround(cam, w) {
     if (q.x < cam.x - 60 || q.x > cam.x + W + 60 || q.y < cam.y - 60 || q.y > cam.y + H + 60) continue;
     ctx.beginPath(); ctx.ellipse(q.x, q.y, q.rx, q.ry, 0, 0, 6.283); ctx.fill();
   }
+}
+
+/* ═══════════ 의사 3D 건물 ═══════════
+   원작은 높은 곳에서 내려다보는 3D 카메라였다. 건물 지붕을 시점(화면 속 플레이어 자리)에서
+   바깥쪽으로 (1+BLD_H) 배 밀어내면, 시점 쪽을 향한 벽면이 드러나 높이가 생긴다.
+   지붕 전체가 시점 기준 한 번의 확대라서 이웃 타일의 지붕이 어긋나지 않는다. */
+const BLD_H = 0.15;
+function eyeOf(cam) { return { x: cam.x + W / 2, y: cam.y + focusY() }; }
+const liftPt = (E, x, y, k) => [E.x + (x - E.x) * (1 + k), E.y + (y - E.y) * (1 + k)];
+
+/** 원뿔 끝점 중 건물 벽에 막힌 것을 지붕선까지 들어 올린다 — 빛이 벽면을 타고 오른다 */
+function liftPoly(poly, w, E) {
+  const ox = poly[0], oy = poly[1];
+  for (let i = 2; i < poly.length; i += 2) {
+    const x = poly[i], y = poly[i + 1], dx = x - ox, dy = y - oy, d = Math.hypot(dx, dy);
+    if (d < 1) continue;
+    const tx = Math.floor((x + dx / d * 3) / TILE), ty = Math.floor((y + dy / d * 3) / TILE);
+    if (tx < 0 || ty < 0 || tx >= w.w || ty >= w.h || w.deco[ty * w.w + tx] !== D_BUILDING) continue;
+    const q = liftPt(E, x, y, BLD_H);
+    poly[i] = q[0]; poly[i + 1] = q[1];
+  }
+  return poly;
+}
+
+function drawBuildings(cam, w) {
+  const E = eyeOf(cam), K = BLD_H;
+  const x0 = Math.max(0, Math.floor(cam.x / TILE) - 1), y0 = Math.max(0, Math.floor(cam.y / TILE) - 1);
+  const x1 = Math.min(w.w - 1, Math.ceil((cam.x + W) / TILE)), y1 = Math.min(w.h - 1, Math.ceil((cam.y + H) / TILE));
+  const isB = (x, y) => x < 0 || y < 0 || x >= w.w || y >= w.h || w.deco[y * w.w + x] === D_BUILDING;
+
+  // 벽면 — 시점을 향한 면만. 면 방향별로 한 경로에 모아 칠한다
+  const faces = { s: [], n: [], e: [] };
+  for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
+    if (!isB(x, y)) continue;
+    const px = x * TILE, py = y * TILE, qx = px + TILE, qy = py + TILE;
+    if (E.y > qy && !isB(x, y + 1)) faces.s.push(px, qy, qx, qy);
+    if (E.y < py && !isB(x, y - 1)) faces.n.push(px, py, qx, py);
+    if (E.x < px && !isB(x - 1, y)) faces.e.push(px, py, px, qy);
+    if (E.x > qx && !isB(x + 1, y)) faces.e.push(qx, py, qx, qy);
+  }
+  const cols = { s: '#252d38', n: '#10141a', e: '#1a2029' };
+  ctx.strokeStyle = 'rgba(0,0,0,.42)';
+  ctx.lineWidth = 2;
+  for (const k in faces) {
+    const f = faces[k];
+    if (!f.length) continue;
+    ctx.fillStyle = cols[k];
+    ctx.beginPath();
+    for (let i = 0; i < f.length; i += 4) {
+      const a = liftPt(E, f[i], f[i + 1], K), b = liftPt(E, f[i + 2], f[i + 3], K);
+      ctx.moveTo(f[i], f[i + 1]); ctx.lineTo(f[i + 2], f[i + 3]);
+      ctx.lineTo(b[0], b[1]); ctx.lineTo(a[0], a[1]); ctx.closePath();
+    }
+    ctx.fill();
+    // 층 구분선
+    ctx.beginPath();
+    for (let i = 0; i < f.length; i += 4) for (const t of [0.34, 0.67]) {
+      const a = liftPt(E, f[i], f[i + 1], K * t), b = liftPt(E, f[i + 2], f[i + 3], K * t);
+      ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]);
+    }
+    ctx.stroke();
+  }
+
+  // 지붕 — 시점 기준으로 (1+K) 배 확대한 좌표계에서 바닥 평면과 같은 방식으로 그린다
+  ctx.save();
+  ctx.translate(E.x, E.y); ctx.scale(1 + K, 1 + K); ctx.translate(-E.x, -E.y);
+  const roofs = ['#1b2129', '#181d24', '#1e252e'];
+  for (let c = 0; c < 3; c++) {
+    ctx.fillStyle = roofs[c];
+    ctx.beginPath();
+    for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
+      if (!isB(x, y) || x < 0 || y < 0) continue;
+      const n = ((x * 73856093) ^ (y * 19349663)) & 15;
+      if ((n < 5 ? 0 : n < 11 ? 1 : 2) === c) ctx.rect(x * TILE - 0.5, y * TILE - 0.5, TILE + 1, TILE + 1);
+    }
+    ctx.fill();
+  }
+  // 난간선과 옥상 설비
+  ctx.strokeStyle = 'rgba(160,176,198,.16)';
+  ctx.lineWidth = 2.5;
+  ctx.beginPath();
+  for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
+    if (!isB(x, y)) continue;
+    const px = x * TILE, py = y * TILE;
+    if (!isB(x, y + 1)) { ctx.moveTo(px, py + TILE - 2); ctx.lineTo(px + TILE, py + TILE - 2); }
+    if (!isB(x, y - 1)) { ctx.moveTo(px, py + 2); ctx.lineTo(px + TILE, py + 2); }
+    if (!isB(x - 1, y)) { ctx.moveTo(px + 2, py); ctx.lineTo(px + 2, py + TILE); }
+    if (!isB(x + 1, y)) { ctx.moveTo(px + TILE - 2, py); ctx.lineTo(px + TILE - 2, py + TILE); }
+  }
+  ctx.stroke();
+  for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
+    if (!isB(x, y) || !isB(x + 1, y) || !isB(x, y + 1)) continue;
+    const h = ((x * 2654435761) ^ (y * 40503)) >>> 0;
+    if (h % 9 !== 0) continue;
+    const ux = x * TILE + 10 + (h >> 4) % 16, uy = y * TILE + 10 + (h >> 8) % 16;
+    ctx.fillStyle = 'rgba(0,0,0,.45)'; ctx.fillRect(ux + 3, uy + 4, 22, 16);
+    ctx.fillStyle = '#2a323c'; ctx.fillRect(ux, uy, 22, 16);
+    ctx.fillStyle = 'rgba(0,0,0,.35)'; ctx.beginPath(); ctx.arc(ux + 11, uy + 8, 5, 0, 6.283); ctx.fill();
+  }
+  ctx.restore();
 }
 
 /** 버려진 차량과 화물 컨테이너 — 손전등에 색이 살아난다 */
@@ -1060,7 +1277,13 @@ function drawPlayer(p) {
 function drawZombie(z) {
   const sway = Math.sin(z.phase) * (z.aggro ? 3.2 : 1.6);
   const S = z.t.size;
+  // 밤이 완전한 암흑은 아니라서, 불빛 밖의 좀비는 실루엣만 희미하게 남긴다.
+  // 손전등·근접·번개가 형체를 드러낸다 — "번개가 치면 무리가 보인다"
+  const p = G.player, d = Math.hypot(z.x - p.x, z.y - p.y);
+  const vis = Math.max(z.lit, clamp((240 - d) / 130, 0, 1), G.lightning * 1.4, z.t.boss ? 0.6 : 0);
   ctx.save();
+  const a0 = 0.16 + 0.84 * clamp(vis, 0, 1);
+  ctx.globalAlpha = a0;
   ctx.translate(z.x, z.y);
   ctx.rotate(z.face);
   ctx.fillStyle = 'rgba(0,0,0,.42)';
@@ -1107,11 +1330,11 @@ function drawZombie(z) {
   }
   // 피해 표시
   if (z.hp < z.hpMax) {
-    ctx.globalAlpha = clamp(1 - z.hp / z.hpMax, 0, 1) * 0.5;
+    ctx.globalAlpha = a0 * clamp(1 - z.hp / z.hpMax, 0, 1) * 0.5;
     ctx.fillStyle = '#6b1310';
     ctx.beginPath(); ctx.arc(0, 0, z.t.size * 0.8, 0, 6.283); ctx.fill();
-    ctx.globalAlpha = 1;
   }
+  ctx.globalAlpha = 1;
   ctx.restore();
 }
 
@@ -1146,6 +1369,11 @@ function drawPickup(pk, time) {
     ctx.fillRect(-10, -3, 20, 6);
     ctx.fillRect(-4, 0, 5, 7);
     ctx.fillStyle = 'rgba(0,0,0,.4)'; ctx.fillRect(4, -2, 7, 3);
+  } else if (pk.p.icon === 'round') {
+    for (let k = -1; k <= 1; k++) {
+      ctx.fillRect(k * 5 - 1.5, -8, 3, 15);
+      ctx.fillStyle = '#d8c070'; ctx.fillRect(k * 5 - 1.5, -10, 3, 3); ctx.fillStyle = pk.p.col;
+    }
   } else if (pk.p.icon === 'shell') {
     ctx.fillRect(-7, -6, 5, 13); ctx.fillRect(1, -6, 5, 13);
     ctx.fillStyle = '#e8e2d0'; ctx.fillRect(-7, -6, 5, 4); ctx.fillRect(1, -6, 5, 4);
@@ -1170,9 +1398,18 @@ function drawGrenade(gr) {
   ctx.restore();
 }
 
-/* 어둠 마스크: 검은 막에 손전등 모양의 구멍을 뚫는다 */
+/* 어둠 마스크: 검은 막에 손전등 모양의 구멍을 뚫는다.
+   원작 화면을 재 보면 평균 밝기는 255 중 약 22, 거의 검은 픽셀은 70% 안팎이다 — 완전한 암흑이
+   아니라 도로와 건물 윤곽이 희미하게 보이는 밤이고, 손전등이 그 위를 하얗게 쓸고 지나간다.
+   막의 기본 농도는 밝기 설정(0‒100)으로 조절한다. */
+function darkLevel(g) {
+  const base = 0.74 - (SETTINGS.brightness - 50) * 0.0044;   // 0 → 0.96, 50 → 0.74, 100 → 0.52
+  return clamp(base - g.lightning * (SETTINGS.flash ? 0.72 : 0.25), 0.06, 0.985);
+}
+
 function drawDarkness(cam, g, p, w) {
-  const dark = clamp(0.965 - g.lightning * 0.62, 0.18, 0.99);
+  const dark = darkLevel(g);
+  const E = eyeOf(cam);
   mctx.setTransform(DPR, 0, 0, DPR, 0, 0);
   mctx.globalCompositeOperation = 'source-over';
   mctx.clearRect(0, 0, W, H);
@@ -1192,19 +1429,20 @@ function drawDarkness(cam, g, p, w) {
   mctx.fillStyle = gr;
   mctx.beginPath(); mctx.arc(p.x, p.y, amb, 0, 6.283); mctx.fill();
 
-  // 손전등 원뿔 (벽에 가려짐) — 폭이 다른 세 겹을 겹쳐 가장자리를 흐린다
+  // 손전등 원뿔 (벽에 가려짐) — 폭이 다른 세 겹을 겹쳐 가장자리를 흐린다.
+  // 건물 벽에 닿은 빛은 벽면을 타고 올라가도록 끝점을 지붕선까지 들어 올린다.
   const range = p.lightRange;
   if (range > 0) {
-    const layers = [[0.46, 80, 0.50], [0.33, 56, 0.55], [0.19, 40, 0.62]];
+    const layers = [[CONE_HALF, 84, 0.62], [CONE_HALF * 0.7, 56, 0.6], [CONE_HALF * 0.38, 40, 0.7]];
     for (const [half, rays, alpha] of layers) {
-      const poly = w.conePoly(p.x, p.y, p.angle, half, range, rays);
+      const poly = liftPoly(w.conePoly(p.x, p.y, p.angle, half, range, rays), w, E);
       mctx.beginPath();
       mctx.moveTo(poly[0], poly[1]);
       for (let i = 2; i < poly.length; i += 2) mctx.lineTo(poly[i], poly[i + 1]);
       mctx.closePath();
       gr = mctx.createRadialGradient(p.x, p.y, 10, p.x, p.y, range);
       gr.addColorStop(0, `rgba(0,0,0,${alpha})`);
-      gr.addColorStop(0.66, `rgba(0,0,0,${alpha * 0.88})`);
+      gr.addColorStop(0.6, `rgba(0,0,0,${alpha * 0.85})`);
       gr.addColorStop(1, 'rgba(0,0,0,0)');
       mctx.fillStyle = gr;
       mctx.fill();
@@ -1245,14 +1483,15 @@ function drawGlow(cam, g, p, w) {
 
   const range = p.lightRange;
   if (range > 0) {
-    const poly = w.conePoly(p.x, p.y, p.angle, 0.44, range, 64);
+    const poly = liftPoly(w.conePoly(p.x, p.y, p.angle, CONE_HALF * 0.96, range, 64), w, eyeOf(cam));
     ctx.beginPath();
     ctx.moveTo(poly[0], poly[1]);
     for (let i = 2; i < poly.length; i += 2) ctx.lineTo(poly[i], poly[i + 1]);
     ctx.closePath();
     const gr = ctx.createRadialGradient(p.x, p.y, 8, p.x, p.y, range);
-    gr.addColorStop(0, 'rgba(255,228,168,.20)');
-    gr.addColorStop(0.5, 'rgba(226,210,170,.085)');
+    // 원작의 손전등은 노랗지 않고 거의 흰빛(밝은 픽셀 평균 RGB ≈ 145,138,138)이다
+    gr.addColorStop(0, 'rgba(236,232,226,.42)');
+    gr.addColorStop(0.45, 'rgba(205,205,208,.17)');
     gr.addColorStop(1, 'rgba(180,190,200,0)');
     ctx.fillStyle = gr; ctx.fill();
   }
@@ -1348,7 +1587,8 @@ function drawRain(g) {
   ctx.globalAlpha = 1;
 
   if (g.lightning > 0.01) {
-    ctx.fillStyle = `rgba(190,205,230,${g.lightning * 0.16})`;
+    // 원작의 번개는 화면 전체를 순간적으로 밝힌다(평균 밝기 22 → 120). 섬광을 끈 설정에선 약하게
+    ctx.fillStyle = `rgba(196,208,228,${g.lightning * (SETTINGS.flash ? 0.34 : 0.08)})`;
     ctx.fillRect(0, 0, W, H);
   }
 }
@@ -1357,9 +1597,76 @@ function drawVignette() {
   const gr = ctx.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.32,
                                       W / 2, H / 2, Math.max(W, H) * 0.78);
   gr.addColorStop(0, 'rgba(0,0,0,0)');
-  gr.addColorStop(1, 'rgba(0,0,0,.72)');
+  gr.addColorStop(1, 'rgba(0,0,0,.55)');
   ctx.fillStyle = gr;
   ctx.fillRect(0, 0, W, H);
+}
+
+/* ═══════════ 지도 ═══════════
+   원작 1.1 업데이트: "새 전체 지도와 특히 도움이 되는 화면 미니맵".
+   도시를 타일당 1px 로 한 번 그려 두고, 미니맵은 플레이어 둘레만 잘라 원형으로 보여 준다. */
+function mapImage(w) {
+  const c = document.createElement('canvas');
+  c.width = w.w; c.height = w.h;
+  const m = c.getContext('2d'), img = m.createImageData(w.w, w.h);
+  for (let i = 0; i < w.w * w.h; i++) {
+    const d = w.deco[i], solid = w.grid[i] === T_WALL;
+    const v = d === D_BUILDING ? 22 : solid ? 52 : d === D_SIDEWALK ? 74 : 92;
+    img.data[i * 4] = v; img.data[i * 4 + 1] = v + 4; img.data[i * 4 + 2] = v + 10; img.data[i * 4 + 3] = 255;
+  }
+  m.putImageData(img, 0, 0);
+  return c;
+}
+
+const Minimap = {
+  img: null, cv: null,
+  reset(w) { this.img = mapImage(w); this.cv = $('minimap'); },
+  draw(g) {
+    if (!this.img || !this.cv) return;
+    const c = this.cv.getContext('2d'), S = this.cv.width, p = g.player;
+    const span = 30;                                // 지름에 담는 타일 수
+    const k = S / span, px = p.x / TILE, py = p.y / TILE;
+    c.setTransform(1, 0, 0, 1, 0, 0);
+    c.clearRect(0, 0, S, S);
+    c.save();
+    c.beginPath(); c.arc(S / 2, S / 2, S / 2 - 1, 0, 6.283); c.clip();
+    c.imageSmoothingEnabled = false;
+    c.globalAlpha = 0.9;
+    c.drawImage(this.img, px - span / 2, py - span / 2, span, span, 0, 0, S, S);
+    c.globalAlpha = 1;
+    const dot = (wx, wy, col, r) => {
+      let x = (wx / TILE - px) * k + S / 2, y = (wy / TILE - py) * k + S / 2;
+      const d = Math.hypot(x - S / 2, y - S / 2), lim = S / 2 - r - 3;
+      if (d > lim) { x = S / 2 + (x - S / 2) / d * lim; y = S / 2 + (y - S / 2) / d * lim; }  // 가장자리에 붙인다
+      c.fillStyle = col; c.beginPath(); c.arc(x, y, r, 0, 6.283); c.fill();
+    };
+    const ob = g.level.objective;
+    for (const pk of g.pickups) if (pk.type === 'goal') dot(pk.x, pk.y, '#59b7d8', 5);
+    if (g.exitOpen && ob.type !== 'endless') dot(g.world.exit.x, g.world.exit.y, '#78dcff', 6);
+    // 플레이어 — 바라보는 쪽을 가리키는 삼각형
+    c.translate(S / 2, S / 2); c.rotate(p.angle);
+    c.fillStyle = '#f0b429';
+    c.beginPath(); c.moveTo(10, 0); c.lineTo(-6, -6); c.lineTo(-3, 0); c.lineTo(-6, 6); c.closePath(); c.fill();
+    c.restore();
+  }
+};
+
+/** 브리핑 화면의 구역 전체 지도 — 같은 시드라 실제 판과 같은 도시다 */
+function drawBriefMap(L) {
+  const cv = $('briefMap'), c = cv.getContext('2d'), w = new World(L.seed, L.blocks);
+  const S = cv.width, k = S / Math.max(w.w, w.h);
+  c.setTransform(1, 0, 0, 1, 0, 0);
+  c.fillStyle = '#07090c'; c.fillRect(0, 0, S, S);
+  c.imageSmoothingEnabled = false;
+  const ox = (S - w.w * k) / 2, oy = (S - w.h * k) / 2;
+  c.drawImage(mapImage(w), ox, oy, w.w * k, w.h * k);
+  const mark = (pt, col) => {
+    c.fillStyle = col;
+    c.beginPath(); c.arc(ox + pt.x / TILE * k, oy + pt.y / TILE * k, 5, 0, 6.283); c.fill();
+    c.strokeStyle = 'rgba(0,0,0,.7)'; c.lineWidth = 2; c.stroke();
+  };
+  mark(w.spawn, '#f0b429');
+  if (L.objective.type !== 'endless') mark(w.exit, '#78dcff');
 }
 
 /* ═══════════ HUD ═══════════ */
@@ -1422,6 +1729,8 @@ G.refreshHud = function (force) {
     ? Math.min(0.62, p.hurtFlash * 0.55 + (p.hp < 28 ? 0.18 + Math.sin(this.time * 5) * 0.05 : 0))
     : Math.min(0.20, p.hurtFlash * 0.18 + (p.hp < 28 ? 0.1 : 0));
 
+  Minimap.draw(this);
+
   // 목표 방향 나침반
   const compass = $('hudCompass');
   let tx = null, ty = null;
@@ -1458,14 +1767,21 @@ const UI = {
   show(id) { this.hideScreens(); $(id).classList.remove('hidden'); },
   enterPlay() {
     this.hideScreens();
+    $('arms').classList.add('hidden');
+    applyTouchLayout();
     $('hud').classList.remove('hidden');
     $('touch').classList.toggle('hidden', !isTouch);
   },
   enterMenu() {
+    $('arms').classList.add('hidden');
     $('hud').classList.add('hidden');
     $('touch').classList.add('hidden');
     const b = G.bestSurvival();
     $('bestSurvival').textContent = b ? `${Math.floor(b / 60)}분 ${b % 60}초` : '—';
+    // 원작처럼 서바이벌은 이야기를 끝까지 본 뒤에 열린다
+    const open = G.survivalOpen();
+    $('btnSurvival').disabled = !open;
+    $('btnSurvival').textContent = open ? '서바이벌' : `서바이벌 — 전역 완수 시 개방 (${Math.min(G.progress(), LEVELS.length)}/${LEVELS.length})`;
     this.show('scrTitle');
   },
   buildChapters() {
@@ -1497,6 +1813,7 @@ const UI = {
     $('briefTitle').textContent = L.name;
     $('briefText').textContent = L.brief;
     $('briefGoals').innerHTML = L.goals.map(g => `<li>${g}</li>`).join('');
+    drawBriefMap(L);
     this.show('scrBrief');
   },
   /** 일시정지 중 현재 판의 전황 — 멈춘 김에 상황을 보라고 */
@@ -1563,8 +1880,10 @@ const UI = {
   syncSettings() {
     $('setVolume').value = SETTINGS.volume;
     $('setVolVal').textContent = SETTINGS.volume;
-    for (const b of $('setDiff').querySelectorAll('button'))
-      b.classList.toggle('on', b.dataset.val === SETTINGS.difficulty);
+    for (const b of document.querySelectorAll('.seg [data-set]'))
+      b.classList.toggle('on', b.dataset.val === SETTINGS.get(b.dataset.set));
+    $('setBright').value = SETTINGS.brightness;
+    $('setBrightVal').textContent = SETTINGS.brightness;
     $('setDiffNote').textContent = `${SETTINGS.mod.name} — ${SETTINGS.mod.note}`;
     for (const b of document.querySelectorAll('.tog[data-set]'))
       b.setAttribute('aria-pressed', String(!!SETTINGS.get(b.dataset.set)));
@@ -1654,7 +1973,7 @@ document.addEventListener('click', e => {
   switch (act) {
     case 'campaign': UI.brief(Math.min(G.progress(), LEVELS.length - 1)); break;
     case 'chapters': UI.buildChapters(); UI.show('scrChapters'); break;
-    case 'survival': G.start('survival'); break;
+    case 'survival': if (G.survivalOpen()) G.start('survival'); break;
     // 조작법·설정은 일시정지에서도 열리므로 돌아갈 화면을 기억해 둔다
     case 'howto':
     case 'keys':
@@ -1688,6 +2007,10 @@ $('setVolume').addEventListener('input', e => {
   SFX.applyVolume();
 });
 $('setVolume').addEventListener('change', () => { SFX.init(); SFX.resume(); SFX.beep(); });
+$('setBright').addEventListener('input', e => {
+  SETTINGS.set('brightness', +e.target.value);
+  $('setBrightVal').textContent = SETTINGS.brightness;
+});
 document.addEventListener('click', e => {
   const b = e.target.closest('[data-set]');
   if (!b) return;
@@ -1745,7 +2068,7 @@ function frame(now) {
     if (G.state === 'play' || G.state === 'result') render();
     hudT -= dt;
     if (hudT <= 0) { hudT = 0.07; G.refreshHud(); }
-  } else if (G.state === 'pause' || G.state === 'result') {
+  } else if (G.state === 'pause' || G.state === 'result' || G.state === 'arms') {
     if (G.world) render();
   } else {
     drawAttract(dt);
@@ -1756,6 +2079,8 @@ function frame(now) {
 UI.enterMenu();
 requestAnimationFrame(frame);
 
+/** 현재 어둠 농도 (0‒1) — 밝기 설정 확인용 */
+G.darkLevel = () => darkLevel(G);
 window.G = G;
 window.UI = UI;
 })();

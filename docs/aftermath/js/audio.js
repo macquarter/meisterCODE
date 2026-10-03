@@ -111,6 +111,9 @@ const SFX = (() => {
     shot()      { burst(0.16, 1500, 1.1, 0.34, 'lowpass', 0.11); tone(150, 0.1, 0.16, 'square', 48); },
     shotgun()   { burst(0.42, 850, 0.8, 0.55, 'lowpass', 0.34); tone(96, 0.26, 0.26, 'square', 34);
                   setTimeout(() => burst(0.1, 3000, 2.5, 0.06, 'bandpass', 0.09), 260); },
+    rifle()     { burst(0.5, 2200, 0.9, 0.5, 'lowpass', 0.2); tone(70, 0.3, 0.3, 'square', 30);
+                  setTimeout(() => burst(0.9, 600, 0.6, 0.1, 'lowpass', 0.7), 60);      // 골목에 울리는 꼬리
+                  setTimeout(() => burst(0.06, 2400, 3, 0.07, 'bandpass', 0.05), 520); },  // 노리쇠
     pistol()    { burst(0.13, 1100, 1.0, 0.22, 'lowpass', 0.09); tone(120, 0.08, 0.1, 'square', 44); },
     dry()       { burst(0.05, 3200, 3, 0.1, 'bandpass', 0.04); },
     hitFlesh(d) { burst(0.1, 420, 0.9, 0.2 * near(d), 'lowpass', 0.08); },

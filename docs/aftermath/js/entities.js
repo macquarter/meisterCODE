@@ -11,9 +11,13 @@ const WEAPONS = {
              mag: 30, reload: 1.75 },
   shotgun: { key: 'shotgun', name: '샷건', slot: 3, rate: 0.74, dmg: 15, spread: 0.20,
              range: 430, speed: 1200, pellets: 8, ammoKey: 'shell', kick: 8, sfx: 'shotgun',
-             mag: 6,  reload: 2.15 }
+             mag: 6,  reload: 2.15 },
+  // 소총 — 원작의 네 번째 무기. 느리지만 한 발이 줄 선 감염체 여럿을 꿰뚫는다
+  rifle:   { key: 'rifle',   name: '소총', slot: 4, rate: 0.82, dmg: 92, spread: 0.004,
+             range: 900, speed: 2300, pellets: 1, ammoKey: 'rifle', kick: 5.5, sfx: 'rifle',
+             mag: 5,  reload: 2.35, pierce: 3 }
 };
-const SLOT_ORDER = ['pistol', 'smg', 'shotgun'];
+const SLOT_ORDER = ['pistol', 'smg', 'shotgun', 'rifle'];
 
 const ZTYPES = {
   walker: { hp: 62,  speed: 47,  dmg: 17, r: 13, size: 12, hear: 330, score: 10,
@@ -43,7 +47,7 @@ class Player {
     this.angle = -Math.PI / 2;
     this.hp = this.hpMax = 100;
     this.owned = new Set(level.own);
-    this.ammo = { smg: level.startAmmo.smg | 0, shell: level.startAmmo.shell | 0 };
+    this.ammo = { smg: level.startAmmo.smg | 0, shell: level.startAmmo.shell | 0, rifle: level.startAmmo.rifle | 0 };
     // 무기별 약실. 시작 시 예비탄에서 한 탄창씩 채워 둔다.
     this.mag = {};
     for (const k of SLOT_ORDER) {
@@ -210,8 +214,10 @@ class Player {
     if (this.hp <= 0) { this.hp = 0; this.dead = true; SFX.death(); }
   }
 
-  fire(g) {
+  /** aim 을 주면 그 방향으로 쏜다 — 자동 사격이 불빛 안의 표적을 겨눌 때 */
+  fire(g, aim) {
     if (this.cool > 0 || this.dead || this.reloadT > 0) return false;
+    const base = aim === undefined ? this.angle : aim;
     const w = this.weapon;
     if (this.magOf(w) <= 0) {
       if (this.dryT <= 0) { SFX.dry(); this.dryT = 0.32; }
@@ -222,11 +228,11 @@ class Player {
     this.mag[w.key] = this.magOf(w) - 1;
     g.shots += w.pellets;
     for (let i = 0; i < w.pellets; i++) {
-      const a = this.angle + (Math.random() - 0.5) * w.spread * 2;
+      const a = base + (Math.random() - 0.5) * w.spread * 2;
       g.bullets.push(new Bullet(
-        this.x + Math.cos(this.angle) * 14,
-        this.y + Math.sin(this.angle) * 14,
-        a, w.dmg, w.range * (0.85 + Math.random() * 0.3), w.speed));
+        this.x + Math.cos(base) * 14,
+        this.y + Math.sin(base) * 14,
+        a, w.dmg, w.range * (0.85 + Math.random() * 0.3), w.speed, w.pierce | 0));
     }
     this.muzzle = w.pellets > 1 ? 0.1 : 0.06;
     this.noise = 1;
@@ -409,7 +415,11 @@ class Zombie {
     let speed, target;
     if (this.aggro) {
       speed = this.t.speed;
-      if (this.type === 'runner') speed *= 0.9 + Math.sin(g.time * 3 + this.phase) * 0.12;
+      // 원작의 감염체는 비틀거리지 않고 달려든다(리뷰: "Left 4 Dead 의 달리는 무리").
+      // 배회할 때는 느릿하지만, 플레이어를 알아챈 뒤 1초 남짓이면 전력으로 뛴다
+      this.aggroT = (this.aggroT || 0) + dt;
+      if (this.type === 'walker' || this.type === 'spitter') speed *= 1 + 1.05 * Math.min(1, this.aggroT / 1.2);
+      if (this.type === 'runner') speed *= 1.18 * (0.9 + Math.sin(g.time * 3 + this.phase) * 0.12);
       if (this.t.crawl) {
         // 웅크렸다 튀는 리듬 — 일정 속도로 다가오지 않아 거리를 재기 어렵다
         this.lungeT -= dt;
@@ -426,6 +436,7 @@ class Zombie {
         else if (d < sp.hold) speed = 0;
       }
     } else {
+      this.aggroT = 0;
       this.wanderT -= dt;
       if (this.wanderT <= 0) { this.wanderT = 2 + Math.random() * 4; this.wanderDir = Math.random() * 6.283; }
       speed = this.t.speed * 0.28;
@@ -464,10 +475,12 @@ class Zombie {
 
 /* ── 총알 ──────────────────────────────────── */
 class Bullet {
-  constructor(x, y, ang, dmg, range, speed) {
+  constructor(x, y, ang, dmg, range, speed, pierce = 0) {
     this.x = x; this.y = y; this.px = x; this.py = y;
     this.vx = Math.cos(ang) * speed; this.vy = Math.sin(ang) * speed;
     this.ang = ang; this.dmg = dmg; this.left = range; this.dead = false;
+    this.pierce = pierce;          // 더 꿰뚫을 수 있는 몸의 수
+    this.struck = pierce ? new Set() : null;
   }
   update(dt, g) {
     const steps = 3;
@@ -485,11 +498,17 @@ class Bullet {
       }
       for (const z of g.zombies) {
         if (z.dead) continue;
+        if (this.struck && this.struck.has(z)) continue;
         if (Math.hypot(z.x - this.x, z.y - this.y) < z.r + 3) {
           z.hurt(this.dmg, this.ang, g);
-          g.hits++;
+          if (!this.struck || this.struck.size === 0) g.hits++;   // 명중률은 탄 하나당 한 번
           g.onHit(z.dead);
           SFX.hitFlesh(Math.hypot(this.x - g.player.x, this.y - g.player.y));
+          if (this.pierce > 0) {
+            // 꿰뚫을 때마다 힘이 빠진다
+            this.pierce--; this.struck.add(z); this.dmg *= 0.72;
+            continue;
+          }
           this.dead = true; return;
         }
       }
@@ -589,6 +608,8 @@ const PICKUPS = {
   nade:        { label: '수류탄 +2',     col: '#7fa05a', icon: 'nade' },
   wpn_smg:     { label: 'SMG 획득',      col: '#9fb4c8', icon: 'gun' },
   wpn_shotgun: { label: '샷건 획득',     col: '#c8a878', icon: 'gun' },
+  rounds:      { label: '소총탄 +10',    col: '#b9b08a', icon: 'round' },
+  wpn_rifle:   { label: '소총 획득',     col: '#a8b89a', icon: 'gun' },
   goal:        { label: '보급 상자 확보', col: '#59b7d8', icon: 'goal' }
 };
 
@@ -612,6 +633,8 @@ class Pickup {
       case 'nade':    p.nades += 2; break;
       case 'wpn_smg':     p.owned.add('smg');     p.ammo.smg += 60;  p.equip('smg'); break;
       case 'wpn_shotgun': p.owned.add('shotgun'); p.ammo.shell += 12; p.equip('shotgun'); break;
+      case 'rounds':  p.ammo.rifle += 10; break;
+      case 'wpn_rifle':   p.owned.add('rifle');   p.ammo.rifle += 15; p.equip('rifle'); break;
       case 'goal':    g.onGoalItem(); return;
     }
     g.toast(this.p.label);

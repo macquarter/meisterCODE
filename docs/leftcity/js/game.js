@@ -3357,8 +3357,9 @@ function drawCity(cam, g, w) {
   for (const d of w.decor) if (MODELS.STANDING[d.kind]) put(d.x, d.y, 3, d, 60);
   let shown = 0;
   for (const z of g.zombies) { put(z.x, z.y, 0, z, 120); if (z.lit > 0.05) shown++; }
-  // 화면에 감염체가 많이 드러나면 인형을 간단하게 그려 프레임을 지킨다
-  MODELS.lod = shown + (g.lightning > 0.1 ? g.zombies.length : 0) > 22 ? 1 : 0;
+  // 화면에 감염체가 많이 드러나면 인형을 간단하게 그려 프레임을 지킨다.
+  // 인형을 1.3배 키운 뒤로는 한 마리가 칠하는 넓이가 1.7배라 문턱도 그만큼 낮춘다 (22 → 16)
+  MODELS.lod = shown + (g.lightning > 0.1 ? g.zombies.length : 0) > 16 ? 1 : 0;
   if (!g.player.dead) put(g.player.x, g.player.y, 1, g.player, 120);
   for (let r = y0; r <= y1; r++) {
     worldTransform(ctx, cam);

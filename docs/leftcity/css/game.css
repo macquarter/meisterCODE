@@ -166,6 +166,20 @@ body.touch #achMark{top:calc(74px + env(safe-area-inset-top))}
 .ach span{font-size:11.5px;line-height:1.5;color:var(--fog)}
 #scrJournal h2 + .achs + h2{margin-top:4px}
 
+/* 도전 목록 */
+.chals{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:10px;margin:8px 0 18px;text-align:left}
+.chal{position:relative;display:flex;flex-direction:column;gap:5px;padding:13px 14px 12px 46px;cursor:pointer;text-align:left;
+  background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.1);color:var(--bone);font:inherit}
+.chal:hover,.chal:focus-visible,.chal.padfocus{border-color:rgba(240,180,41,.55);background:rgba(240,180,41,.06)}
+.chal b{font-size:15px;letter-spacing:.04em}
+.chal b small{font-size:11px;font-weight:400;opacity:.55;margin-left:8px;letter-spacing:.08em}
+.chal__note{font-size:12px;line-height:1.5;color:var(--fog)}
+.chal__best{font-size:11.5px;letter-spacing:.04em;opacity:.8}
+.chal__medal{position:absolute;left:14px;top:15px;width:20px;height:20px;border-radius:50%;border:1px dashed rgba(255,255,255,.25)}
+.chal__medal.m1{background:radial-gradient(circle at 35% 35%,#e3a873,#8a5328);border:0}
+.chal__medal.m2{background:radial-gradient(circle at 35% 35%,#f2f2f2,#8d949a);border:0}
+.chal__medal.m3{background:radial-gradient(circle at 35% 35%,#ffe28a,#b5841c);border:0;box-shadow:0 0 10px rgba(240,180,41,.45)}
+
 /* ── 이야기 카드 · 기록 보관함 ─────────────── */
 .screen--story{cursor:pointer;background:#030405}
 .screen--story .screen__inner{text-align:center;max-width:640px}

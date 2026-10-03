@@ -16,8 +16,10 @@
 · 무전으로 이어지는 이야기 — 도쿄의 무선사, 방콕의 간호사, 마지막 배의 선장. 길에 떨어진 기록 20장
 · 탈출, 수집, 버티기, 소탕, 중계기 지키기, 다리 앞의 그것, 그리고 마지막 배
 · 몰려오는 무리 — 연출가가 긴장과 숨 돌릴 틈을 번갈아 만든다. 비명이 먼저 들리고, 무리는 지나온 길에서 온다
-· 우는 것, 부푼 것, 뱉는 것 — 피해 가야 할 특수 감염체
+· 우는 것, 부푼 것, 뱉는 것, 비명 지르는 것 — 피하거나 먼저 쏴야 할 특수 감염체
 · 서바이벌 — 네 도시에서 얼마나 버티는지, 도시별 기록
+· 도전 모드 — 짧은 판 다섯에서 점수와 메달을 겨룬다. 연달아 쓰러뜨리면 배수가 오른다
+· 헤드폰을 끼면 어둠 속 소리가 왼쪽 오른쪽에서 들린다
 · 쉬운 조작 — 엄지가 닿는 곳에 생기는 스틱과 자동 조준. 키보드 · 마우스 · 게임패드 · 키 설정
 · 한국어 · English, 오프라인 실행, 광고 없음, 개인정보 수집 없음
 
@@ -37,8 +39,10 @@ On radio channel 9, a stranger's voice: "This is Haru. If you can hear me, say s
 • A story told over the radio — a radio operator in Tokyo, a nurse in Bangkok, the captain of the last ship. 20 records to find in the streets
 • Escape, collect, hold out, purge, guard the relays, face the thing at the bridge — and make the last ship
 • A director that paces the hordes — screams first, then they come from the way you came
-• The Weeper, the Bloater, the Spitter — special infected you must play around
+• The Weeper, the Bloater, the Spitter, the Screamer — special infected to avoid or shoot first
 • Survival in all four cities, with a best time for each
+• Challenge mode — five short runs for score and medals; chain kills to raise the multiplier
+• Wear headphones: in the dark, sounds come from the left and the right
 • Easy controls — sticks that appear under your thumb and auto-aim; keyboard, mouse, gamepad and key remapping
 • Korean and English. Plays offline. No ads. No data collected.
 

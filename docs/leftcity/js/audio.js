@@ -45,6 +45,16 @@ const SFX = (() => {
     return buf;
   }
 
+  /* 헤드폰 입체 음향 (원작의 '3D audio') — 게임이 소리 나는 곳의 가로 위치를 pan() 으로 알려 주면
+     그 사이에 나는 소리를 좌우로 벌린다. 화면 왼쪽의 감염체는 왼쪽 귀에서 들린다 */
+  let srcPan = 0;
+  function outTo(node) {
+    if (srcPan && ctx.createStereoPanner) {
+      const sp = ctx.createStereoPanner(); sp.pan.value = srcPan;
+      node.connect(sp); sp.connect(master);
+    } else node.connect(master);
+  }
+
   /** 노이즈 한 번 재생 (타격감·폭발·발소리용) */
   function burst(dur, freq, q, gain, type = 'lowpass', decay) {
     if (!enabled || !ctx) return;
@@ -58,7 +68,7 @@ const SFX = (() => {
     const t = ctx.currentTime;
     g.gain.setValueAtTime(gain, t);
     g.gain.exponentialRampToValueAtTime(0.0001, t + (decay || dur));
-    src.connect(f); f.connect(g); g.connect(master);
+    src.connect(f); f.connect(g); outTo(g);
     src.start(t); src.stop(t + dur + 0.05);
   }
 
@@ -75,7 +85,7 @@ const SFX = (() => {
     g.gain.setValueAtTime(0.0001, t);
     g.gain.exponentialRampToValueAtTime(gain, t + 0.012);
     g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-    o.connect(g); g.connect(master);
+    o.connect(g); outTo(g);
     o.start(t); o.stop(t + dur + 0.03);
   }
 
@@ -181,6 +191,8 @@ const SFX = (() => {
 
   return {
     init, resume,
+    /** 이어서 나는 소리의 출처 — 플레이어 기준 가로 거리(px). 0 이면 가운데 */
+    pan(dx) { srcPan = dx ? Math.max(-0.85, Math.min(0.85, dx / 420)) : 0; },
     get ready() { return !!ctx; },
 
     /** 빗소리 루프 시작 */
@@ -313,7 +325,7 @@ const SFX = (() => {
       const n = Math.max(0.45, near(d * 0.6));
       const pan = ctx.createStereoPanner ? ctx.createStereoPanner() : null;
       const out = pan || master;
-      if (pan) { pan.pan.value = Math.max(-0.9, Math.min(0.9, Math.sin(rel))); pan.connect(master); }
+      if (pan) { pan.pan.value = Math.max(-0.9, Math.min(0.9, Math.cos(rel) * 0.9)); pan.connect(master); }   // rel: 화면 기준 방향각
       const t0 = ctx.currentTime;
       for (let i = 0; i < 6; i++) {
         const at = t0 + i * 0.11 + Math.random() * 0.15;
@@ -348,6 +360,19 @@ const SFX = (() => {
       tone(600, 1.1, 0.2 * n, 'sawtooth', 1500);
       tone(612, 1.1, 0.14 * n, 'square', 1480);
       burst(0.9, 2400, 0.8, 0.18 * n, 'bandpass', 0.85);
+    },
+    /** 비명 지르는 것 — 숨을 길게 들이켜는 소리 (예고) */
+    inhale(d) {
+      const n = Math.max(0.35, near(d));
+      burst(1.5, 700, 1.2, 0.12 * n, 'bandpass', 1.5);
+      tone(180, 1.5, 0.05 * n, 'sawtooth', 420);
+    },
+    /** 비명 — 높고 길게 찢어지는 소리 */
+    scream(d) {
+      const n = Math.max(0.55, near(d));
+      tone(880, 1.4, 0.2 * n, 'sawtooth', 1250);
+      tone(905, 1.4, 0.14 * n, 'square', 1210);
+      burst(1.2, 3000, 0.7, 0.2 * n, 'bandpass', 1.1);
     },
     /** 부푼 것 — 배 속에서 끓는 소리 */
     gurgle(d) {

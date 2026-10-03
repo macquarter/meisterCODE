@@ -482,10 +482,11 @@ const Hints = (() => {
     brute:    () => [T('거대한 것'), T('잘 밀리지 않는다. 수류탄을 아끼지 말 것')],
     crawler:  () => [T('기어다니는 것'), T('웅크렸다 튄다. 일정하게 다가오지 않는다')],
     spitter:  () => [T('뱉는 것'), T('거리를 두고 산을 뱉는다. 초록 웅덩이는 밟지 말 것')],
-    behemoth: () => [T('그것'), T('붉은 선이 뜨면 옆으로 비켜라. 벽에 박으면 비틀거린다')]
+    behemoth: () => [T('그것'), T('붉은 선이 뜨면 옆으로 비켜라. 벽에 박으면 비틀거린다')],
+    screamer: () => [T('비명 지르는 것'), T('숨을 들이켜는 소리가 들리면 먼저 쏴라 — 비명을 지르면 무리가 온다')]
   };
   // 지금 당장 알아야 하는 것은 줄 앞으로 끼워 넣는다
-  const URGENT = new Set(['bile', 'weeper', 'horde', 'melee', 'reload', 'nade', 'runner', 'brute', 'crawler', 'spitter', 'behemoth']);
+  const URGENT = new Set(['bile', 'weeper', 'horde', 'melee', 'reload', 'nade', 'runner', 'brute', 'crawler', 'spitter', 'behemoth', 'screamer']);
 
   const queue = [];
   let cur = null, t = 0, gap = 0;
@@ -493,6 +494,8 @@ const Hints = (() => {
   function push(id) {
     if (!SETTINGS.hints || seen[id] || cur === id || queue.includes(id)) return;
     if (URGENT.has(id)) queue.unshift(id); else queue.push(id);
+    // 지금 알아야 하는 것은 느긋한 도움말을 끊고 바로 띄운다 (비명의 들이켜기는 1.6초뿐이다)
+    if (URGENT.has(id) && cur && !URGENT.has(cur)) { hide(); gap = 0; }
   }
   function show(id) {
     const [key, msg] = TEXT[id]();
@@ -501,7 +504,7 @@ const Hints = (() => {
     el.querySelector('span').textContent = msg;
     el.classList.add('show');
     cur = id;
-    t = id in { runner: 1, brute: 1, crawler: 1, spitter: 1, behemoth: 1, horde: 1, weeper: 1, bloater: 1, bile: 1 } ? 4.6 : 3.8;
+    t = id in { runner: 1, brute: 1, crawler: 1, spitter: 1, behemoth: 1, horde: 1, weeper: 1, bloater: 1, bile: 1, screamer: 1 } ? 4.6 : 3.8;
     seen[id] = 1; save();
   }
   function hide() { $('hint').classList.remove('show'); cur = null; gap = 0.5; }
@@ -534,6 +537,7 @@ const Hints = (() => {
         if (z.aggro && d < 320) close++;
         if (z.lit > 0.5 && z.type !== 'walker' && !z.t.weeper) push(z.type);
         if (z.t.weeper && d < 560) push('weeper');
+        if (z.screamPhase === 'wind') push('screamer');
       }
       if (g.boss && !g.boss.dead && g.boss.aggro &&
           Math.hypot(g.boss.x - p.x, g.boss.y - p.y) < 700) push('behemoth');
@@ -640,6 +644,12 @@ const Ach = {
   /** 한 판이 끝났을 때 */
   onFinish(g, won, grade) {
     this.addKills(g.kills);
+    if (g.challenge) {
+      const b = g.challengeBests();
+      if (CHALLENGES.some(c => g.medalOf(c, b[c.id] | 0) >= 3)) this.unlock('gold1');
+      if (CHALLENGES.every(c => g.medalOf(c, b[c.id] | 0) >= 3)) this.unlock('goldAll');
+      return;
+    }
     if (g.survival) {
       if (g.time >= 600) this.unlock('surv10');
       const b = g.cityBests();
@@ -752,6 +762,18 @@ const G = {
     if (i > this.progress()) localStorage.setItem('aftermath.progress', i);
   },
   bestSurvival() { return +(localStorage.getItem('aftermath.best') || 0); },
+  /** 도전 기록 {id: 최고 점수} · 메달(0 없음, 1 동, 2 은, 3 금) */
+  challengeBests() {
+    try { const o = JSON.parse(localStorage.getItem('aftermath.chal') || '{}'); return o && typeof o === 'object' ? o : {}; } catch (e) { return {}; }
+  },
+  medalOf(C, score) { return C.medals.filter(m => score >= m).length; },
+  saveChallenge(C, score) {
+    const all = this.challengeBests(), prev = all[C.id] | 0;
+    const best = score > prev;
+    if (best) { all[C.id] = score; try { localStorage.setItem('aftermath.chal', JSON.stringify(all)); } catch (e) { /* 저장 불가 */ } }
+    return { best, prev, medal: this.medalOf(C, score), bestMedal: this.medalOf(C, Math.max(prev, score)) };
+  },
+  challengeOpen() { return this.progress() >= 2 || Object.keys(this.challengeBests()).length > 0; },
   /** 도시별 서바이벌 기록 {city: {t, kills}} */
   cityBests() {
     try { const o = JSON.parse(localStorage.getItem('aftermath.cityBest') || '{}'); return o && typeof o === 'object' ? o : {}; } catch (e) { return {}; }
@@ -789,12 +811,16 @@ const G = {
   /* ── 레벨 시작 ── */
   start(index, cp) {
     SFX.init(); SFX.resume();
-    this.survival = index === 'survival';
+    const C = typeof index === 'string' && index.startsWith('ch:') ? CHALLENGES.find(c => c.id === index.slice(3)) : null;
+    this.challenge = C || null;
+    this.survival = index === 'survival' || !!C;          // 도전은 서바이벌의 흐름(무한 소환 · 보급 · 이야기 없음)을 같이 쓴다
     this.levelIndex = this.survival ? -1 : index;
     const city = this.survivalCity || 'seoul';
-    const L = this.survival
+    const L = C ? Object.assign({}, SURVIVAL, { drops: [] }, C, { objective: { type: 'endless' } })
+      : this.survival
       ? Object.assign({}, SURVIVAL, { seed: (Math.random() * 1e9) | 0, city }, SURVIVAL_CITIES[city])
       : LEVELS[index];
+    this.combo = 0; this.comboMax = 0; this.lastKillT = -9; this.chHordeT = C && C.rules && C.rules.hordeEvery ? 6 : 0;
     this.level = L;
     this.world = new World(L.seed, L.blocks, cityOpts(L));
     Minimap.reset(this.world);
@@ -808,7 +834,7 @@ const G = {
     this.spits = []; this.acids = [];
     this.particles = []; this.decals = []; this.corpses = []; this.flashes = [];
     this.time = 0; this.shake = 0; this.kills = 0; this.score = 0; this.spitGapT = 0; this.fromCheckpoint = false;
-    this.nonPistol = false; this.weeperWoke = false;
+    this.nonPistol = false; this.weeperWoke = false; this.screams = 0;
     this.shots = 0; this.hits = 0; this.hitMark = 0;
     input.sprintLatch = false; input.idleT = 0; input.turnRate = 0; input.dragTurn = 0;
     Hints.begin(this);
@@ -889,7 +915,7 @@ const G = {
     for (let i = 0; i < initial; i++) this.spawnZombie(560, 1600);
     // 우는 것 — 가는 길 중간쯤, 시작점에서 멀찍이
     this.gas = [];
-    const nWeep = this.survival ? 2 : (L.weepers | 0);
+    const nWeep = C ? (C.weepers | 0) : this.survival ? 2 : (L.weepers | 0);
     const wr = makeRng(L.seed ^ 0x77e1);
     for (let i = 0, tries = 0; i < nWeep && tries < 400; tries++) {
       const idx = w.reach[Math.floor(wr() * w.reach.length)], q = w.tileCenter(idx);
@@ -950,6 +976,7 @@ const G = {
       this.rain.push({ x: Math.random() * (W + 400) - 200, y: Math.random() * H,
         v: 900 + Math.random() * 500, len: 12 + Math.random() * 16, a: 0.1 + Math.random() * 0.22 });
 
+    if (C && C.rules && C.rules.boss) this.dropBoss(520, 900);
     this.checkpoint = cp && cp.level === index ? cp : null;
     if (this.checkpoint) this.applyCheckpoint(this.checkpoint);
 
@@ -1016,9 +1043,9 @@ const G = {
   pickType() {
     const mix = this.level.mix;
     // 특수 감염체 상한 (L4D 처럼) — 뱉는 것은 동시에 둘까지. 넘으면 그 자리는 다른 종류로
-    let spitters = 0;
-    for (const z of this.zombies) if (!z.dead && z.t.spit) spitters++;
-    const capped = k => k === 'spitter' && spitters >= SPITTER_CAP;
+    let spitters = 0, screamers = 0;
+    for (const z of this.zombies) if (!z.dead) { if (z.t.spit) spitters++; if (z.t.scream) screamers++; }
+    const capped = k => (k === 'spitter' && spitters >= SPITTER_CAP) || (k === 'screamer' && screamers >= 1);
     let total = 0;
     for (const k in mix) if (ZTYPES[k] && !ZTYPES[k].special && !capped(k)) total += Math.max(0, mix[k]);
     if (total <= 0) return 'walker';
@@ -1099,7 +1126,7 @@ const G = {
     if (!spot) return false;
     D.pending = { x: spot.x, y: spot.y, n, t: 2.2 };
     const a = Math.atan2(spot.y - p.y, spot.x - p.x);
-    SFX.horde(Math.hypot(spot.x - p.x, spot.y - p.y) * 1.6, a - p.angle);   // 아직 멀다
+    SFX.horde(Math.hypot(spot.x - p.x, spot.y - p.y) * 1.6, a);   // 아직 멀다
     this.hordeAt = { x: spot.x, y: spot.y, t: 4.2 };
     const side = Math.abs(((a - p.angle + Math.PI * 3) % (Math.PI * 2)) - Math.PI) > 2.2 ? T('뒤에서') : T('옆에서');
     this.toast(T('무리가 온다 — {side}', { side }));
@@ -1120,13 +1147,26 @@ const G = {
       this.zombies.push(z); out.push(z);
     }
     if (!out.length) return;
-    SFX.horde(Math.hypot(q.x - p.x, q.y - p.y), Math.atan2(q.y - p.y, q.x - p.x) - p.angle);
+    SFX.horde(Math.hypot(q.x - p.x, q.y - p.y), Math.atan2(q.y - p.y, q.x - p.x));
     if (Math.random() < 0.6 && this.lightningT > 2) {               // 번개가 무리를 드러낸다
       this.lightning = SETTINGS.flash ? 1 : 0.22; SFX.thunder();
       this.lightningT = 14 + Math.random() * 18;
     }
     D.horde.push(...out); D.count++; D.sinceMob = 0;
     if (this.hordeAt) this.hordeAt.t = Math.max(this.hordeAt.t, 2);
+  },
+  /** 비명 — 곁의 감염체를 깨우고 무리를 그 자리로 부른다 */
+  onScream(z) {
+    const p = this.player, d = Math.hypot(z.x - p.x, z.y - p.y);
+    SFX.scream(d);
+    this.shake = Math.min(14, this.shake + 6);
+    this.stress(18);
+    this.screams = (this.screams || 0) + 1;
+    for (const o of this.zombies) if (!o.t.weeper && Math.hypot(o.x - z.x, o.y - z.y) < 720) o.aggro = true;
+    const D = this.dir;
+    if (D && D.pending) D.pending.n += 2;
+    else this.callHorde(this.hordeSize(), { x: z.x, y: z.y });
+    this.toast(T('비명 — 무리가 몰려온다'));
   },
   /** 부푼 것이 터졌다 — 녹색 가스가 남고, 가까웠으면 담즙을 뒤집어쓴다 */
   bloaterBurst(z) {
@@ -1162,7 +1202,9 @@ const G = {
   triggerAlarm(pr) {
     if (!pr || !pr.alarm || pr.ringing) return;
     pr.ringing = 7;
+    SFX.pan(pr.x - this.player.x);
     SFX.alarm(Math.hypot(pr.x - this.player.x, pr.y - this.player.y));
+    SFX.pan(0);
     this.toast(T('경보가 울린다 — 무리가 몰려온다'));
     // 숨 고르기 중이어도 경보는 무리를 부른다
     this.callHorde(this.hordeSize() + 2, pr);
@@ -1380,12 +1422,24 @@ const G = {
     const d = Math.hypot(z.x - this.player.x, z.y - this.player.y);
     this.stress(Math.max(0, 14 * (1 - d / 360)));
     this.hitStop(z.t.boss ? 0.16 : d < 120 ? 0.055 : 0.035);
-    this.score += Math.round(z.t.score * SETTINGS.mod.score);
+    if (this.challenge) {
+      // 도전: 2.5초 안에 이어 쓰러뜨리면 배수가 오른다 (×1 → ×3)
+      this.combo = this.time - this.lastKillT <= 2.5 ? this.combo + 1 : 1;
+      this.lastKillT = this.time;
+      this.comboMax = Math.max(this.comboMax, this.combo);
+      this.score += Math.round(z.t.score * SETTINGS.mod.score * this.comboMul());
+      if (z.t.boss) {
+        const bonus = Math.max(0, Math.round(3000 - this.time * 15));
+        this.score += bonus;
+        this.toast(T('그것을 쓰러뜨렸다 — 시간 보너스 {n}', { n: bonus }));
+        this.finishT = 1.2;
+      }
+    } else this.score += Math.round(z.t.score * SETTINGS.mod.score);
     if (z.t.boss) {
       this.boss = null;
       this.shake = Math.min(26, this.shake + 20);
       SFX.explode();
-      if (this.level.objective.type === 'endless') this.toast(T('그것을 쓰러뜨렸다'));
+      if (this.level.objective.type === 'endless') { if (!this.challenge) this.toast(T('그것을 쓰러뜨렸다')); }
       else if (this.level.objective.type === 'boss' && !this.exitOpen) this.openExit(T('그것이 쓰러졌다 — 다리가 열렸다'));
       else this.toast(T('그것을 쓰러뜨렸다'));
     }
@@ -1394,6 +1448,7 @@ const G = {
       if (this.goalsLeft === 0) this.openExit(T('소탕 완료 — 집결지가 표시되었다'));
     }
   },
+  comboMul() { return 1 + Math.min(Math.max(0, this.combo - 1), 8) * 0.25; },
   onGoalItem() {
     this.goalsLeft--;
     SFX.objective();
@@ -1508,7 +1563,8 @@ const G = {
       SFX.win();
       if (!this.survival) this.saveProgress(this.levelIndex + 1);
     }
-    if (this.survival) {
+    if (this.challenge) this.chResult = this.saveChallenge(this.challenge, this.score);
+    else if (this.survival) {
       const t = Math.floor(this.time);
       if (t > this.bestSurvival()) localStorage.setItem('aftermath.best', t);
       this.cityBest = this.saveCityBest(this.level.city, t, this.kills);
@@ -1629,11 +1685,13 @@ const G = {
     }
 
     /* 엔티티 */
-    for (const z of this.zombies) if (!z.dead) z.update(dt, this);
+    for (const z of this.zombies) if (!z.dead) { SFX.pan(z.x - p.x); z.update(dt, this); }
+    SFX.pan(0);
     this.separate(dt);
     for (const b of this.bullets) b.update(dt, this);
     for (const gr of this.grenades) gr.update(dt, this);
-    for (const sp of this.spits) sp.update(dt, this);
+    for (const sp of this.spits) { SFX.pan(sp.x - p.x); sp.update(dt, this); }
+    SFX.pan(0);
 
     // 산 웅덩이 — 밟고 있으면 계속 닳는다.
     // 겹친 웅덩이는 더하지 않고 가장 진한 쪽만 적용한다. 더하면 두 겹에 들어선 순간 즉사한다.
@@ -1711,7 +1769,7 @@ const G = {
     // 서바이벌: 120초마다 그것이 한 마리씩. 이미 있으면 겹쳐 보내지 않는다.
     // 타이머는 "실제로 내려보냈을 때"만 다음으로 넘긴다 — 자리를 못 찾았다고
     // 시간을 흘려보내면 웨이브가 통째로 사라진다.
-    if (this.survival && this.time >= this.nextBossT) {
+    if (this.survival && !this.challenge && this.time >= this.nextBossT) {
       if (this.boss && !this.boss.dead) {
         this.nextBossT = this.time + 60;
       } else {
@@ -1739,20 +1797,31 @@ const G = {
 
     if (this.survival && this.time > 30) {
       const t = this.time;
-      this.level.mix = {
+      if (!this.challenge) this.level.mix = {
         walker:  Math.max(0.18, 0.7 - t / 400),
         runner:  Math.min(0.45, 0.28 + t / 520),
         brute:   Math.min(0.28, Math.max(0, (t - 60) / 520)),
         crawler: Math.min(0.26, Math.max(0, (t - 35) / 420)),
         spitter: Math.min(0.20, Math.max(0, (t - 90) / 600)),
-        bloater: Math.min(0.10, Math.max(0, (t - 50) / 700))
+        bloater: Math.min(0.10, Math.max(0, (t - 50) / 700)),
+        screamer: Math.min(0.07, Math.max(0, (t - 70) / 800))
       };
       if (this.pickups.length < 6 && Math.random() < dt * 0.35) {
-        const types = ['ammo', 'ammo', 'shells', 'medkit', 'battery', 'nade'];
+        let types = ['ammo', 'ammo', 'shells', 'medkit', 'battery', 'nade'];
         if (p.owned.has('rifle')) types.push('rounds');
+        if (this.challenge && this.challenge.rules && this.challenge.rules.pistolOnly) types = ['medkit', 'battery', 'nade', 'medkit'];
         const q = this.world.pickPoint(p.x, p.y, 300, 1400);
         this.pickups.push(new Pickup(q.x, q.y, types[(Math.random() * types.length) | 0]));
       }
+    }
+
+    /* 도전: 시간 · 정해진 무리 · 그것을 쓰러뜨린 뒤 마무리 */
+    if (this.challenge) {
+      const C = this.challenge, R = C.rules || {};
+      if (R.hordeEvery && !p.dead) { this.chHordeT -= dt; if (this.chHordeT <= 0 && this.callHorde(this.hordeSize() + 2)) this.chHordeT = R.hordeEvery; }
+      if (this.combo > 1 && this.time - this.lastKillT > 2.5) this.combo = 0;
+      if (this.finishT > 0) { this.finishT -= dt; if (this.finishT <= 0) { this.finish(true); return; } }
+      if (this.time >= C.time && !p.dead) { this.finish(true); return; }
     }
 
     /* 목표 진행 */
@@ -1976,6 +2045,7 @@ function render() {
   drawRain(g);
   if (p.bile > 0) drawBile(p.bile);
   drawHordeCue(cam, g, p);
+  drawScreamCue(cam, g, p);
   drawHitDirs(cam, g, p, g.state === 'play' ? 1 / 60 : 0);
   drawCrosshair(g, p);
 }
@@ -1994,6 +2064,20 @@ function drawBile(t) {
   }
 }
 
+/** 비명 지르는 것이 숨을 들이켜는 동안 — 어둠 위에 좁혀 드는 주황 고리. 어디서 오는지 보고 먼저 쏘라고 */
+function drawScreamCue(cam, g, p) {
+  for (const z of g.zombies) {
+    if (z.screamPhase !== 'wind' || z.dead) continue;
+    if (Math.hypot(z.x - p.x, z.y - p.y) > 760) continue;
+    const k = 1 - Math.max(0, z.windT) / z.t.scream.wind;
+    ctx.save(); worldTransform(ctx, cam);
+    ctx.strokeStyle = `rgba(255,140,60,${0.35 + k * 0.5})`; ctx.lineWidth = 2.5;
+    ctx.beginPath(); ctx.arc(z.x, z.y, 46 - k * 28, 0, 6.283); ctx.stroke();
+    ctx.strokeStyle = `rgba(255,140,60,${0.15 + k * 0.2})`; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.arc(z.x, z.y, 70 - k * 30, 0, 6.283); ctx.stroke();
+    ctx.restore();
+  }
+}
 /** 무리가 오는 쪽을 플레이어 둘레의 붉은 호로 3초간 가리킨다 (소리를 못 듣는 환경 대비) */
 function drawHordeCue(cam, g, p) {
   const h = g.hordeAt;
@@ -3514,10 +3598,12 @@ function drawBriefMap(L) {
 let hudT = 0;
 G.refreshHud = function (force) {
   const p = this.player, ob = this.level.objective;
-  $('hudChapter').textContent = this.survival ? 'SURVIVAL' : `CHAPTER ${this.levelIndex + 1}`;
+  $('hudChapter').textContent = this.challenge ? `CHALLENGE · ${T(this.challenge.name)}` : this.survival ? 'SURVIVAL' : `CHAPTER ${this.levelIndex + 1}`;
 
   let obj;
-  if (ob.type === 'endless') obj = T('생존 {s}초 · 점수 {score}', { s: Math.floor(this.time), score: this.score });
+  if (this.challenge) obj = T('남은 {s}초 · 점수 {score}', { s: Math.max(0, Math.ceil(this.challenge.time - this.time)), score: this.score.toLocaleString() })
+    + (this.combo > 1 ? `  ×${this.comboMul().toFixed(2).replace(/0$/, '')}` : '');
+  else if (ob.type === 'endless') obj = T('생존 {s}초 · 점수 {score}', { s: Math.floor(this.time), score: this.score });
   else if (this.exitOpen) obj = ob.type === 'finale' ? T('현문으로 승선하라') : T('집결지로 이동하라');
   else if (ob.type === 'signal') obj = this.relayOn ? T('중계기 가동 중 {p}% — 곁을 지켜라', { p: Math.floor(this.relayOn.prog * 100) })
     : T('중계기 {n}/{t} 가동', { n: this.goalsTotal - this.goalsLeft, t: this.goalsTotal });
@@ -3611,7 +3697,7 @@ G.refreshHud = function (force) {
 /* ═══════════ 화면 전환 ═══════════ */
 const UI = {
   screens: ['scrTitle', 'scrChapters', 'scrHowto', 'scrBrief', 'scrCity', 'scrPause', 'scrResult',
-            'scrSettings', 'scrEnding', 'scrKeys', 'scrAbout', 'scrStory', 'scrJournal'],
+            'scrSettings', 'scrEnding', 'scrKeys', 'scrAbout', 'scrStory', 'scrJournal', 'scrChallenge'],
   settingsFrom: 'scrTitle',
   hideScreens() { this.screens.forEach(s => $(s).classList.add('hidden')); },
   show(id) { this.hideScreens(); $(id).classList.remove('hidden'); },
@@ -3692,6 +3778,9 @@ const UI = {
     const open = G.survivalOpen();
     $('btnSurvival').disabled = !open;
     $('btnSurvival').textContent = open ? T('서바이벌') : T('서바이벌 — 8장 완수 시 개방 ({n}/{t})', { n: Math.min(G.progress(), SURVIVAL_UNLOCK), t: SURVIVAL_UNLOCK });
+    const cOpen = G.challengeOpen();
+    $('btnChallenge').disabled = !cOpen;
+    $('btnChallenge').textContent = cOpen ? T('도전') : T('도전 — 2장 완수 시 개방');
     const nr = Records.all().length;
     $('btnJournal').textContent = T('기록 · 도전 과제 {n}/{t} · ★{a}', { n: nr, t: STORY.records.length, a: Ach.count() });
     this.show('scrTitle');
@@ -3774,6 +3863,28 @@ const UI = {
     $('journalList').innerHTML = html;
     this.show('scrJournal');
   },
+  /** 메달 이름 (0 없음) */
+  medalName(m) { return [T('메달 없음'), T('동메달'), T('은메달'), T('금메달')][m]; },
+  /** 도전 결과 한 줄 — 받은 메달과 다음 메달까지 */
+  medalLine() {
+    const C = G.challenge, m = G.medalOf(C, G.score);
+    const next = C.medals[m];
+    return m >= 3 ? T('{medal} — {score}점', { medal: this.medalName(m), score: G.score.toLocaleString() })
+      : T('{medal} — {score}점 · {next}까지 {n}점', { medal: this.medalName(m), score: G.score.toLocaleString(), next: this.medalName(m + 1), n: (next - G.score).toLocaleString() });
+  },
+  showChallenges() {
+    const bests = G.challengeBests();
+    $('challengeList').innerHTML = CHALLENGES.map(c => {
+      const b = bests[c.id] | 0, m = G.medalOf(c, b);
+      return `<button class="chal" data-act="chstart" data-id="${c.id}">
+        <span class="chal__medal m${m}" aria-label="${this.medalName(m)}"></span>
+        <b>${T(c.name)}<small>${T(CITY_NAME[c.city])}</small></b>
+        <span class="chal__note">${T(c.note)}</span>
+        <span class="chal__best">${b ? T('최고 {s}점', { s: b.toLocaleString() }) + ' · ' + this.medalName(m) : T('기록 없음')}</span>
+      </button>`;
+    }).join('');
+    this.show('scrChallenge');
+  },
   /** 서바이벌 도시 고르기 — 도시마다 최고 기록을 붙인다 */
   showCities() {
     const bests = G.cityBests();
@@ -3800,7 +3911,7 @@ const UI = {
     const p = G.player, ob = G.level.objective;
     const t = Math.floor(G.time);
     const acc = G.shots ? Math.round(G.hits / G.shots * 100) : null;
-    $('pauseWhere').textContent = G.survival
+    $('pauseWhere').textContent = G.challenge ? T('도전 · {name}', { name: T(G.challenge.name) }) : G.survival
       ? T('서바이벌 · {d}', { d: T(DIFFICULTY[G.difficulty].name) })
       : `CHAPTER ${G.levelIndex + 1} — ${T(G.level.name)} · ${T(DIFFICULTY[G.difficulty].name)}`;
 
@@ -3905,7 +4016,7 @@ const UI = {
   showResult(won) {
     const s = $('scrResult');
     s.classList.toggle('fail', !won);
-    $('resultTitle').textContent = won ? (G.survival ? T('기록 종료') : T('생존')) : T('사망');
+    $('resultTitle').textContent = G.challenge ? T('도전 종료') : won ? (G.survival ? T('기록 종료') : T('생존')) : T('사망');
     const nextBtn = s.querySelector('[data-act="next"]');
     if (won && !G.survival && G.levelIndex + 1 < LEVELS.length) {
       nextBtn.classList.remove('hidden');
@@ -3916,7 +4027,8 @@ const UI = {
     } else nextBtn.classList.add('hidden');
 
     const story = !G.survival && STORY.chapters[G.levelIndex];
-    $('resultSub').textContent = won
+    $('resultSub').textContent = G.challenge ? UI.medalLine()
+      : won
       ? (G.survival ? T('도시는 여전히 그대로다.') : story ? LT(story.outro) : T('숨을 고를 시간은 짧다.'))
       : T('불빛이 꺼졌다. ') + T(DEATH_TIP[G.lastHurt] || DEATH_TIP.crowd);
 
@@ -3936,7 +4048,7 @@ const UI = {
     Ach.fresh = [];
     Ach.onFinish(G, won, r.grade);
     const gradeEl = $('resultGrade');
-    gradeEl.hidden = false;
+    gradeEl.hidden = !!G.challenge;
     gradeEl.dataset.g = r.grade;
     gradeEl.querySelector('b').textContent = r.grade;
     gradeEl.querySelector('span').textContent = best ? T('최고 기록 {v}', { v: r.value }) : T('평가 {v}', { v: r.value });
@@ -3951,7 +4063,12 @@ const UI = {
       [T('점수'), `${G.score}`],
       [T('난이도'), T(DIFFICULTY[G.difficulty].name)]
     ];
-    if (G.survival) {
+    if (G.challenge) {
+      const C = G.challenge, cr = G.chResult || {};
+      rows.push([T('최대 연속'), T('{n}연속 · ×{m}', { n: G.comboMax, m: (1 + Math.min(Math.max(0, G.comboMax - 1), 8) * 0.25).toFixed(2).replace(/0$/, '') })]);
+      rows.push([T('최고 점수') + (cr.best ? ' ★' : ''), Math.max(cr.prev | 0, G.score).toLocaleString()]);
+      rows.push([T('메달 문턱'), C.medals.map(m => m.toLocaleString()).join(' · ')]);
+    } else if (G.survival) {
       const cb = G.cityBests()[G.level.city];
       if (cb) rows.push([T('{city} 최고', { city: T(CITY_NAME[G.level.city]) }) + (G.cityBest ? ' ★' : ''), T('{m}분 {s}초', { m: Math.floor(cb.t / 60), s: cb.t % 60 })]);
       rows.push([T('최고 기록'), T('{m}분 {s}초', { m: Math.floor(G.bestSurvival() / 60), s: G.bestSurvival() % 60 })]);
@@ -4039,13 +4156,15 @@ document.addEventListener('click', e => {
     }
     case 'wipe':
       if (confirm(T('챕터 진행 · 평가 · 서바이벌 기록을 지웁니다. 설정과 키 설정은 남습니다. 계속할까요?'))) {
-        for (const k of ['aftermath.progress', 'aftermath.grades', 'aftermath.best', 'aftermath.hints', 'aftermath.errors', 'aftermath.records', 'aftermath.cityBest', 'aftermath.prologue', 'aftermath.ach', 'aftermath.stats']) try { localStorage.removeItem(k); } catch (e) { /* 무시 */ }
+        for (const k of ['aftermath.progress', 'aftermath.grades', 'aftermath.best', 'aftermath.hints', 'aftermath.errors', 'aftermath.records', 'aftermath.cityBest', 'aftermath.prologue', 'aftermath.ach', 'aftermath.stats', 'aftermath.chal']) try { localStorage.removeItem(k); } catch (e) { /* 무시 */ }
         $('aboutMsg').textContent = T('진행 기록을 지웠습니다');
       }
       break;
     case 'start':    G.start(G.pendingLevel); break;
     case 'resume':   G.togglePause(); break;
-    case 'restart':  G.start(G.survival ? 'survival' : G.levelIndex); break;
+    case 'restart':  G.start(G.challenge ? 'ch:' + G.challenge.id : G.survival ? 'survival' : G.levelIndex); break;
+    case 'challenges': if (G.challengeOpen()) UI.showChallenges(); break;
+    case 'chstart': G.start('ch:' + btn.dataset.id); break;
     case 'checkpoint': if (G.checkpoint) G.start(G.levelIndex, G.checkpoint); break;
     case 'retryeasy':
       SETTINGS.set('difficulty', G.difficulty === 'hard' ? 'normal' : 'easy');

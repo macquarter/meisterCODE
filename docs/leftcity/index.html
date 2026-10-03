@@ -121,6 +121,7 @@
           <button class="btn btn--primary" data-act="campaign">전역 시작</button>
           <button class="btn" data-act="chapters">챕터 선택</button>
           <button class="btn" data-act="survival" id="btnSurvival">서바이벌</button>
+          <button class="btn" data-act="challenges" id="btnChallenge">도전</button>
           <button class="btn btn--ghost" data-act="journal" id="btnJournal">기록 보관함</button>
           <button class="btn btn--ghost" data-act="howto">조작법</button>
           <button class="btn btn--ghost" data-act="settings">설정</button>
@@ -168,6 +169,15 @@
         <p class="story__card" id="storyCard"></p>
         <p class="story__tap" id="storyTap">누르면 넘어갑니다</p>
         <button class="btn btn--ghost story__skip" data-act="storyskip">건너뛰기</button>
+      </div>
+    </section>
+
+    <section class="screen screen--list hidden" id="scrChallenge">
+      <div class="screen__inner">
+        <h2>도전</h2>
+        <p class="note">짧은 판에서 점수를 겨룬다. 2.5초 안에 이어서 쓰러뜨리면 배수가 오른다(최대 ×3).</p>
+        <div class="chals" id="challengeList"></div>
+        <button class="btn btn--ghost" data-act="back">돌아가기</button>
       </div>
     </section>
 

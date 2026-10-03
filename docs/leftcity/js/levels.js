@@ -52,7 +52,7 @@ const LEVELS = [
     seed: 4523, weepers: 1, blocks: 9, city: 'tokyo', river: true, landmarks: ['sensoji', 'tokyotower'],
     objective: { type: 'collect', count: 4, item: '연료통' },
     spawn: { initial: 12, rate: 0.5, max: 26 },
-    mix: { walker: 0.45, runner: 0.33, brute: 0.05, crawler: 0.17, bloater: 0.07 },
+    mix: { walker: 0.45, runner: 0.33, brute: 0.05, crawler: 0.17, bloater: 0.07, screamer: 0.04 },
     own: ['pistol', 'smg', 'shotgun'], drops: ['rifle'],
     startAmmo: { smg: 110, shell: 10, rifle: 0 }, startNades: 3,
     supplies: { ammo: 4, shells: 3, rounds: 1, medkit: 2, battery: 3, nade: 2 }
@@ -65,7 +65,7 @@ const LEVELS = [
     seed: 5631, weepers: 1, blocks: 8, city: 'tokyo', landmarks: ['scramble'], goal: 'scramble',
     objective: { type: 'survive', time: 90 },
     spawn: { initial: 9, rate: 0.55, max: 24 },
-    mix: { walker: 0.4, runner: 0.33, brute: 0.05, crawler: 0.14, spitter: 0.08, bloater: 0.08 },
+    mix: { walker: 0.4, runner: 0.33, brute: 0.05, crawler: 0.14, spitter: 0.08, bloater: 0.08, screamer: 0.03 },
     own: ['pistol', 'smg', 'shotgun', 'rifle'], drops: [],
     startAmmo: { smg: 130, shell: 14, rifle: 10 }, startNades: 3,
     supplies: { ammo: 8, shells: 4, rounds: 2, medkit: 3, battery: 3, nade: 3 }
@@ -78,7 +78,7 @@ const LEVELS = [
     seed: 6742, weepers: 1, blocks: 9, city: 'tokyo', landmarks: ['tokyotower', 'scramble'],
     objective: { type: 'purge', count: 30 },
     spawn: { initial: 13, rate: 0.52, max: 22 },
-    mix: { walker: 0.35, runner: 0.3, brute: 0.13, crawler: 0.12, spitter: 0.1, bloater: 0.08 },
+    mix: { walker: 0.35, runner: 0.3, brute: 0.13, crawler: 0.12, spitter: 0.1, bloater: 0.08, screamer: 0.05 },
     own: ['pistol', 'smg', 'shotgun', 'rifle'], drops: [],
     startAmmo: { smg: 140, shell: 16, rifle: 15 }, startNades: 4,
     supplies: { ammo: 8, shells: 4, rounds: 2, medkit: 4, battery: 3, nade: 3 }
@@ -91,7 +91,7 @@ const LEVELS = [
     seed: 7854, weepers: 2, blocks: 9, city: 'bangkok', landmarks: ['nightmarket', 'democracy'],
     objective: { type: 'collect', count: 5, item: '예비 배터리' },
     spawn: { initial: 12, rate: 0.6, max: 28 },
-    mix: { walker: 0.3, runner: 0.33, brute: 0.13, crawler: 0.12, spitter: 0.12, bloater: 0.1 },
+    mix: { walker: 0.3, runner: 0.33, brute: 0.13, crawler: 0.12, spitter: 0.12, bloater: 0.1, screamer: 0.06 },
     own: ['pistol', 'smg', 'shotgun', 'rifle'], drops: [],
     startAmmo: { smg: 120, shell: 12, rifle: 10 }, startNades: 4,
     supplies: { ammo: 6, shells: 3, rounds: 2, medkit: 3, battery: 2, nade: 3 },
@@ -106,7 +106,7 @@ const LEVELS = [
     approach: 52,                 // 다리 앞 — 넓어진 지도에서 출구 끝까지 걷게 하지 않는다 (98칸 → 약 52칸)
     objective: { type: 'boss' },
     spawn: { initial: 12, rate: 0.62, max: 26 },
-    mix: { walker: 0.26, runner: 0.32, brute: 0.18, crawler: 0.1, spitter: 0.14, bloater: 0.08 },
+    mix: { walker: 0.26, runner: 0.32, brute: 0.18, crawler: 0.1, spitter: 0.14, bloater: 0.08, screamer: 0.05 },
     own: ['pistol', 'smg', 'shotgun', 'rifle'], drops: [],
     startAmmo: { smg: 150, shell: 18, rifle: 20 }, startNades: 5,
     supplies: { ammo: 9, shells: 5, rounds: 3, medkit: 4, battery: 4, nade: 4 }
@@ -119,7 +119,7 @@ const LEVELS = [
     seed: 9173, weepers: 1, blocks: 8, city: 'singapore', river: true, landmarks: ['supertree', 'hawker'],
     objective: { type: 'signal', count: 3, hold: 6 },
     spawn: { initial: 12, rate: 0.6, max: 26 },
-    mix: { walker: 0.3, runner: 0.32, brute: 0.13, crawler: 0.11, spitter: 0.12, bloater: 0.1 },
+    mix: { walker: 0.3, runner: 0.32, brute: 0.13, crawler: 0.11, spitter: 0.12, bloater: 0.1, screamer: 0.07 },
     own: ['pistol', 'smg', 'shotgun', 'rifle'], drops: [],
     startAmmo: { smg: 130, shell: 14, rifle: 14 }, startNades: 4,
     supplies: { ammo: 9, shells: 4, rounds: 2, medkit: 4, battery: 3, nade: 3 }
@@ -133,7 +133,7 @@ const LEVELS = [
     approach: 60,
     objective: { type: 'finale', time: 60, bossAt: 35 },
     spawn: { initial: 12, rate: 0.62, max: 26 },
-    mix: { walker: 0.28, runner: 0.32, brute: 0.16, crawler: 0.1, spitter: 0.14, bloater: 0.08 },
+    mix: { walker: 0.28, runner: 0.32, brute: 0.16, crawler: 0.1, spitter: 0.14, bloater: 0.08, screamer: 0.06 },
     own: ['pistol', 'smg', 'shotgun', 'rifle'], drops: [],
     startAmmo: { smg: 150, shell: 18, rifle: 20 }, startNades: 5,
     supplies: { ammo: 9, shells: 5, rounds: 3, medkit: 4, battery: 4, nade: 4 }
@@ -161,3 +161,39 @@ const SURVIVAL_CITIES = {
   bangkok: { river: true,  landmarks: ['watarun', 'democracy', 'nightmarket'] },
   singapore: { river: true, landmarks: ['port', 'supertree', 'hawker'] }
 };
+
+/* 도전 — 원작의 '점수 도전 레벨'. 짧고 규칙이 하나씩 붙은 판에서 점수를 겨룬다.
+   연달아(2.5초 안에) 쓰러뜨리면 배수가 0.25씩 오른다(최대 ×3). 메달 문턱은 봇으로 잰 점수에 맞췄다 */
+const ALL_GUNS = ['pistol', 'smg', 'shotgun', 'rifle'];
+const CHALLENGES = [
+  { id: 'hunt', name: '사냥 시간', note: '2분 동안 최대한 많이. 연달아 쓰러뜨리면 배수가 오른다.',
+    city: 'seoul', seed: 31117, blocks: 8, river: true, landmarks: ['gwanghwamun'], time: 120, rules: { hordeEvery: 25 },
+    own: ['pistol', 'smg', 'shotgun'], startAmmo: { smg: 200, shell: 24, rifle: 0 }, startNades: 3,
+    supplies: { ammo: 8, shells: 4, rounds: 0, medkit: 3, battery: 4, nade: 3 },
+    spawn: { initial: 20, rate: 1.6, max: 44 }, mix: { walker: 0.55, runner: 0.3, crawler: 0.15 },
+    medals: [1000, 1800, 2600] },
+  { id: 'pistol', name: '권총 한 자루', note: '권총과 수류탄 셋뿐. 90초.',
+    city: 'tokyo', seed: 32233, blocks: 8, river: false, landmarks: ['scramble'], time: 90, rules: { pistolOnly: true },
+    own: ['pistol'], startAmmo: { smg: 0, shell: 0, rifle: 0 }, startNades: 3,
+    supplies: { ammo: 0, shells: 0, rounds: 0, medkit: 3, battery: 3, nade: 2 },
+    spawn: { initial: 10, rate: 0.8, max: 26 }, mix: { walker: 0.5, runner: 0.35, crawler: 0.15 },
+    medals: [350, 600, 900] },
+  { id: 'dark', name: '정전의 밤', note: '배터리가 네 배로 닳는다. 불빛을 아껴라. 2분.',
+    city: 'bangkok', seed: 33349, blocks: 8, river: true, landmarks: ['nightmarket'], time: 120, batteryDrain: 4.5,
+    own: ['pistol', 'smg', 'shotgun'], startAmmo: { smg: 160, shell: 16, rifle: 0 }, startNades: 3,
+    supplies: { ammo: 6, shells: 3, rounds: 0, medkit: 3, battery: 5, nade: 2 },
+    spawn: { initial: 12, rate: 0.8, max: 30 }, mix: { walker: 0.45, runner: 0.3, crawler: 0.15, screamer: 0.05, bloater: 0.05 },
+    medals: [500, 1100, 1600] },
+  { id: 'horde', name: '무리', note: '12초마다 무리가 온다. 150초를 버티며 쓰러뜨려라.',
+    city: 'singapore', seed: 34457, blocks: 8, river: true, landmarks: ['hawker'], time: 150, rules: { hordeEvery: 12 },
+    own: ALL_GUNS, startAmmo: { smg: 220, shell: 30, rifle: 20 }, startNades: 5,
+    supplies: { ammo: 10, shells: 5, rounds: 3, medkit: 4, battery: 4, nade: 4 },
+    spawn: { initial: 8, rate: 0.5, max: 40 }, mix: { walker: 0.5, runner: 0.3, brute: 0.08, crawler: 0.12 },
+    medals: [1500, 2800, 4200] },
+  { id: 'bigone', name: '큰 사냥감', note: '그것이 처음부터 쫓아온다. 빨리 쓰러뜨릴수록 점수가 크다. 3분.',
+    city: 'tokyo', seed: 35563, blocks: 8, river: false, landmarks: ['tokyotower'], time: 180, rules: { boss: true },
+    own: ALL_GUNS, startAmmo: { smg: 200, shell: 30, rifle: 30 }, startNades: 6,
+    supplies: { ammo: 8, shells: 5, rounds: 4, medkit: 4, battery: 4, nade: 4 },
+    spawn: { initial: 6, rate: 0.35, max: 16 }, mix: { walker: 0.6, runner: 0.25, crawler: 0.15 },
+    medals: [1200, 2600, 3600] }
+];

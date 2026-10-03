@@ -245,6 +245,16 @@ const MODELS = (() => {
             hair: '#121212', head: { dz: -1 },
             extra(R2, bob, L) { R2.ball(L * 1.1 - 1.2, 0, 21.5 + bob, 3.2, '#121212', false); } };
       shadow(ctx, z.x, z.y, 11);
+    } else if (t.scream) {
+      // 비명 지르는 것 — 마르고 길다. 들이켤 때 고개를 젖히고 팔을 벌리며, 입이 붉게 벌어진다
+      const wind = z.screamPhase === 'wind', open = wind ? 1 - Math.max(0, z.windT) / t.scream.wind : 0;
+      o = { S: 1.12, lean: wind ? -2.5 : 3.2, arms: wind ? 'claw' : 'swing', amp: wind ? 0.15 : amp, skin: t.head, top: t.body, pants: k.pants, hair: '#1a1714',
+            head: { dz: wind ? 1.4 : -0.4, dx: wind ? -1.2 : 0 },
+            extra(R2, bob, L) {
+              R2.ball(L + 2.6, 0, 22 + bob + (wind ? 1.4 : 0), 1 + open * 1.6, '#5a0e0c', false);   // 벌어진 입
+              for (const sd of [-1, 1]) R2.ball(L - 1, sd * 2.6, 17.5 + bob, 1.2, '#3a2a28', false);     // 드러난 갈비
+            } };
+      shadow(ctx, z.x, z.y, 11);
     } else if (t.spit) {
       const pulse = 0.85 + Math.sin(ph * 1.4) * 0.15, hot = z.spitT < 0.5;
       o = { S: 1.18, lean: 1, arms: 'hang', amp, skin: k.skin, top: k.top, pants: k.pants, hair: k.hair,

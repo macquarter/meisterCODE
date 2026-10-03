@@ -40,6 +40,10 @@ const ZTYPES = {
   // 부푼 것 — 느리게 다가와 붙으면 터진다. 가까이서 터지면 담즙을 뒤집어쓰고 무리가 몰려온다 (L4D 의 부머)
   bloater: { hp: 44, speed: 44, dmg: 0, r: 17, size: 17, hear: 300, score: 30,
              body: '#5f6b46', head: '#7d8a5a', bloat: true },
+  // 비명 지르는 것 (원작의 Screamer) — 플레이어를 보면 멈춰 서서 숨을 들이켜고(1.6초) 비명으로 무리를 부른다.
+  // 그 전에 쓰러뜨리면 막을 수 있다. 맞을 때마다 들이켜기가 조금씩 늦춰진다 — 먼저 쏘라는 표적
+  screamer: { hp: 66, speed: 62, dmg: 10, r: 12, size: 12, hear: 560, score: 45,   // 비명은 한 마리당 한 번
+              body: '#5d4b48', head: '#9a7c70', scream: { wind: 1.6, cool: 15, range: 560, delay: 0.25 } },
   // 그것 — 마지막 다리를 막아선 개체. 한 마리뿐이고, 죽어야 길이 열린다
   behemoth: { hp: 1150, speed: 40, dmg: 44, r: 24, size: 26, hear: 1600, score: 500,
               body: '#2f3a42', head: '#4a5a64', boss: true,
@@ -327,6 +331,7 @@ class Zombie {
     this.hp -= dmg;
     this.aggro = true;
     if (this.t.weeper && !this.rage && this.hp > 0) this.enrage(g);
+    if (this.screamPhase === 'wind') this.windT = Math.min(this.t.scream.wind, this.windT + this.t.scream.delay);
     this.flash = 0.07;                                        // 맞은 순간 하얗게
     if (this.type !== 'brute' && !this.t.boss) this.stagger = 0.09;
     // 넉백 — 맞은 방향으로 밀린다. 덩치는 덜 밀린다
@@ -341,7 +346,9 @@ class Zombie {
       g.spawnBlood(this.x, this.y, ang, 16);
       g.onKill(this);
       if (this.t.bloat) g.bloaterBurst(this);
+      SFX.pan(this.x - g.player.x);
       SFX.zombieDie(Math.hypot(this.x - g.player.x, this.y - g.player.y));
+      SFX.pan(0);
     }
   }
 
@@ -485,6 +492,25 @@ class Zombie {
       if (this.chargeT <= 0 && d > ch.min && d < ch.max && g.world.los(this.x, this.y, p.x, p.y)) {
         this.chargePhase = 'wind'; this.chargeT = ch.wind; this.chargeLocked = false;
         SFX.growl(d);
+      }
+    }
+
+    // 비명 지르는 것: 보이면 멈춰 서서 숨을 들이켜고, 다 들이켜면 비명으로 무리를 부른다
+    const sc = this.t.scream;
+    if (sc && this.aggro) {
+      if (this.screamT === undefined) this.screamT = 0.8 + Math.random() * 0.8;
+      if (this.screamPhase === 'wind') {
+        this.windT -= dt;
+        this.face = Math.atan2(dy, dx);
+        this.phase += dt * 4;
+        if (this.windT <= 0) { this.screamPhase = ''; this.screamT = Infinity; g.onScream(this); }   // 한 번 지르면 목이 쉰다 — 그 뒤로는 그냥 달려든다
+        return;
+      }
+      this.screamT -= dt;
+      if (this.screamT <= 0 && d < sc.range && !p.dead && g.world.los(this.x, this.y, p.x, p.y)) {
+        this.screamPhase = 'wind'; this.windT = sc.wind;
+        SFX.inhale(d);
+        return;
       }
     }
 

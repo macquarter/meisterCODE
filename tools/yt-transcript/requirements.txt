@@ -1,0 +1,8 @@
+yt-dlp>=2026.8.19
+youtube-transcript-api>=1.2.4
+faster-whisper>=1.2.1
+anthropic>=1.11.0
+requests>=2.31
+# 교차 확인(--summarize claude,gpt,gemini)을 쓸 때만 필요
+openai>=3.24.0
+google-genai>=2.28.0

@@ -218,21 +218,34 @@ body{display:flex;flex-direction:column;align-items:center;gap:32px;padding:32px
 .calc .us span.d{color:#fff}
 
 /* 06 영수증 */
-.rc{display:flex;gap:16px;margin-top:16px;align-items:center}
-.receipt{flex:1.45;background:#F7F8FA;color:#0A1220;border-radius:6px 6px 0 0;padding:14px 18px 12px;position:relative;
-  box-shadow:0 18px 40px rgba(0,0,0,.55);font-size:13px}
-.receipt::after{content:"";position:absolute;left:0;right:0;bottom:-8px;height:8px;
-  background:linear-gradient(-45deg,transparent 6px,#F7F8FA 0) 0 0/12px 8px repeat-x,linear-gradient(45deg,transparent 6px,#F7F8FA 0) 0 0/12px 8px repeat-x}
-.receipt h4{font-size:12px;font-weight:900;color:#7A8597;letter-spacing:.04em;padding-bottom:6px;border-bottom:1.5px dashed #C7CED9}
-.receipt p{display:flex;justify-content:space-between;gap:8px;padding:5px 0;font-weight:700;letter-spacing:-.03em;color:#3B4656}
-.receipt p b{font-weight:900;color:#0A1220;white-space:nowrap}
-.receipt .tot{margin-top:4px;padding-top:8px;border-top:1.5px dashed #C7CED9;font-size:15px;font-weight:900;color:#0A1220}
-.receipt .tot b{font-size:19px;color:#D93A3A;position:relative}
-.receipt .tot b::after{content:"";position:absolute;left:-4px;right:-4px;top:52%;height:3px;background:#D93A3A;transform:rotate(-6deg)}
-.rc .now{flex:1;text-align:left}
-.rc .now small{display:block;font-size:13px;font-weight:800;color:#AEB7C4}
-.rc .now b{display:block;font-size:46px;font-weight:900;letter-spacing:-.06em;color:var(--blue-lit);line-height:1.05;margin:4px 0}
-.rc .now span{font-size:13px;font-weight:700;color:#CFD6E1;line-height:1.6}
+/* 06 막대 비교: 가로 전체 = 786만원, 모든 막대가 같은 축척 */
+.cm{margin-top:16px}
+.cm-lab{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px}
+.cm-lab span{font-size:14px;font-weight:800;color:#CFD6E1}
+.cm-lab b{font-size:22px;font-weight:900;letter-spacing:-.04em;color:#E3E8EF}
+.cm-bar{display:flex;height:36px;gap:2px}
+.cm-bar i{display:block;height:100%}
+.cm-bar i:first-child{border-radius:6px 0 0 6px}
+.cm-bar .rg{flex:1;border-radius:0 6px 6px 0;border:1px dashed rgba(255,255,255,.3);
+  background:repeating-linear-gradient(135deg,rgba(255,255,255,.12) 0 6px,transparent 6px 12px)}
+.cm-lg{display:flex;flex-wrap:wrap;gap:4px 10px;margin-top:8px;font-size:12px;font-weight:700;color:#AEB7C4}
+.cm-lg em{font-style:normal;display:inline-flex;align-items:center;gap:4px}
+.cm-lg em::before{content:"";width:8px;height:8px;border-radius:2px;background:var(--c)}
+.cm-lg em.hx::before{background:repeating-linear-gradient(135deg,rgba(255,255,255,.5) 0 2px,transparent 2px 4px);outline:1px dashed rgba(255,255,255,.4)}
+.cm-us{position:relative;margin-top:16px}
+.cm-hd{display:flex;align-items:baseline;gap:8px;margin-bottom:8px}
+.cm-hd span{font-size:14px;font-weight:800;color:#CFD6E1}
+.cm-hd b{font-size:34px;font-weight:900;letter-spacing:-.06em;color:var(--blue-lit);line-height:1;text-shadow:0 0 28px rgba(46,123,246,.55)}
+.cm-row{display:flex;align-items:center;gap:10px;height:28px;margin-bottom:6px}
+.cm-row i{display:block;height:100%;background:var(--blue);border-radius:4px;flex:0 0 auto}
+.cm-row.lead i{box-shadow:0 0 22px rgba(46,123,246,.8)}
+.cm-row b{font-size:18px;font-weight:900;letter-spacing:-.045em;white-space:nowrap}
+.cm-row.lead b{color:var(--blue-lit)}
+.cm-row small{font-size:12px;font-weight:700;color:#AEB7C4;white-space:nowrap}
+.cm-row small em{font-style:normal;color:#fff;font-weight:900}
+.cm-dash{position:absolute;right:0;bottom:6px;width:190px;background:#0E141D;border:1px solid rgba(46,123,246,.5);border-radius:10px;padding:8px}
+.cm-dash .dimg{background:url(img/dash-kpi-crop.png) 0 0/100% auto no-repeat;aspect-ratio:1540/300;border-radius:4px;margin-bottom:8px}
+.cm-dash p{font-size:13px;font-weight:900;letter-spacing:-.035em;line-height:1.4}
 /* 07 방사형 */
 .c7b .in{flex-direction:row;align-items:center;gap:8px;padding-right:20px}
 .c7b .l{flex:0 0 250px}
@@ -363,19 +376,20 @@ body{display:flex;flex-direction:column;align-items:center;gap:32px;padding:32px
   <div class="beam"></div>
   <div class="top"><b>MEISTER<span>CODE</span></b><span>06 / 09</span></div>
   <div class="in">
-    <p class="eyebrow">따로 맡기면 얼마일까</p>
     <p class="h s">원래는 이만큼<br><span class="b">들어가야 하는 일입니다</span></p>
-    <div class="rc">
-      <div class="receipt"><h4>외주 견적서 · 주 5회 운영 기준</h4>
-        <p>AI 3D 쇼츠 영상 20편<b>260만원</b></p>
-        <p>인스타그램 운영<b>52~130만원</b></p>
-        <p>스레드 운영 + 댓글 응대<b>52~130만원</b></p>
-        <p>네이버 블로그 운영<b>22~133만원</b></p>
-        <p>홈페이지 기술 블로그<b>22~133만원</b></p>
-        <p class="tot">합계<b>408~786만원</b></p></div>
-      <div class="now"><small>마이스터코드 · 월 콘텐츠 100건</small><b>290만원</b><span>위 다섯 가지 전부<br>성과 대시보드 포함<br>VAT 별도</span></div>
+    <div class="cm">
+      <div class="cm-lab"><span>5곳에 따로 맡기면 · 월 100건(주 5회)</span><b>월 408~786만원</b></div>
+      <div class="cm-bar"><i style="width:33.08%;background:#7A8597"></i><i style="width:6.62%;background:#5F6A7A"></i><i style="width:6.62%;background:#4D5767"></i><i style="width:2.8%;background:#3F4856"></i><i style="width:2.8%;background:#353D49"></i><i class="rg"></i></div>
+      <div class="cm-lg"><em style="--c:#7A8597">3D 쇼츠 20편 260만</em><em style="--c:#5F6A7A">인스타 52만~</em><em style="--c:#4D5767">스레드 52만~</em><em style="--c:#3F4856">네이버 22만~</em><em style="--c:#353D49">홈페이지 22만~</em><em class="hx">시세 상단까지</em></div>
+      <div class="cm-us">
+        <div class="cm-hd"><span>마이스터코드는</span><b>월 79만원부터</b></div>
+        <div class="cm-row lead"><i style="width:10.05%"></i><b>79만원</b><small>월 20건</small></div>
+        <div class="cm-row"><i style="width:24.05%"></i><b>189만원</b><small>월 60건</small></div>
+        <div class="cm-row"><i style="width:36.9%"></i><b>290만원</b><small><em>같은 월 100건</em></small></div>
+        <div class="cm-dash"><div class="dimg"></div><p>운영은 전달되는<br>대시보드로 확인하시면 됩니다</p></div>
+      </div>
     </div>
-    <p class="src" style="margin-top:16px">크몽 공개 가격(2026년 10월) 기준. 쇼츠는 3D가 아닌 일반 숏폼 평균 13만원으로 낮춰 계산, 스레드·홈페이지 블로그는 SNS·블로그 운영 시세 준용</p>
+    <p class="src">회색은 크몽 공개 가격(2026년 10월) 기준, 쇼츠는 일반 숏폼 평균 13만원으로 낮춰 계산 · 막대는 같은 축척 · VAT 별도</p>
   </div>
 </section>
 

@@ -1,0 +1,291 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>AI 3D 설명 쇼츠 — 크몽 이미지 9장</title>
+<link rel="stylesheet" href="../css/base.css">
+<link rel="stylesheet" href="../시안/thumb.css">
+<style>
+body{display:flex;flex-direction:column;align-items:center;gap:30px;padding:30px 0}
+.card{width:652px;height:488px;position:relative;overflow:hidden;background:#000;color:#fff;display:flex;flex-direction:column}
+.card--paper{background:var(--paper);color:#0A1220}
+.top{position:absolute;z-index:3;left:36px;right:36px;top:22px;display:flex;justify-content:space-between;
+  font-size:11px;font-weight:800;letter-spacing:.04em;color:#6c7889}
+.top b{color:#fff;font-weight:900}.top b span{color:var(--blue)}
+.card--paper .top b{color:#0A1220}
+.in{position:relative;z-index:2;flex:1;display:flex;flex-direction:column;justify-content:center;padding:48px 36px 24px}
+.eyebrow{font-size:13px;font-weight:800;color:var(--blue-lit);letter-spacing:-.02em;margin-bottom:8px}
+.card--paper .eyebrow{color:var(--blue)}
+.h{font-size:36px;font-weight:900;line-height:1.2;letter-spacing:-.05em}
+.h.s{font-size:31px}
+.p{font-size:14px;font-weight:500;line-height:1.65;color:var(--gray);letter-spacing:-.028em}
+.card--paper .p{color:var(--gray-d)}
+.red{color:#FF6B5E}
+
+/* 쇼츠 폰 프레임 */
+.phone{position:relative;width:196px;height:348px;border-radius:26px;background:#05080F;
+  border:6px solid #1A212C;box-shadow:0 26px 60px rgba(0,0,0,.75),0 0 70px rgba(46,123,246,.22);overflow:hidden}
+.phone svg{position:absolute;left:-52px;top:62px;width:300px;height:300px}
+.phone .pbar{position:absolute;left:12px;top:12px;right:12px;display:flex;justify-content:space-between;
+  font-size:9px;font-weight:800;color:rgba(255,255,255,.75);z-index:2}
+.phone .live{background:#FF4D3D;color:#fff;padding:2px 6px;border-radius:3px}
+.sbt{position:absolute;left:10px;right:10px;bottom:46px;text-align:center;z-index:2;font-weight:900;letter-spacing:-.05em;
+  font-size:21px;line-height:1.2;color:#fff;-webkit-text-stroke:5px #000;paint-order:stroke fill}
+.sbt em{font-style:normal;color:#FFD84D}
+.phone::after,.ba .after::after{content:"";position:absolute;left:0;right:0;bottom:0;height:46%;background:linear-gradient(rgba(5,8,15,0),rgba(5,8,15,.94));z-index:1}
+.phone .meta{position:absolute;left:12px;bottom:14px;right:12px;font-size:8.5px;font-weight:700;color:rgba(255,255,255,.7);z-index:2}
+
+/* 01 */
+.c1 .main{gap:10px;padding-right:30px}
+.c1 .l{width:60%}
+.c1 h1{font-size:37px;font-weight:900;line-height:1.18;letter-spacing:-.052em;margin-bottom:12px}
+.c1 .sub{margin-bottom:16px}
+.c1 .p-big{font-size:50px}
+.c1 .r{width:40%;display:flex;justify-content:flex-end}
+.c1 .phone{width:178px;height:316px}
+.c1 .phone svg{left:-42px;top:44px}
+
+/* 02 */
+.rows{margin-top:20px;border-top:1px solid rgba(255,255,255,.09)}
+.row{display:flex;align-items:center;gap:14px;padding:11px 0;border-bottom:1px solid rgba(255,255,255,.09)}
+.ico{flex:0 0 36px;height:36px;border-radius:50%;background:var(--blue);display:flex;align-items:center;justify-content:center}
+.ico svg{width:18px;height:18px;stroke:#fff;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.row b{font-size:15.5px;font-weight:800;letter-spacing:-.035em}
+.row span{font-size:13px;font-weight:500;color:var(--gray);margin-left:8px}
+
+/* 03 비포/애프터 */
+.ba{display:flex;gap:12px;margin-top:18px}
+.ba > div{flex:1;border-radius:12px;overflow:hidden;position:relative;height:236px}
+.ba .before{background:#E3E7EE;display:flex;align-items:center;justify-content:center}
+.ba .before .wall{width:70%;height:62%;background:linear-gradient(135deg,#F4F6F9,#D8DEE7);border-radius:4px;box-shadow:inset 0 0 0 1px #CBD3DF}
+.ba .after{background:#05080F}
+.ba .after svg{position:absolute;left:-4px;top:-34px;width:300px;height:300px}
+.ba .lab{position:absolute;left:12px;top:12px;font-size:11.5px;font-weight:900;padding:4px 9px;border-radius:5px;z-index:2}
+.ba .before .lab{background:#fff;color:#5A6577}
+.ba .after .lab{background:var(--blue);color:#fff}
+.ba .cap{position:absolute;left:12px;bottom:12px;font-size:13px;font-weight:800;z-index:2;letter-spacing:-.03em}
+.ba .before .cap{color:#5A6577}
+.ba .after .cap{color:#fff}
+
+/* 04 숫자 */
+.nums{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:24px}
+.num{border:1px solid rgba(255,255,255,.12);border-radius:12px;padding:16px 14px;background:rgba(255,255,255,.03)}
+.num.on{background:var(--blue);border-color:var(--blue)}
+.num b{display:block;font-size:31px;font-weight:900;letter-spacing:-.05em;line-height:1.1}
+.num span{font-size:12px;font-weight:600;color:var(--gray)}
+.num.on span{color:rgba(255,255,255,.9)}
+.foot-n{margin-top:14px;font-size:11.5px;font-weight:600;color:#6c7889}
+
+/* 05 공정 */
+.flow{display:flex;gap:8px;margin-top:24px}
+.st{flex:1;background:#fff;border:1px solid #DFE4EC;border-radius:12px;padding:14px 11px 15px;position:relative}
+.st.on{background:var(--blue);border-color:var(--blue);color:#fff;box-shadow:0 14px 34px rgba(46,123,246,.35)}
+.st i{font-style:normal;font-size:11px;font-weight:900;color:var(--blue)}
+.st.on i{color:rgba(255,255,255,.85)}
+.st b{display:block;font-size:15px;font-weight:900;letter-spacing:-.04em;margin:7px 0 5px;line-height:1.3}
+.st p{font-size:11.5px;font-weight:500;line-height:1.5;color:var(--gray-d);letter-spacing:-.025em}
+.st.on p{color:rgba(255,255,255,.92)}
+.arr{position:absolute;right:-7px;top:50%;width:7px;height:7px;border-top:2px solid #9AA4B4;border-right:2px solid #9AA4B4;transform:translateY(-50%) rotate(45deg);z-index:2}
+
+/* 06 구성 */
+.c6 .in{flex-direction:row;align-items:center;gap:26px;padding-top:50px}
+.c6 .l{flex:1}
+.inc{margin-top:16px}
+.inc div{display:flex;gap:10px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.09);font-size:13.5px;font-weight:700;letter-spacing:-.03em}
+.inc div span{color:var(--gray);font-weight:500;margin-left:auto;font-size:12.5px}
+.inc svg{width:16px;height:16px;stroke:var(--blue-lit);fill:none;stroke-width:2.6;stroke-linecap:round;stroke-linejoin:round;flex:0 0 16px;margin-top:2px}
+
+/* 07 채널 */
+.ch{display:grid;grid-template-columns:repeat(5,1fr);gap:9px;margin-top:24px}
+.ch div{border:1px solid rgba(255,255,255,.12);border-radius:12px;padding:16px 10px;text-align:center;background:rgba(255,255,255,.03)}
+.ch svg{width:26px;height:26px;stroke:var(--blue-lit);fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.ch b{display:block;font-size:13.5px;font-weight:900;margin-top:9px;letter-spacing:-.03em}
+.ch span{font-size:11px;font-weight:600;color:var(--gray)}
+.ch .hub{grid-column:1/-1;background:var(--blue);border-color:var(--blue);padding:12px;font-size:14px;font-weight:900}
+.note{margin-top:14px;font-size:12px;font-weight:600;color:var(--gray);line-height:1.6}
+.note b{color:#fff}
+
+/* 08 비교 */
+.cmp{width:100%;border-collapse:separate;border-spacing:0;margin-top:20px;font-size:13px}
+.cmp th,.cmp td{padding:11px 12px;text-align:left;border-bottom:1px solid #DFE4EC}
+.cmp th{font-size:12px;font-weight:800;color:var(--gray-d)}
+.cmp td{font-weight:700;letter-spacing:-.03em}
+.cmp td:first-child{color:var(--gray-d);font-weight:700;width:22%}
+.cmp .us{background:var(--blue);color:#fff;font-weight:900;border-bottom-color:rgba(255,255,255,.2)}
+.cmp th.us{color:#fff;border-radius:10px 10px 0 0}
+.cmp tr:last-child .us{border-radius:0 0 10px 10px}
+.src{margin-top:12px;font-size:10.5px;font-weight:600;color:#8892A2}
+
+/* 09 가격 */
+.price{display:flex;gap:9px;margin-top:20px}
+.pr{flex:1;border:1px solid rgba(255,255,255,.14);border-radius:12px;padding:14px 14px 15px;position:relative;background:rgba(255,255,255,.03)}
+.pr.on{background:var(--blue);border-color:var(--blue);box-shadow:0 14px 34px rgba(46,123,246,.35)}
+.pr .n{font-size:13px;font-weight:900;letter-spacing:-.03em}
+.pr .v{font-size:27px;font-weight:900;letter-spacing:-.05em;color:var(--blue-lit);line-height:1.1;margin-top:10px}
+.pr.on .v{color:#fff}
+.pr .d{font-size:11.5px;font-weight:600;color:var(--gray);margin-top:6px;line-height:1.5}
+.pr.on .d{color:rgba(255,255,255,.9)}
+.pr .flag{position:absolute;top:-9px;right:10px;background:#fff;color:#0A1220;font-size:10px;font-weight:900;padding:3px 7px;border-radius:4px}
+.promise{display:flex;gap:14px;margin-top:14px;padding:12px 14px;border-radius:10px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08)}
+.promise div{flex:1;font-size:11.5px;font-weight:600;color:var(--gray);letter-spacing:-.02em}
+.promise b{display:block;font-size:13px;font-weight:800;color:#fff;margin-bottom:2px}
+</style>
+
+<!-- ═════ 01 썸네일 ═════ -->
+<section class="card c1">
+  <div class="beam"></div>
+  <div class="main">
+    <div class="l"><span class="tag">설비·시공·제조 업종 전용</span>
+      <h1>벽 속까지<br><span class="b">3D로 보여주는</span><br>설명 쇼츠</h1>
+      <p class="sub">대본 · 3D 장면 · 나레이션 · 자막 한 번에</p>
+      <div class="p-row"><span class="p-lab">런칭가 · 1편</span></div>
+      <span class="p-big">19만원~</span><p class="p-note">월 12편 운영 패키지 있음</p></div>
+    <div class="r"><div class="phone">
+      <div class="pbar"><span>Shorts</span><span class="live">3D</span></div>
+      <svg class="iso" data-scan="1"></svg>
+      <p class="sbt">벽 <em>안 깨고</em><br>찾았습니다</p>
+      <p class="meta">급수관 분기부 미세 누수 · 0:28</p>
+    </div></div>
+  </div>
+  <div class="foot"><span class="foot__m">JUNGANG <span>MEISTER</span></span><span class="foot__s"></span><span class="foot__t">AI가 매일 만들고, 사람이 승인해야 나갑니다</span></div>
+</section>
+
+<!-- ═════ 02 문제 ═════ -->
+<section class="card c2">
+  <div class="beam"></div>
+  <div class="top"><b>JUNGANG <span>MEISTER</span></b><span>02 / 09</span></div>
+  <div class="in">
+    <p class="eyebrow">설명이 어려운 업종일수록</p>
+    <p class="h">찍어서 보여줄 게<br><span class="b">없습니다</span></p>
+    <div class="rows">
+      <div class="row"><span class="ico"><svg viewBox="0 0 24 24"><path d="M4 20V4h16v16"/><path d="M8 12h8M12 8v8"/></svg></span><b>배관은 벽 속에</b><span>사진엔 그냥 벽만 나옵니다</span></div>
+      <div class="row"><span class="ico"><svg viewBox="0 0 24 24"><path d="M3 15h18M3 19h18M7 11l5-6 5 6"/></svg></span><b>방수층은 바닥 아래</b><span>공사가 끝나면 아무도 못 봅니다</span></div>
+      <div class="row"><span class="ico"><svg viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="14" rx="2"/><circle cx="12" cy="12" r="3"/></svg></span><b>기계는 케이스 안에</b><span>장점을 말로만 설명하게 됩니다</span></div>
+    </div>
+    <p class="p" style="margin-top:16px;color:#fff;font-weight:700;font-size:16px">고객은 <span class="b">안 보이면 안 믿습니다.</span></p>
+  </div>
+</section>
+
+<!-- ═════ 03 비포/애프터 ═════ -->
+<section class="card card--paper c3">
+  <div class="top"><b>JUNGANG <span>MEISTER</span></b><span>03 / 09</span></div>
+  <div class="in">
+    <p class="h s">보이지 않는 걸 보여주면,<br><span class="b">팔립니다</span></p>
+    <div class="ba">
+      <div class="before"><span class="lab">사진으로 찍으면</span><div class="wall"></div><p class="cap">그냥 벽입니다</p></div>
+      <div class="after"><span class="lab">3D로 보여주면</span><svg class="iso" data-scan="1" data-label="1"></svg><p class="cap">벽 속 배관과 <span class="red">누수 지점</span></p></div>
+    </div>
+  </div>
+</section>
+
+<!-- ═════ 04 실증 ═════ -->
+<section class="card c4">
+  <div class="beam"></div>
+  <div class="top"><b>JUNGANG <span>MEISTER</span></b><span>04 / 09</span></div>
+  <div class="in">
+    <p class="eyebrow">실증 사례 · 누수퀵 (배관 누수 진단)</p>
+    <p class="h">말이 아니라,<br><span class="b">이미 돌아가고 있습니다</span></p>
+    <div class="nums">
+      <div class="num"><b>66편</b><span>현장 엔지니어링 일지</span></div>
+      <div class="num"><b>11편</b><span>3D 설명 쇼츠</span></div>
+      <div class="num on"><b>20,272</b><span>5개 채널 누적 조회</span></div>
+      <div class="num"><b>0원</b><span>광고비</span></div>
+    </div>
+    <p class="foot-n">유튜브·네이버 블로그·인스타그램·스레드·자사 웹 오가닉 누적 기준</p>
+  </div>
+</section>
+
+<!-- ═════ 05 공정 ═════ -->
+<section class="card card--paper c5">
+  <div class="top"><b>JUNGANG <span>MEISTER</span></b><span>05 / 09</span></div>
+  <div class="in">
+    <p class="eyebrow">만드는 방식</p>
+    <p class="h s">AI가 매일 만들고,<br><span class="b">사람이 승인해야</span> 나갑니다</p>
+    <div class="flow">
+      <div class="st"><i>01</i><b>현장 자료</b><p>사진·제품 스펙만 주세요</p><span class="arr"></span></div>
+      <div class="st"><i>02</i><b>대본·3D 장면</b><p>업종 용어로 대본을 쓰고 장면을 만듭니다</p><span class="arr"></span></div>
+      <div class="st"><i>03</i><b>나레이션·자막</b><p>방송 기준 음량, 모바일용 큰 자막</p><span class="arr"></span></div>
+      <div class="st on"><i>04</i><b>사람 검수</b><p>구조가 맞는지, 말이 맞는지 확인 후 승인</p><span class="arr"></span></div>
+      <div class="st"><i>05</i><b>납품·발행</b><p>업로드 문구까지 한 번에</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- ═════ 06 1편 구성 ═════ -->
+<section class="card c6">
+  <div class="beam"></div>
+  <div class="top"><b>JUNGANG <span>MEISTER</span></b><span>06 / 09</span></div>
+  <div class="in">
+    <div class="l">
+      <p class="eyebrow">1편에 들어가는 것</p>
+      <p class="h s">올리기만<br>하면 됩니다</p>
+      <div class="inc">
+        <div><svg viewBox="0 0 24 24"><path d="M4 12.5l5.5 5.5L20 6.5"/></svg>세로 쇼츠 영상<span>1080×1920 · 30~60초</span></div>
+        <div><svg viewBox="0 0 24 24"><path d="M4 12.5l5.5 5.5L20 6.5"/></svg>3D 투시 장면<span>매 편 새로 생성</span></div>
+        <div><svg viewBox="0 0 24 24"><path d="M4 12.5l5.5 5.5L20 6.5"/></svg>전문가 톤 나레이션<span>방송 기준 음량</span></div>
+        <div><svg viewBox="0 0 24 24"><path d="M4 12.5l5.5 5.5L20 6.5"/></svg>모바일용 큰 자막<span>음성 싱크 맞춤</span></div>
+        <div><svg viewBox="0 0 24 24"><path d="M4 12.5l5.5 5.5L20 6.5"/></svg>썸네일 · 제목 · 해시태그<span>채널별 문구</span></div>
+      </div>
+    </div>
+    <div class="phone">
+      <div class="pbar"><span>Shorts</span><span class="live">3D</span></div>
+      <svg class="iso" data-scan="1" data-label="1"></svg>
+      <p class="sbt">여기서<br><em>새고 있었습니다</em></p>
+      <p class="meta">벽체 내부 급수관 · 비파괴 진단</p>
+    </div>
+  </div>
+</section>
+
+<!-- ═════ 07 채널 ═════ -->
+<section class="card c7">
+  <div class="beam"></div>
+  <div class="top"><b>JUNGANG <span>MEISTER</span></b><span>07 / 09</span></div>
+  <div class="in">
+    <p class="eyebrow">월 운영 패키지</p>
+    <p class="h">한 번 만들어,<br><span class="b">다섯 곳에</span></p>
+    <div class="ch">
+      <div class="hub">3D 설명 쇼츠 1편 → 채널별로 다시 다듬어 배포</div>
+      <div><svg viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="12" rx="3"/><path d="M10 9.5v5l4.5-2.5z"/></svg><b>유튜브 쇼츠</b><span>업로드 대행</span></div>
+      <div><svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="4"/><circle cx="12" cy="12" r="3.5"/></svg><b>인스타 릴스</b><span>업로드 대행</span></div>
+      <div><svg viewBox="0 0 24 24"><path d="M5 6h14v10H9l-4 3z"/></svg><b>스레드</b><span>업로드 대행</span></div>
+      <div><svg viewBox="0 0 24 24"><path d="M5 4h10l4 4v12H5z"/><path d="M9 12h6M9 16h4"/></svg><b>블로그</b><span>원고·이미지 제공</span></div>
+      <div><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8 21h8M12 17v4"/></svg><b>자사 홈페이지</b><span>영상 파일 제공</span></div>
+    </div>
+    <p class="note">네이버 블로그는 <b>계정 안전을 위해 자동 발행하지 않고</b>, 바로 붙여넣을 원고와 이미지로 드립니다.</p>
+  </div>
+</section>
+
+<!-- ═════ 08 비교 ═════ -->
+<section class="card card--paper c8">
+  <div class="top"><b>JUNGANG <span>MEISTER</span></b><span>08 / 09</span></div>
+  <div class="in">
+    <p class="h s">3D는 비싸고 느리다는 생각,<br><span class="b">이제 안 맞습니다</span></p>
+    <table class="cmp">
+      <tr><th></th><th>3D 애니메이션 외주</th><th>블로그·SNS 대행</th><th class="us">3D 설명 쇼츠</th></tr>
+      <tr><td>1편 가격</td><td>10초 11만~120만원</td><td>영상 없음</td><td class="us">30초 19만원</td></tr>
+      <tr><td>제작 기간</td><td>5~15일</td><td>월 단위</td><td class="us">3일</td></tr>
+      <tr><td>발행 빈도</td><td>1편 납품으로 끝</td><td>주 1~5회 (이미지·글)</td><td class="us">주 3편 영상 가능</td></tr>
+      <tr><td>설명력</td><td>높음</td><td>낮음</td><td class="us">높음 + 대본 포함</td></tr>
+    </table>
+    <p class="src">비교 가격: 크몽 공개 등록 서비스 기준 (2026년 10월 조사, 판매자별 상이)</p>
+  </div>
+</section>
+
+<!-- ═════ 09 가격 ═════ -->
+<section class="card c9">
+  <div class="beam"></div>
+  <div class="top"><b>JUNGANG <span>MEISTER</span></b><span>09 / 09</span></div>
+  <div class="in">
+    <p class="h s">필요한 만큼만, <span class="b">런칭가</span>로</p>
+    <div class="price">
+      <div class="pr"><p class="n">1편 체험</p><p class="v">19만원</p><p class="d">30초 3D 설명 쇼츠<br>3일 · 수정 1회</p></div>
+      <div class="pr on"><span class="flag">가장 많이 선택</span><p class="n">4편 팩</p><p class="v">59만원</p><p class="d">편당 14.7만원 · 블로그 원고 4편<br>7일 · 편당 수정 1회</p></div>
+      <div class="pr"><p class="n">월 12편 운영</p><p class="v">149만원</p><p class="d">주 3편 · 원고 12편 · 업로드 대행<br>월간 리포트</p></div>
+    </div>
+    <div class="promise">
+      <div><b>월 운영은 동시 3팀까지</b>모든 편을 사람이 확인하려고</div>
+      <div><b>3D는 참고용 시각화</b>실제 시공 도면이 아닙니다</div>
+      <div><b>상담 평일 10–18시</b>VAT 별도</div>
+    </div>
+  </div>
+</section>
+
+<script src="iso.js"></script>

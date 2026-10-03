@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════
-   AFTERMATH — 잔존 : 엔티티
+   LEFT CITY — 남겨진 도시 : 엔티티
    ═══════════════════════════════════════════ */
 
 const WEAPONS = {
@@ -713,7 +713,8 @@ const PICKUPS = {
   wpn_shotgun: { label: '샷건 획득',     col: '#c8a878', icon: 'gun' },
   rounds:      { label: '소총탄 +10',    col: '#b9b08a', icon: 'round' },
   wpn_rifle:   { label: '소총 획득',     col: '#a8b89a', icon: 'gun' },
-  goal:        { label: '보급 상자 확보', col: '#59b7d8', icon: 'goal' }
+  goal:        { label: '보급 상자 확보', col: '#59b7d8', icon: 'goal' },
+  note:        { label: '기록', col: '#e8e2d0', icon: 'note' }
 };
 
 class Pickup {
@@ -739,6 +740,7 @@ class Pickup {
       case 'rounds':  p.ammo.rifle += 10; break;
       case 'wpn_rifle':   p.owned.add('rifle');   p.ammo.rifle += 15; p.equip('rifle'); break;
       case 'goal':    g.onGoalItem(); return;
+      case 'note':    g.onRecord(this); return;
     }
     g.toast(this.p.label);
   }

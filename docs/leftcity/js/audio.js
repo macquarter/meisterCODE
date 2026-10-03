@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════
-   AFTERMATH — 잔존 : 절차적 사운드
+   LEFT CITY — 남겨진 도시 : 절차적 사운드
    외부 오디오 파일 없이 WebAudio 로 전부 합성한다.
    ═══════════════════════════════════════════ */
 const SFX = (() => {
@@ -369,6 +369,18 @@ const SFX = (() => {
     hurt()      { burst(0.3, 700, 0.8, 0.3, 'lowpass', 0.26); tone(180, 0.24, 0.14, 'sawtooth', 70); },
     death()     { tone(220, 1.5, 0.26, 'sawtooth', 32); burst(1.3, 420, 0.6, 0.24, 'lowpass', 1.2); },
     pickup()    { tone(720, 0.11, 0.15, 'triangle'); setTimeout(() => tone(1080, 0.13, 0.13, 'triangle'), 70); },
+    /** 무전 — 잡음이 치고 송신 끝 삑 소리 */
+    radio(end) {
+      burst(end ? 0.12 : 0.22, 1800, 1.4, 0.07, 'bandpass', end ? 0.1 : 0.2);
+      tone(end ? 1200 : 900, 0.05, 0.05, 'square');
+    },
+    /** 중계기 — 가동하는 동안 짧은 삑, 다 켜지면 높은 두 음 */
+    relay(done) {
+      if (done) { tone(880, 0.12, 0.12, 'triangle'); setTimeout(() => tone(1320, 0.22, 0.12, 'triangle'), 120); }
+      else tone(660, 0.05, 0.05, 'square');
+    },
+    /** 뱃고동 — 낮게 길게 */
+    horn() { tone(98, 2.2, 0.22, 'sawtooth', 92); tone(147, 2.2, 0.1, 'sawtooth', 140); },
     objective() { tone(520, 0.16, 0.16, 'triangle'); setTimeout(() => tone(780, 0.2, 0.15, 'triangle'), 110);
                   setTimeout(() => tone(1040, 0.3, 0.13, 'triangle'), 230); },
     win()       { [523, 659, 784, 1046].forEach((f, i) => setTimeout(() => tone(f, 0.42, 0.15, 'triangle'), i * 150)); },

@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
-<title>AFTERMATH — 잔존</title>
-<meta name="description" content="어둠에 잠긴 도시. 손전등 불빛 하나로 밤을 버티는 톱다운 좀비 서바이벌 슈터.">
+<title>LEFT CITY — 남겨진 도시</title>
+<meta name="description" content="도시는 사람을 두고 떠났다. 손전등 하나로 서울에서 싱가포르까지, 남겨진 도시를 가로지르는 톱다운 좀비 서바이벌.">
 <meta name="theme-color" content="#07090c">
 <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
 <link rel="icon" type="image/png" sizes="64x64" href="icons/favicon-64.png">
@@ -13,9 +13,9 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="AFTERMATH">
-<meta property="og:title" content="AFTERMATH — 잔존">
-<meta property="og:description" content="어둠에 잠긴 도시. 손전등 불빛 하나로 밤을 버티는 톱다운 좀비 서바이벌 슈터.">
+<meta name="apple-mobile-web-app-title" content="LEFT CITY">
+<meta property="og:title" content="LEFT CITY — 남겨진 도시">
+<meta property="og:description" content="도시는 사람을 두고 떠났다. 손전등 하나로 서울에서 싱가포르까지, 남겨진 도시를 가로지르는 톱다운 좀비 서바이벌.">
 <meta property="og:image" content="icons/icon-512.png">
 <meta property="og:type" content="website">
 <link rel="stylesheet" href="css/game.css">
@@ -78,6 +78,7 @@
     <div id="damageFlash"></div>
     <div id="fpsMeter" hidden></div>
     <div id="toast"></div>
+    <div id="radio" class="radio" role="status" aria-live="polite"><b></b><span></span></div>
     <div id="hint" role="status" aria-live="polite"><b></b><span></span></div>
   </div>
 
@@ -112,12 +113,13 @@
 
     <section class="screen screen--title" id="scrTitle">
       <div class="screen__inner">
-        <h1 class="logo">AFTERMATH<em>잔존</em></h1>
-        <p class="tagline">감염된 도시. 비는 그치지 않는다.<br>손전등이 닿는 곳까지만, 세상은 존재한다.</p>
+        <h1 class="logo">LEFT CITY<em>남겨진 도시</em></h1>
+        <p class="tagline">도시는 사람을 두고 떠났다.<br>손전등이 닿는 곳까지만, 세상은 존재한다.</p>
         <div class="menu screen__side">
           <button class="btn btn--primary" data-act="campaign">전역 시작</button>
           <button class="btn" data-act="chapters">챕터 선택</button>
           <button class="btn" data-act="survival" id="btnSurvival">서바이벌</button>
+          <button class="btn btn--ghost" data-act="journal" id="btnJournal">기록 보관함</button>
           <button class="btn btn--ghost" data-act="howto">조작법</button>
           <button class="btn btn--ghost" data-act="settings">설정</button>
         </div>
@@ -158,6 +160,24 @@
       </div>
     </section>
 
+    <section class="screen screen--story hidden" id="scrStory" data-act="storynext">
+      <div class="screen__inner">
+        <p class="story__card" id="storyCard"></p>
+        <p class="story__tap" id="storyTap">누르면 넘어갑니다</p>
+        <button class="btn btn--ghost story__skip" data-act="storyskip">건너뛰기</button>
+      </div>
+    </section>
+
+    <section class="screen screen--list hidden" id="scrJournal">
+      <div class="screen__inner">
+        <h2>기록 보관함 <small id="journalCount"></small></h2>
+        <p class="note">길에 떨어진 종이를 밟으면 여기에 남는다. 챕터마다 두 장.</p>
+        <div class="journal" id="journalList"></div>
+        <button class="btn" data-act="prologue">프롤로그 다시 보기</button>
+        <button class="btn btn--ghost" data-act="back">돌아가기</button>
+      </div>
+    </section>
+
     <section class="screen screen--brief hidden" id="scrBrief">
       <div class="screen__inner">
         <span class="brief__no" id="briefNo">CHAPTER 1</span>
@@ -182,6 +202,7 @@
           <button class="city" data-act="survcity" data-city="seoul"><b>서울</b><span>광화문 · 남산타워 · 한강</span></button>
           <button class="city" data-act="survcity" data-city="tokyo"><b>도쿄</b><span>시부야 스크램블 · 도쿄 타워 · 센소지 · 스미다강</span></button>
           <button class="city" data-act="survcity" data-city="bangkok"><b>방콕</b><span>왓 아룬 · 민주기념탑 · 야시장 · 짜오프라야강</span></button>
+          <button class="city" data-act="survcity" data-city="singapore"><b>싱가포르</b><span>항만 · 수직 정원 · 호커 센터 · 싱가포르강</span></button>
         </div>
         <button class="btn btn--ghost" data-act="back">돌아가기</button>
       </div>
@@ -204,12 +225,9 @@
 
     <section class="screen screen--ending hidden" id="scrEnding">
       <div class="screen__inner">
-        <p class="ending__kicker">전역 종료</p>
-        <h2 class="ending__title">다리를 건넜다</h2>
-        <p class="ending__text">
-          등 뒤에서 도시가 숨을 쉰다. 불빛은 꺼지지 않았고, 그것은 더 이상 기다리지 않는다.<br>
-          강 건너에는 사람이 있었다. 그것만으로 충분한 밤이었다.
-        </p>
+        <p class="ending__kicker" id="endingKicker">에필로그</p>
+        <h2 class="ending__title" id="endingTitle">남겨진 도시</h2>
+        <div class="ending__text" id="endingText"></div>
         <dl class="result__stats" id="endingStats"></dl>
         <p class="note" id="endingNote"></p>
         <div class="screen__side screen__actions">
@@ -358,6 +376,7 @@
           <div><dt>판</dt><dd id="aboutVersion"></dd></div>
           <div><dt>만든 것</dt><dd>그래픽 · 사운드 · 음악을 모두 코드로 만들었습니다. 외부 이미지 · 음원 · 글꼴을 쓰지 않습니다.</dd></div>
           <div><dt>영감</dt><dd>AFTERMATH (TwoHeads Games, 2010) · Left 4 Dead (Valve, 2008) 의 연출 설계 · Darkwood 의 어둠</dd></div>
+          <div><dt>이야기</dt><dd>대피에서 남겨진 야간 배송 기사 도하, 도쿄의 무선사 하루, 방콕의 간호사 녹, 새벽호의 선장 메이 — 모두 지어낸 인물입니다. 랜드마크는 실제 장소를 본뜬 양식화된 모형입니다.</dd></div>
           <div><dt>개인정보</dt><dd data-i18n="aboutPrivacy">아무것도 수집하거나 보내지 않습니다. 설정과 기록은 이 기기의 브라우저 저장소에만 남습니다. <a href="privacy.html" target="_blank" rel="noopener">개인정보 처리방침</a></dd></div>
         </dl>
         <div class="about__tools">
@@ -389,7 +408,8 @@
 
 <script src="js/settings.js"></script>
 <script src="js/i18n.js"></script>
-  <script src="js/levels.js"></script>
+<script src="js/story.js"></script>
+<script src="js/levels.js"></script>
 <script src="js/audio.js"></script>
 <script src="js/world.js"></script>
 <script src="js/themes.js"></script>

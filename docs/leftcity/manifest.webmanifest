@@ -1,7 +1,7 @@
 {
-  "name": "AFTERMATH — 잔존",
-  "short_name": "AFTERMATH",
-  "description": "어둠에 잠긴 도시. 손전등 불빛 하나로 밤을 버티는 톱다운 좀비 서바이벌 슈터.",
+  "name": "LEFT CITY — 남겨진 도시",
+  "short_name": "LEFT CITY",
+  "description": "도시는 사람을 두고 떠났다. 손전등 하나로 서울에서 싱가포르까지, 남겨진 도시를 가로지르는 톱다운 좀비 서바이벌.",
   "lang": "ko",
   "start_url": "./",
   "scope": "./",

@@ -1,14 +1,14 @@
 /* ═══════════════════════════════════════════
-   AFTERMATH — 잔존 : 캠페인 데이터
-   8개 스토리 챕터 + 무한 서바이벌
-   서울(1‒3) → 도쿄(4‒6) → 방콕(7‒8). 같은 시드 = 같은 도시
+   LEFT CITY — 남겨진 도시 : 캠페인 데이터
+   10개 스토리 챕터 + 무한 서바이벌 (이야기 글 · 무전은 story.js)
+   서울(1‒3) → 도쿄(4‒6) → 방콕(7‒8) → 싱가포르(9‒10). 같은 시드 = 같은 도시
    지도는 가장자리 너머로 이어 붙으므로(원환) 가장 먼 곳이 반 지도 거리다 — 그만큼 도시를 크게 잡는다
    ═══════════════════════════════════════════ */
 const LEVELS = [
   {
     name: '첫 번째 밤',
-    brief: '서울. 통신이 끊긴 지 아홉 시간. 가로등은 전부 죽었고 비만 내린다. ' +
-           '광화문 안뜰에 구조대 집결지가 있다고 했다. 가진 건 권총 한 자루와 손전등뿐이다.',
+    brief: '서울. 대피 방송이 끝난 지 아홉 시간. 야간 배송을 마치고 지하에서 올라왔을 때 도시는 이미 떠난 뒤였다. ' +
+           '광화문 안뜰이 마지막 구조 집결지라고 했다. 가진 건 권총 한 자루와 손전등뿐이다.',
     goals: ['광화문 안뜰까지 이동', '길에 떨어진 무기를 주울 것'],
     seed: 1041, blocks: 9, city: 'seoul', landmarks: ['gwanghwamun'], goal: 'gwanghwamun',
     objective: { type: 'escape' },
@@ -20,8 +20,8 @@ const LEVELS = [
   },
   {
     name: '젖은 골목',
-    brief: '광화문은 비어 있었다. 무전기에서 남산 아래 좌표 하나가 반복된다. ' +
-           '가는 길에 보급 상자가 흩어져 있다 — 지금 챙기지 않으면 다음은 없다.',
+    brief: '광화문은 비어 있었다. 대신 무전기 9번 채널에서 낯선 목소리가 들려온다. ' +
+           '남산 아래로 가는 길에 군 보급 상자가 흩어져 있다 — 지금 챙기지 않으면 다음은 없다.',
     goals: ['보급 상자 3개 확보', '확보 후 집결지로 이동'],
     seed: 2207, blocks: 8, city: 'seoul', landmarks: ['namsan'],
     objective: { type: 'collect', count: 3, item: '보급 상자' },
@@ -33,8 +33,8 @@ const LEVELS = [
   },
   {
     name: '달리는 것들',
-    brief: '한강을 건너야 한다. 다리 위에는 버려진 차들뿐. 느린 것들만 있는 게 아니었다 — ' +
-           '어떤 개체는 뛰고, 어떤 것은 바닥을 기어 불빛 아래로 들어오기 전까지 보이지 않는다.',
+    brief: '배는 한강 건너 선착장에 있다. 다리 위에는 버려진 차들뿐. 하루가 경고했다 — 느린 것들만 있는 게 아니라고. ' +
+           '어떤 것은 뛰고, 어떤 것은 바닥을 기어 불빛 아래로 들어오기 전까지 보이지 않는다.',
     goals: ['한강을 건너 집결지까지 돌파'],
     seed: 3319, weepers: 1, blocks: 10, city: 'seoul', river: true, landmarks: ['namsan', 'gwanghwamun'],
     objective: { type: 'escape' },
@@ -46,8 +46,8 @@ const LEVELS = [
   },
   {
     name: '발전소 구역',
-    brief: '도쿄. 배는 스미다강 하구에 닿았다. 아사쿠사의 비상 발전기를 돌리면 동쪽 차단문이 열린다. ' +
-           '연료통 네 개. 그동안 발전기 소음은 저들을 부른다.',
+    brief: '도쿄. 배는 스미다강 하구에 닿았다. 하루의 무선국은 아사쿠사의 셔터 내린 전파상 안에 있다. ' +
+           '발전기 연료가 떨어져 송신이 곧 끊긴다. 연료통 네 개. 발전기 소음은 저들을 부를 것이다.',
     goals: ['연료통 4개 회수', '차단문으로 이동'],
     seed: 4523, weepers: 1, blocks: 9, city: 'tokyo', river: true, landmarks: ['sensoji', 'tokyotower'],
     objective: { type: 'collect', count: 4, item: '연료통' },
@@ -59,8 +59,8 @@ const LEVELS = [
   },
   {
     name: '버텨라',
-    brief: '시부야 교차로. 차단문은 90초 뒤에 열린다. 그때까지는 이 교차로에서 살아 있어야 한다. ' +
-           '사방이 트여 있다 — 그만큼 사방에서 온다.',
+    brief: '하루가 남쪽 선단의 교신을 잡았다. 마지막 배는 싱가포르에서 떠난다. 그곳으로 가는 화물선의 차단문은 ' +
+           '시부야 교차로에서 원격으로만 열린다. 90초. 사방이 트여 있다 — 그만큼 사방에서 온다.',
     goals: ['90초 생존', '개방된 차단문으로 이동'],
     seed: 5631, weepers: 1, blocks: 8, city: 'tokyo', landmarks: ['scramble'], goal: 'scramble',
     objective: { type: 'survive', time: 90 },
@@ -72,8 +72,8 @@ const LEVELS = [
   },
   {
     name: '거대한 것',
-    brief: '도쿄 타워 공원. 무전에서 마지막으로 들린 단어는 "크다"였다. ' +
-           '탄창 하나로는 멈추지 않는 개체가 이 구역을 돌아다닌다.',
+    brief: '출항 전에 할 일이 하나 남았다. 하루의 목소리가 남쪽까지 닿으려면 도쿄 타워에 안테나를 걸어야 한다. ' +
+           '공원 관리소 무전의 마지막 단어는 "크다"였다. 탄창 하나로는 멈추지 않는 개체가 이 구역을 돌아다닌다.',
     goals: ['감염체 30기 소탕', '집결지로 이동'],
     seed: 6742, weepers: 1, blocks: 9, city: 'tokyo', landmarks: ['tokyotower', 'scramble'],
     objective: { type: 'purge', count: 30 },
@@ -85,8 +85,8 @@ const LEVELS = [
   },
   {
     name: '정전',
-    brief: '방콕. 배터리가 얼마 남지 않았다. 예비 배터리는 야시장 노점 사이에 흩어져 있다. ' +
-           '불빛이 꺼지면 방향도, 사격선도 사라진다.',
+    brief: '방콕. 하루의 중계가 새 목소리를 이어 주었다 — 강 건너 진료소의 간호사 녹. 진료소에는 배터리가 필요하다. ' +
+           '예비 배터리는 야시장 노점 사이에 흩어져 있다. 불빛이 꺼지면 방향도, 사격선도 사라진다.',
     goals: ['예비 배터리 5개 회수', '집결지로 이동'],
     seed: 7854, weepers: 2, blocks: 9, city: 'bangkok', landmarks: ['nightmarket', 'democracy'],
     objective: { type: 'collect', count: 5, item: '예비 배터리' },
@@ -98,8 +98,8 @@ const LEVELS = [
     batteryDrain: 1.9
   },
   {
-    name: '마지막 다리',
-    brief: '짜오프라야강 건너 왓 아룬 쪽에 불빛이 보인다. 진짜 사람의 불빛이다. ' +
+    name: '기다리는 것',
+    brief: '짜오프라야강 건너 왓 아룬 쪽에 진료소의 불빛이 보인다. 진짜 사람의 불빛이다. ' +
            '그런데 다리 앞에 무언가가 서 있다. 저것은 걷지 않는다 — 기다리고 있다.',
     goals: ['그것을 쓰러뜨리고 다리를 건너라'],
     seed: 8967, weepers: 1, blocks: 10, city: 'bangkok', river: true, landmarks: ['watarun', 'democracy'],
@@ -107,6 +107,33 @@ const LEVELS = [
     objective: { type: 'boss' },
     spawn: { initial: 12, rate: 0.62, max: 26 },
     mix: { walker: 0.26, runner: 0.32, brute: 0.18, crawler: 0.1, spitter: 0.14, bloater: 0.08 },
+    own: ['pistol', 'smg', 'shotgun', 'rifle'], drops: [],
+    startAmmo: { smg: 150, shell: 18, rifle: 20 }, startNades: 5,
+    supplies: { ammo: 9, shells: 5, rounds: 3, medkit: 4, battery: 4, nade: 4 }
+  },
+  {
+    name: '남쪽의 신호',
+    brief: '싱가포르. 육로로 사흘. 새벽호는 응답이 없다 — 항구까지 전파가 닿지 않는다. 시내의 비상 중계기 세 대를 ' +
+           '다시 켜면 하루의 중계와 이어진다. 중계기는 켜지는 동안 소리를 낸다. 그 곁을 지켜야 한다.',
+    goals: ['중계기 3대 가동 — 켜질 때까지 곁에 머물 것', '가동 후 집결지로 이동'],
+    seed: 9173, weepers: 1, blocks: 8, city: 'singapore', river: true, landmarks: ['supertree', 'hawker'],
+    objective: { type: 'signal', count: 3, hold: 6 },
+    spawn: { initial: 12, rate: 0.6, max: 26 },
+    mix: { walker: 0.3, runner: 0.32, brute: 0.13, crawler: 0.11, spitter: 0.12, bloater: 0.1 },
+    own: ['pistol', 'smg', 'shotgun', 'rifle'], drops: [],
+    startAmmo: { smg: 130, shell: 14, rifle: 14 }, startNades: 4,
+    supplies: { ammo: 9, shells: 4, rounds: 2, medkit: 4, battery: 3, nade: 3 }
+  },
+  {
+    name: '새벽호',
+    brief: '새벽 네 시. 3번 부두까지는 도시 하나를 가로질러야 한다. 배가 접안하는 동안 부두를 지키고, ' +
+           '현문이 내려오면 그때 오른다. 이 도시의 모든 것이 소리를 듣고 몰려올 것이다.',
+    goals: ['3번 부두로 이동', '접안할 때까지 부두를 지킬 것', '현문으로 승선'],
+    seed: 10289, weepers: 1, blocks: 9, city: 'singapore', landmarks: ['port', 'hawker', 'supertree'], goal: 'port',
+    approach: 60,
+    objective: { type: 'finale', time: 60, bossAt: 35 },
+    spawn: { initial: 12, rate: 0.62, max: 26 },
+    mix: { walker: 0.28, runner: 0.32, brute: 0.16, crawler: 0.1, spitter: 0.14, bloater: 0.08 },
     own: ['pistol', 'smg', 'shotgun', 'rifle'], drops: [],
     startAmmo: { smg: 150, shell: 18, rifle: 20 }, startNades: 5,
     supplies: { ammo: 9, shells: 5, rounds: 3, medkit: 4, battery: 4, nade: 4 }
@@ -131,5 +158,6 @@ const SURVIVAL = {
 const SURVIVAL_CITIES = {
   seoul:   { river: true,  landmarks: ['gwanghwamun', 'namsan'] },
   tokyo:   { river: true,  landmarks: ['scramble', 'tokyotower', 'sensoji'] },
-  bangkok: { river: true,  landmarks: ['watarun', 'democracy', 'nightmarket'] }
+  bangkok: { river: true,  landmarks: ['watarun', 'democracy', 'nightmarket'] },
+  singapore: { river: true, landmarks: ['port', 'supertree', 'hawker'] }
 };

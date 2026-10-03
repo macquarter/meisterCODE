@@ -8,12 +8,17 @@ const I18N = (() => {
   const EN = {
     /* ── 타이틀 · 메뉴 ── */
     '잔존': 'Remnant',
+    '남겨진 도시': 'Left behind',
     '감염된 도시. 비는 그치지 않는다.': 'An infected city. The rain never stops.',
+    '도시는 사람을 두고 떠났다.': 'The city left without you.',
+    '이야기': 'Story',
+    '대피에서 남겨진 야간 배송 기사 도하, 도쿄의 무선사 하루, 방콕의 간호사 녹, 새벽호의 선장 메이 — 모두 지어낸 인물입니다. 랜드마크는 실제 장소를 본뜬 양식화된 모형입니다.': 'Doha, a night courier left behind by the evacuation; Haru, a radio operator in Tokyo; Nok, a nurse in Bangkok; May, captain of the Dawn — all fictional. Landmarks are stylized models inspired by real places.',
     '손전등이 닿는 곳까지만, 세상은 존재한다.': 'The world ends where your flashlight does.',
     '전역 시작': 'Campaign',
     '챕터 선택': 'Chapters',
     '서바이벌': 'Survival',
-    '서바이벌 — 전역 완수 시 개방 ({n}/{t})': 'Survival — unlocks after the campaign ({n}/{t})',
+    '서바이벌 — 8장 완수 시 개방 ({n}/{t})': 'Survival — unlocks after chapter 8 ({n}/{t})',
+    '기록 보관함': 'Records', '기록 보관함 {n}/{t}': 'Records {n}/{t}',
     '조작법': 'Controls',
     '설정': 'Settings',
     '최고 기록 · 서바이벌': 'Best · Survival',
@@ -22,7 +27,9 @@ const I18N = (() => {
     '{m}분 {s}초': '{m}m {s}s',
     '잠김': 'Locked',
     '클리어': 'Cleared',
-    '서울': 'Seoul', '도쿄': 'Tokyo', '방콕': 'Bangkok',
+    '서울': 'Seoul', '도쿄': 'Tokyo', '방콕': 'Bangkok', '싱가포르': 'Singapore', '싱가포르강': 'Singapore River',
+    '호커 센터': 'Hawker Centre', '수직 정원': 'Vertical Garden', '항만': 'Container Port',
+    '항만 · 수직 정원 · 호커 센터 · 싱가포르강': 'Container Port · Vertical Garden · Hawker Centre · Singapore River',
     '한강': 'Han River', '스미다강': 'Sumida River', '짜오프라야강': 'Chao Phraya',
     '광화문': 'Gwanghwamun', '남산타워': 'Namsan Tower', '시부야 스크램블': 'Shibuya Scramble', '도쿄 타워': 'Tokyo Tower',
     '센소지': 'Senso-ji', '왓 아룬': 'Wat Arun', '민주기념탑': 'Democracy Monument', '야시장': 'Night Market',
@@ -35,42 +42,53 @@ const I18N = (() => {
 
     /* ── 챕터 ── */
     '첫 번째 밤': 'The First Night',
-    '서울. 통신이 끊긴 지 아홉 시간. 가로등은 전부 죽었고 비만 내린다. 광화문 안뜰에 구조대 집결지가 있다고 했다. 가진 건 권총 한 자루와 손전등뿐이다.':
-      'Seoul. Nine hours since the lines went dead. Every streetlight is out and only the rain is falling. They said the rescue rally point is in the Gwanghwamun courtyard. All you have is a pistol and a flashlight.',
+    '서울. 대피 방송이 끝난 지 아홉 시간. 야간 배송을 마치고 지하에서 올라왔을 때 도시는 이미 떠난 뒤였다. 광화문 안뜰이 마지막 구조 집결지라고 했다. 가진 건 권총 한 자루와 손전등뿐이다.':
+      'Seoul. Nine hours since the last evacuation broadcast. When you came up from a late-night delivery underground, the city had already gone. They said the Gwanghwamun courtyard is the last rescue point. All you have is a pistol and a flashlight.',
     '광화문 안뜰까지 이동': 'Reach the Gwanghwamun courtyard',
     '길에 떨어진 무기를 주울 것': 'Pick up weapons along the way',
     '젖은 골목': 'Wet Alleys',
-    '광화문은 비어 있었다. 무전기에서 남산 아래 좌표 하나가 반복된다. 가는 길에 보급 상자가 흩어져 있다 — 지금 챙기지 않으면 다음은 없다.':
-      'Gwanghwamun was empty. The radio keeps repeating a coordinate below Namsan. Supply crates are scattered along the way — take them now, there won\'t be a next time.',
+    '광화문은 비어 있었다. 대신 무전기 9번 채널에서 낯선 목소리가 들려온다. 남산 아래로 가는 길에 군 보급 상자가 흩어져 있다 — 지금 챙기지 않으면 다음은 없다.':
+      'Gwanghwamun was empty. Instead, a stranger\'s voice comes through on radio channel 9. Army supply crates are scattered on the way down to Namsan — take them now, there won\'t be a next time.',
     '보급 상자 3개 확보': 'Secure 3 supply crates',
     '확보 후 집결지로 이동': 'Then head to the rally point',
     '달리는 것들': 'The Runners',
-    '한강을 건너야 한다. 다리 위에는 버려진 차들뿐. 느린 것들만 있는 게 아니었다 — 어떤 개체는 뛰고, 어떤 것은 바닥을 기어 불빛 아래로 들어오기 전까지 보이지 않는다.':
-      'You have to cross the Han. Only abandoned cars on the bridge. They aren\'t all slow — some run, and some crawl along the ground, unseen until they slide under your light.',
+    '배는 한강 건너 선착장에 있다. 다리 위에는 버려진 차들뿐. 하루가 경고했다 — 느린 것들만 있는 게 아니라고. 어떤 것은 뛰고, 어떤 것은 바닥을 기어 불빛 아래로 들어오기 전까지 보이지 않는다.':
+      'The boat is at a pier across the Han. Only abandoned cars on the bridge. Haru warned you — they aren\'t all slow. Some run, and some crawl along the ground, unseen until they slide under your light.',
     '한강을 건너 집결지까지 돌파': 'Cross the Han and break through to the rally point',
     '발전소 구역': 'The Generator',
-    '도쿄. 배는 스미다강 하구에 닿았다. 아사쿠사의 비상 발전기를 돌리면 동쪽 차단문이 열린다. 연료통 네 개. 그동안 발전기 소음은 저들을 부른다.':
-      'Tokyo. The boat made the mouth of the Sumida. Start the emergency generator in Asakusa and the east gate opens. Four fuel cans. Meanwhile the noise will call them in.',
+    '도쿄. 배는 스미다강 하구에 닿았다. 하루의 무선국은 아사쿠사의 셔터 내린 전파상 안에 있다. 발전기 연료가 떨어져 송신이 곧 끊긴다. 연료통 네 개. 발전기 소음은 저들을 부를 것이다.':
+      'Tokyo. The boat made the mouth of the Sumida. Haru\'s station is inside a shuttered electronics shop in Asakusa. The generator is out of fuel and the signal is about to die. Four fuel cans. The generator\'s noise will call them in.',
     '연료통 4개 회수': 'Recover 4 fuel cans',
     '차단문으로 이동': 'Head to the gate',
     '버텨라': 'Hold Out',
-    '시부야 교차로. 차단문은 90초 뒤에 열린다. 그때까지는 이 교차로에서 살아 있어야 한다. 사방이 트여 있다 — 그만큼 사방에서 온다.':
-      'Shibuya crossing. The gate opens in 90 seconds. Until then you stay alive on this crossing. It\'s open on every side — so they come from every side.',
+    '하루가 남쪽 선단의 교신을 잡았다. 마지막 배는 싱가포르에서 떠난다. 그곳으로 가는 화물선의 차단문은 시부야 교차로에서 원격으로만 열린다. 90초. 사방이 트여 있다 — 그만큼 사방에서 온다.':
+      'Haru picked up the southern fleet. The last ship leaves from Singapore. The gate to the freighter going there only opens remotely, from the Shibuya crossing. Ninety seconds. It\'s open on every side — so they come from every side.',
     '90초 생존': 'Survive 90 seconds',
     '개방된 차단문으로 이동': 'Go through the open gate',
     '거대한 것': 'The Big One',
-    '도쿄 타워 공원. 무전에서 마지막으로 들린 단어는 "크다"였다. 탄창 하나로는 멈추지 않는 개체가 이 구역을 돌아다닌다.':
-      'Tokyo Tower park. The last word on the radio was "big". Something one magazine won\'t stop is walking this block.',
+    '출항 전에 할 일이 하나 남았다. 하루의 목소리가 남쪽까지 닿으려면 도쿄 타워에 안테나를 걸어야 한다. 공원 관리소 무전의 마지막 단어는 "크다"였다. 탄창 하나로는 멈추지 않는 개체가 이 구역을 돌아다닌다.':
+      'One thing left before sailing. For Haru\'s voice to reach the south, an antenna has to go up on Tokyo Tower. The park office\'s last word on the radio was "big". Something one magazine won\'t stop is walking this block.',
     '감염체 30기 소탕': 'Kill 30 infected',
     '집결지로 이동': 'Head to the rally point',
     '정전': 'Blackout',
-    '방콕. 배터리가 얼마 남지 않았다. 예비 배터리는 야시장 노점 사이에 흩어져 있다. 불빛이 꺼지면 방향도, 사격선도 사라진다.':
-      'Bangkok. The battery is nearly gone. Spares are scattered among the night market stalls. When the light dies, so do your bearings and your line of fire.',
+    '방콕. 하루의 중계가 새 목소리를 이어 주었다 — 강 건너 진료소의 간호사 녹. 진료소에는 배터리가 필요하다. 예비 배터리는 야시장 노점 사이에 흩어져 있다. 불빛이 꺼지면 방향도, 사격선도 사라진다.':
+      'Bangkok. Haru\'s relay connected a new voice — Nok, a nurse at the clinic across the river. The clinic needs batteries. Spares are scattered among the night market stalls. When the light dies, so do your bearings and your line of fire.',
     '예비 배터리 5개 회수': 'Recover 5 spare batteries',
-    '마지막 다리': 'The Last Bridge',
-    '짜오프라야강 건너 왓 아룬 쪽에 불빛이 보인다. 진짜 사람의 불빛이다. 그런데 다리 앞에 무언가가 서 있다. 저것은 걷지 않는다 — 기다리고 있다.':
-      'Across the Chao Phraya, near Wat Arun, there are lights. Real, human lights. But something is standing in front of the bridge. It isn\'t walking — it\'s waiting.',
+    '기다리는 것': 'The One That Waits',
+    '짜오프라야강 건너 왓 아룬 쪽에 진료소의 불빛이 보인다. 진짜 사람의 불빛이다. 그런데 다리 앞에 무언가가 서 있다. 저것은 걷지 않는다 — 기다리고 있다.':
+      'Across the Chao Phraya, near Wat Arun, the clinic\'s lights are on. Real, human lights. But something is standing in front of the bridge. It isn\'t walking — it\'s waiting.',
     '그것을 쓰러뜨리고 다리를 건너라': 'Bring it down and cross the bridge',
+    '남쪽의 신호': 'Signal South',
+    '싱가포르. 육로로 사흘. 새벽호는 응답이 없다 — 항구까지 전파가 닿지 않는다. 시내의 비상 중계기 세 대를 다시 켜면 하루의 중계와 이어진다. 중계기는 켜지는 동안 소리를 낸다. 그 곁을 지켜야 한다.':
+      'Singapore. Three days overland. The Dawn isn\'t answering — the signal doesn\'t reach the port. Restart three emergency relays in the city and they\'ll link up with Haru\'s. The relays make noise while they power up. Stay by them.',
+    '중계기 3대 가동 — 켜질 때까지 곁에 머물 것': 'Power 3 relays — stay close until each one is on',
+    '가동 후 집결지로 이동': 'Then head to the rally point',
+    '새벽호': 'The Dawn',
+    '새벽 네 시. 3번 부두까지는 도시 하나를 가로질러야 한다. 배가 접안하는 동안 부두를 지키고, 현문이 내려오면 그때 오른다. 이 도시의 모든 것이 소리를 듣고 몰려올 것이다.':
+      'Four a.m. Pier 3 is a whole city away. Hold the pier while the ship docks, and board when the gangway comes down. Everything in this city will hear it and come.',
+    '3번 부두로 이동': 'Reach Pier 3',
+    '접안할 때까지 부두를 지킬 것': 'Hold the pier until the ship docks',
+    '현문으로 승선': 'Board by the gangway',
     '탈출로는 없다. 얼마나 오래 버티는지만 기록된다.': 'There is no way out. Only how long you last is recorded.',
     '최대한 오래 생존': 'Survive as long as you can',
     '보급 상자': 'Supply crate', '연료통': 'Fuel can', '예비 배터리': 'Spare battery',
@@ -262,8 +280,26 @@ const I18N = (() => {
     '{n} fps · {w}×{h}{auto}': '{n} fps · {w}×{h}{auto}', ' 자동': ' auto',
 
     /* ── 접근성 이름 ── */
-    '무기 선택': 'Choose weapon', '구역 지도': 'Area map'
-  };
+    '무기 선택': 'Choose weapon', '구역 지도': 'Area map',
+  
+    /* ── 이야기 · 기록 · 새 목표 ── */
+    '누르면 넘어갑니다': 'Tap to continue', '건너뛰기': 'Skip',
+    '길에 떨어진 종이를 밟으면 여기에 남는다. 챕터마다 두 장.': 'Step on papers lying in the street and they are kept here. Two per chapter.',
+    '프롤로그 다시 보기': 'Replay the prologue', '아직 찾지 못했다': 'Not found yet',
+    '기록': 'Record', '기록 발견': 'Record found', '기록 {n}/{t}': 'Records {n}/{t}', '주운 기록': 'Records picked up', '{n}장': '{n}',
+    '에필로그': 'Epilogue',
+    '중계기 가동 — 켜질 때까지 곁을 지켜라': 'Relay powering up — stay with it until it\'s on',
+    '중계기 {n}/{t} 가동': 'Relays {n}/{t} on', '중계기 가동 중 {p}% — 곁을 지켜라': 'Relay {p}% — stay close',
+    '중계망 연결 — 집결지로 이동하라': 'Relay network linked — head to the rally point',
+    '중계기': 'Relays', '접안': 'Docking', '현문 개방': 'Gangway down', '부두로 이동 중': 'Heading to the pier',
+    '3번 부두로 가라': 'Get to Pier 3', '접안까지 {s}초 — 버텨라': '{s}s to docking — hold on',
+    '배가 들어온다 — {s}초 버텨라': 'The ship is coming in — hold for {s}s',
+    '무언가 큰 것이 온다': 'Something big is coming',
+    '현문이 내려왔다 — 배에 올라라': 'The gangway is down — get aboard',
+    '현문으로 승선하라': 'Board by the gangway',
+    '{city} 최고': 'Best in {city}',
+    '최고 {m}분 {s}초 · {k}기 처치': 'Best {m}m {s}s · {k} kills', '기록 없음': 'No record yet',
+};
 
   // 굵게 · 링크가 섞인 문단은 통째로
   const EN_HTML = {

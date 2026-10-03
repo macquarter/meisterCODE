@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════
-   AFTERMATH — 잔존 : UI 스타일
+   LEFT CITY — 남겨진 도시 : UI 스타일
    ═══════════════════════════════════════════ */
 :root{
   --ink:#07090c;
@@ -117,6 +117,51 @@ body.touch .boss{top:calc(96px + env(safe-area-inset-top));width:min(300px,62vw)
   font-size:12.5px;line-height:1.5;color:var(--bone);
   opacity:0;transition:opacity .25s ease,transform .25s ease;pointer-events:none}
 #hint.show{opacity:1;transform:translate(-50%,0)}
+
+/* ── 무전 — 미션 줄 아래 자막 ─────────────── */
+.radio{position:absolute;left:calc(16px + env(safe-area-inset-left));top:calc(64px + env(safe-area-inset-top));
+  max-width:min(380px,calc(100vw - 230px));padding:8px 12px 9px;
+  background:linear-gradient(90deg,rgba(7,9,12,.86),rgba(7,9,12,.6));border-left:2px solid rgba(127,209,255,.55);
+  font-size:13px;line-height:1.5;color:var(--bone);opacity:0;transform:translateY(-4px);
+  transition:opacity .25s ease,transform .25s ease;pointer-events:none}
+.radio.show{opacity:1;transform:none}
+.radio b{display:block;font-size:11px;font-weight:600;letter-spacing:.08em;margin-bottom:2px}
+.radio b::before{content:'';display:inline-block;width:6px;height:6px;border-radius:50%;background:currentColor;
+  margin-right:6px;vertical-align:1px;animation:radioBlink 1s steps(2) infinite}
+.radio.note{border-left-color:rgba(232,220,192,.6);font-family:Georgia,'Noto Serif KR',serif;font-style:italic}
+.radio.note b{font-family:var(--font),sans-serif;font-style:normal}
+.radio.note b::before{border-radius:1px;animation:none}
+@keyframes radioBlink{50%{opacity:.25}}
+/* 터치: 미니맵이 왼쪽 위에 있으므로 그 오른쪽에. 세로 화면은 탄약 줄 아래로 */
+body.touch .radio{left:calc(max(14px,env(safe-area-inset-left)) + 84px);max-width:min(380px,calc(100vw - 112px));font-size:12.5px}
+@media (orientation:portrait){ body.touch .radio{top:calc(100px + env(safe-area-inset-top))} }
+.radio.show ~ #hint{margin-top:72px}
+body.touch .radio.show ~ #hint{margin-top:66px}
+@media (prefers-reduced-motion:reduce){.radio{transition:opacity .2s;transform:none}}
+
+/* ── 이야기 카드 · 기록 보관함 ─────────────── */
+.screen--story{cursor:pointer;background:#030405}
+.screen--story .screen__inner{text-align:center;max-width:640px}
+.story__card{font-size:clamp(18px,3.4vw,26px);line-height:1.7;letter-spacing:.02em;white-space:pre-line;
+  min-height:5.2em;display:flex;align-items:center;justify-content:center;margin:0 auto;
+  animation:storyIn 1.2s ease both}
+.story__card.title{font-size:clamp(34px,8vw,64px);letter-spacing:.24em;font-weight:700}
+.story__tap{font-size:11px;letter-spacing:.2em;color:var(--fog);opacity:.5;margin-top:18px}
+.story__skip{margin-top:22px}
+@keyframes storyIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){.story__card{animation:none}}
+.journal{display:flex;flex-direction:column;gap:12px;text-align:left;margin:8px 0 16px}
+.journal__ch{font-size:11px;letter-spacing:.18em;color:var(--fog);opacity:.8;margin-top:6px}
+.journal__rec{padding:10px 12px;background:rgba(232,226,208,.05);border-left:2px solid rgba(232,226,208,.35)}
+.journal__rec b{display:block;font-size:13px;margin-bottom:3px}
+.journal__rec p{margin:0;font-size:13px;line-height:1.6;font-family:Georgia,'Noto Serif KR',serif;font-style:italic;opacity:.9}
+.journal__rec.missing{border-left-color:rgba(255,255,255,.1);opacity:.45}
+.journal__rec.missing p{font-style:normal;font-family:inherit}
+#scrJournal h2 small{font-size:13px;font-weight:400;opacity:.6;margin-left:8px;letter-spacing:.06em}
+.chapter__recs{display:block;font-size:10.5px;letter-spacing:.06em;opacity:.6;margin-top:2px}
+.ending__text p{margin:0 0 12px}
+.ending__credit{font-size:11px;letter-spacing:.24em;opacity:.45;margin-top:10px}
+.city small{display:block;font-size:11px;opacity:.6;margin-top:4px;letter-spacing:.04em}
 #hint b{flex:none;font-size:11px;font-weight:600;letter-spacing:.06em;color:var(--amber);
   padding:2px 7px;border:1px solid rgba(240,180,41,.45);border-radius:2px;white-space:nowrap}
 #hint span{min-width:0}

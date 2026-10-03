@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════
-   AFTERMATH — 잔존 : 나라별 도시 테마 · 랜드마크
+   LEFT CITY — 남겨진 도시 : 나라별 도시 테마 · 랜드마크
    world.js 다음, entities.js 앞에 로드된다.
    랜드마크는 실제 장소를 본뜬 양식화된 모형이다 — 사진·도면·로고는 쓰지 않는다.
    ═══════════════════════════════════════════ */
@@ -31,6 +31,15 @@ const THEMES = {
     busCol: '#b5452d', small: 'tuktuk',
     roofs: ['#211d1b', '#1d1b1a', '#24201c', '#1b1a19'],
     streetDecor: ['cart', 'shrine']
+  },
+  singapore: {
+    key: 'singapore', name: '싱가포르', river: '싱가포르강',
+    signs: ['KOPITIAM', '药房', 'MAKAN', 'LAKSA', '24 HRS', 'CLINIC', 'MRT', '茶室', 'KEDAI', 'HOTEL', '海南鸡饭', 'TOTO'],
+    signCols: ['#4dd0e1', '#ff8a65', '#ffee58', '#a5d6a7', '#f48fb1', '#ffffff'],
+    carCols: ['#2f6fb5', '#c9ccd1', '#1d1f24', '#e2c13a', '#8b2b2b', '#3e8e41'],   // 파란 택시
+    busCol: '#6b2f7a', small: null,
+    roofs: ['#1c2125', '#1a1f22', '#20262a', '#1b2023'],
+    streetDecor: ['parasol', 'bike', 'vending']
   }
 };
 
@@ -146,6 +155,48 @@ const LANDMARKS = {
         lmSolid(wd, x, y, 1, 1); stalls.push([x, y]);
       }
       return { kind: 'market', x: x0, y: y0, w: 9, h: 9, rally: { tx: x0 + 4, ty: y0 + 4 }, stalls };
+    }
+  },
+  /* 싱가포르 — 지붕 덮인 노천 식당가. 가장자리에 노점이 늘어서고 가운데에 둥근 탁자.
+     이름은 일반 명사로 둔다 — 특정 시설을 본뜨지 않았다 */
+  hawker: {
+    name: '호커 센터', w: 11, h: 9, ground: D_PLAZA,
+    stamp(wd, x0, y0) {
+      const stalls = [], tables = [];
+      for (let x = x0 + 1; x <= x0 + 9; x++) if (x !== x0 + 5) { lmSolid(wd, x, y0, 1, 1); stalls.push([x, y0]); }  // 북쪽 노점 줄 (가운데는 뒷문)
+      for (let y = y0 + 3; y <= y0 + 7; y += 2) for (let x = x0 + 2; x <= x0 + 8; x += 3) { lmSolid(wd, x, y, 1, 1); tables.push([x, y]); }
+      return { kind: 'hawker', x: x0, y: y0, w: 11, h: 9, rally: { tx: x0 + 5, ty: y0 + 4 }, stalls, tables };   // 탁자 줄 사이
+    }
+  },
+  /* 싱가포르 — 넝쿨을 두른 강철 나무 기둥들. 꼭대기에 넓은 우산 같은 갓이 있다 */
+  supertree: {
+    name: '수직 정원', w: 11, h: 11, ground: D_GRASS,
+    stamp(wd, x0, y0, rng) {
+      const trees = [[2, 2, 0.95], [8, 3, 0.8], [5, 6, 1.1], [2, 8, 0.7], [8, 8, 0.85]];
+      for (const [dx, dy] of trees) lmSolid(wd, x0 + dx, y0 + dy, 1, 1);
+      for (let i = 0; i < 8; i++) {
+        const x = x0 + 1 + Math.floor(rng() * 9), y = y0 + 1 + Math.floor(rng() * 9);
+        if (trees.some(([dx, dy]) => Math.abs(x - x0 - dx) + Math.abs(y - y0 - dy) < 3)) continue;
+        if (Math.abs(x - x0 - 5) + Math.abs(y - y0 - 9) < 2) continue;      // 집결 지점은 비워 둔다
+        if (wd.at(x, y) === T_ROAD && wd.roadNeighbours(x, y) === 8) wd.tree(x, y, rng);
+      }
+      return { kind: 'grove', x: x0, y: y0, w: 11, h: 11, rally: { tx: x0 + 5, ty: y0 + 9 },
+        trees: trees.map(([dx, dy, k]) => [x0 + dx + 0.5, y0 + dy + 0.5, k]) };
+    }
+  },
+  /* 싱가포르 — 컨테이너 부두. 위쪽은 바다와 배, 아래는 컨테이너 더미와 크레인.
+     배에 오르는 현문(가운데 다리 칸)이 집결지다 */
+  port: {
+    name: '항만', w: 13, h: 11, ground: D_ASPHALT,
+    stamp(wd, x0, y0) {
+      wd.fill(x0, y0, 13, 4, T_WATER);                         // 바다
+      lmSolid(wd, x0 + 1, y0, 11, 3);                          // 배 (선체)
+      wd.fill(x0 + 6, y0 + 3, 1, 1, T_ROAD, D_BRIDGE);         // 현문
+      const boxes = [[1, 6, 2], [1, 8, 2], [4, 9, 2], [9, 6, 2], [10, 8, 2], [7, 9, 1]];
+      for (const [dx, dy, n] of boxes) lmSolid(wd, x0 + dx, y0 + dy, n, 1);
+      for (const dx of [3, 9]) { lmSolid(wd, x0 + dx, y0 + 4, 1, 1); lmSolid(wd, x0 + dx + 1, y0 + 4, 1, 1); }   // 크레인 다리
+      return { kind: 'port', x: x0, y: y0, w: 13, h: 11, rally: { tx: x0 + 6, ty: y0 + 3 },
+        hull: { x: x0 + 1, y: y0, w: 11, h: 3 }, boxes: boxes.map(([dx, dy, n]) => [x0 + dx, y0 + dy, n]), cranes: [x0 + 3, x0 + 9] };
     }
   }
 };

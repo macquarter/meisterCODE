@@ -289,7 +289,8 @@ def summarize_gemini(message: str) -> str:
     model = os.environ.get("GEMINI_MODEL")
     if not model:
         raise RuntimeError("GEMINI_MODEL 환경변수에 사용할 모델 이름을 넣어 주세요")
-    return genai.Client().models.generate_content(model=model, contents=message).text
+    with genai.Client() as client:  # 변수로 붙잡지 않으면 응답 전에 연결이 닫힌다
+        return client.models.generate_content(model=model, contents=message).text
 
 
 SUMMARIZERS = {"claude": summarize_claude, "gpt": summarize_gpt, "gemini": summarize_gemini}
@@ -337,14 +338,15 @@ def gemini_watch_youtube(url: str, prompt: str) -> str:
     model = os.environ.get("GEMINI_MODEL")
     if not model:
         raise RuntimeError("GEMINI_MODEL 환경변수에 사용할 모델 이름을 넣어 주세요")
-    resp = genai.Client().models.generate_content(
-        model=model,
-        contents=types.Content(parts=[
-            types.Part(file_data=types.FileData(file_uri=url)),
-            types.Part(text=prompt + "\n\n먼저 영상의 대사·내레이션을 타임스탬프와 함께 받아 적은 뒤 정리해 주세요."),
-        ]),
-    )
-    return resp.text
+    with genai.Client() as client:  # 변수로 붙잡지 않으면 응답 전에 연결이 닫힌다
+        resp = client.models.generate_content(
+            model=model,
+            contents=types.Content(parts=[
+                types.Part(file_data=types.FileData(file_uri=url)),
+                types.Part(text=prompt + "\n\n먼저 영상의 대사·내레이션을 타임스탬프와 함께 받아 적은 뒤 정리해 주세요."),
+            ]),
+        )
+        return resp.text
 
 
 def handle_blocked(url: str, vid: str, workdir: Path, prompt: str) -> int:
@@ -359,10 +361,22 @@ def handle_blocked(url: str, vid: str, workdir: Path, prompt: str) -> int:
 
     if os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY"):
         log("  · Gemini에 YouTube 주소를 직접 넘겨 영상 분석")
-        try:
-            text = gemini_watch_youtube(url, prompt)
-        except Exception as e:
-            log(f"  ✗ Gemini 영상 분석 실패: {e}")
+        import time
+
+        text, err = None, None
+        for wait in (0, 10, 30, 60):  # 503(과부하)·429(한도)는 잠시 뒤 재시도
+            if wait:
+                log(f"    일시적 오류로 {wait}초 뒤 재시도")
+                time.sleep(wait)
+            try:
+                text = gemini_watch_youtube(url, prompt)
+                break
+            except Exception as e:
+                err = e
+                if not re.search(r"\b(503|429|500)\b|UNAVAILABLE|RESOURCE_EXHAUSTED", str(e)):
+                    break
+        if text is None:
+            log(f"  ✗ Gemini 영상 분석 실패: {err}")
         else:
             out = workdir / "summary_gemini_video.md"
             out.write_text(text, encoding="utf-8")

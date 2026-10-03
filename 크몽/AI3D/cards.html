@@ -160,15 +160,39 @@ body{display:flex;flex-direction:column;align-items:center;gap:32px;padding:32px
 .ask em{font-style:normal;color:var(--blue)}
 .ask small{display:block;margin-top:4px;font-size:12px;font-weight:700;color:#5A6577}
 .jump .from{text-decoration:none}
+
+.shot{border-radius:12px;overflow:hidden;border:1px solid rgba(255,255,255,.14);background:#0B1119}
+.shot img{display:block;width:100%}
+.shot .bar{display:flex;align-items:center;gap:8px;padding:8px 12px;font-size:12px;font-weight:800;color:#AEB7C4;border-bottom:1px solid rgba(255,255,255,.08)}
+.shot .bar i{width:8px;height:8px;border-radius:50%;background:#2ED573}
+.kv{display:flex;gap:8px;margin-top:12px}
+.kv div{flex:1;border-radius:10px;padding:10px 12px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1)}
+.kv div.on{background:var(--blue);border-color:var(--blue)}
+.kv b{display:block;font-size:20px;font-weight:900;letter-spacing:-.045em}
+.kv span{font-size:12px;font-weight:700;color:#AEB7C4}
+.kv div.on span{color:rgba(255,255,255,.9)}
+.org{display:flex;gap:12px;margin-top:18px;align-items:stretch}
+.org .team{flex:1.35;background:#fff;border:1px solid #DFE4EC;border-radius:12px;padding:12px 16px}
+.org .team p{display:flex;justify-content:space-between;gap:8px;padding:7px 0;border-bottom:1px solid #EEF1F5;font-size:13px;font-weight:700;color:#3B4656;letter-spacing:-.03em}
+.org .team p b{font-weight:900;color:#0A1220;white-space:nowrap}
+.org .team p.sum{border-bottom:0;padding-top:9px;font-size:15px;color:#0A1220;font-weight:900}
+.org .team p.sum b{color:#D93A3A;font-size:17px}
+.org .eng{flex:1;background:var(--blue);color:#fff;border-radius:12px;padding:16px;display:flex;flex-direction:column;justify-content:center}
+.org .eng small{font-size:12px;font-weight:900;color:rgba(255,255,255,.8)}
+.org .eng b{display:block;font-size:30px;font-weight:900;letter-spacing:-.05em;margin:6px 0}
+.org .eng span{font-size:13px;font-weight:700;line-height:1.6}
+.facts{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+.facts span{font-size:13px;font-weight:800;color:#E3E8EF;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.12);padding:6px 10px;border-radius:8px}
+.facts span b{color:var(--blue-lit)}
 </style>
 
-<!-- ═════ 01 [Attention] 노력 최소화 + 증명 ═════ -->
+<!-- ═════ 01 [Attention] 10명 몫의 팀 ═════ -->
 <section class="card c1">
   <div class="beam"></div>
   <div class="main">
     <div class="l"><span class="tag">설비·시공 사장님 전용 홍보 엔진</span>
-      <h1 style="font-size:35px">현장 사진 올리면<br><span class="b">아침 9시,</span><br>5개 채널 자동 발행</h1>
-      <p class="proof">누수퀵 실가동 · 광고비 0원 · <b>144건 발행</b></p>
+      <h1 style="font-size:36px">마케팅팀 10명이<br>할 일을,<br><span class="b">엔진 하나가 매일</span></h1>
+      <p class="proof">누수퀵 실가동 · 광고비 0원 · <b>콘텐츠 144건</b></p>
       <div class="p-row"><span class="p-lab">파일럿부터 · 2주 · 3개 채널 · 쇼츠 6편</span></div>
       <span class="p-big">99만원</span><p class="p-note">VAT 별도 · 월 가동 패키지 있음</p></div>
     <div class="r"><svg class="fly" data-center="09:00" data-sub="5개 채널 동시"></svg></div>
@@ -212,25 +236,21 @@ body{display:flex;flex-direction:column;align-items:center;gap:32px;padding:32px
   </div>
 </section>
 
-<!-- ═════ 04 [Desire] 사회적 증거 ═════ -->
+<!-- ═════ 04 [Desire] 실제 관제 화면 ═════ -->
 <section class="card">
   <div class="beam"></div>
   <div class="top"><b>JUNGANG <span>MEISTER</span></b><span>04 / 09</span></div>
   <div class="in">
     <p class="eyebrow">실가동 사례 · 누수퀵 (배관 누수 진단)</p>
-    <p class="h">말이 아니라,<br><span class="b">지금도 돌아가고 있습니다</span></p>
-    <div class="dash">
-      <div class="kp">
-        <div><b>144건</b><span>자동 발행 콘텐츠</span></div>
-        <div class="on"><b>20,276회</b><span>5개 채널 누적 조회</span></div>
-        <div><b>0원</b><span>광고비</span></div>
-        <div><b>하루 3번</b><span>성과 자동 집계</span></div>
-      </div>
-      <div class="ch"><p class="live" style="color:#9CC4FF">성과 대시보드 · 예시 화면</p>
-        <div class="bars"><i style="height:20%"></i><i style="height:28%"></i><i style="height:25%"></i><i style="height:38%"></i><i style="height:35%"></i><i style="height:50%"></i><i style="height:46%"></i><i style="height:62%"></i><i style="height:57%"></i><i style="height:74%"></i><i class="on" style="height:92%"></i></div>
-        <div class="sync"><span>09시 ✓</span><span>15시 ✓</span><span class="nx">21시</span></div></div>
+    <p class="h s">말이 아니라,<br><span class="b">실제 관제 화면입니다</span></p>
+    <div class="shot" style="margin-top:16px"><div class="bar"><i></i>SNS 멀티채널 관제 · 2026.10.03 실제 화면</div><img src="img/dash-sns-row1.png" alt="누수퀵 SNS 관제 화면"></div>
+    <div class="kv">
+      <div><b>144건</b><span>누적 발행 콘텐츠</span></div>
+      <div class="on"><b>9,276회</b><span>유튜브 쇼츠 조회</span></div>
+      <div><b>1.1만 회</b><span>스레드 조회</span></div>
+      <div><b>0원</b><span>광고비</span></div>
     </div>
-    <p class="cap">2026년 10월 기준 누수퀵 1개 사례의 실제 수치입니다. 업종·지역·계정 상태에 따라 결과는 달라집니다.</p>
+    <p class="cap">계정명은 가림 처리했습니다. 누수퀵 1개 사례이며 업종·지역·계정 상태에 따라 결과는 달라집니다.</p>
   </div>
 </section>
 
@@ -249,22 +269,19 @@ body{display:flex;flex-direction:column;align-items:center;gap:32px;padding:32px
   </div>
 </section>
 
-<!-- ═════ 06 [Desire] 루프 ═════ -->
-<section class="card c6">
+<!-- ═════ 06 [Desire] 데이터 루프 ═════ -->
+<section class="card">
   <div class="beam"></div>
   <div class="top"><b>JUNGANG <span>MEISTER</span></b><span>06 / 09</span></div>
-  <div class="in row2">
-    <div class="l">
-      <p class="eyebrow">반응을 보고 다음 콘텐츠를 조정하는 구조</p>
-      <p class="h s">오늘의 조회 데이터가,<br><span class="b">내일 콘텐츠에</span><br>반영됩니다</p>
-      <div class="ben">
-        <div><b>조회가 잘 나온 주제는 다음에 더 다룹니다</b><span>하루 세 번 채널별 조회 데이터를 모아 다음 생성에 반영</span></div>
-        <div><b>같은 영상 재탕 없음</b><span>발행마다 AI 3D 장면을 새로 생성</span></div>
-        <div><b>깔끔한 전문 업체 이미지로</b><span>얼굴이 절반 이상 보이거나 지정한 작업복 문구가 찍힌 사진은 자동 제외</span></div>
-      </div>
-      <div class="chips"><span>구글 AI 영상 생성</span><span>음성·자막 자동 맞춤</span><span>플랫폼 권장 음량 보정</span></div>
+  <div class="in">
+    <p class="eyebrow">사장님 전용 관제 대시보드 제공</p>
+    <p class="h s">오늘의 조회 데이터가,<br><span class="b">내일 콘텐츠에 반영됩니다</span></p>
+    <div class="shot" style="margin-top:16px"><div class="bar"><i></i>최근 14일 일일 트래픽 · 실제 대시보드</div><img src="img/dash-chart.png" alt="최근 14일 트래픽 차트"></div>
+    <div class="facts">
+      <span><b>하루 3번</b> 자동 집계 (09·15·21시)</span>
+      <span>조회 잘 나온 주제는 <b>다음에 더</b></span>
+      <span>발행마다 <b>새 AI 3D 장면</b></span>
     </div>
-    <svg class="fly" data-big="1" data-center="주 5회" data-sub="자동 반복"></svg>
   </div>
 </section>
 
@@ -276,32 +293,35 @@ body{display:flex;flex-direction:column;align-items:center;gap:32px;padding:32px
     <div class="phone"><span class="ex">AI 3D 예시</span><svg class="iso" data-scan="1"></svg><p class="sbt">벽 <em>안 깨고</em><br>잡았습니다</p></div>
     <div class="l">
       <p class="eyebrow">아침 9시, 동시에</p>
-      <p class="h s">사진 한 장이<br><span class="b">5개 채널에서 동시에</span> 일합니다</p>
+      <p class="h s">5개 채널 발행에,<br><span class="b">스레드 댓글 응대까지</span></p>
       <div class="spoke" style="margin-top:16px">
         <div><b>유튜브 쇼츠</b><span><em>쇼츠 피드</em>를 넘기는 사람에게</span></div>
         <div><b>네이버 블로그</b><span><em>동네 이름으로</em> 검색하는 사람에게</span></div>
         <div><b>자사 홈페이지</b><span><em>견적 전에</em> 확인하는 사람에게</span></div>
-        <div><b>스레드</b><span><em>대화로</em> 퍼지는 곳에</span></div>
+        <div><b>스레드</b><span><em>댓글로 대화하며</em> 퍼지는 곳에</span></div>
         <div><b>인스타그램</b><span><em>저장해 두는</em> 사람에게</span></div>
       </div>
     </div>
   </div>
 </section>
 
-<!-- ═════ 08 [Desire] 범위 비교 ═════ -->
+<!-- ═════ 08 [Desire] 사람으로 꾸리면 10명 ═════ -->
 <section class="card card--paper">
   <div class="top"><b>JUNGANG <span>MEISTER</span></b><span>08 / 09</span></div>
   <div class="in">
-    <p class="h s">직원 뽑지 않고, 대행 3곳 없이<br><span class="b">계약 하나로 5개 채널</span></p>
-    <table class="tbl">
-      <tr><th></th><th>마케터 1명 채용</th><th>채널별 대행 3곳</th><th class="us">홍보 엔진 월 가동</th></tr>
-      <tr><td>월 비용</td><td>인건비 + 4대보험</td><td>230~420만원</td><td class="us">290만원 · VAT 별도</td></tr>
-      <tr><td>월 콘텐츠</td><td>담당자 역량에 따라</td><td>숏폼 12편 기준</td><td class="us">약 20편 (주 5회)</td></tr>
-      <tr><td>채널</td><td>담당자 역량에 따라</td><td>블로그·인스타·숏폼</td><td class="us">5개 동시 발행</td></tr>
-      <tr><td>AI 3D 영상</td><td>별도 외주</td><td>숏폼 편당 구매</td><td class="us">발행마다 포함</td></tr>
-      <tr><td>사장님 할 일</td><td>채용·관리</td><td>3곳과 따로 소통</td><td class="us">사진 올리고 승인</td></tr>
-    </table>
-    <p class="src">대행: 블로그 운영 월 22만~133만, 인스타 운영 월 52만~130만, 숏폼 편당 평균 약 13만원 × 12편 합산 (2026년 10월 크몽 공개 가격 범위, VAT 기준은 판매자별 상이)</p>
+    <p class="h s">사람으로 꾸리면 10명,<br><span class="b">엔진은 사장님 승인 하나</span></p>
+    <div class="org">
+      <div class="team">
+        <p>3D 영상 · 모션그래픽<b>2명</b></p>
+        <p>전문 테크니컬 카피라이터<b>2명</b></p>
+        <p>SNS 5개 채널 운영 · 댓글 응대<b>4명</b></p>
+        <p>Three.js · GSAP 프론트엔드<b>1명</b></p>
+        <p>DevOps · 자동화 엔지니어<b>1명</b></p>
+        <p class="sum">합계<b>10명</b></p>
+      </div>
+      <div class="eng"><small>홍보 엔진 월 가동</small><b>290만원</b><span>VAT 별도 · 주 5회<br>5개 채널 + 스레드 댓글<br>AI 3D 영상 · 관제 대시보드</span></div>
+    </div>
+    <p class="src">인원은 5개 채널 주 5회 운영 기준 당사 산정 예시입니다. 채널 운영만 따로 맡겨도 크몽 기준 월 230~420만원이며, 3D 영상·개발·자동화는 별도입니다.</p>
   </div>
 </section>
 

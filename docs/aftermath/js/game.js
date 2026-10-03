@@ -201,6 +201,9 @@ const Hints = (() => {
       : [isTouch ? '사격' : '클릭', '사격 — 손전등이 비추는 쪽으로만 나간다'],
     reload:   () => [isTouch ? '장전' : 'R', '재장전 — 탄창이 비면 자동으로도 갈아 끼운다'],
     melee:    () => [isTouch ? '밀치기' : 'E · 우클릭', '붙잡히면 발이 묶인다 — 밀쳐내고 빠져나가라'],
+    weeper:   () => ['우는 것', '울음소리가 들리면 불빛을 돌리고 멀리 돌아가라 — 깨우면 끝까지 쫓아온다'],
+    bloater:  () => ['부푼 것', '가까이서 터지면 담즙을 뒤집어쓴다 — 멀리서 쏴라'],
+    bile:     () => ['담즙', '냄새를 맡고 무리가 몰려온다 — 등을 벽에 대고 수류탄을 준비하라'],
     horde:    () => ['무리', '붉은 호가 가리키는 쪽에서 몰려온다 — 불빛을 그쪽으로 돌리거나 질주로 거리를 벌려라'],
     sprint:   () => isTouch ? ['질주', '한 번 누르면 계속 달린다 · 발소리가 커서 멀리서도 깨운다']
                             : ['Shift', '질주 — 빠르지만 발소리가 커서 멀리서도 깨운다'],
@@ -214,7 +217,7 @@ const Hints = (() => {
     behemoth: () => ['그것', '붉은 선이 뜨면 옆으로 비켜라. 벽에 박으면 비틀거린다']
   };
   // 지금 당장 알아야 하는 것은 줄 앞으로 끼워 넣는다
-  const URGENT = new Set(['horde', 'melee', 'reload', 'nade', 'runner', 'brute', 'crawler', 'spitter', 'behemoth']);
+  const URGENT = new Set(['bile', 'weeper', 'horde', 'melee', 'reload', 'nade', 'runner', 'brute', 'crawler', 'spitter', 'behemoth']);
 
   const queue = [];
   let cur = null, t = 0, gap = 0;
@@ -230,7 +233,7 @@ const Hints = (() => {
     el.querySelector('span').textContent = msg;
     el.classList.add('show');
     cur = id;
-    t = id in { runner: 1, brute: 1, crawler: 1, spitter: 1, behemoth: 1, horde: 1 } ? 4.6 : 3.8;
+    t = id in { runner: 1, brute: 1, crawler: 1, spitter: 1, behemoth: 1, horde: 1, weeper: 1, bloater: 1, bile: 1 } ? 4.6 : 3.8;
     seen[id] = 1; save();
   }
   function hide() { $('hint').classList.remove('show'); cur = null; gap = 0.5; }
@@ -261,12 +264,14 @@ const Hints = (() => {
         const d = Math.hypot(z.x - p.x, z.y - p.y);
         if (d < z.r + p.r + 26) adjacent = true;
         if (z.aggro && d < 320) close++;
-        if (z.lit > 0.5 && z.type !== 'walker') push(z.type);
+        if (z.lit > 0.5 && z.type !== 'walker' && !z.t.weeper) push(z.type);
+        if (z.t.weeper && d < 560) push('weeper');
       }
       if (g.boss && !g.boss.dead && g.boss.aggro &&
           Math.hypot(g.boss.x - p.x, g.boss.y - p.y) < 700) push('behemoth');
       if (adjacent) push('melee');
       if (g.hordeAt) push('horde');
+      if (p.bile > 0) push('bile');
       if (close >= 4 && p.nades > 0) push('nade');
       for (const pk of g.pickups)
         if (Math.hypot(pk.x - p.x, pk.y - p.y) < 240) { push('pickup'); break; }
@@ -394,6 +399,19 @@ const G = {
     // 초기 좀비
     const initial = Math.max(2, Math.round(L.spawn.initial * SETTINGS.mod.max));
     for (let i = 0; i < initial; i++) this.spawnZombie(560, 1600);
+    // 우는 것 — 가는 길 중간쯤, 시작점에서 멀찍이
+    this.gas = [];
+    const nWeep = this.survival ? 2 : (L.weepers | 0);
+    const wr = makeRng(L.seed ^ 0x77e1);
+    for (let i = 0, tries = 0; i < nWeep && tries < 400; tries++) {
+      const idx = w.reach[Math.floor(wr() * w.reach.length)], q = w.tileCenter(idx);
+      const te = w.toExit[idx], tx = idx % w.w, ty = (idx / w.w) | 0;
+      if (te < w.maxDist * 0.25 || te > w.maxDist * 0.75) continue;
+      if (Math.hypot(q.x - this.player.x, q.y - this.player.y) < 700 || w.roadNeighbours(tx, ty) < 6) continue;
+      if (this.zombies.some(z => z.t.weeper && Math.hypot(z.x - q.x, z.y - q.y) < 900)) continue;
+      const z = new Zombie(q.x, q.y, 'weeper'); z.face = wr() * 6.28;
+      this.zombies.push(z); i++;
+    }
     this.flowT = 0; this.hordeAt = null; this.casings = []; this.kickX = 0; this.kickY = 0;
     this.freezeT = 0; this.lastStop = -9;
     w.updateFlow(this.player.x, this.player.y);
@@ -452,11 +470,11 @@ const G = {
   pickType() {
     const mix = this.level.mix;
     let total = 0;
-    for (const k in mix) if (ZTYPES[k]) total += Math.max(0, mix[k]);
+    for (const k in mix) if (ZTYPES[k] && !ZTYPES[k].special) total += Math.max(0, mix[k]);
     if (total <= 0) return 'walker';
     let r = Math.random() * total, acc = 0;
     for (const k in mix) {
-      if (!ZTYPES[k]) continue;
+      if (!ZTYPES[k] || ZTYPES[k].special) continue;
       acc += Math.max(0, mix[k]);
       if (r <= acc) return k;
     }
@@ -560,6 +578,35 @@ const G = {
     D.horde.push(...out); D.count++; D.sinceMob = 0;
     if (this.hordeAt) this.hordeAt.t = Math.max(this.hordeAt.t, 2);
   },
+  /** 부푼 것이 터졌다 — 녹색 가스가 남고, 가까웠으면 담즙을 뒤집어쓴다 */
+  bloaterBurst(z) {
+    const p = this.player, d = Math.hypot(z.x - p.x, z.y - p.y);
+    this.gas.push({ x: z.x, y: z.y, t: 6, max: 6, r: 110 });
+    SFX.burst(d);
+    this.shake = Math.min(16, this.shake + 6);
+    for (let i = 0; i < 26; i++) {
+      const a = Math.random() * 6.283, sp = 60 + Math.random() * 260;
+      this.particles.push({ x: z.x, y: z.y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, life: 0.4 + Math.random() * 0.5, max: 0.9,
+        size: 2 + Math.random() * 3, col: i % 3 ? '#7d9a3a' : '#b7c96a', kind: 'spark' });
+    }
+    if (d < 140 && !p.dead) this.bileHit();
+  },
+  /** 담즙 — 9초 동안 시야가 흐려지고, 무리가 냄새를 맡고 몰려온다 */
+  bileHit() {
+    const p = this.player, D = this.dir;
+    const fresh = !(p.bile > 0);
+    p.bile = 9;
+    SFX.splat();
+    this.stress(30);
+    if (!fresh) return;
+    this.toast('담즙을 뒤집어썼다 — 무리가 몰려온다');
+    for (const z of this.zombies) if (!z.t.weeper && Math.hypot(z.x - p.x, z.y - p.y) < 700) z.aggro = true;
+    if (D) {
+      if (D.pending) D.pending.n += 3;
+      else this.callHorde(this.hordeSize() + 3, { x: p.x, y: p.y });
+    }
+  },
+
   /** 경보기 달린 차 — 맞히면 울리고, 울리면 무리가 온다 (L4D 의 "이중 기대감") */
   triggerAlarm(pr) {
     if (!pr || !pr.alarm || pr.ringing) return;
@@ -887,6 +934,7 @@ const G = {
       if (this.hurtSfxT <= 0) { this.hurtSfxT = 0.75; SFX.hurt(); }
     }
     for (const pk of this.pickups) pk.update(dt, this);
+    for (let i = this.gas.length - 1; i >= 0; i--) if ((this.gas[i].t -= dt) <= 0) this.gas.splice(i, 1);
 
     this.zombies = this.zombies.filter(z => !z.dead);
     this.bullets = this.bullets.filter(b => !b.dead);
@@ -977,7 +1025,8 @@ const G = {
         runner:  Math.min(0.45, 0.28 + t / 520),
         brute:   Math.min(0.28, Math.max(0, (t - 60) / 520)),
         crawler: Math.min(0.26, Math.max(0, (t - 35) / 420)),
-        spitter: Math.min(0.20, Math.max(0, (t - 90) / 600))
+        spitter: Math.min(0.20, Math.max(0, (t - 90) / 600)),
+        bloater: Math.min(0.10, Math.max(0, (t - 50) / 700))
       };
       if (this.pickups.length < 6 && Math.random() < dt * 0.35) {
         const types = ['ammo', 'ammo', 'shells', 'medkit', 'battery', 'nade'];
@@ -1023,6 +1072,7 @@ const G = {
     const p = this.player, range = Math.max(p.lightRange, 190);
     let best = null, bd = 1e9;
     for (const z of this.zombies) {
+      if (z.t.weeper && !z.rage) continue;          // 우는 것은 자동으로 쏘지 않는다 — 깨울지는 플레이어가 정한다
       const d = Math.hypot(z.x - p.x, z.y - p.y);
       if (d > range || d > bd) continue;
       const a = Math.atan2(z.y - p.y, z.x - p.x);
@@ -1128,6 +1178,18 @@ function render() {
   }
   ctx.globalAlpha = 1;
 
+  /* 부푼 것의 가스 */
+  for (const q of g.gas) {
+    const k = q.t / q.max;
+    ctx.globalAlpha = 0.28 * k;
+    ctx.fillStyle = '#6f8a32';
+    for (let i = 0; i < 5; i++) {
+      const a = i * 1.257 + g.time * 0.3, r = q.r * (0.45 + 0.12 * Math.sin(g.time + i));
+      ctx.beginPath(); ctx.arc(q.x + Math.cos(a) * r * 0.5, q.y + Math.sin(a) * r * 0.5, r * 0.7, 0, 6.283); ctx.fill();
+    }
+  }
+  ctx.globalAlpha = 1;
+
   /* 시체 */
   for (const c of g.corpses) drawCorpse(c);
 
@@ -1179,8 +1241,23 @@ function render() {
   drawGlow(cam, g, p, w);
   drawRain(g);
   drawVignette();
+  if (p.bile > 0) drawBile(p.bile);
   drawHordeCue(cam, g, p);
   drawCrosshair(g, p);
+}
+
+/** 담즙 — 가장자리부터 녹색으로 번지고 흘러내린다 */
+function drawBile(t) {
+  const k = Math.min(1, t / 2);
+  const gr = ctx.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.18, W / 2, H / 2, Math.max(W, H) * 0.7);
+  gr.addColorStop(0, 'rgba(90,120,30,0)');
+  gr.addColorStop(1, `rgba(90,120,30,${0.55 * k})`);
+  ctx.fillStyle = gr; ctx.fillRect(0, 0, W, H);
+  ctx.fillStyle = `rgba(120,150,50,${0.35 * k})`;
+  for (let i = 0; i < 14; i++) {
+    const x = (i * 97 + 31) % W, len = 40 + ((i * 53) % 90) + (9 - t) * 18;
+    ctx.fillRect(x, 0, 3 + (i % 3), Math.min(H, len));
+  }
 }
 
 /** 무리가 오는 쪽을 플레이어 둘레의 붉은 호로 3초간 가리킨다 (소리를 못 듣는 환경 대비) */
@@ -1935,7 +2012,35 @@ function drawZombie(z) {
   ctx.fillStyle = 'rgba(0,0,0,.42)';
   ctx.beginPath(); ctx.ellipse(0, 3, S + 3, S, 0, 0, 6.283); ctx.fill();
 
-  if (z.t.boss) {
+  if (z.t.weeper) {
+    // 우는 것 — 무릎을 끌어안고 웅크린 창백한 형체, 늘어진 검은 머리. 깨어나면 일어서 긴 손톱을 뻗는다
+    if (!z.rage) {
+      const sob = Math.sin(z.phase * 3) * (1 + (z.startle || 0) * 2);
+      ctx.fillStyle = z.t.body;
+      ctx.beginPath(); ctx.ellipse(-2, 0, S * 1.05, S * 0.9 + sob * 0.4, 0, 0, 6.283); ctx.fill();
+      ctx.fillStyle = '#141414';
+      ctx.beginPath(); ctx.ellipse(S * 0.35, 0, S * 0.62, S * 0.7, 0, 0, 6.283); ctx.fill();      // 늘어뜨린 머리카락
+      ctx.fillStyle = z.t.head;
+      ctx.fillRect(S * 0.2, -S * 0.75, S * 0.9, 3); ctx.fillRect(S * 0.2, S * 0.75 - 3, S * 0.9, 3);  // 무릎을 감싼 팔
+    } else {
+      ctx.fillStyle = z.t.body;
+      ctx.beginPath(); ctx.ellipse(0, 0, S * 0.9, S * 0.75, 0, 0, 6.283); ctx.fill();
+      ctx.strokeStyle = z.t.head; ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      for (const s2 of [-1, 1]) { ctx.moveTo(2, s2 * S * 0.6); ctx.lineTo(S * 2.1, s2 * (S * 0.5 + sway)); }
+      ctx.stroke();
+      ctx.fillStyle = '#141414'; ctx.beginPath(); ctx.arc(S * 0.4, 0, S * 0.55, 0, 6.283); ctx.fill();
+    }
+  } else if (z.t.bloat) {
+    // 부푼 것 — 터질 듯한 몸통에 고름 주머니
+    const pulse = 1 + Math.sin(z.phase * 0.8) * 0.04;
+    ctx.fillStyle = z.t.body;
+    ctx.beginPath(); ctx.ellipse(-2, 0, S * 1.08 * pulse, S * pulse, 0, 0, 6.283); ctx.fill();
+    ctx.fillStyle = 'rgba(183,201,106,.55)';
+    for (const [bx, by, br] of [[-6, -7, 4], [3, 8, 5], [-9, 6, 3], [6, -4, 3]]) { ctx.beginPath(); ctx.arc(bx, by, br, 0, 6.283); ctx.fill(); }
+    ctx.fillStyle = z.t.head;
+    ctx.beginPath(); ctx.arc(S * 0.7, 0, S * 0.36, 0, 6.283); ctx.fill();
+  } else if (z.t.boss) {
     // 그것 — 굽은 등과 비대한 팔. 돌진 선딜에는 몸이 부풀어 오른다
     const w = z.chargePhase === 'wind' ? 1 + Math.sin(z.phase * 2) * 0.09 : 1;
     ctx.fillStyle = z.t.body;
@@ -2165,9 +2270,20 @@ function drawGlow(cam, g, p, w) {
     ctx.beginPath(); ctx.arc(sp.x, sp.y, 26, 0, 6.283); ctx.fill();
   }
 
+  // 우는 것 — 아주 희미한 창백한 기운. 깨어날수록 짙어지고 눈이 붉어진다
+  for (const z of g.zombies) {
+    if (!z.t.weeper || z.rage) continue;
+    const d = Math.hypot(z.x - p.x, z.y - p.y);
+    if (d > 460) continue;
+    const a = (0.05 + (z.startle || 0) * 0.16) * (1 - d / 460);
+    const gr = ctx.createRadialGradient(z.x, z.y, 0, z.x, z.y, 46);
+    gr.addColorStop(0, `rgba(220,215,205,${a})`); gr.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = gr; ctx.beginPath(); ctx.arc(z.x, z.y, 46, 0, 6.283); ctx.fill();
+  }
+
   // 어둠 속의 눈 — 접근을 알아챌 수 있는 유일한 단서
   for (const z of g.zombies) {
-    if (!z.aggro) continue;
+    if (!z.aggro && !(z.t.weeper && z.startle > 0.5)) continue;
     const d = Math.hypot(z.x - p.x, z.y - p.y);
     if (d > 560) continue;
     const a = clamp((1 - d / 560) * 0.5, 0, 0.5) * (0.7 + Math.sin(g.time * 6 + z.phase) * 0.3);

@@ -33,6 +33,13 @@ const ZTYPES = {
   spitter: { hp: 74, speed: 46, dmg: 9, r: 14, size: 13, hear: 540, score: 38,
              body: '#44513f', head: '#6d7f52',
              spit: { range: 310, hold: 215, cool: 2.8, speed: 340, dmg: 15, pool: 4.5 } },
+  // 우는 것 — 길가에 웅크려 운다. 불빛을 오래 비추거나, 가까이 가거나, 뛰거나, 곁에서 쏘면 깨어나
+  // 끝까지 쫓아온다 (L4D 의 마녀). 무리처럼 생기지 않고 판마다 정해진 자리에 놓인다
+  weeper: { hp: 280, speed: 250, dmg: 46, r: 12, size: 11, hear: 0, score: 120,
+            body: '#b9b4ab', head: '#d8d3c9', weeper: true, special: true },
+  // 부푼 것 — 느리게 다가와 붙으면 터진다. 가까이서 터지면 담즙을 뒤집어쓰고 무리가 몰려온다 (L4D 의 부머)
+  bloater: { hp: 44, speed: 44, dmg: 0, r: 17, size: 17, hear: 300, score: 30,
+             body: '#5f6b46', head: '#7d8a5a', bloat: true },
   // 그것 — 마지막 다리를 막아선 개체. 한 마리뿐이고, 죽어야 길이 열린다
   behemoth: { hp: 1500, speed: 40, dmg: 44, r: 24, size: 26, hear: 1600, score: 500,
               body: '#2f3a42', head: '#4a5a64', boss: true,
@@ -203,7 +210,7 @@ class Player {
   get lightRange() {
     if (!this.lightOn || this.battery <= 0) return 0;
     const low = this.battery < 22 ? 0.72 + Math.random() * 0.28 : 1;  // 저전력 깜빡임
-    return 430 * low;
+    return 430 * low * (this.bile > 0 ? 0.7 : 1);       // 담즙에 눈이 흐려진다
   }
 
   hurt(dmg) {
@@ -276,6 +283,7 @@ class Player {
     }
     this.hurtFlash = Math.max(0, this.hurtFlash - dt * 2.4);
     this.noise = Math.max(0, this.noise - dt * 1.4);
+    this.bile = Math.max(0, (this.bile || 0) - dt);
     if (this.lightOn && this.battery > 0) {
       this.battery = Math.max(0, this.battery - (g.level.batteryDrain || 1.25) * SETTINGS.mod.battery * dt);
       if (this.battery === 0) g.toast('배터리 방전 — 시야를 잃었다');
@@ -317,6 +325,7 @@ class Zombie {
   hurt(dmg, ang, g, knock = 0) {
     this.hp -= dmg;
     this.aggro = true;
+    if (this.t.weeper && !this.rage && this.hp > 0) this.enrage(g);
     this.flash = 0.07;                                        // 맞은 순간 하얗게
     if (this.type !== 'brute' && !this.t.boss) this.stagger = 0.09;
     // 넉백 — 맞은 방향으로 밀린다. 덩치는 덜 밀린다
@@ -330,8 +339,71 @@ class Zombie {
       g.corpses.push({ x: this.x, y: this.y, a: ang, type: this.type, age: 0 });   // 맞은 방향으로 쓰러진다
       g.spawnBlood(this.x, this.y, ang, 16);
       g.onKill(this);
+      if (this.t.bloat) g.bloaterBurst(this);
       SFX.zombieDie(Math.hypot(this.x - g.player.x, this.y - g.player.y));
     }
+  }
+
+  /** 벽 회피: 목표 각도에서 조금씩 벌려가며 통과 가능한 방향을 찾는다. 움직였으면 true */
+  steerMove(target, speed, dt, g) {
+    this.steerHold -= dt;
+    const offsets = this.steerHold > 0
+      ? [this.steer, 0, 0.55, -0.55, 1.1, -1.1, 1.7, -1.7, 2.5, -2.5]
+      : [0, 0.55, -0.55, 1.1, -1.1, 1.7, -1.7, 2.5, -2.5];
+    for (const off of offsets) {
+      const a = target + off;
+      const nx = Math.cos(a) * speed * dt, ny = Math.sin(a) * speed * dt;
+      if (!g.world.hits(this.x + nx, this.y + ny, this.r)) {
+        this.x += nx; this.y += ny; this.face = a;
+        if (off !== 0) { this.steer = off; this.steerHold = 0.5; }
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /* ── 우는 것 ──
+     웅크린 채 운다. 깨어남(startle) 0→1: 불빛(오래 비출수록) · 가까움 · 질주 · 곁의 총성이 채우고,
+     조용하면 천천히 빠진다. 1 이 되면 비명과 함께 9초 동안 전력으로 쫓는다. */
+  enrage(g) {
+    this.rage = true; this.rageT = 9; this.aggro = true; this.startle = 1;
+    const d = Math.hypot(g.player.x - this.x, g.player.y - this.y);
+    SFX.wail(d);
+    g.shake = Math.min(18, g.shake + 8);
+    g.stress(25);
+    g.toast('우는 것이 깨어났다');
+  }
+  updateWeeper(dt, g, p, d, dx, dy) {
+    this.lit = Math.max(0, this.lit - dt * 3);
+    if (!this.rage) {
+      this.aggro = false;
+      this.startle = Math.max(0, (this.startle || 0) - 0.22 * dt);
+      if (!p.dead) {
+        if (this.lit > 0.5 && d < 380) this.startle += 0.85 * dt;     // 불빛을 비추면 (1.2초쯤)
+        if (d < 120) this.startle += 1.7 * dt;                         // 바로 곁
+        if (p.sprinting && d < 300) this.startle += 1.2 * dt;          // 뛰는 발소리
+        if (p.noise > 0.95 && d < 360) this.startle += 0.07;           // 총성 (한 발에 0.2 남짓)
+      }
+      this.sobT = (this.sobT || 0) - dt;
+      if (this.sobT <= 0 && d < 820) { this.sobT = 1.3 + Math.random() * 0.8 - this.startle * 0.6; SFX.sob(d, this.startle); }
+      this.phase += dt * (1.5 + this.startle * 6);                       // 깨어날수록 어깨가 빨리 들썩인다
+      if (this.startle >= 1) this.enrage(g);
+      return;
+    }
+    this.rageT -= dt;
+    let target = Math.atan2(dy, dx);
+    this.losT = (this.losT || 0) - dt;
+    if (this.losT <= 0) { this.losT = 0.25; this.seen = d < 70 || g.world.los(this.x, this.y, p.x, p.y); }
+    if (!this.seen) { const fa = g.world.flowDir(this.x, this.y); if (fa !== null) target = fa; }
+    this.steerMove(target, this.t.speed, dt, g);
+    this.phase += dt * 14;
+    if (d < this.r + p.r + 4 && !p.dead) {
+      p.grabN = (p.grabN || 0) + 2;                                      // 붙잡히면 거의 못 움직인다
+      p.hurt(this.t.dmg * SETTINGS.mod.dmg * dt);
+      g.shake = Math.min(12, g.shake + 20 * dt);
+      if (g.hurtSfxT <= 0) { SFX.hurt(); g.hurtSfxT = 0.45; }
+    }
+    if (this.rageT <= 0 || p.dead) { this.rage = false; this.startle = 0; this.aggro = false; }   // 그 자리에 다시 주저앉는다
   }
 
   update(dt, g) {
@@ -339,6 +411,7 @@ class Zombie {
     const dx = p.x - this.x, dy = p.y - this.y;
     const d = Math.hypot(dx, dy) || 1;
     if (this.flash > 0) this.flash -= dt;
+    if (this.t.weeper) { this.updateWeeper(dt, g, p, d, dx, dy); return; }
 
     // 감지: 소리 · 불빛 · 근접
     if (!this.aggro) {
@@ -432,6 +505,11 @@ class Zombie {
       // 전력 질주는 걷는 플레이어(158)와 비슷하다 — 걸어서는 떨칠 수 없고, 질주(224)해야 벌어진다
       if (this.type === 'walker') speed *= 1 + 2.1 * Math.min(1, this.aggroT / 1.2);
       if (this.type === 'spitter') speed *= 1 + 1.05 * Math.min(1, this.aggroT / 1.2);
+      if (this.type === 'bloater') {
+        speed *= 1.5;
+        this.gurgleT = (this.gurgleT || 0) - dt;
+        if (this.gurgleT <= 0 && d < 600) { this.gurgleT = 1.8 + Math.random(); SFX.gurgle(d); }   // 다가오는 소리로 먼저 알린다
+      }
       if (this.type === 'runner') speed *= 1.42 * (0.9 + Math.sin(g.time * 3 + this.phase) * 0.12);
       if (this.t.crawl) {
         // 웅크렸다 튀는 리듬 — 일정 속도로 다가오지 않아 거리를 재기 어렵다
@@ -460,23 +538,11 @@ class Zombie {
       target = this.wanderDir;
     }
 
-    // 벽 회피: 목표 각도에서 조금씩 벌려가며 통과 가능한 방향을 찾는다
-    this.steerHold -= dt;
-    const offsets = this.steerHold > 0
-      ? [this.steer, 0, 0.55, -0.55, 1.1, -1.1, 1.7, -1.7, 2.5, -2.5]
-      : [0, 0.55, -0.55, 1.1, -1.1, 1.7, -1.7, 2.5, -2.5];
-    let moved = false;
-    for (const off of offsets) {
-      const a = target + off;
-      const nx = Math.cos(a) * speed * dt, ny = Math.sin(a) * speed * dt;
-      if (!g.world.hits(this.x + nx, this.y + ny, this.r)) {
-        this.x += nx; this.y += ny; this.face = a;
-        if (off !== 0) { this.steer = off; this.steerHold = 0.5; }
-        moved = true; break;
-      }
-    }
-    if (!moved) this.wanderT = 0;
+    if (!this.steerMove(target, speed, dt, g)) this.wanderT = 0;
     this.phase += dt * (this.aggro ? 9 : 3);
+
+    // 부푼 것은 붙으면 터진다
+    if (this.t.bloat && this.aggro && d < this.r + p.r + 8 && !p.dead) { this.hurt(this.hp + 1, Math.atan2(dy, dx), g); return; }
 
     // 접촉 공격 — 붙잡힌 만큼 발이 묶인다 (다음 프레임 이동에 반영)
     if (d < this.r + p.r + 3 && !p.dead) {

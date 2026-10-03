@@ -35,10 +35,10 @@ const LEVELS = [
     brief: '한강을 건너야 한다. 다리 위에는 버려진 차들뿐. 느린 것들만 있는 게 아니었다 — ' +
            '어떤 개체는 뛰고, 어떤 것은 바닥을 기어 불빛 아래로 들어오기 전까지 보이지 않는다.',
     goals: ['한강을 건너 집결지까지 돌파'],
-    seed: 3319, blocks: 7, city: 'seoul', river: true, landmarks: ['namsan', 'gwanghwamun'],
+    seed: 3319, weepers: 1, blocks: 7, city: 'seoul', river: true, landmarks: ['namsan', 'gwanghwamun'],
     objective: { type: 'escape' },
     spawn: { initial: 10, rate: 0.4, max: 22 },
-    mix: { walker: 0.55, runner: 0.3, brute: 0, crawler: 0.15 },
+    mix: { walker: 0.55, runner: 0.3, brute: 0, crawler: 0.15, bloater: 0.06 },
     own: ['pistol', 'smg'], drops: ['shotgun'],
     startAmmo: { smg: 100, shell: 4 }, startNades: 3,
     supplies: { ammo: 4, shells: 2, medkit: 2, battery: 3, nade: 2 }
@@ -48,10 +48,10 @@ const LEVELS = [
     brief: '도쿄. 배는 스미다강 하구에 닿았다. 아사쿠사의 비상 발전기를 돌리면 동쪽 차단문이 열린다. ' +
            '연료통 네 개. 그동안 발전기 소음은 저들을 부른다.',
     goals: ['연료통 4개 회수', '차단문으로 이동'],
-    seed: 4523, blocks: 6, city: 'tokyo', river: true, landmarks: ['sensoji', 'tokyotower'],
+    seed: 4523, weepers: 1, blocks: 6, city: 'tokyo', river: true, landmarks: ['sensoji', 'tokyotower'],
     objective: { type: 'collect', count: 4 },
     spawn: { initial: 12, rate: 0.5, max: 26 },
-    mix: { walker: 0.45, runner: 0.33, brute: 0.05, crawler: 0.17 },
+    mix: { walker: 0.45, runner: 0.33, brute: 0.05, crawler: 0.17, bloater: 0.07 },
     own: ['pistol', 'smg', 'shotgun'], drops: ['rifle'],
     startAmmo: { smg: 110, shell: 10, rifle: 0 }, startNades: 3,
     supplies: { ammo: 4, shells: 3, rounds: 1, medkit: 2, battery: 3, nade: 2 }
@@ -61,10 +61,10 @@ const LEVELS = [
     brief: '시부야 교차로. 차단문은 90초 뒤에 열린다. 그때까지는 이 교차로에서 살아 있어야 한다. ' +
            '사방이 트여 있다 — 그만큼 사방에서 온다.',
     goals: ['90초 생존', '개방된 차단문으로 이동'],
-    seed: 5631, blocks: 5, city: 'tokyo', landmarks: ['scramble'], goal: 'scramble',
+    seed: 5631, weepers: 1, blocks: 5, city: 'tokyo', landmarks: ['scramble'], goal: 'scramble',
     objective: { type: 'survive', time: 90 },
     spawn: { initial: 10, rate: 0.75, max: 30 },
-    mix: { walker: 0.4, runner: 0.33, brute: 0.05, crawler: 0.14, spitter: 0.08 },
+    mix: { walker: 0.4, runner: 0.33, brute: 0.05, crawler: 0.14, spitter: 0.08, bloater: 0.08 },
     own: ['pistol', 'smg', 'shotgun', 'rifle'], drops: [],
     startAmmo: { smg: 130, shell: 14, rifle: 10 }, startNades: 3,
     supplies: { ammo: 5, shells: 4, rounds: 2, medkit: 3, battery: 3, nade: 3 }
@@ -74,10 +74,10 @@ const LEVELS = [
     brief: '도쿄 타워 공원. 무전에서 마지막으로 들린 단어는 "크다"였다. ' +
            '탄창 하나로는 멈추지 않는 개체가 이 구역을 돌아다닌다.',
     goals: ['감염체 40기 소탕', '집결지로 이동'],
-    seed: 6742, blocks: 6, city: 'tokyo', landmarks: ['tokyotower', 'scramble'],
+    seed: 6742, weepers: 2, blocks: 6, city: 'tokyo', landmarks: ['tokyotower', 'scramble'],
     objective: { type: 'purge', count: 40 },
     spawn: { initial: 14, rate: 0.62, max: 28 },
-    mix: { walker: 0.35, runner: 0.3, brute: 0.13, crawler: 0.12, spitter: 0.1 },
+    mix: { walker: 0.35, runner: 0.3, brute: 0.13, crawler: 0.12, spitter: 0.1, bloater: 0.08 },
     own: ['pistol', 'smg', 'shotgun', 'rifle'], drops: [],
     startAmmo: { smg: 140, shell: 16, rifle: 15 }, startNades: 4,
     supplies: { ammo: 5, shells: 4, rounds: 2, medkit: 3, battery: 3, nade: 3 }
@@ -87,10 +87,10 @@ const LEVELS = [
     brief: '방콕. 배터리가 얼마 남지 않았다. 예비 배터리는 야시장 노점 사이에 흩어져 있다. ' +
            '불빛이 꺼지면 방향도, 사격선도 사라진다.',
     goals: ['예비 배터리 5개 회수', '집결지로 이동'],
-    seed: 7854, blocks: 6, city: 'bangkok', landmarks: ['nightmarket', 'democracy'],
+    seed: 7854, weepers: 2, blocks: 6, city: 'bangkok', landmarks: ['nightmarket', 'democracy'],
     objective: { type: 'collect', count: 5 },
     spawn: { initial: 14, rate: 0.7, max: 32 },
-    mix: { walker: 0.3, runner: 0.33, brute: 0.13, crawler: 0.12, spitter: 0.12 },
+    mix: { walker: 0.3, runner: 0.33, brute: 0.13, crawler: 0.12, spitter: 0.12, bloater: 0.1 },
     own: ['pistol', 'smg', 'shotgun', 'rifle'], drops: [],
     startAmmo: { smg: 120, shell: 12, rifle: 10 }, startNades: 4,
     supplies: { ammo: 5, shells: 3, rounds: 2, medkit: 3, battery: 2, nade: 3 },
@@ -101,10 +101,10 @@ const LEVELS = [
     brief: '짜오프라야강 건너 왓 아룬 쪽에 불빛이 보인다. 진짜 사람의 불빛이다. ' +
            '그런데 다리 앞에 무언가가 서 있다. 저것은 걷지 않는다 — 기다리고 있다.',
     goals: ['그것을 쓰러뜨리고 다리를 건너라'],
-    seed: 8967, blocks: 7, city: 'bangkok', river: true, landmarks: ['watarun', 'democracy'],
+    seed: 8967, weepers: 1, blocks: 7, city: 'bangkok', river: true, landmarks: ['watarun', 'democracy'],
     objective: { type: 'boss' },
     spawn: { initial: 18, rate: 0.95, max: 40 },
-    mix: { walker: 0.26, runner: 0.32, brute: 0.18, crawler: 0.1, spitter: 0.14 },
+    mix: { walker: 0.26, runner: 0.32, brute: 0.18, crawler: 0.1, spitter: 0.14, bloater: 0.08 },
     own: ['pistol', 'smg', 'shotgun', 'rifle'], drops: [],
     startAmmo: { smg: 150, shell: 18, rifle: 20 }, startNades: 5,
     supplies: { ammo: 6, shells: 5, rounds: 3, medkit: 3, battery: 4, nade: 4 }

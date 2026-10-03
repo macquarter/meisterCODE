@@ -237,6 +237,32 @@ const SFX = (() => {
       tone(58.3, 1.2, 0.1 * n, 'sawtooth', 43);
     },
 
+    /** 우는 것의 흐느낌 — 내려가는 두 음과 숨. 깨어날수록 높고 빠르다 */
+    sob(d, k) {
+      const n = near(d * 0.75); if (n <= 0.02) return;
+      const f = 520 + k * 260;
+      tone(f, 0.38, 0.05 * n, 'triangle', f * 0.72);
+      setTimeout(() => tone(f * 0.9, 0.5, 0.045 * n, 'triangle', f * 0.6), 330);
+      burst(0.3, 1400, 1.2, 0.03 * n, 'bandpass', 0.28);
+    },
+    /** 우는 것이 깨어날 때 — 찢어지는 비명 */
+    wail(d) {
+      const n = Math.max(0.5, near(d));
+      tone(600, 1.1, 0.2 * n, 'sawtooth', 1500);
+      tone(612, 1.1, 0.14 * n, 'square', 1480);
+      burst(0.9, 2400, 0.8, 0.18 * n, 'bandpass', 0.85);
+    },
+    /** 부푼 것 — 배 속에서 끓는 소리 */
+    gurgle(d) {
+      const n = near(d); if (n <= 0.02) return;
+      for (let i = 0; i < 3; i++) setTimeout(() => tone(70 + Math.random() * 40, 0.16, 0.08 * n, 'sine', 40), i * 120);
+      burst(0.4, 260, 1.4, 0.06 * n, 'lowpass', 0.35);
+    },
+    /** 부푼 것이 터질 때 */
+    burst(d) { const n = Math.max(0.3, near(d)); burst(0.6, 380, 0.7, 0.4 * n, 'lowpass', 0.5); tone(90, 0.3, 0.16 * n, 'sine', 40); },
+    /** 담즙을 뒤집어쓸 때 */
+    splat() { burst(0.5, 900, 0.8, 0.22, 'bandpass', 0.45); tone(140, 0.4, 0.1, 'sawtooth', 60); },
+
     /** 차량 경보 — 두 음을 번갈아 6초. 거리에 따라 작아진다 */
     alarm(d) {
       if (!enabled || !ctx) return;

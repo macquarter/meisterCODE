@@ -55,12 +55,22 @@ function resize() {
 }
 /** 자동 화질 — 프레임 간격(ms)의 이동 평균(약 1초)이 22ms 를 넘으면 18% 낮추고,
     4초 동안 60fps 를 지키면 10% 올린다. 올렸다가 다시 떨어진 높이는 기억해 그 아래에서 멈춘다 */
+/** 재질 무늬(바닥 결 · 벽돌 · 지붕 방수층) — 자동 화질의 첫 단계. 해상도를 낮추기 전에 무늬부터 끈다:
+    화면이 흐려지는 것보다 벽돌 결이 사라지는 쪽이 덜 거슬린다. 소프트웨어 렌더러에서 무늬는 한 장에 약 2ms.
+    다시 켰다가 또 버거우면(두 번째) 그 판에서는 끈 채로 둔다. '선명하게'는 늘 켜고, '가볍게'는 늘 끈다 */
+const TEX = { on: true, strikes: 0, okT: 0 };
+function texOn() { return SETTINGS.quality === 'high' || (SETTINGS.quality !== 'low' && TEX.on); }
 function adaptRes(ms) {
   if (SETTINGS.quality !== 'auto' || G.state !== 'play') { RES.ema = 16.7; RES.okT = 0; return; }
   ms = Math.min(ms, 100);
   RES.ema += (ms - RES.ema) * 0.03;
   RES.holdT -= ms / 1000;
   if (RES.holdT > 0) return;
+  if (TEX.on && RES.ema > 18.2) { TEX.on = false; TEX.strikes++; TEX.okT = 0; RES.ema = 16.7; RES.holdT = 1.5; return; }
+  if (!TEX.on && TEX.strikes < 2 && DEV >= RES.max - 0.01) {
+    TEX.okT = RES.ema < 16.9 ? TEX.okT + ms / 1000 : 0;
+    if (TEX.okT > 10) { TEX.on = true; TEX.okT = 0; RES.holdT = 1.5; return; }
+  }
   // 무리가 몰려오는 순간의 짧은 끊김에는 반응하지 않는다. 1배 밑으로는 정말 버거울 때만
   if (RES.ema > 22 && DEV > 0.55 && (DEV > 1.01 || RES.ema > 27)) {
     RES.ceil = Math.min(RES.ceil, DEV * 0.97);
@@ -2307,8 +2317,9 @@ function drawGround(cam, w) {
   // 차도 · 보도 — 결 무늬로 한 번씩만 칠한다. 칸마다 무늬와 단색을 번갈아 고르면 그때마다 무늬를 새로 준비해
   // 프레임이 크게 떨어진다(쓰레기 조각을 칸마다 그리던 판: 58 → 40fps)
   ctx.imageSmoothingEnabled = false;
-  ctx.fillStyle = bakedPattern('road'); ctx.fill(road);
-  ctx.fillStyle = bakedPattern('side'); ctx.fill(side);
+  const tex = texOn();
+  ctx.fillStyle = tex ? bakedPattern('road') : '#28292c'; ctx.fill(road);
+  ctx.fillStyle = tex ? bakedPattern('side') : '#35362f'; ctx.fill(side);
   ctx.imageSmoothingEnabled = true;
   // 그 위의 표시 — 색마다 한 경로로 모아 한 번씩
   const P = () => new Path2D();
@@ -3170,10 +3181,12 @@ function buildingRow(w, r, x0, x1) {
     ctx.fillRect(px - 0.3, top, TILE + 0.6, low - top);
     (mat[1] ? brick : stucco).rect(px - 0.3, top, TILE + 0.6, low - top);
   }
-  ctx.imageSmoothingEnabled = false;
-  ctx.fillStyle = bakedPattern('brick'); ctx.fill(brick);
-  ctx.fillStyle = bakedPattern('stucco'); ctx.fill(stucco);
-  ctx.imageSmoothingEnabled = true;
+  if (texOn()) {
+    ctx.imageSmoothingEnabled = false;
+    ctx.fillStyle = bakedPattern('brick'); ctx.fill(brick);
+    ctx.fillStyle = bakedPattern('stucco'); ctx.fill(stucco);
+    ctx.imageSmoothingEnabled = true;
+  }
   for (let x = x0; x <= x1; x++) {
     if (!isB(x, r)) continue;
     const h = bldH(w, x, r), hs = isB(x, r + 1) ? bldH(w, x, r + 1) : 0;
@@ -3237,9 +3250,11 @@ function buildingRow(w, r, x0, x1) {
     ctx.fillRect(px - 0.5, py - 0.5, TILE + 1, TILE + 1);
     roofPath.rect(px - 0.5, py - 0.5, TILE + 1, TILE + 1);
   }
-  ctx.imageSmoothingEnabled = false;
-  ctx.fillStyle = bakedPattern('roof'); ctx.fill(roofPath);
-  ctx.imageSmoothingEnabled = true;
+  if (texOn()) {
+    ctx.imageSmoothingEnabled = false;
+    ctx.fillStyle = bakedPattern('roof'); ctx.fill(roofPath);
+    ctx.imageSmoothingEnabled = true;
+  }
   for (let x = x0; x <= x1; x++) {
     if (!isB(x, r)) continue;
     const i = w.idx(x, r), lot = w.lot[i], lift = bldH(w, x, r) * HSC;
@@ -4816,6 +4831,7 @@ G.toScreen = (x, y) => toScreen(G.camera(), x, y).map(v => v * ZOOM);   // CSS p
 G.buzz = buzz;
 /** 현재 어둠 농도 (0‒1) — 밝기 설정 확인용 */
 G.darkLevel = () => darkLevel(G);
+G.tex = TEX;
 window.G = G;
 window.UI = UI;
 window.Records = Records;

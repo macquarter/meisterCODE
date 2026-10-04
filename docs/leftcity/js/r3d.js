@@ -534,6 +534,8 @@ const ROOFS_BY = {
   venice: ['#a8583a', '#b86848', '#9a4a30', '#a86a4a', '#8a4a34', '#b07050'],
   istanbul: ['#8a4a36', '#7a4230', '#9a5a40', '#6a3a2c', '#8a5040', '#a06048'],
   rio: ['#9a5a3a', '#b06a48', '#8a4a30', '#c07850', '#a0603e', '#7a7e84'],
+  moscow: ['#8a3a2e', '#c8b89a', '#9a4a3a', '#d8d0c0', '#7a7e84', '#b0a090'],
+  nairobi: ['#c87a50', '#e0c080', '#7a8a6a', '#b85a3a', '#d8d0c0', '#8a8e92'],
   mars: ['#c8ccd0', '#b8bcc0', '#d0d4d8', '#e8641a', '#aeb2b6', '#c8ccd0'],
   reykjavik: ['#d8dee4', '#a83a2a', '#d0d8de', '#3a5a7a', '#e0e4e8', '#5a6a5a'],
   antarctic: ['#e0e6ec', '#d8dee4', '#e8ecf0', '#d0d8e0', '#e4e8ec', '#dce2e8'],
@@ -1014,6 +1016,10 @@ const KIT = {
     words: ['ECZANE', 'LOKANTA', 'KAHVE', 'ÇAY', 'KEBAP', 'BAKLAVA', 'OTEL', 'BANKA', 'SİMİT', 'BALIK', 'BERBER', 'BAKKAL'] },
   rio: { styles: [['stucco', 5], ['shophouse', 2], ['brick', 1]], lamp: [1.0, 0.7, 0.4], fog: 0x0c0e0c, fogD: 0.0008, sh: [0.94, 0.94, 0.98], hi: [1.1, 1.0, 0.86], wires: 6, trees: 2,
     words: ['FARMÁCIA', 'PADARIA', 'BOTECO', 'AÇAÍ', 'LANCHONETE', 'CHURRASCO', 'SUCOS', 'HOTEL', 'BANCO', 'MERCADO', 'PRAIA', 'PASTEL'] },
+  moscow: { styles: [['brick', 3], ['stucco', 3], ['palazzo', 1]], lamp: [1.0, 0.82, 0.58], fog: 0x0c1016, fogD: 0.00095, sh: [0.88, 0.96, 1.1], hi: [1.02, 1.0, 1.0], wires: 2, trees: 1,
+    words: ['АПТЕКА', 'ПРОДУКТЫ', 'КАФЕ', 'ГОСТИНИЦА', 'БАНК', 'МЕТРО', 'ВОДКА', 'ХЛЕБ', 'ПИВО', 'ТАБАК', 'РЕМОНТ', 'ПОЧТА'] },
+  nairobi: { styles: [['shophouse', 3], ['stucco', 3], ['brick', 1]], lamp: [1.0, 0.72, 0.42], fog: 0x120c08, fogD: 0.00085, sh: [1.0, 0.92, 0.86], hi: [1.12, 1.0, 0.86], wires: 6, trees: 2,
+    words: ['DUKA', 'HOTELI', 'M-PESA', 'CHEMIST', 'BUTCHERY', 'SALON', 'MATATU', 'CAFE', 'BANK', 'SODA', 'KIBANDA', 'MAMA MBOGA'] },
   mars: { styles: [['module', 1]], lamp: [1.0, 0.66, 0.42], fog: 0x1c0b06, fogD: 0.00072, sh: [1.12, 0.86, 0.8], hi: [1.14, 0.96, 0.86], wires: 0, trees: 0,
     side: [1.5, 0.9, 0.7], plaza: [1.7, 1.0, 0.8], wet: 0.15,
     words: ['HAB-1', 'HAB-2', 'O₂', 'GREENHOUSE', 'MED', 'LAB', 'AIRLOCK', 'H₂O', 'REACTOR', 'DEPOT', 'COMMS', 'ROVER BAY'] },
@@ -1028,6 +1034,8 @@ const PASTEL = {
   reykjavik: ['#c8402a', '#2a5a8a', '#e8c040', '#3a7a5a', '#f0ece0', '#6a5a8a', '#d8d4cc', '#2a2e34'],
   istanbul: ['#c88a6a', '#e0c890', '#8aa0b0', '#b07a8a', '#d8d0c0', '#a0886a', '#7a8a6a'],
   rio: ['#f0a070', '#f2d060', '#60b8c0', '#a8d070', '#e88aa0', '#f0e0c0', '#8ab0e0', '#d07050'],
+  moscow: ['#c8b89a', '#e0d8c8', '#a8b8c8', '#d8a890', '#b0c0a8', '#f0e8d8', '#c8c8d0'],
+  nairobi: ['#e8a060', '#f2d060', '#70b0a0', '#d07050', '#a8c070', '#e0d0b0', '#7ab0d8'],
 };
 const STYLE_COLS = {
   sandstone: ['#c8a878', '#b89868', '#d4b88a', '#a88a62', '#c0a080', '#b8a490'],
@@ -1192,6 +1200,8 @@ const SIGN_COLS = {
   mars: [['#e8641a', '#ffffff'], ['#ffffff', '#1a1a1a'], ['#1a3a6a', '#ffffff']],
   istanbul: [['#c81a1a', '#ffffff'], ['#ffffff', '#c81a1a'], ['#1a3a6a', '#f2d24a'], ['#f2d24a', '#1a1a1a']],
   rio: [['#1a8a3a', '#f2d24a'], ['#f2d24a', '#1a3a8a'], ['#ffffff', '#1a8a3a'], ['#e8641a', '#ffffff']],
+  moscow: [['#c81a1a', '#ffffff'], ['#ffffff', '#1a3a8a'], ['#1a3a8a', '#ffffff'], ['#2a2a2a', '#e0b020']],
+  nairobi: [['#1a8a3a', '#ffffff'], ['#c81a1a', '#ffffff'], ['#f2d24a', '#1a1a1a'], ['#1a1a1a', '#f2d24a']],
 };
 function ensureSignMats(w) {
   const key = w.theme.key;
@@ -1374,7 +1384,7 @@ function lmTileH(lm, w, x, y) {
     case 'prang': case 'tower': case 'lattice': case 'monument': case 'grove': case 'port': case 'gas': return 0;
     case 'checkpoint': case 'base': return 0;
     case 'railyard': return 0;
-    case 'pyramids': case 'mosque': case 'kund': case 'mandir': case 'piazza': case 'hallgrim': case 'geyser': case 'station': case 'hagia': case 'galata': case 'redeemer': case 'copacabana': case 'biodome': case 'rocket': return 0;
+    case 'pyramids': case 'mosque': case 'kund': case 'mandir': case 'piazza': case 'hallgrim': case 'geyser': case 'station': case 'hagia': case 'galata': case 'redeemer': case 'copacabana': case 'biodome': case 'rocket': case 'basil': case 'kicc': return 0;
     case 'hawker': return ly === 0 ? 20 : 0;
     case 'market': return 18;
     default: return LM_H[lm.kind] || 30;
@@ -1955,7 +1965,7 @@ function makeHazards() {
       #endif
       gl_Position = projectionMatrix * viewMatrix * modelMatrix * instanceMatrix * vec4(position, 1.0); }`,
     fragmentShader: `varying vec2 vUv; varying vec3 vP;
-      void main(){ float e = smoothstep(0.0, 0.25, vUv.y) * smoothstep(1.0, 0.75, vUv.y) * (1.0 - vUv.x * 0.7);
+      void main(){ float e = smoothstep(0.0, 0.25, vUv.y) * smoothstep(1.0, 0.75, vUv.y) * (1.0 - vUv.x * 0.35) * (1.0 - smoothstep(0.5, 1.0, vUv.x));
         gl_FragColor = vec4(vec3(1.6, 0.28, 0.16) * vP.r * e, 1.0); }`,
     transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, polygonOffset: true, polygonOffsetFactor: -4
   }), 6);
@@ -2033,14 +2043,14 @@ function updateHazards(g, near) {
   }
   HZ.wade.count = nw;
   // 밀치기 — 몸 앞으로 휘두르는 흰 부채꼴(맞히면 더 밝게)
-  if (!SHOVE3) { SHOVE3 = []; const geo = new THREE.RingGeometry(0.35, 1, 24, 1, -1, 2).rotateX(-Math.PI / 2); for (let i = 0; i < 3; i++) { const m = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: 0xfff4e0, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide })); m.visible = false; m.frustumCulled = false; scene.add(m); SHOVE3.push(m); } }
+  if (!SHOVE3) { SHOVE3 = []; const geo = new THREE.RingGeometry(0.72, 1, 40).rotateX(-Math.PI / 2); /* 사방 충격파 */ for (let i = 0; i < 3; i++) { const m = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: 0xfff4e0, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide })); m.visible = false; m.frustumCulled = false; scene.add(m); SHOVE3.push(m); } }
   SHOVE3.forEach((m, i) => {
     const sv = (g.shoves || [])[i];
     m.visible = !!sv;
     if (!sv) return;
-    const k = sv.t / sv.max, R = 26 + k * 30;
-    m.position.set(sv.x, 22, sv.y); m.rotation.set(0, -sv.a, 0); m.scale.set(R, 1, R * (1 - k * 0.35));
-    m.material.opacity = (sv.hits ? 0.9 : 0.5) * (1 - k);
+    const k = sv.t / sv.max, R = 22 + k * 46;
+    m.position.set(sv.x, 6 + (1 - k) * 10, sv.y); m.rotation.set(0, -sv.a, 0); m.scale.set(R, 1, R);
+    m.material.opacity = (sv.hits ? 0.95 : 0.55) * (1 - k);
   });
   for (const k in HZ) { HZ[k].instanceMatrix.needsUpdate = true; if (HZ[k].instanceColor) HZ[k].instanceColor.needsUpdate = true; }
   updateRelays(g, near);
@@ -3123,20 +3133,57 @@ function makePlayerRig() {
   // 총 — 무기마다 따로 만든 모형. 손잡이가 원점, 총구가 +x
   pGun = new THREE.Group(); pGun.userData.guns = {};
   const blk = mat('#15181c', { roughness: 0.45, metalness: 0.6 }), dark = mat('#0c0d0f', { roughness: 0.6 }), wood = mat('#4a3020', { roughness: 0.7 });
-  const mk = (key, len, parts) => { const gg = new THREE.Group(); for (const [m, x, y, z, sx, sy, sz] of parts) gg.add(part(GEO.box, m, x, y, z, sx, sy, sz)); gg.userData.len = len; gg.visible = false; pGun.add(gg); pGun.userData.guns[key] = gg; };
-  mk('pistol', 9, [[blk, 3.5, 1.2, 0, 8, 2.2, 1.6], [dark, 0.2, -1.2, 0, 2, 3.6, 1.4]]);
-  mk('smg', 15, [[blk, 5, 1, 0, 12, 3, 2], [dark, 3.5, -2.5, 0, 1.8, 4.5, 1.4], [dark, -0.5, -1.5, 0, 1.6, 3.4, 1.4], [blk, 12.5, 1.3, 0, 5, 1.2, 1.2], [dark, -4, 1, 0, 6, 1.6, 1]]);
-  mk('shotgun', 22, [[blk, 9, 1.6, 0, 20, 1.6, 1.6], [wood, 10, 0, 0, 7, 2, 2], [wood, -4.5, 0.6, 0, 8, 2.6, 1.8], [dark, 0, -1, 0, 1.6, 3, 1.4]]);
-  mk('rifle', 24, [[blk, 8, 1, 0, 18, 2.6, 1.8], [blk, 19, 1.3, 0, 8, 1, 1], [dark, 6, 3.6, 0, 7, 1.8, 1.8], [dark, 4.5, -2.6, 0, 2, 4, 1.4], [wood, -5, 0.5, 0, 9, 3, 1.8], [dark, 0, -1.4, 0, 1.6, 3.2, 1.4]]);
   const chrome = mat('#9aa0a8', { roughness: 0.25, metalness: 0.9 }), red = mat('#8a2a1a', { roughness: 0.5 }), cyan = mat('#60d8ff', { emissive: col('#40c0ff'), emissiveIntensity: 2 });
-  mk('magnum', 12, [[chrome, 5, 1.4, 0, 10, 2, 1.6], [chrome, 1.8, 0.6, 0, 3.2, 2.8, 2.4], [wood, -0.6, -1.6, 0, 2, 3.8, 1.4]]);
-  mk('auto', 22, [[blk, 8, 1.4, 0, 18, 2.6, 2], [dark, 6, -1.6, 0, 3, 4, 2.2], [blk, 17, 1.8, 0, 6, 1.4, 1.4], [dark, -4, 1, 0, 8, 2.4, 1.6]]);
-  mk('lmg', 26, [[blk, 9, 1.4, 0, 20, 3.2, 2.4], [blk, 21, 1.6, 0, 9, 1.4, 1.4], [dark, 6, -2.6, 0, 6, 4, 3.6], [dark, -5, 0.8, 0, 9, 2.6, 1.8], [blk, 22, -1.2, 0, 1, 3, 4]]);
-  mk('crossbow', 18, [[wood, 6, 1, 0, 16, 2, 1.8], [dark, 14, 1.2, 0, 1.4, 1.4, 18], [chrome, 9, 2.4, 0, 12, 0.6, 0.6], [wood, -2, 0, 0, 5, 3, 1.6]]);
-  mk('flamer', 20, [[blk, 8, 1.2, 0, 16, 2.4, 2.2], [red, 0, -0.5, 4, 7, 7, 4], [chrome, 17, 1.4, 0, 6, 1.8, 1.8], [dark, 2, -2.6, 0, 2, 4, 1.4]]);
-  mk('launcher', 18, [[blk, 8, 1.6, 0, 14, 4.6, 4.6], [dark, 3, -2.6, 0, 2, 4, 1.6], [dark, -3, 1, 0, 6, 2.4, 1.8]]);
-  mk('rail', 26, [[blk, 10, 1.4, 0, 22, 3, 2.4], [cyan, 11, 3.2, 0, 18, 0.6, 0.8], [chrome, 23, 1.4, 0, 6, 1.6, 3.4], [dark, -4, 1, 0, 8, 2.6, 1.8], [dark, 3, -2.6, 0, 2, 4, 1.4]]);
-  mk('minigun', 24, [[chrome, 13, 1.6, 1.2, 22, 0.9, 0.9], [chrome, 13, 1.6, -1.2, 22, 0.9, 0.9], [chrome, 13, 3, 0, 22, 0.9, 0.9], [chrome, 13, 0.2, 0, 22, 0.9, 0.9], [blk, 0, 1.6, 0, 8, 5, 5], [dark, -1, -3.4, 0, 3, 4, 2]]);
+  const gun = mat('#2a2e33', { roughness: 0.35, metalness: 0.75 }), poly = mat('#1d2024', { roughness: 0.8 }), glass = mat('#203040', { roughness: 0.1, metalness: 0.4, emissive: col('#0a2030'), emissiveIntensity: 0.6 }), brass = mat('#b8913a', { roughness: 0.35, metalness: 0.8 }), olive = mat('#3b4030', { roughness: 0.7 });
+  /* 부품 — ['b' 상자 | 'c' x 축 원통 | 'v' y 축 원통, 재질, x, y, z, 크기x, 크기y, 크기z, z 축 기울기(손잡이 · 탄창)] */
+  const mk = (key, len, parts) => {
+    const gg = new THREE.Group();
+    for (const [t, m, x, y, z, sx, sy, sz, rz] of parts) {
+      const o = t === 'b' ? part(GEO.box, m, x, y, z, sx, sy, sz) : part(GEO.cyl, m, x, y, z, sx / 2, sy, sz / 2);
+      if (t === 'c') { o.rotation.z = Math.PI / 2; o.scale.set(sy / 2, sx, sz / 2); }
+      if (rz) o.rotation.z += rz;
+      gg.add(o);
+    }
+    gg.userData.len = len; gg.visible = false; pGun.add(gg); pGun.userData.guns[key] = gg;
+  };
+  mk('pistol', 9, [['b', blk, 3.6, 1.5, 0, 8, 1.9, 1.5], ['b', poly, 2.6, 0.2, 0, 6.4, 1.1, 1.3], ['b', poly, 0.1, -1.6, 0, 1.9, 3.8, 1.4, -0.22],
+    ['b', blk, 2.1, -0.8, 0, 2, 0.35, 0.7], ['c', chrome, 7.8, 1.5, 0, 0.8, 0.9, 0.9], ['b', dark, 7.2, 2.6, 0, 0.5, 0.5, 0.4], ['b', dark, 0.2, 2.6, 0, 0.8, 0.5, 0.9],
+    ['b', dark, 1.0, 1.5, 0.78, 2.2, 1.4, 0.06], ['b', dark, 4.6, 1.9, 0.78, 2.2, 0.6, 0.06]]);
+  mk('smg', 15, [['b', gun, 5, 1.1, 0, 11, 2.8, 2], ['c', blk, 12.4, 1.4, 0, 4.4, 1.1, 1.1], ['c', dark, 15, 1.4, 0, 1.6, 1.5, 1.5],
+    ['b', poly, 4.2, -2.6, 0, 1.7, 4.8, 1.3, 0.12], ['b', poly, -0.3, -1.6, 0, 1.7, 3.4, 1.4, -0.2], ['b', poly, 9.2, -1.4, 0, 1.4, 2.4, 1.2],
+    ['b', blk, 1.6, -0.6, 0, 2.2, 0.35, 0.7], ['b', dark, -3.6, 1.2, 0, 5, 1, 0.5], ['b', dark, -6, 0.6, 0, 0.8, 2.6, 1.4],
+    ['b', dark, 5, 2.8, 0, 9, 0.5, 1.1], ['b', glass, 4.6, 3.6, 0, 2.6, 1.3, 1.2], ['b', dark, 6.5, 1.3, 1.02, 3, 1, 0.06]]);
+  mk('shotgun', 22, [['b', gun, 3.4, 1.4, 0, 8, 2.4, 1.8], ['c', blk, 13, 2, 0, 20, 1.3, 1.3], ['c', dark, 12.5, 0.8, 0, 16, 1.1, 1.1],
+    ['b', wood, 11, 0.8, 0, 6, 2, 2.2], ['b', wood, -4.8, 0.5, 0, 9, 2.6, 1.7, 0.1], ['b', poly, -0.3, -1.2, 0, 1.7, 3, 1.4, -0.3],
+    ['b', blk, 1.8, -0.4, 0, 2, 0.35, 0.7], ['b', brass, 4.4, 1.6, 0.95, 2.4, 0.9, 0.08], ['b', dark, 22.6, 2.6, 0, 0.5, 0.5, 0.4], ['b', dark, -9.4, 0.4, 0, 0.6, 2.8, 1.8]]);
+  mk('rifle', 24, [['b', gun, 6, 1.1, 0, 14, 2.6, 1.8], ['c', blk, 18.5, 1.4, 0, 11, 0.9, 0.9], ['c', dark, 24, 1.4, 0, 1.6, 1.3, 1.3],
+    ['c', blk, 5.5, 4.2, 0, 9, 1.8, 1.8], ['c', glass, 10.2, 4.2, 0, 0.5, 2.2, 2.2], ['c', glass, 0.8, 4.2, 0, 0.5, 1.9, 1.9], ['b', dark, 3.5, 3.0, 0, 1, 1.2, 0.8], ['b', dark, 7.5, 3.0, 0, 1, 1.2, 0.8],
+    ['b', poly, 5, -2.4, 0, 2.2, 3.4, 1.4, 0.08], ['b', wood, -5.5, 0.4, 0, 10, 2.8, 1.7, 0.08], ['b', poly, -0.2, -1.4, 0, 1.7, 3.2, 1.4, -0.3],
+    ['b', blk, 1.8, -0.5, 0, 2, 0.35, 0.7], ['b', chrome, 4, 2.1, 1.0, 1.6, 0.4, 0.4], ['b', wood, 12.5, 0.6, 0, 6, 2.2, 2]]);
+  mk('magnum', 12, [['c', chrome, 6.6, 1.6, 0, 8, 1.5, 1.5], ['b', chrome, 6.6, 2.5, 0, 8, 0.5, 0.5], ['c', chrome, 2.1, 1.0, 0, 3.2, 3.2, 3.2],
+    ['b', chrome, 0.6, 1.2, 0, 3, 2.4, 1.6], ['b', wood, -0.6, -1.7, 0, 2.1, 3.8, 1.6, -0.3], ['b', chrome, 1.3, -0.6, 0, 2, 0.35, 0.7],
+    ['b', dark, -0.8, 2.6, 0, 1, 0.7, 0.6], ['b', dark, 10.4, 2.5, 0, 0.5, 0.8, 0.4], ['c', dark, 2.1, 1.0, 0, 3.3, 0.8, 0.8]]);
+  mk('auto', 22, [['b', gun, 7, 1.4, 0, 16, 2.6, 2], ['c', blk, 17, 1.8, 0, 9, 1.4, 1.4], ['c', dark, 21.5, 1.8, 0, 1.6, 2, 2],
+    ['b', poly, 6, -1.8, 0, 3.4, 4.4, 2.4], ['b', poly, -0.3, -1.4, 0, 1.7, 3.2, 1.4, -0.3], ['b', dark, -4.5, 1, 0, 8, 2.4, 1.6],
+    ['b', dark, 7, 2.9, 0, 12, 0.4, 1], ['b', blk, 1.8, -0.5, 0, 2, 0.35, 0.7], ['b', dark, 6, -1, 1.25, 3, 0.4, 0.08], ['b', dark, 6, -2.4, 1.25, 3, 0.4, 0.08]]);
+  mk('lmg', 26, [['b', gun, 8, 1.4, 0, 18, 3.2, 2.4], ['c', blk, 20.5, 1.6, 0, 12, 1.4, 1.4], ['c', dark, 26, 1.6, 0, 1.8, 2, 2],
+    ['c', poly, 21, 1.6, 0, 6, 2.4, 2.4], ['b', olive, 6, -3, 0.6, 6.5, 4.4, 4.2], ['b', brass, 6, 0.4, 1.6, 4, 0.7, 1.2],
+    ['b', dark, -5, 0.8, 0, 9, 2.6, 1.8], ['b', poly, -0.3, -1.3, 0, 1.8, 3.2, 1.5, -0.3], ['b', dark, 9, 3.4, 0, 12, 0.6, 1.2],
+    ['b', blk, 23, -1.6, 1.2, 0.5, 4, 0.5, 0.35], ['b', blk, 23, -1.6, -1.2, 0.5, 4, 0.5, -0.35], ['b', blk, 1.8, -0.6, 0, 2.2, 0.4, 0.8], ['b', dark, 14, 2.8, 0, 1.4, 1.6, 2.6]]);
+  mk('crossbow', 18, [['b', wood, 6, 1, 0, 16, 2, 1.8], ['b', dark, 14.5, 1.4, 0, 1.6, 1.6, 2.4], ['b', dark, 14.2, 1.4, 5.5, 1, 1, 9, 0], ['b', dark, 14.2, 1.4, -5.5, 1, 1, 9, 0],
+    ['b', chrome, 9, 2.4, 0, 12, 0.4, 0.4], ['b', chrome, 18, 2.4, 0, 2, 0.9, 0.3], ['b', wood, -2.5, 0, 0, 6, 3, 1.6, 0.1], ['b', poly, 0.4, -1.6, 0, 1.6, 3, 1.4, -0.3],
+    ['c', blk, 6, 3.6, 0, 6, 1.4, 1.4], ['b', dark, 9.6, 2.4, 3.6, 9.5, 0.15, 0.15, 0.6], ['b', dark, 9.6, 2.4, -3.6, 9.5, 0.15, 0.15, -0.6]]);
+  mk('flamer', 20, [['b', blk, 7, 1.2, 0, 14, 2.4, 2.2], ['c', chrome, 16.5, 1.4, 0, 7, 1.8, 1.8], ['c', dark, 20.2, 1.4, 0, 1, 2.4, 2.4],
+    ['v', red, -0.5, -0.4, 3.6, 3.4, 7, 3.4], ['v', red, 3.2, -0.4, 3.6, 3.4, 7, 3.4], ['b', chrome, 1.4, 3.3, 3.6, 4.2, 0.6, 0.6],
+    ['b', poly, 2, -2.6, 0, 2, 4, 1.4, -0.2], ['b', poly, 9, -1.4, 0, 1.6, 2.6, 1.2], ['b', mat('#ff8a2a', { emissive: col('#ff6a10'), emissiveIntensity: 2.5 }), 20.9, 0.4, 0, 0.6, 0.6, 0.6]]);
+  mk('launcher', 18, [['c', blk, 9, 1.6, 0, 12, 4.8, 4.8], ['c', dark, 4, 1.6, 0, 3, 5.6, 5.6], ['c', dark, 15.2, 1.6, 0, 1, 5.2, 5.2],
+    ['b', poly, 3, -2.6, 0, 2, 4, 1.6, -0.2], ['b', poly, 10, -2, 0, 1.6, 3, 1.4], ['b', dark, -3, 1, 0, 6, 2.4, 1.8], ['b', glass, 8, 4.8, 1.6, 3, 1.6, 1.2]]);
+  mk('rail', 26, [['b', gun, 9, 1.4, 0, 20, 3, 2.4], ['b', cyan, 10, 3.1, 0, 17, 0.5, 0.8], ['b', chrome, 22.5, 2.6, 0, 7, 0.8, 3.2], ['b', chrome, 22.5, 0.2, 0, 7, 0.8, 3.2],
+    ['b', cyan, 22.5, 1.4, 0, 6.4, 1.4, 0.6], ['c', dark, 4, 1.4, 1.5, 6, 1.6, 1.6], ['b', dark, -4, 1, 0, 8, 2.6, 1.8], ['b', poly, 3, -2.6, 0, 2, 4, 1.4, -0.2],
+    ['b', glass, 7, 4, 0, 4, 1.6, 1.4], ['b', cyan, 1.5, 1.4, -1.25, 3, 1, 0.06]]);
+  mk('minigun', 24, [['c', chrome, 13, 1.6, 1.3, 20, 0.9, 0.9], ['c', chrome, 13, 1.6, -1.3, 20, 0.9, 0.9], ['c', chrome, 13, 2.9, 0, 20, 0.9, 0.9], ['c', chrome, 13, 0.3, 0, 20, 0.9, 0.9],
+    ['c', dark, 9, 1.6, 0, 1.2, 4.6, 4.6], ['c', dark, 20, 1.6, 0, 1.2, 4.6, 4.6], ['c', dark, 23.4, 1.6, 0, 0.8, 4, 4],
+    ['b', blk, 0, 1.6, 0, 8, 5, 5], ['b', olive, -1, -3.4, 2.4, 5, 4.4, 3], ['b', poly, -1, -3.4, -0.6, 2.4, 4, 1.6, -0.2], ['b', brass, 2, -1.4, 2.6, 3, 0.7, 1.4], ['b', poly, 2, 5, 0, 7, 1, 1.2]]);
   scene.add(pGun);
   // 가슴 손전등 — 멜빵에 단 등. 빛줄기 · 스포트라이트가 여기서 나간다
   chestLamp = new THREE.Group();
@@ -4133,6 +4180,36 @@ function buildLandmarks(w) {
       g.add(part(GEO.cone, mat('#3e4e5e', { roughness: 0.5, metalness: 0.3 }), X(x), 290, X(y), X(1.5), 92, X(1.5)));
       g.userData.beacon = new THREE.Mesh(GEO.eye, new THREE.MeshBasicMaterial({ color: 0xff3020 })); g.userData.beacon.scale.setScalar(4); g.userData.beacon.position.set(X(x), 340, X(y)); g.add(g.userData.beacon);
       LT.push([X(x), 230, X(y), 220, 0xffd090, 1.1]);
+    } else if (k === 'basil') {
+      // 성 바실리 대성당 — 붉은 벽돌 몸채, 북(드럼) 위의 양파 돔 다섯(가운데는 높은 천막 지붕), 금빛 꼭지
+      const brick = mat('#8a3a2a', { roughness: 0.9 }), trim = mat('#d8ccb0', { roughness: 0.8 }), gold = mat('#d8b040', { metalness: 0.8, roughness: 0.3 }), b = lm.body;
+      boxAt(g, brick, X(b.x + b.w / 2), 36, X(b.y + b.h / 2), X(b.w) - 8, 72, X(b.h) - 8);
+      boxAt(g, trim, X(b.x + b.w / 2), 73, X(b.y + b.h / 2), X(b.w) - 4, 4, X(b.h) - 4);
+      for (const [x, y, r, h, c] of lm.domes) {
+        const top = 72 + h * 150, R = X(r) * 0.42, cm = mat(c, { roughness: 0.45, metalness: 0.15 });
+        g.add(part(GEO.cyl, brick, X(x), (72 + top) / 2, X(y), R * 0.8, top - 72, R * 0.8));
+        for (let i = 0; i < 8; i++) { const a = i / 8 * Math.PI * 2; boxAt(g, glowM(0xffc878, 1.4), X(x) + Math.cos(a) * R * 0.82, top - 22, X(y) + Math.sin(a) * R * 0.82, 3, 12, 3); }
+        if (r > 1) g.add(part(GEO.cone, mat('#c8b890'), X(x), top + 34, X(y), R * 0.9, 68, R * 0.9));
+        const on = part(GEO.head, cm, X(x), top + (r > 1 ? 74 : 10), X(y), 1, 1, 1); on.scale.set(R / 4.4, R * 1.25 / 4.4, R / 4.4); g.add(on);
+        for (let i = 0; i < 6; i++) { const a = i / 6 * Math.PI * 2, st = part(GEO.box, mat('#f0ece0', { roughness: 0.5 }), X(x) + Math.cos(a) * R * 0.98, top + (r > 1 ? 74 : 10), X(y) + Math.sin(a) * R * 0.98, 2.4, R * 1.6, 2.4); st.rotation.y = -a; st.rotation.z = 0.3; g.add(st); }
+        g.add(part(GEO.cone, gold, X(x), top + (r > 1 ? 74 : 10) + R * 1.2, X(y), R * 0.25, R * 0.9, R * 0.25));
+        boxAt(g, gold, X(x), top + (r > 1 ? 74 : 10) + R * 1.75, X(y), 1.6, 16, 1.6); boxAt(g, gold, X(x), top + (r > 1 ? 74 : 10) + R * 1.85, X(y), 10, 1.6, 1.6);
+        if (r > 1) { g.userData.beacon = new THREE.Mesh(GEO.eye, new THREE.MeshBasicMaterial({ color: 0xff3020 })); g.userData.beacon.scale.setScalar(4); g.userData.beacon.position.set(X(x), top + 74 + R * 2.1, X(y)); g.add(g.userData.beacon); }
+      }
+      LT.push([X(b.x + b.w / 2), 60, X(b.y + b.h) + 40, 300, 0xffd8a0, 1.3]);
+    } else if (k === 'kicc') {
+      // 케냐타 국제회의장 — 붉은 기둥 탑(층마다 창 띠), 꼭대기 원반 전망대, 원뿔 지붕 회의장
+      const tw = mat('#c89a70', { roughness: 0.8 }), dk = mat('#3a4a5a', { roughness: 0.3, metalness: 0.4 }), [x, y] = lm.tower;
+      g.add(part(GEO.cyl, tw, X(x), 150, X(y), X(0.95), 300, X(0.95)));
+      for (let i = 0; i < 14; i++) { g.add(part(GEO.cyl, dk, X(x), 24 + i * 19, X(y), X(0.97), 5, X(0.97))); if (i % 2) boxAt(g, glowM(0xffd090, 1.3), X(x), 24 + i * 19, X(y) + X(0.98), 18, 4, 1); }
+      g.add(part(GEO.cyl, mat('#8a6a50', { roughness: 0.6 }), X(x), 306, X(y), X(1.7), 12, X(1.7)));
+      g.add(part(GEO.cyl, mat('#d8b890', { roughness: 0.6 }), X(x), 316, X(y), X(1.55), 8, X(1.55)));
+      for (let i = 0; i < 16; i++) { const a = i / 16 * Math.PI * 2; boxAt(g, glowM(0xffe0a0, 1.7), X(x) + Math.cos(a) * X(1.68), 306, X(y) + Math.sin(a) * X(1.68), 5, 6, 5); }
+      const [hx, hy] = lm.hall;
+      g.add(part(GEO.cyl, tw, X(hx), 14, X(hy), X(1.1), 28, X(1.1)));
+      g.add(part(GEO.cone, mat('#7a5a40', { roughness: 0.7 }), X(hx), 52, X(hy), X(1.2), 48, X(1.2)));
+      g.userData.beacon = new THREE.Mesh(GEO.eye, new THREE.MeshBasicMaterial({ color: 0xff3020 })); g.userData.beacon.scale.setScalar(4); g.userData.beacon.position.set(X(x), 332, X(y)); g.add(g.userData.beacon);
+      LT.push([X(x), 300, X(y), 260, 0xffe0a0, 1.2]); LT.push([X(hx), 30, X(hy) + 30, 160, 0xffc890, 0.8]);
     } else if (k === 'redeemer') {
       // 구세주상 — 바위 언덕 위 흰 조각, 아래에서 비추는 조명
       const rock = mat('#56604a', { roughness: 0.95 }), hl = lm.hill, cx = X(hl.x + hl.w / 2), cz = X(hl.y + hl.h / 2);

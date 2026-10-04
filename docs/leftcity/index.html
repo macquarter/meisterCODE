@@ -159,6 +159,7 @@
             <button type="button" class="mode" data-act="survival" id="btnSurvival" aria-label="서바이벌"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="13.5" r="7.5"/><path d="M12 13.5V9.5M9.5 2.5h5M12 2.5V6M18.4 6.6l1.6-1.6"/></svg><span>서바이벌</span><i class="mode__lock" id="lockSurvival" hidden><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><rect x="5" y="11" width="14" height="10" rx="2" fill="currentColor" stroke="none"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg><b></b></i></button>
             <button type="button" class="mode" data-act="challenges" id="btnChallenge" aria-label="도전"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 4h8v5.5a4 4 0 0 1-8 0z"/><path d="M8 6H5.2a3 3 0 0 0 3 4.2M16 6h2.8a3 3 0 0 1-3 4.2M12 13.5V17M8.5 20.5h7M10 17h4v3.5h-4z"/></svg><span>도전</span><i class="mode__lock" id="lockChallenge" hidden><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><rect x="5" y="11" width="14" height="10" rx="2" fill="currentColor" stroke="none"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg><b></b></i></button>
             <button type="button" class="mode" data-act="journal" id="btnJournal" aria-label="기록 보관함"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4.5A1.5 1.5 0 0 1 6.5 3H19v15H6.5A1.5 1.5 0 0 0 5 19.5z"/><path d="M5 19.5A1.5 1.5 0 0 0 6.5 21H19v-3M9 7.5h6M9 10.5h4"/></svg><span>기록</span><i class="mode__badge" id="journalBadge" data-noi18n></i></button>
+            <button type="button" class="mode" data-act="codex" id="btnCodex" aria-label="좀비 도감"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3c-4.4 0-7.5 3-7.5 7 0 2.4 1.1 4 2.6 5v3.2c0 .9.7 1.6 1.6 1.6h6.6c.9 0 1.6-.7 1.6-1.6V15c1.5-1 2.6-2.6 2.6-5 0-4-3.1-7-7.5-7z"/><circle cx="9.2" cy="10.6" r="1.6"/><circle cx="14.8" cy="10.6" r="1.6"/><path d="M10.5 20v-2.5M13.5 20v-2.5M12 13.2l-.9 1.8h1.8z"/></svg><span>도감</span><i class="mode__badge" id="codexBadge" data-noi18n></i></button>
           </div>
           <div class="utils">
             <button type="button" class="util" data-act="settings" aria-label="설정"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 2.8v2.6M12 18.6v2.6M2.8 12h2.6M18.6 12h2.6M5.5 5.5l1.8 1.8M16.7 16.7l1.8 1.8M5.5 18.5l1.8-1.8M16.7 7.3l1.8-1.8"/><circle cx="12" cy="12" r="6.6"/></svg><span>설정</span></button>
@@ -221,6 +222,15 @@
       </div>
     </section>
 
+    <section class="screen screen--list hidden" id="scrCodex">
+      <div class="screen__inner">
+        <h2>좀비 도감 <small id="codexCount"></small></h2>
+        <p class="note">현장 기록 — 불빛에 비추거나 쓰러뜨린 개체가 여기에 남는다.</p>
+        <div class="codex" id="codexList"></div>
+        <button class="btn btn--ghost" data-act="back">돌아가기</button>
+      </div>
+    </section>
+
     <section class="screen screen--list hidden" id="scrJournal">
       <div class="screen__inner">
         <h2>도전 과제 <small id="achCount"></small></h2>
@@ -264,6 +274,8 @@
           <button class="city" data-act="survcity" data-city="reykjavik"><b>레이캬비크</b><span>계단 교회 · 간헐천 — 용암 균열 · 눈</span></button>
           <button class="city" data-act="survcity" data-city="istanbul"><b>이스탄불</b><span>아야 소피아 · 갈라타 탑 · 보스포루스 — 진흙 · 안개</span></button>
           <button class="city" data-act="survcity" data-city="rio"><b>리우데자네이루</b><span>구세주상 · 코파카바나 — 모래 · 열대 폭우</span></button>
+          <button class="city" data-act="survcity" data-city="moscow"><b>모스크바</b><span>성 바실리 대성당 — 얼음길 · 눈 · 뱉는 것이 세 배</span></button>
+          <button class="city" data-act="survcity" data-city="nairobi"><b>나이로비</b><span>케냐타 국제회의장 — 붉은 흙 · 먼지 · 덮치는 것 · 들이받는 것</span></button>
           <button class="city" data-act="survcity" data-city="antarctic"><b>남극 기지</b><span>연구 기지 · 쇄빙선 — 얼음판 · 눈보라</span></button>
           <button class="city city--bonus" data-act="survcity" data-city="mars"><b>화성 <em>특전</em></b><span>테라포밍한 붉은 벌판 · 크레이터 — 3 · 5 · 10 · 20분에 특전 무기</span></button>
         </div>
@@ -366,6 +378,15 @@
               <button type="button" data-set="quality" data-val="low">가볍게</button>
             </div>
           </div>
+          <div class="set__row set__row--stack">
+            <div class="set__label">화면 대비 <b id="setContrastVal">80</b></div>
+            <div class="viewctl">
+              <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="8"/><path d="M12 4v16" stroke-width="1.2"/></svg>
+              <input type="range" id="setContrast" min="30" max="100" step="1" value="80" aria-label="화면 대비">
+              <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="8"/><path d="M12 4a8 8 0 0 1 0 16z" fill="currentColor" stroke="none"/></svg>
+            </div>
+          </div>
+          <p class="set__note">80 이 기본 화면입니다. 높이면 밝은 곳과 어두운 곳의 차이가 커지고, 낮추면 부드러워집니다.</p>
           <p class="set__note">자동은 프레임이 떨어지면 먼저 바닥 · 벽의 재질 무늬를 끄고, 그래도 버거우면 그리는 해상도를 낮춘다.
             선명하게는 무늬를 늘 켜 두고, 가볍게는 늘 끈다. 화면이 큰 기기(레티나 모니터·태블릿)에서 끊기면 가볍게로 두세요.</p>
           <div class="set__row">

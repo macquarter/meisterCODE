@@ -736,7 +736,7 @@ body.tl-edit #touch .tbtn.dragging{cursor:grabbing;background:rgba(240,180,41,.2
 .play svg{grid-row:1 / span 2;width:30px;height:30px;color:#fff}
 .play__t{font-size:19px;font-weight:700;letter-spacing:.12em}
 .play small{font-size:12px;letter-spacing:.08em;color:rgba(255,235,230,.72);margin-top:2px}
-.modes{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.modes{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}
 .mode{position:relative;display:flex;flex-direction:column;align-items:center;gap:8px;padding:15px 4px 12px;
   border-radius:12px;border:1px solid rgba(255,255,255,.12);background:rgba(16,19,24,.88);
   color:var(--bone);cursor:pointer;font-family:var(--font);transition:background .16s,border-color .16s,transform .16s}
@@ -783,7 +783,7 @@ body.tl-edit #touch .tbtn.dragging{cursor:grabbing;background:rgba(240,180,41,.2
   .title__foot{justify-content:flex-start}
 }
 /* 좁은 세로 화면 — 모드 넷을 둘씩 */
-@media (max-width:360px){ .modes{grid-template-columns:repeat(2,1fr)} }
+@media (max-width:360px){ .modes{grid-template-columns:repeat(3,1fr)} }
 
 /* ── 설정 — 3D 판: 오른쪽 판(세로 화면은 아래 판), 나머지는 실제 3D 화면을 그대로 보여 준다 ── */
 .screen--settings.live{background:none;padding:0;justify-content:flex-end;align-items:stretch;overflow:hidden}
@@ -864,3 +864,22 @@ body.tl-edit #touch .tbtn.dragging{cursor:grabbing;background:rgba(240,180,41,.2
 .stg i{font-style:normal;font-weight:700;color:#f0b429}
 .stg:disabled{opacity:.45;cursor:not-allowed}
 .stg:focus-visible{outline:2px solid #f0b429;outline-offset:2px}
+/* 화면 대비 — 설정값/80 배. 80(기본)이면 필터 없음 */
+body.ct #view,body.ct #view3d{filter:contrast(var(--ct,1))}
+/* 무기 그림 — 부품 경계(어두운 면)와 위쪽 윤곽(밝은 선) */
+.arm svg .d,.ammo__icon .d{fill:#000;opacity:.42}
+.arm svg .h,.ammo__icon .h{fill:#fff;opacity:.35}
+.ammo__icon{width:72px;height:29px}
+/* 좀비 도감 — 그림 + 현장 기록 카드 */
+.codex{display:grid;gap:10px;margin-bottom:18px;text-align:left}
+.cx{display:grid;grid-template-columns:120px 1fr;gap:14px;align-items:start;padding:12px;border:1px solid rgba(255,255,255,.08);border-radius:10px;background:linear-gradient(180deg,rgba(255,255,255,.035),rgba(255,255,255,.015))}
+.cx canvas{width:120px;height:120px;border-radius:8px;background:#0a0c0f}
+.cx h3{margin:0 0 4px;font-size:16px;color:#f2ede0}.cx h3 small{font-size:11px;font-weight:500;color:#a39c88;margin-left:6px;letter-spacing:.02em}
+.cx__threat{font-size:11px;color:#a39c88;margin-bottom:6px}.cx__threat b{color:#e0503a;letter-spacing:2px;font-weight:700}
+.cx p{margin:0 0 6px;font-size:13px;line-height:1.55;color:#d6d0c0}
+.cx dl{display:grid;grid-template-columns:auto 1fr;gap:3px 10px;margin:0 0 6px;font-size:12.5px;line-height:1.5}
+.cx dt{color:#f0b429;font-weight:600}.cx dd{margin:0;color:#cfc9b8}
+.cx__stat{font-size:11px;color:#8e887a}
+.cx--locked{opacity:.7}.cx--locked h3{color:#6e767e}.cx__hint{color:#8e887a !important;font-style:italic}
+
+@media (max-width:480px){.cx{grid-template-columns:84px 1fr;gap:10px}.cx canvas{width:84px;height:84px}}

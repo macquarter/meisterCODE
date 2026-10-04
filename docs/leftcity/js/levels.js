@@ -271,6 +271,10 @@ const SURVIVAL_CITIES = {
   reykjavik: { river: false, landmarks: ['hallgrim', 'geyser'] },
   istanbul:  { river: true,  landmarks: ['hagia', 'galata', 'gasstation'] },
   rio:       { river: false, landmarks: ['redeemer', 'copacabana', 'gasstation'] },
+  moscow:    { river: true,  landmarks: ['basil', 'railyard', 'gasstation'], mixK: { spitter: 3.2, bloater: 1.4 },
+               mix: { walker: 0.6, runner: 0.18, crawler: 0.1, spitter: 0.16, bloater: 0.04 } },        // 뱉는 것이 세 배
+  nairobi:   { river: false, landmarks: ['kicc', 'gasstation'], mixK: { leaper: 3.4, charger: 2.6, runner: 1.6 },
+               mix: { walker: 0.42, runner: 0.36, crawler: 0.08, leaper: 0.12, charger: 0.04 } },        // 덮치는 것 · 들이받는 것
   mars:      { river: false, landmarks: ['biodome', 'rocket'], bonus: true },
   antarctic: { river: false, landmarks: ['station', 'icebreaker'] }
 };

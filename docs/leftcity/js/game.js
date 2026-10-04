@@ -411,7 +411,7 @@ addEventListener('touchstart', e => {
 /** 자동 조준의 표적 — 불빛을 받으면 깨는 '우는 것'은 일부러 비추지 않는다.
     가까운 순, 지금 보는 쪽이면 조금 더 우선. 벽 너머는 고르지 않는다 */
 function autoAimTarget(g, wide) {
-  const p = g.player, w = g.world, R = wide ? 460 : 380;
+  const p = g.player, w = g.world, R = wide ? 460 : p.fireRange();
   let best = null, bs = Infinity;
   for (const z of g.zombies) {
     if (z.dead || (z.t.weeper && !z.rage)) continue;
@@ -429,7 +429,7 @@ function autoFace(g, p, mx, my, dt) {
   if (g.aimT <= 0) { g.aimT = 0.1; g.aimTarget = autoAimTarget(g, false); }
   const z = g.aimTarget && !g.aimTarget.dead ? g.aimTarget : null;
   let want = null, rate = 9;
-  if (z) want = Math.atan2(z.y - p.y, z.x - p.x);
+  if (z) { want = Math.atan2(z.y - p.y, z.x - p.x); if (p.dark) rate = 5; }      // 어두우면 표적을 늦게 따라간다
   else if (Math.hypot(mx, my) > 0.2) { want = Math.atan2(my, mx); rate = 6; }
   if (want === null) return;
   const d = Math.atan2(Math.sin(want - p.angle), Math.cos(want - p.angle));
@@ -580,6 +580,15 @@ const SetLive = {
   }
 };
 window.addEventListener('resize', () => SetLive.focus());
+/* 화면 대비 — 게임 화면(2D · 3D 캔버스)에만 CSS 필터. 80 이면 필터를 아예 걸지 않는다(합성 비용 0) */
+function applyContrast() {
+  const v = SETTINGS.get('contrast') ?? 80, f = v / 80;
+  document.documentElement.style.setProperty('--ct', f.toFixed(3));
+  document.body.classList.toggle('ct', Math.abs(f - 1) > 0.005);
+}
+SETTINGS.onChange(k => { if (k === 'contrast') applyContrast(); });
+applyContrast();
+if ($('setContrast')) $('setContrast').addEventListener('input', e => { SETTINGS.set('contrast', +e.target.value); $('setContrastVal').textContent = e.target.value; });
 if ($('setView')) $('setView').addEventListener('input', e => { SETTINGS.set('view3d', +e.target.value); $('setViewVal').textContent = e.target.value; });
 
 /* 버튼 배치 — 터치 버튼을 끌어 옮긴다. 자리는 화면 비율 좌표(가운데 점)로 가로 · 세로 화면을 따로 기억하고,
@@ -928,7 +937,7 @@ const Hints = (() => {
     leaper:   () => [T('덮치는 것'), T('웅크리면 곧 날아든다 — 옆으로 비키거나, 날아오는 순간 쏘면 떨어진다')],
     charger:  () => [T('들이받는 것'), T('땅을 긁으면 돌진한다 — 옆으로 비켜 벽에 박게 하라')],
     puller:   () => [T('휘감는 것'), T('기침 소리 뒤에 혀가 날아온다 — 옆으로 비키거나 그것을 쏴서 끊어라')],
-    riot:     () => [T('진압 경찰'), T('앞에서는 총알을 막는다 — 밀쳐서 돌려세우거나 옆 · 뒤를 쏴라')],
+    riot:     () => [T('진압 경찰'), T('방패가 총알을 막는다 — 석궁 · 매그넘 · 경기관총은 뚫는다. 아니면 밀쳐 돌려세우고 등을 쏴라')],
     // 2부의 땅 — 처음 밟는 순간
     terr1:    () => [T('모래 더미'), T('발이 빠져 느려진다 — 감염체도 마찬가지')],
     terr2:    () => [T('얼음판'), T('멈추려 해도 미끄러진다 — 일찍 방향을 틀어라')],
@@ -1217,6 +1226,59 @@ const Pits = {
 };
 window.LC_PITS = Pits;
 
+/* ── 좀비 도감 — 불빛에 비추거나 쓰러뜨린 개체가 기록되고, 종류마다 처치 수가 쌓인다 ── */
+const Codex = {
+  KEY: 'aftermath.codex', cache: null, dirty: false,
+  get() {
+    if (this.cache) return this.cache;
+    let o = null; try { o = JSON.parse(localStorage.getItem(this.KEY) || '{}'); } catch (e) { o = null; }
+    return (this.cache = { seen: (o && o.seen) || {}, kills: (o && o.kills) || {} });
+  },
+  save() { try { localStorage.setItem(this.KEY, JSON.stringify(this.get())); } catch (e) { /* 무시 */ } this.dirty = false; },
+  see(id, g) {
+    const d = this.get();
+    if (d.seen[id]) return;
+    const e = STORY.codex.find(c => c.id === id);
+    if (!e) return;
+    d.seen[id] = Date.now(); this.save();
+    if (g && g.toast) g.toast(T('도감에 새 기록 — {n}', { n: LT(e.n) }), 2.6);
+    if (STORY.codex.every(c => d.seen[c.id])) Ach.unlock('codex');
+  },
+  kill(id) { const d = this.get(); d.kills[id] = (d.kills[id] || 0) + 1; this.dirty = true; },
+  flush() { if (this.dirty) this.save(); },
+  count() { const d = this.get(); return STORY.codex.filter(c => d.seen[c.id]).length; },
+  /** 도감 그림 — 2D 모형을 크게. 아직 못 본 것은 검은 실루엣 */
+  portrait(cv, id, locked) {
+    const c = cv.getContext('2d'), S = cv.width;
+    c.setTransform(1, 0, 0, 1, 0, 0); c.clearRect(0, 0, S, S);
+    const gr = c.createRadialGradient(S / 2, S * 0.6, 4, S / 2, S * 0.6, S * 0.6);
+    gr.addColorStop(0, 'rgba(240,226,180,.18)'); gr.addColorStop(1, 'rgba(0,0,0,0)');
+    c.fillStyle = gr; c.fillRect(0, 0, S, S);
+    if (id === 'maw') {
+      c.translate(S / 2, S * 0.58);
+      c.fillStyle = '#080203'; c.beginPath(); c.arc(0, 0, S * 0.18, 0, 6.283); c.fill();
+      c.strokeStyle = '#5a2034'; c.lineWidth = 5; c.stroke();
+      c.fillStyle = '#d8cdb4';
+      for (let i = 0; i < 12; i++) { const a = i / 12 * 6.283, r = S * 0.18; c.beginPath(); c.moveTo(Math.cos(a - 0.12) * r, Math.sin(a - 0.12) * r); c.lineTo(Math.cos(a + 0.12) * r, Math.sin(a + 0.12) * r); c.lineTo(Math.cos(a) * r * 0.55, Math.sin(a) * r * 0.55); c.fill(); }
+      c.lineCap = 'round';
+      for (let k = 0; k < 4; k++) {
+        const a = -Math.PI / 2 + (k - 1.5) * 0.7; let px = Math.cos(a) * S * 0.16, py = Math.sin(a) * S * 0.16;
+        for (let i = 1; i <= 10; i++) { const t = i / 10, x = Math.cos(a) * S * (0.16 + t * 0.3) + Math.sin(t * 5 + k) * 6, y = Math.sin(a) * S * (0.16 + t * 0.3) - Math.sin(t * Math.PI) * 18;
+          c.strokeStyle = i % 2 ? '#4a1a2c' : '#5c2238'; c.lineWidth = 10 - t * 7; c.beginPath(); c.moveTo(px, py); c.lineTo(x, y); c.stroke(); px = x; py = y; }
+      }
+    } else {
+      const z = new Zombie(0, 0, id); z.face = Math.PI / 2 - 0.35; z.aggro = id !== 'weeper'; z.phase = 1.2; z.lit = 1;
+      if (z.t.leap) z.leapPhase = '';
+      const k = (S / 128) * (z.t.boss ? 2.3 : z.t.size > 16 ? 3.1 : 3.9);
+      c.translate(S / 2, S * 0.74); c.scale(k, k * TILT);
+      const L = MODELS.light; L.x = -0.5; L.y = -0.6; L.k = 0.6;
+      MODELS.zombie(c, z, null);
+      L.x = -0.55; L.y = -0.8; L.k = 0;
+    }
+    if (locked) { c.setTransform(1, 0, 0, 1, 0, 0); c.globalCompositeOperation = 'source-atop'; c.fillStyle = '#0b0d10'; c.fillRect(0, 0, S, S); c.globalCompositeOperation = 'source-over'; }
+  }
+};
+
 const Radio = {
   q: [], cur: null, t: 0, fired: {},
   el() { return $('radio'); },
@@ -1373,9 +1435,9 @@ const SPITTER_CAP = 2;
 const SURVIVAL_UNLOCK = PART1_END + 1;
 /** 도시 이름 카드에 쓰는 현지 표기 */
 const CITY_LOCAL = { seoul: '서울 SEOUL', base: '대피 기지 EVAC BASE', tokyo: '東京 TOKYO', bangkok: 'กรุงเทพฯ BANGKOK', singapore: '新加坡 SINGAPORE',
-  varanasi: 'वाराणसी VARANASI', cairo: 'القاهرة CAIRO', venice: 'VENEZIA', reykjavik: 'REYKJAVÍK', antarctic: 'ANTARCTICA', istanbul: 'İSTANBUL', rio: 'RIO DE JANEIRO', mars: 'MARS · 화성' };
+  varanasi: 'वाराणसी VARANASI', cairo: 'القاهرة CAIRO', venice: 'VENEZIA', reykjavik: 'REYKJAVÍK', antarctic: 'ANTARCTICA', istanbul: 'İSTANBUL', rio: 'RIO DE JANEIRO', mars: 'MARS · 화성', moscow: 'МОСКВА MOSCOW', nairobi: 'NAIROBI' };
 const CITY_NAME = { seoul: '서울', tokyo: '도쿄', bangkok: '방콕', singapore: '싱가포르', base: '대피 기지',
-  varanasi: '바라나시', cairo: '카이로', venice: '베네치아', reykjavik: '레이캬비크', antarctic: '남극 기지', istanbul: '이스탄불', rio: '리우데자네이루', mars: '화성' };
+  varanasi: '바라나시', cairo: '카이로', venice: '베네치아', reykjavik: '레이캬비크', antarctic: '남극 기지', istanbul: '이스탄불', rio: '리우데자네이루', mars: '화성', moscow: '모스크바', nairobi: '나이로비' };
 /** 처음 손전등이 벽이 아니라 갈 길을 비추도록 — 출구 쪽으로 몇 칸 따라간 곳과 트인 거리를 함께 본다 */
 function openingAngle(w, p) {
   let tx = Math.floor(p.x / TILE), ty = Math.floor(p.y / TILE);
@@ -1403,19 +1465,20 @@ const cityOpts = L => ({ theme: L.city, river: !!L.river, landmarks: L.landmarks
 
 /* 무기 실루엣 (무기 고르기 화면) */
 const ARM_ICON = {
-  pistol:  '<svg viewBox="0 0 84 34"><path d="M24 9h34v7H40l-3 4h-4l2 10h-9l-3-12-3-2z"/></svg>',
-  smg:     '<svg viewBox="0 0 84 34"><path d="M12 10h52v6h6v3H52l-2 4h-6l-2 8h-7l2-8h-6l-2 5h-6l1-6H18l-6-4z"/></svg>',
-  shotgun: '<svg viewBox="0 0 84 34"><path d="M4 12h56v3h20v4H54l-2 3H30l-8 7H8l8-9H4z"/></svg>',
-  rifle:   '<svg viewBox="0 0 84 34"><path d="M2 14h50v-3h10v3h20v3H54l-3 4H38l-2 9h-6l1-9H22l-12 6H2l6-7H2z"/></svg>',
-  magnum:  '<svg viewBox="0 0 84 34"><path d="M20 9h40v6H44v5h-6l-2 3h-3l2 8h-9l-3-11-4-3zM40 14a4 4 0 1 0 0 .1z"/></svg>',
-  auto:    '<svg viewBox="0 0 84 34"><path d="M4 11h58v4h18v4H56l-2 3h-6v7h-8v-7H30l-8 7H8l8-9H4zM44 19h6v6h-6z"/></svg>',
-  lmg:     '<svg viewBox="0 0 84 34"><path d="M2 12h56v-2h8v2h16v3H58v4H46l-2 3h-4v8h-8v-8h-8l-10 6H4l6-7H2zM30 19h10v9H30z"/></svg>',
-  crossbow:'<svg viewBox="0 0 84 34"><path d="M10 15h60v3H10zM52 4c6 4 6 22 0 26l-2-2c4-4 4-18 0-22zM20 18h12l-2 10h-6z"/><path d="M53 6L66 16 53 28" fill="none" stroke="currentColor" stroke-width="1.4"/></svg>',
-  flamer:  '<svg viewBox="0 0 84 34"><path d="M6 12h46v6H38l-2 10h-8l2-10H6zM52 13h12l6-3v12l-6-3H52zM14 5h14v6H14z"/><path d="M72 16c4-3 8-2 10 0-2 2-6 4-10 0z"/></svg>',
-  launcher:'<svg viewBox="0 0 84 34"><path d="M6 10h50v12H40l-2 8h-8l2-8H6zM56 9h20v14H56zM16 22h8v8h-8z"/></svg>',
-  rail:    '<svg viewBox="0 0 84 34"><path d="M2 13h62v-4h14v4h4v6h-4v4H64v-4H50l-3 4H34l-2 8h-6l1-8H18l-10 5H2l5-7H2z"/><path d="M20 15h40v2H20z" fill="#7fe8ff"/></svg>',
-  minigun: '<svg viewBox="0 0 84 34"><path d="M30 9h48v3H30zM30 14h48v3H30zM30 19h48v3H30zM10 8h22v16H10zM16 24h8v8h-8z"/></svg>'
+  pistol: '<svg viewBox="0 0 84 34"><path d="M20 8h40v7H20z"/><path d="M22 15h30v3H38l-1 3h-4l-1-3h-2l-3 13h-9l3-13h-1z"/><path d="M57 6h2v2h-2zM21 6h3v2h-3z"/><path class="d" d="M23 9.5h1v4h-1zM25.5 9.5h1v4h-1zM28 9.5h1v4h-1zM41 9h8v2.5h-8zM33.5 18h3l-.7 2.2h-2.6z"/><path class="d" d="M24.6 21h4.6l-2.2 9h-4.6z" opacity=".45"/><path class="h" d="M20 8h40v1H20z"/></svg>',
+  smg: '<svg viewBox="0 0 84 34"><path d="M14 9h44v8H14z"/><path d="M58 11h12v3H58z"/><path d="M70 10.5h3v4h-3z"/><path d="M14 10H6l-2 2v4h8l2-2z"/><path d="M36 17h6l-1 13h-5z"/><path d="M24 17h6l-3 9h-6z"/><path d="M30 17h5l-1 3h-4z"/><path d="M26 6h10v3H26z"/><path class="d" d="M38 10.5h9v2h-9zM16 12h12v1H16zM37 19h4v1h-4zM37 23h4v1h-4zM31 17.5h2.5l-.4 1.8h-2.6z"/><path class="h" d="M14 9h44v1H14zM58 11h12v.8H58z"/></svg>',
+  shotgun: '<svg viewBox="0 0 84 34"><path d="M24 10h38v6H24z"/><path d="M62 10.5h18v3H62z"/><path d="M46 16h18v3H46z"/><path d="M24 10h-8L4 15v6l14-3h8l2 3h6l1-5z"/><path d="M30 16h6l-1 3h-5z"/><path class="d" d="M48 16.6h14v1.6H48zM50 16h1v3h-1zM54 16h1v3h-1zM58 16h1v3h-1zM32 11.5h12v2H32zM6 16.5l10-2v1l-10 2z"/><path class="h" d="M24 10h56v1H24z"/></svg>',
+  rifle: '<svg viewBox="0 0 84 34"><path d="M24 11h30v6H24z"/><path d="M54 12h28v2.6H54z"/><path d="M80 11h3v4.6h-3z"/><path d="M24 11h-6L4 15v5l12-2h10l2 4 4-1-1-4z"/><path d="M32 6h20v3.4H32z"/><path d="M34 9.4h2v1.6h-2zM48 9.4h2v1.6h-2z"/><path d="M38 17h6l1 7h-5z"/><path d="M30 17h5l-1 3h-4z"/><path class="d" d="M33 7h18v1.4H33zM38 12.5h8v2h-8zM56 13h18v.8H56zM6 16.5l9-1.6v1l-9 1.6z"/><path class="d" d="M51 7.2a1 1 0 1 0 0 .1z"/><path class="h" d="M24 11h58v.9H24zM32 6h20v.8H32z"/></svg>',
+  magnum: '<svg viewBox="0 0 84 34"><path d="M40 9h34v5H40z"/><path d="M72 7h2v2h-2z"/><path d="M28 8h14v10H28z"/><path d="M26 18h18l-2 3h-8l-1 2h-3l-3 9h-9l3-12z"/><path d="M24 6h6v3h-6z"/><path class="d" d="M30 10h10v6H30z" opacity=".55"/><path class="d" d="M31 12h8v.8h-8zM31 14h8v.8h-8zM42 11h30v1H42zM33.5 18.6h3l-.6 2h-2.6z"/><path class="d" d="M20 23.5h4l-2.4 7h-4z" opacity=".45"/><path class="h" d="M40 9h34v.9H40zM28 8h14v.8H28z"/></svg>',
+  auto: '<svg viewBox="0 0 84 34"><path d="M22 10h40v7H22z"/><path d="M62 11h18v3.4H62z"/><path d="M44 17h18v2.6H44z"/><path d="M22 10h-6L4 15v6l12-3h8l2 3h6l1-4z"/><path d="M38 17h9v12h-9z"/><path d="M30 17h5l-1 3h-4z"/><path d="M28 7h12v3H28z"/><path class="d" d="M39 19h7v1h-7zM39 22h7v1h-7zM39 25h7v1h-7zM24 12h14v2H24zM46 17.6h14v1.2H46zM6 16.5l9-1.8v1l-9 1.8z"/><path class="h" d="M22 10h58v1H22z"/></svg>',
+  lmg: '<svg viewBox="0 0 84 34"><path d="M20 10h38v8H20z"/><path d="M58 12h22v3H58z"/><path d="M80 11h3v5h-3z"/><path d="M60 15l3 9h2l-2-9zM66 15l-1 9h2l1-9z"/><path d="M20 10h-6L2 15v6l12-3h8l2 3h6l1-3z"/><path d="M34 18h12v10H34z"/><path d="M28 18h5l-1 3h-4z"/><path d="M22 6h18v4H22z"/><path d="M50 7h3v3h-3z"/><path class="d" d="M35 20h10v1H35zM35 23h10v1H35zM35 26h10v1H35zM24 7.4h14v1.2H24zM42 12h14v1.4H42zM58 13h22v.8H58z"/><path class="d" d="M60 12.2h1v2.6h-1zM63 12.2h1v2.6h-1zM66 12.2h1v2.6h-1zM69 12.2h1v2.6h-1z"/><path class="h" d="M20 10h60v1H20z"/></svg>',
+  crossbow: '<svg viewBox="0 0 84 34"><path d="M8 15h58v4H8z"/><path d="M66 16h12l3 1-3 1H66z"/><path d="M8 15H4v7h6l2-3z"/><path d="M54 3c7 5 7 23 0 28l-2-2c5-5 5-19 0-24z"/><path d="M22 19h10l-2 10h-6z"/><path d="M34 19h4l-1 3h-3z"/><path d="M30 11h14v4H30z"/><path d="M54 5L68 17 54 29" fill="none" stroke="currentColor" stroke-width="1.2"/><path class="d" d="M10 16.4h54v1.2H10zM32 12h10v1.4H32zM24 21h6v1h-6zM24 24h5.4v1h-5.4z"/><path class="h" d="M8 15h58v.9H8z"/></svg>',
+  flamer: '<svg viewBox="0 0 84 34"><path d="M14 11h40v7H14z"/><path d="M54 12h12v5H54z"/><path d="M66 11h4v7h-4z"/><path d="M14 11H6l-2 3v5h10z"/><path d="M30 18h6l-1 10h-5z"/><path d="M18 3h12v8H18zM32 4h10v7H32z" rx="2"/><path d="M72 14.5c4-4 9-3 11 0-2 3-7 5-11 0z" fill="#ff8a2a"/><path d="M73 14.5c3-2 6-1.6 7.6 0-1.6 1.6-4.6 2.6-7.6 0z" fill="#ffd27a"/><path class="d" d="M19 5h10v1h-10zM33 6h8v1h-8zM16 13h20v2H16zM56 13.4h9v1.6h-9z"/><path class="h" d="M14 11h52v1H14zM18 3h12v.8H18zM32 4h10v.8H32z"/></svg>',
+  launcher: '<svg viewBox="0 0 84 34"><path d="M8 10h46v12H8z"/><path d="M54 8h22v16H54z"/><path d="M76 9h4v14h-4z"/><path d="M8 10H4v12h4z"/><path d="M28 22h7l-1 9h-6z"/><path d="M16 22h7l-1 6h-6z"/><path d="M30 5h12v5H30z"/><path class="d" d="M56 11h18v2H56zM56 15h18v2H56zM56 19h18v2H56zM10 13h40v1H10zM32 6.4h8v1.6h-8z"/><path class="d" d="M78 12a2.5 2.5 0 1 0 0 .1zM78 18a2.5 2.5 0 1 0 0 .1z"/><path class="h" d="M8 10h68v1H8z"/></svg>',
+  rail: '<svg viewBox="0 0 84 34"><path d="M14 11h44v8H14z"/><path d="M58 9h18v3H58zM58 18h18v3H58z"/><path d="M76 9h4v12h-4z"/><path d="M14 11H6L2 15v5l10-1h4z"/><path d="M32 19h6l1 9h-6z"/><path d="M24 19h5l-1 3h-4z"/><path d="M26 6h18v5H26z"/><path d="M16 14h40v2H16z" fill="#7fe8ff"/><path d="M60 12.5h16v5H60z" fill="#7fe8ff" opacity=".55"/><path class="d" d="M28 7.4h14v1.6H28zM20 12h2v1h-2zM26 12h2v1h-2zM32 12h2v1h-2zM38 12h2v1h-2zM44 12h2v1h-2zM50 12h2v1h-2z"/><path class="h" d="M14 11h44v.9H14zM58 9h18v.8H58z"/></svg>',
+  minigun: '<svg viewBox="0 0 84 34"><path d="M34 8h44v3H34zM34 13h44v3H34zM34 18h44v3H34z"/><path d="M76 6.5h4v16h-4zM50 6.5h3v16h-3z"/><path d="M12 7h24v16H12z"/><path d="M4 11h8v8H4z"/><path d="M18 23h8v9h-8z"/><path d="M14 2h8v5h-8z"/><path class="d" d="M14 9h20v2H14zM14 13h20v1H14zM14 17h20v1H14zM36 9h40v.8H36zM36 14h40v.8H36zM36 19h40v.8H36zM20 25h4v1h-4zM20 28h4v1h-4z"/><path class="h" d="M34 8h44v.8H34zM12 7h24v.9H12z"/></svg>'
 };
+window.LC_ARM_ICON = ARM_ICON;
 
 const G = {
   deaths: {},                 // 챕터별 이번 세션 사망 수 — 쉬운 난이도 권유에 쓴다
@@ -2219,6 +2282,7 @@ const G = {
 
   onKill(z) {
     this.kills++;
+    Codex.kill(z.type); Codex.see(z.type, this);
     if (!(this.challenge && this.challenge.rules && this.challenge.rules.pistolOnly)) this.dropGun(z);
     // 가까이서 쓰러질수록 긴장도가 오른다 (L4D: 거리에 반비례). 처치에는 짧은 정지
     const d = Math.hypot(z.x - this.player.x, z.y - this.player.y);
@@ -2405,6 +2469,7 @@ const G = {
 
   finish(won) {
     this.state = 'result';
+    Codex.flush();
     Radio.reset();
     SFX.ambience(false);
     if (won) {
@@ -2703,6 +2768,9 @@ const G = {
         charger: Math.min(0.05, Math.max(0, (t - 140) / 1000)),
         riot:    Math.min(0.08, Math.max(0, (t - 60) / 700))
       };
+      // 도시의 색 — 모스크바는 뱉는 것, 나이로비는 덮치는 것 · 들이받는 것이 처음부터 몇 배로
+      const K = !this.challenge && SURVIVAL_CITIES[this.level.city] && SURVIVAL_CITIES[this.level.city].mixK;
+      if (K) for (const k in K) this.level.mix[k] = (this.level.mix[k] || 0) * K[k] + 0.025 * K[k];
       if (this.pickups.length < 6 && Math.random() < dt * 0.35) {
         let types = ['ammo', 'ammo', 'shells', 'medkit', 'battery', 'nade'];
         if (p.owned.has('rifle')) types.push('rounds');
@@ -2732,6 +2800,12 @@ const G = {
     if (ob.type === 'finale' && !this.exitOpen) this.updateFinale(dt, ob);
     Twist.update(this, dt);
     Pits.update(this, dt);
+    // 도감 — 불빛에 제대로 비친 개체(0.25초마다 확인)
+    if ((this.codexT = (this.codexT || 0) - dt) <= 0) {
+      this.codexT = 0.25;
+      for (const z of this.zombies) if (!z.dead && z.lit > 0.45) Codex.see(z.type, this);
+      if (this.maws) for (const m of this.maws) if (m.near && Math.hypot(p.x - m.nx, p.y - m.ny) < m.R + 220) Codex.see('maw', this);
+    }
     if (p.slowT > 0) p.slowT -= dt;
     this.storyCues(ob);
     Radio.update(dt);
@@ -2763,7 +2837,7 @@ const G = {
   },
 
   autoTarget() {
-    const p = this.player, range = Math.max(p.lightRange, 190);
+    const p = this.player, range = p.fireRange();
     let best = null, bd = 1e9;
     for (const z of this.zombies) {
       if (z.t.weeper && !z.rage) continue;          // 우는 것은 자동으로 쏘지 않는다 — 깨울지는 플레이어가 정한다
@@ -2915,12 +2989,13 @@ function render() {
     const len = w.ray(b.x, b.y, b.dir, b.len);
     ctx.save();
     // 방향이 굳으면 깜빡임을 멈추고 진해진다 — '지금 비켜라'
-    ctx.strokeStyle = b.locked ? 'rgba(236,72,48,.62)' : `rgba(214,60,42,${0.26 + Math.sin(g.time * 22) * 0.12})`;
-    ctx.lineWidth = b.w;
-    ctx.beginPath();
-    ctx.moveTo(b.x, b.y);
-    ctx.lineTo(b.x + Math.cos(b.dir) * len, b.y + Math.sin(b.dir) * len);
-    ctx.stroke();
+    // 끝으로 갈수록 옅어지는 띠 — 끝 지점은 그라데이션으로 스러진다(어디까지 오는지 감으로 읽히게)
+    const al = b.locked ? 0.62 : 0.26 + Math.sin(g.time * 22) * 0.12, ex = b.x + Math.cos(b.dir) * len, ey = b.y + Math.sin(b.dir) * len;
+    const gr = ctx.createLinearGradient(b.x, b.y, ex, ey), rgb = b.locked ? '236,72,48' : '214,60,42';
+    gr.addColorStop(0, `rgba(${rgb},${al})`); gr.addColorStop(0.55, `rgba(${rgb},${al * 0.8})`); gr.addColorStop(1, `rgba(${rgb},0)`);
+    ctx.strokeStyle = gr; ctx.lineWidth = b.w; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(b.x, b.y); ctx.lineTo(ex, ey); ctx.stroke();
+    ctx.lineCap = 'butt';
     ctx.restore();
   }
   // 휘감는 것의 혀
@@ -2964,12 +3039,15 @@ function render() {
   }
 
   // 밀치기 — 앞쪽으로 휘두르는 흰 부채꼴. 맞히면 더 진하다
+  // 밀치기 — 사방으로 퍼지는 충격파(흰 고리 + 옅은 원판), 바라보는 쪽이 조금 더 진하다
   if (g.shoves) for (const sv of g.shoves) {
-    const k = sv.t / sv.max, a0 = sv.a - 1.0 + k * 0.6, a1 = sv.a + 1.0 - k * 0.6, R1 = 30 + k * 34;
-    ctx.fillStyle = `rgba(255,248,230,${(sv.hits ? 0.42 : 0.24) * (1 - k)})`;
-    ctx.beginPath(); ctx.moveTo(sv.x, sv.y); ctx.arc(sv.x, sv.y, R1, a0, a1); ctx.closePath(); ctx.fill();
-    ctx.strokeStyle = `rgba(255,255,255,${0.7 * (1 - k)})`; ctx.lineWidth = 2.5;
-    ctx.beginPath(); ctx.arc(sv.x, sv.y, R1, a0, a1); ctx.stroke();
+    const k = sv.t / sv.max, R1 = 22 + k * 44, al = (sv.hits ? 1 : 0.6) * (1 - k);
+    ctx.fillStyle = `rgba(255,248,230,${0.2 * al})`;
+    ctx.beginPath(); ctx.arc(sv.x, sv.y, R1, 0, 6.283); ctx.fill();
+    ctx.strokeStyle = `rgba(255,255,255,${0.75 * al})`; ctx.lineWidth = 3 * (1 - k) + 1;
+    ctx.beginPath(); ctx.arc(sv.x, sv.y, R1, 0, 6.283); ctx.stroke();
+    ctx.strokeStyle = `rgba(255,255,255,${0.9 * al})`; ctx.lineWidth = 4;
+    ctx.beginPath(); ctx.arc(sv.x, sv.y, R1, sv.a - 0.7, sv.a + 0.7); ctx.stroke();
   }
   // 물결 — 물에 들어선 발 둘레로 퍼지는 고리 (밀쳐진 감염체 발밑의 충격 고리도 같은 그림)
   if (g.ripples) {
@@ -3123,7 +3201,8 @@ function drawCrosshair(g, p) {
   if (!want) return;
 
   const x = input.mx, y = input.my, w = p.weapon;
-  const gapR = 6 + w.spread * 55 + (p.cool > w.rate * 0.6 ? 3 : 0);
+  const sp = p.dark ? w.spread * 1.45 + 0.025 : w.spread;                // 어두우면 조준선이 벌어진다(실제 탄 퍼짐과 같다)
+  const gapR = 6 + sp * 55 + (p.cool > w.rate * 0.6 ? 3 : 0) + (p.dark ? Math.sin(G.time * 7) * 1.2 : 0);
   ctx.save();
   ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
   ctx.lineCap = 'round';
@@ -3171,7 +3250,9 @@ const GROUND_TINT = {
   reykjavik: ['rgba(0,0,0,0)', 'rgba(190,198,206,.42)', 'rgba(180,190,200,.4)'],
   varanasi: ['rgba(0,0,0,0)', 'rgba(110,80,50,.16)', 'rgba(120,90,55,.2)'],
   rio: ['rgba(0,0,0,0)', 'rgba(170,140,90,.14)', 'rgba(190,160,110,.22)'],
-  mars: ['rgba(0,0,0,0)', 'rgba(150,62,30,.5)', 'rgba(160,70,36,.5)']
+  mars: ['rgba(0,0,0,0)', 'rgba(150,62,30,.5)', 'rgba(160,70,36,.5)'],
+  moscow: ['rgba(0,0,0,0)', 'rgba(200,208,216,.48)', 'rgba(196,204,214,.45)'],
+  nairobi: ['rgba(0,0,0,0)', 'rgba(150,80,44,.34)', 'rgba(160,92,52,.36)']
 };
 /** 지형 덧칠 — 칸 목록 [종류, x, y, 잡음] */
 function drawTerrain(tt, t) {
@@ -3978,6 +4059,32 @@ const LANDMARK_TOP = {
     const arm = liftPt(E, sx * TILE, sy * TILE, 0.46);
     ctx.strokeStyle = '#e8e4dc'; ctx.lineWidth = 6; ctx.beginPath(); ctx.moveTo(arm[0] - 34, arm[1]); ctx.lineTo(arm[0] + 34, arm[1]); ctx.stroke();
     lm.beacon = spireAt(E, sx, sy, 0.5, 0.54, 8, '#f0ece4');                            // 머리
+  },
+  /* 성 바실리 대성당 — 붉은 벽돌 몸채와 색색의 양파 돔(줄무늬), 금빛 십자 */
+  basil(lm, E) {
+    const b = lm.body;
+    liftBox(E, b.x + 0.1, b.y + 0.1, b.w - 0.2, b.h - 0.2, 0.18, '#7a2e22', '#9a4030');
+    for (const [x, y, r, h, c] of lm.domes) {
+      liftBox(E, x - r * 0.45, y - r * 0.45, r * 0.9, r * 0.9, h * 0.62, shade(c, 0.55), '#b8a88a');   // 북(드럼)
+      domeAt(E, x, y, r * 0.62, h * 0.62, c);                                                          // 양파 돔
+      const t = liftPt(E, x * TILE, y * TILE, h * 0.62 + r * 0.32);
+      ctx.strokeStyle = shade(c, 1.5); ctx.lineWidth = 2;
+      for (let i = -1; i <= 1; i++) { ctx.beginPath(); ctx.moveTo(t[0] + i * r * 9, t[1] + r * 10); ctx.quadraticCurveTo(t[0] + i * r * 14, t[1] - r * 4, t[0], t[1] - r * 12); ctx.stroke(); }
+      const tip = liftPt(E, x * TILE, y * TILE, h * 0.62 + r * 0.5);
+      ctx.strokeStyle = '#d8b040'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(tip[0], tip[1]); ctx.lineTo(tip[0], tip[1] - 12); ctx.moveTo(tip[0] - 4, tip[1] - 8); ctx.lineTo(tip[0] + 4, tip[1] - 8); ctx.stroke();
+      if (r > 1) lm.beacon = [tip[0], tip[1] - 14];
+    }
+  },
+  /* 케냐타 국제회의장 — 둥근 탑, 꼭대기 원반 전망대, 원뿔 지붕 회의장 */
+  kicc(lm, E) {
+    const [hx, hy] = lm.hall;
+    for (let k = 0; k < 0.14; k += 0.02) { const c = liftPt(E, hx * TILE, hy * TILE, k); ctx.fillStyle = shade('#b07a58', 0.8 + k * 1.4); ctx.beginPath(); ctx.ellipse(c[0], c[1], TILE * (1.1 - k * 4), TILE * (0.8 - k * 3), 0, 0, 6.283); ctx.fill(); }
+    const [x, y] = lm.tower;
+    for (let k = 0; k < 0.7; k += 0.02) { const c = liftPt(E, x * TILE, y * TILE, k); ctx.fillStyle = (Math.round(k * 50) % 3 === 0) ? '#3a4a5a' : shade('#c8a078', 0.82 + k * 0.3); ctx.beginPath(); ctx.ellipse(c[0], c[1], TILE * 0.95, TILE * 0.7, 0, 0, 6.283); ctx.fill(); }
+    const top = liftPt(E, x * TILE, y * TILE, 0.72);
+    ctx.fillStyle = '#8a6a50'; ctx.beginPath(); ctx.ellipse(top[0], top[1], TILE * 1.6, TILE * 0.9, 0, 0, 6.283); ctx.fill();
+    ctx.fillStyle = '#d8b890'; ctx.beginPath(); ctx.ellipse(top[0], top[1] - 4, TILE * 1.5, TILE * 0.82, 0, 0, 6.283); ctx.fill();
+    lm.beacon = [top[0], top[1] - 14];
   },
   /* 코파카바나 — 야자수와 해변 매점 */
   copacabana(lm, E) {
@@ -5891,7 +5998,7 @@ G.refreshHud = function (force) {
   $('hudAmmo').textContent = inMag;
   // 원작 HUD 처럼 총 그림자와 탄창의 남은 알을 눈금으로
   const icon = $('hudGunIcon');
-  if (icon.dataset.k !== wp.key) { icon.dataset.k = wp.key; icon.firstChild.setAttribute('d', GUN_ICONS[wp.key] || ''); }
+  if (icon.dataset.k !== wp.key) { icon.dataset.k = wp.key; icon.setAttribute('viewBox', '0 0 84 34'); icon.innerHTML = (ARM_ICON[wp.key] || '').replace(/^<svg[^>]*>|<\/svg>$/g, ''); }   // 무기 고르기 창과 같은 그림
   const pipW = Math.min(4, 120 / wp.mag);
   const pips = $('hudPips');
   pips.parentNode.style.width = (wp.mag * pipW) + 'px';
@@ -5970,16 +6077,10 @@ G.refreshHud = function (force) {
 };
 
 /** 무기 그림자 — 오른쪽을 향한 옆모습 (viewBox 64×20) */
-const GUN_ICONS = {
-  pistol:  'M18 5h24v5H29l-3 8h-7l3-8h-4z',
-  smg:     'M2 6h44v1h10v2H46v2H33v8h-4v-8h-5l-1 6h-4l1-6h-9v-1H2z',
-  shotgun: 'M2 9l12-3h48v3H48v3H36v-3H28l-2 3h-5l-1-3-18 4z',
-  rifle:   'M2 8l14-2h46v2H46v3h-6v-2H30l-2 7h-4l1-7-23 3zM22 2h14v3H22z'
-};
 
 /* ═══════════ 화면 전환 ═══════════ */
 const UI = {
-  screens: ['scrTitle', 'scrChapters', 'scrHowto', 'scrBrief', 'scrCity', 'scrPause', 'scrResult',
+  screens: ['scrCodex', 'scrTitle', 'scrChapters', 'scrHowto', 'scrBrief', 'scrCity', 'scrPause', 'scrResult',
             'scrSettings', 'scrEnding', 'scrKeys', 'scrAbout', 'scrStory', 'scrJournal', 'scrChallenge'],
   settingsFrom: 'scrTitle',
   hideScreens() { this.screens.forEach(s => $(s).classList.add('hidden')); },
@@ -6077,6 +6178,7 @@ const UI = {
     lock($('btnChallenge'), $('lockChallenge'), G.challengeOpen(), Math.min(prog, 2), 2, T('2장을 마치면 열린다'));
     const nr = Records.all().length;
     $('journalBadge').textContent = `${nr}/${STORY.records.length}`;
+    if ($('codexBadge')) $('codexBadge').textContent = `${Codex.count()}/${STORY.codex.length}`;
     $('btnJournal').title = T('기록 {n}/{t} · 도전 과제 ★{a}', { n: nr, t: STORY.records.length, a: Ach.count() });
     $('btnJournal').setAttribute('aria-label', $('btnJournal').title);
     this.show('scrTitle');
@@ -6154,6 +6256,26 @@ const UI = {
     const j = STORY.journey[i];
     if (!j) { then(); return; }
     this.story([{ journey: j }], then, true);
+  },
+  /** 좀비 도감 — 카드마다 그림 · 분류 · 위험도 · 관찰 기록 · 약점 · 대처법 · 수치 · 처치 수 */
+  showCodex() {
+    const d = Codex.get(), list = $('codexList');
+    $('codexCount').textContent = `${Codex.count()}/${STORY.codex.length}`;
+    list.innerHTML = '';
+    for (const e of STORY.codex) {
+      const seen = !!d.seen[e.id], t = ZTYPES[e.id], el = document.createElement('article');
+      el.className = 'cx' + (seen ? '' : ' cx--locked');
+      const dots = '●'.repeat(e.threat) + '○'.repeat(5 - e.threat);
+      const stat = t ? T('체력 {h} · 속도 {s} · 처치 {k}', { h: t.hp, s: t.speed, k: d.kills[e.id] | 0 }) : T('처치 {k}', { k: d.kills[e.id] | 0 });
+      el.innerHTML = `<canvas width="160" height="160" aria-hidden="true"></canvas><div class="cx__body">` +
+        (seen
+          ? `<h3>${LT(e.n)} <small>${LT(e.cls)}</small></h3><div class="cx__threat" data-t="${e.threat}">${T('위험도')} <b>${dots}</b></div>` +
+            `<p>${LT(e.obs)}</p><dl><dt>${T('약점')}</dt><dd>${LT(e.weak)}</dd><dt>${T('대처')}</dt><dd>${LT(e.tip)}</dd></dl><div class="cx__stat">${stat}</div>`
+          : `<h3>???</h3><div class="cx__threat">${T('위험도')} <b>?????</b></div><p class="cx__hint">${T('아직 마주치지 않았다. 불빛에 비추거나 쓰러뜨리면 기록된다.')}</p>`) + `</div>`;
+      list.appendChild(el);
+      Codex.portrait(el.querySelector('canvas'), e.id, !seen);
+    }
+    this.show('scrCodex');
   },
   showJournal() {
     const got = Records.all();
@@ -6301,6 +6423,7 @@ const UI = {
     $('setBright').value = SETTINGS.brightness;
     $('setBrightVal').textContent = SETTINGS.brightness;
     $('setDiffNote').textContent = `${T(SETTINGS.mod.name)} — ${T(SETTINGS.mod.note)}`;
+    if ($('setContrast')) { $('setContrast').value = SETTINGS.get('contrast') ?? 80; $('setContrastVal').textContent = SETTINGS.get('contrast') ?? 80; }
     if ($('setView')) { $('setView').value = SETTINGS.get('view3d'); $('setViewVal').textContent = SETTINGS.get('view3d'); }
     for (const b of document.querySelectorAll('.tog[data-set]'))
       b.setAttribute('aria-pressed', String(!!SETTINGS.get(b.dataset.set)));
@@ -6423,7 +6546,7 @@ const DEATH_TIP = {
   bloater: '부푼 것은 멀리서 쏴라.',
   leaper: '덮치는 것이 웅크리면 옆으로 — 날아오는 순간 쏘면 떨어져 뒹군다.',
   puller: '기침 소리가 들리면 옆으로 비켜라. 혀에 감기면 그것을 쏴서 끊는다.',
-  riot:   '진압 경찰은 앞에서 쏘지 말 것 — 밀쳐서 돌려세우고 등을 쏴라. 수류탄은 방패를 무시한다.',
+  riot:   '진압 경찰의 방패는 석궁 · 매그넘 · 경기관총이 뚫는다. 없으면 밀쳐서 돌려세우고 등을 쏴라. 수류탄도 방패를 무시한다.',
   crowd:  '둘러싸이면 밀치기로 떼어 내고 트인 길로 빠져나가라. 막다른 골목은 피할 것.'
 };
 
@@ -6443,6 +6566,7 @@ document.addEventListener('click', e => {
     case 'storyskip': UI.storyEnd(); break;
     case 'prologue': UI.prologue(() => UI.showJournal()); break;
     case 'journal': UI.showJournal(); break;
+    case 'codex':   UI.showCodex(); break;
     case 'chapters': UI.buildChapters(); UI.show('scrChapters'); break;
     case 'survival': if (G.survivalOpen()) UI.showCities(); break;
     case 'survcity': G.survivalCity = btn.dataset.city; G.start('survival'); break;
@@ -6488,7 +6612,7 @@ document.addEventListener('click', e => {
     }
     case 'wipe':
       if (confirm(T('챕터 진행 · 평가 · 서바이벌 기록을 지웁니다. 설정과 키 설정은 남습니다. 계속할까요?'))) {
-        for (const k of ['aftermath.layout', 'aftermath.progress', 'aftermath.grades', 'aftermath.best', 'aftermath.hints', 'aftermath.errors', 'aftermath.records', 'aftermath.cityBest', 'aftermath.prologue', 'aftermath.ach', 'aftermath.stats', 'aftermath.chal']) try { localStorage.removeItem(k); } catch (e) { /* 무시 */ }
+        for (const k of ['aftermath.layout', 'aftermath.progress', 'aftermath.grades', 'aftermath.best', 'aftermath.hints', 'aftermath.errors', 'aftermath.records', 'aftermath.cityBest', 'aftermath.prologue', 'aftermath.ach', 'aftermath.stats', 'aftermath.chal', 'aftermath.codex', 'aftermath.stages']) try { localStorage.removeItem(k); } catch (e) { /* 무시 */ }
         $('aboutMsg').textContent = T('진행 기록을 지웠습니다');
       }
       break;

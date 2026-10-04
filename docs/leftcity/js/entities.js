@@ -19,17 +19,17 @@ const WEAPONS = {
   // ── 늘어난 무기 칸 — 감염체가 떨어뜨리거나 보급 상자에서 나온다. 탄은 기존 탄을 나눠 쓴다(석궁만 화살) ──
   magnum:  { key: 'magnum',  name: '매그넘', slot: 5, rate: 0.55, dmg: 74, spread: 0.012,
              range: 720, speed: 1900, pellets: 1, ammoKey: 'rifle', kick: 4.6, sfx: 'magnum', knock: 16,
-             mag: 6,  reload: 1.9, pierce: 1, pick: 12 },
+             mag: 6,  reload: 1.9, pierce: 1, pick: 12, ap: true },   // ap — 진압 방패를 뚫는다
   auto:    { key: 'auto',    name: '자동 샷건', slot: 6, rate: 0.27, dmg: 13, spread: 0.22,
              range: 400, speed: 1200, pellets: 7, ammoKey: 'shell', kick: 6.5, sfx: 'shotgun', knock: 9,
              mag: 10, reload: 2.8, pick: 16 },
   lmg:     { key: 'lmg',     name: '경기관총', slot: 7, rate: 0.07, dmg: 19, spread: 0.09,
              range: 680, speed: 1600, pellets: 1, ammoKey: 'smg', kick: 2.6, sfx: 'shot', knock: 6,
-             mag: 75, reload: 3.6, pierce: 1, heavy: 0.86, pick: 110 },
+             mag: 75, reload: 3.6, pierce: 1, heavy: 0.86, pick: 110, ap: true },
   // 석궁 — 소리가 거의 없어 무리를 깨우지 않는다. 한 발에 여럿을 꿰뚫는다
   crossbow:{ key: 'crossbow', name: '석궁', slot: 8, rate: 0.9, dmg: 130, spread: 0.003,
              range: 820, speed: 1350, pellets: 1, ammoKey: 'bolt', kick: 1.4, sfx: 'bow', knock: 14,
-             mag: 1, reload: 0.95, pierce: 4, silent: true, pick: 8 },
+             mag: 1, reload: 0.95, pierce: 4, silent: true, pick: 8, ap: true },
   // ── 특전 무기 — 화성 서바이벌에서만, 3 · 5 · 10 · 20분에 하나씩 열린다. 예비탄이 끝없다(탄창 · 재장전은 있다) ──
   flamer:  { key: 'flamer',  name: '화염방사기', slot: 9, rate: 0.045, dmg: 7, spread: 0.2,
              range: 240, speed: 560, pellets: 2, ammoKey: null, kick: 0.5, sfx: 'flame', knock: 2,
@@ -214,7 +214,7 @@ class Player {
     if (this.dead || this.meleeCool > 0) return false;
     this.meleeCool = 0.58;
     this.meleeAnim = 0.32;                                   // 밀치기 — 몸을 실어 두 팔로 내지른다(예전 0.2초는 눈에 잘 안 띄었다)
-    (g.shoves || (g.shoves = [])).push({ x: this.x, y: this.y, a: this.angle, t: 0, max: 0.3, hits: 0 });
+    (g.shoves || (g.shoves = [])).push({ x: this.x, y: this.y, a: this.angle, t: 0, max: 0.34, hits: 0 });
     this.noise = Math.max(this.noise, 0.34);
     this.cancelReload();
     this.cool = Math.max(this.cool, 0.22);
@@ -224,18 +224,16 @@ class Player {
       if (z.dead) continue;
       const dx = z.x - this.x, dy = z.y - this.y;
       const d = Math.hypot(dx, dy);
-      if (d > 42 + z.r) continue;
+      // 사방으로 — 몸을 크게 휘둘러 둘레 전부를 떼어 낸다. 등 뒤에서 껴안은 것도 밀린다(앞쪽이 조금 더 멀리)
+      if (d > 46 + z.r) continue;
       const a = Math.atan2(dy, dx);
-      let da = a - this.angle;
-      while (da > Math.PI) da -= Math.PI * 2;
-      while (da < -Math.PI) da += Math.PI * 2;
-      if (Math.abs(da) > 1.0) continue;
-      z.hurt(24, a, g, 0, 'melee');
+      const front = Math.cos(a - this.angle) > 0.3;
+      z.hurt(front ? 24 : 18, a, g, 0, 'melee');
       if (z.dead) killed = true;
       if (!z.dead && !z.t.boss) {
         // 밀려나는 것이 눈에 보이게 — 순간이동 대신 0.28초 동안 미끄러지며(약 80) 뒤로 젖혀지고 팔을 허우적댄다
         const brute = z.type === 'brute' || z.type === 'charger';
-        z.kbV = brute ? 140 : 380; z.kbA = a; z.shoved = brute ? 0.3 : 0.6; z.shoveA = a;
+        z.kbV = (brute ? 140 : 380) * (front ? 1 : 0.85); z.kbA = a; z.shoved = brute ? 0.3 : 0.6; z.shoveA = a;
         z.stagger = Math.max(z.stagger, brute ? 0.2 : 0.62);
         for (let i = 0; i < 5; i++) { const pa = a + Math.PI + (Math.random() - 0.5) * 1.6, sp = 40 + Math.random() * 60;
           g.particles.push({ x: z.x, y: z.y, vx: Math.cos(pa) * sp, vy: Math.sin(pa) * sp, life: 0.6, max: 0.6, size: 6 + Math.random() * 5, col: '#8a8478', kind: 'smoke' }); }
@@ -265,6 +263,12 @@ class Player {
     }
   }
 
+  /** 어둠 — 손전등이 꺼졌거나(방전 포함) 담즙에 눈이 가렸다. 이때는 조준이 크게 흔들린다 */
+  get dark() { return !this.lightOn || this.battery <= 0; }
+  /** 자동 사격 · 자동 조준이 함께 쓰는 사거리 — 불빛이 닿는 곳, 어두우면 가까운 곳(230)만.
+      예전엔 조준은 380 까지 표적을 물고 사격은 불빛 사거리(꺼지면 190)만 봐서, 불이 꺼지거나 폭풍이 오면
+      먼 적에 손전등이 고정된 채 총이 멈췄다 */
+  fireRange() { return Math.max(this.lightRange, 230); }
   get lightRange() {
     if (!this.lightOn || this.battery <= 0) return 0;
     const low = this.battery < 22 ? 0.72 + Math.random() * 0.28 : 1;  // 저전력 깜빡임
@@ -302,11 +306,14 @@ class Player {
       // 유탄 — 닿는 순간 터진다
       g.grenades.push(new Grenade(mx, my, base + (Math.random() - 0.5) * w.spread * 2, { impact: true, speed: w.speed }));
     } else for (let i = 0; i < w.pellets; i++) {
-      const a = base + (Math.random() - 0.5) * w.spread * 2;
+      // 어둠 속 사격 — 탄이 45% 더 퍼지고 손이 떨린다(약 1.4° 더). 불빛 아래에서 쏘는 게 훨씬 낫다
+      const spread = this.dark ? w.spread * 1.45 + 0.025 : w.spread;
+      const a = base + (Math.random() - 0.5) * spread * 2;
       const b = new Bullet(mx, my, a, w.dmg, w.range * (0.85 + Math.random() * 0.3), w.speed, w.pierce | 0, w.knock);
       if (w.burn) { b.burn = w.burn; b.flame = true; }
       if (w.rail) b.rail = true;
       if (w.key === 'crossbow') b.bolt = true;
+      if (w.ap || w.rail) b.ap = true;
       g.bullets.push(b);
     }
     if (w.rail && g.beam) g.beam(mx, my, base, w.range);
@@ -400,7 +407,12 @@ class Zombie {
   hurt(dmg, ang, g, knock = 0, src = '') {
     // 진압 경찰 — 앞에서 온 총알은 방패가 받는다. 밀치기는 몸을 돌려세워 등을 드러낸다. 폭발은 그대로
     const ar = this.t.armor;
-    if (ar && src !== 'blast' && this.hp > 0) {
+    // 석궁 · 매그넘 · 경기관총(ap)은 방패째 꿰뚫는다 — 불꽃만 튀고 피해는 그대로
+    if (ar && src === 'ap' && this.hp > 0 && g.spawnSparks) {
+      const front = Math.abs(Math.atan2(Math.sin(ang - this.face - Math.PI), Math.cos(ang - this.face - Math.PI))) < ar.arc;
+      if (front) { g.spawnSparks(this.x + Math.cos(this.face) * 12, this.y + Math.sin(this.face) * 12, ang); this.aggro = true; }
+    }
+    if (ar && src !== 'blast' && src !== 'ap' && this.hp > 0) {
       const front = Math.abs(Math.atan2(Math.sin(ang - this.face - Math.PI), Math.cos(ang - this.face - Math.PI))) < ar.arc;
       if (src === 'melee') { this.face += (Math.random() < 0.5 ? -1 : 1) * 2.2; this.stagger = Math.max(this.stagger, 0.9); this.aggro = true; if (front) return; }
       else if (front) {
@@ -850,7 +862,7 @@ class Bullet {
         if (this.struck && this.struck.has(z)) continue;
         if (Math.hypot(z.x - this.x, z.y - this.y) < z.r + (this.flame ? 9 : 3)) {
           if (this.burn) { z.burn = Math.max(z.burn || 0, this.burn); }
-          z.hurt(this.dmg, this.ang, g, this.knock, this.flame ? 'fire' : '');
+          z.hurt(this.dmg, this.ang, g, this.knock, this.flame ? 'fire' : this.ap ? 'ap' : '');
           if (!this.struck || this.struck.size === 0) g.hits++;   // 명중률은 탄 하나당 한 번
           g.onHit(z.dead);
           SFX.hitFlesh(Math.hypot(this.x - g.player.x, this.y - g.player.y));

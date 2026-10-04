@@ -103,6 +103,30 @@ const THEMES = {
     roofs: ['#8a4a30', '#7a4028', '#9a5a3a', '#6a3a26'],
     streetDecor: ['parasol', 'cart', 'bin']
   },
+  /* 러시아 모스크바 — 눈 덮인 넓은 대로와 붉은 벽돌, 양파 돔. 얼어붙은 길이 미끄럽다.
+     보드카에 절었던 목이 부어오른 자들 — 뱉는 것이 유난히 많다 */
+  moscow: {
+    key: 'moscow', street: 'snow', name: '모스크바', river: '모스크바강', terrain: 'ice', weather: 'snow',
+    signs: ['АПТЕКА', 'ПРОДУКТЫ', 'КАФЕ', 'ГОСТИНИЦА', 'БАНК', 'МЕТРО', 'ВОДКА', 'ХЛЕБ', 'ПИВО', 'ТАБАК', 'РЕМОНТ', 'ПОЧТА'],
+    signCols: ['#ffffff', '#e53935', '#ffd54f', '#4fc3f7', '#81c784', '#ff8a65'],
+    carCols: ['#e0e0e0', '#3a3d42', '#8a2b2b', '#2f4a63', '#c9ccd1', '#4a5a3a'],
+    busCol: '#e0b020', small: null,
+    walls: [['#b0a090', 0], ['#c8b89a', 0], ['#8a5a4a', 1], ['#d8d0c0', 0], ['#9a4a3a', 1], ['#a8b0b8', 0]],
+    roofs: ['#3a4a3a', '#2a3a4a', '#4a3a30', '#5a5a5a'],
+    streetDecor: ['bin', 'cart', 'bin']
+  },
+  /* 케냐 나이로비 — 붉은 흙길, 미니버스(마타투)와 함석지붕 가게. 먼지 안개.
+     생전에 달리던 자들 — 덮치는 것 · 들이받는 것 · 달리는 것이 많다 */
+  nairobi: {
+    key: 'nairobi', street: 'dirt', name: '나이로비', river: null, terrain: 'sand', weather: 'fog',
+    signs: ['DUKA', 'HOTELI', 'M-PESA', 'CHEMIST', 'BUTCHERY', 'SALON', 'MATATU', 'CAFE', 'BANK', 'SODA', 'KIBANDA', 'MAMA MBOGA'],
+    signCols: ['#ffeb3b', '#4caf50', '#e53935', '#29b6f6', '#ffffff', '#ff9800'],
+    carCols: ['#e0e0e0', '#f2c21a', '#2e7d32', '#c62828', '#3a3d42', '#1a5a9a'],
+    busCol: '#e8641a', small: null,
+    walls: [['#c87a50', 0], ['#e0c080', 0], ['#7aa070', 0], ['#5a8ab0', 0], ['#b85a3a', 1], ['#d8d0c0', 0]],
+    roofs: ['#8a8e92', '#7a6a5a', '#9a9ea2', '#6a5040'],
+    streetDecor: ['cart', 'parasol', 'bin']
+  },
   /* 특전 — 테라포밍한 화성. 건물은 드문드문한 거주 모듈뿐, 붉은 흙 벌판에 크고 작은 크레이터가 패였다.
      움푹한 바닥과 솟은 테두리 모두 발이 무겁다 — 저것들도 마찬가지 */
   mars: {
@@ -457,6 +481,24 @@ const LANDMARKS = {
       lmSolid(wd, x0 + 2, y0 + 1, 1, 1); lmSolid(wd, x0 + 10, y0 + 1, 1, 1);        // 매점
       return { kind: 'copacabana', x: x0, y: y0, w: 13, h: 7, rally: { tx: x0 + 6, ty: y0 + 4 }, kiosks: [[x0 + 2.5, y0 + 1.5], [x0 + 10.5, y0 + 1.5]],
         palms: [[x0 + 1, y0 + 5], [x0 + 4.5, y0 + 5.5], [x0 + 8.5, y0 + 5.5], [x0 + 12, y0 + 5]], walk: { x: x0, y: y0 + 2, w: 13, h: 3 } };
+    }
+  },
+  /* 모스크바 — 성 바실리 대성당. 붉은 벽돌 몸채 위에 색색의 양파 돔 다섯 */
+  basil: {
+    name: '성 바실리 대성당', w: 9, h: 9, ground: D_PLAZA,
+    stamp(wd, x0, y0) {
+      lmSolid(wd, x0 + 2, y0 + 1, 5, 4);
+      return { kind: 'basil', x: x0, y: y0, w: 9, h: 9, rally: { tx: x0 + 4, ty: y0 + 7 }, body: { x: x0 + 2, y: y0 + 1, w: 5, h: 4 },
+        domes: [[x0 + 4.5, y0 + 3, 1.1, 0.62, '#c8302a'], [x0 + 2.8, y0 + 1.8, 0.7, 0.42, '#2a8a4a'], [x0 + 6.2, y0 + 1.8, 0.7, 0.44, '#e0b020'],
+                [x0 + 2.8, y0 + 4.2, 0.7, 0.4, '#2a5aa0'], [x0 + 6.2, y0 + 4.2, 0.7, 0.42, '#d86a20']] };
+    }
+  },
+  /* 나이로비 — 케냐타 국제회의장. 둥근 탑 꼭대기의 원반 전망대와 원뿔 지붕의 회의장 */
+  kicc: {
+    name: '케냐타 국제회의장', w: 9, h: 9, ground: D_PLAZA,
+    stamp(wd, x0, y0) {
+      lmSolid(wd, x0 + 4, y0 + 2, 2, 2); lmSolid(wd, x0 + 1, y0 + 5, 2, 2);
+      return { kind: 'kicc', x: x0, y: y0, w: 9, h: 9, rally: { tx: x0 + 6, ty: y0 + 7 }, tower: [x0 + 5, y0 + 3], hall: [x0 + 2, y0 + 6] };
     }
   },
   /* 화성 — 유리 돔 온실(바이오돔). 안에는 테라포밍한 초록이 자란다 */

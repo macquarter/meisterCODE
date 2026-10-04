@@ -110,7 +110,7 @@ function groundSet(W, seed, paint) {
 /** 물웅덩이 — 부드러운 가장자리의 얼룩 여러 겹 (fn 이 받는 k 는 0..1 짙기) */
 function puddles(W, rnd, n, draw) {
   for (let i = 0; i < n; i++) {
-    const cx = rnd() * W, cy = rnd() * W, rx = 20 + rnd() * W * 0.09, ry = rx * (0.35 + rnd() * 0.5), rot = rnd() * 3.14;
+    const cx = rnd() * W, cy = rnd() * W, rx = 16 + rnd() * W * 0.055, ry = rx * (0.35 + rnd() * 0.5), rot = rnd() * 3.14;
     for (let k = 0; k < 4; k++) {
       const ox = (rnd() - 0.5) * rx * 0.9, oy = (rnd() - 0.5) * ry * 0.9, s = 0.55 + rnd() * 0.5;
       for (const [dx, dy] of [[0, 0], [W, 0], [-W, 0], [0, W], [0, -W]]) draw(cx + ox + dx, cy + oy + dy, rx * s, ry * s, rot);
@@ -143,8 +143,8 @@ function makeTextures() {
       for (const [ctx, col, lw] of [[a, 'rgba(0,0,0,.55)', 1.8], [h, 'rgba(0,0,0,.9)', 2.4]]) { ctx.strokeStyle = col; ctx.lineWidth = lw; ctx.beginPath(); pts.forEach(([x, y], k) => k ? ctx.lineTo(x, y) : ctx.moveTo(x, y)); ctx.stroke(); }
     }
     for (let i = 0; i < 10; i++) blob(a, rnd() * W, rnd() * W, 14 + rnd() * 30, 8 + rnd() * 16, rnd() * 3, 'rgba(8,8,10,.35)', 'rgba(8,8,10,0)');
-    puddles(W, rnd, 9, (cx, cy, rx, ry, rot) => {
-      blob(a, cx, cy, rx, ry, rot, 'rgba(6,8,12,.55)', 'rgba(6,8,12,0)');
+    puddles(W, rnd, 14, (cx, cy, rx, ry, rot) => {
+      blob(a, cx, cy, rx, ry, rot, 'rgba(6,8,12,.3)', 'rgba(6,8,12,0)');
       blob(r, cx, cy, rx, ry, rot, 'rgba(0,0,0,1)', 'rgba(0,0,0,0)');
       blob(h, cx, cy, rx, ry, rot, 'rgba(110,110,110,1)', 'rgba(110,110,110,0)');
     });
@@ -287,6 +287,11 @@ function makeTextures() {
     x.fillStyle = 'rgba(80,70,50,.25)'; x.beginPath(); x.arc(40, 40, 12, 0, 6.28); x.fill();
   }, false);
   TEX.stripe = canvasTex(64, 64, (x) => { x.fillStyle = '#e8e4da'; x.fillRect(0, 0, 64, 64); x.fillStyle = '#9a968e'; for (let k = 0; k < 64; k += 16) x.fillRect(k, 0, 8, 64); x.fillStyle = 'rgba(0,0,0,.18)'; x.fillRect(0, 56, 64, 8); });
+  TEX.star = canvasTex(64, 64, (x) => {
+    x.clearRect(0, 0, 64, 64); x.translate(32, 32); x.globalCompositeOperation = 'lighter';
+    for (let i = 0; i < 6; i++) { x.rotate(Math.PI / 3 + (i % 2) * 0.2); const g = x.createLinearGradient(0, 0, 30, 0); g.addColorStop(0, 'rgba(255,255,255,1)'); g.addColorStop(1, 'rgba(255,255,255,0)'); x.fillStyle = g; x.beginPath(); x.moveTo(0, -3 + (i % 2)); x.lineTo(i % 2 ? 22 : 31, 0); x.lineTo(0, 3 - (i % 2)); x.fill(); }
+    const g = x.createRadialGradient(0, 0, 0, 0, 0, 14); g.addColorStop(0, 'rgba(255,255,255,1)'); g.addColorStop(1, 'rgba(255,255,255,0)'); x.fillStyle = g; x.fillRect(-14, -14, 28, 28);
+  }, false);
   TEX.dot = canvasTex(32, 32, (x) => { const g = x.createRadialGradient(16, 16, 0, 16, 16, 15); g.addColorStop(0, 'rgba(60,8,6,1)'); g.addColorStop(0.7, 'rgba(60,8,6,.8)'); g.addColorStop(1, 'rgba(60,8,6,0)'); x.fillStyle = g; x.fillRect(0, 0, 32, 32); }, false);
   TEX.glow = canvasTex(64, 64, (x) => { const g = x.createRadialGradient(32, 32, 0, 32, 32, 31); g.addColorStop(0, 'rgba(255,255,255,1)'); g.addColorStop(0.35, 'rgba(255,255,255,.45)'); g.addColorStop(1, 'rgba(255,255,255,0)'); x.fillStyle = g; x.fillRect(0, 0, 64, 64); }, false);
   TEX.fence = canvasTex(64, 64, (x) => { x.clearRect(0, 0, 64, 64); x.strokeStyle = 'rgba(200,205,208,.9)'; x.lineWidth = 1.5; for (let k = -64; k < 128; k += 12) { x.beginPath(); x.moveTo(k, 0); x.lineTo(k + 64, 64); x.stroke(); x.beginPath(); x.moveTo(k + 64, 0); x.lineTo(k, 64); x.stroke(); } });
@@ -299,9 +304,13 @@ function makeMaterials() {
   MAT.asphalt = std(set(TEX.asphaltSet, { normalScale: new THREE.Vector2(0.35, 0.35), envMapIntensity: 1.8 }));   // 젖은 아스팔트 — 웅덩이는 거울처럼
   MAT.sidewalk = std(set(TEX.sidewalkSet, { normalScale: new THREE.Vector2(0.8, 0.8), envMapIntensity: 1.1 }));
   MAT.curb = std({ color: 0x8a8a84, roughness: 0.8 });
-  MAT.plaza = std({ map: TEX.plaza, roughness: 0.6 });
+  MAT.plaza = std({ map: TEX.plaza, normalMap: normalFrom(TEX.plaza.image, 1.2), roughness: 0.5, envMapIntensity: 1.2 });
   MAT.grass = std({ map: TEX.grass, roughness: 0.95 });
-  MAT.water = std({ color: 0x0a1820, roughness: 0.08, metalness: 0.3 });
+  // 강물 — 빗방울 결의 노멀맵을 흘려 보내 불빛 반사가 일렁인다
+  TEX.waterN = (() => { const [c, x] = cnv(256, 256); const r = rng(61); x.fillStyle = '#808080'; x.fillRect(0, 0, 256, 256);
+    for (let i = 0; i < 180; i++) blob(x, r() * 256, r() * 256, 6 + r() * 26, 3 + r() * 9, r() * 0.4, r() < 0.5 ? 'rgba(255,255,255,.22)' : 'rgba(0,0,0,.22)', 'rgba(128,128,128,0)');
+    return normalFrom(c, 2.5); })();
+  MAT.water = std({ color: 0x0c1c24, emissive: 0x03090c, roughness: 0.1, metalness: 0.1, normalMap: TEX.waterN, normalScale: new THREE.Vector2(0.7, 0.7), envMapIntensity: 3 });
   MAT.bridge = std({ color: 0x4a4e54, roughness: 0.6 });
   MAT.paint = std({ color: 0xd8d6cc, roughness: 0.5 });
   MAT.yellow = std({ color: 0xc9a83a, roughness: 0.5 });
@@ -483,7 +492,16 @@ function buildChunk(w, cx, cy) {
       continue;
     }
     if (d === D_WATER) { floorQuad(get('water'), X0, Z0, X1, Z1, -8, 200); bankWalls(w, get('curb'), x, y, X0, Z0, X1, Z1); continue; }
-    if (d === D_BRIDGE) { floorQuad(get('bridge'), X0, Z0, X1, Z1, 0, 200); continue; }
+    if (d === D_BRIDGE) {
+      floorQuad(get('bridge'), X0, Z0, X1, Z1, 0, 200);
+      // 난간 — 물과 맞닿은 쪽에 낮은 콘크리트 벽과 기둥
+      const wet = (a, b) => deco(x + a, y + b) === D_WATER, P = get('parapet');
+      if (wet(0, 1)) { roofBox(P, X0, Z1 - 3, T, 3, 0, 9); }
+      if (wet(0, -1)) { roofBox(P, X0, Z0, T, 3, 0, 9); }
+      if (wet(1, 0)) { roofBox(P, X1 - 3, Z0, 3, T, 0, 9); }
+      if (wet(-1, 0)) { roofBox(P, X0, Z0, 3, T, 0, 9); }
+      continue;
+    }
     if (d === D_GRASS) { floorQuad(get('grass'), X0, Z0, X1, Z1, 1, 200); continue; }
     if (d === D_PLAZA || d === D_LANDMARK) {
       floorQuad(get('plaza'), X0, Z0, X1, Z1, 0, 160);
@@ -921,11 +939,47 @@ function poseHuman(h, o) {
 }
 
 /* ═══════════ 탈것 · 화물 ═══════════ */
-function paint(hex) { return mat(hex, { roughness: 0.32, metalness: 0.35 }); }
-const GLASS = () => mat('#121820', { roughness: 0.08, metalness: 0.6 });
+function paint(hex) { return mat(hex, { roughness: 0.3, metalness: 0.45, envMapIntensity: 1.6 }); }
+const GLASS = () => mat('#0e141c', { roughness: 0.05, metalness: 0.7, envMapIntensity: 2.5 });
 function bx(g, m, x, y, z, sx, sy, sz) { const o = part(GEO.box, m, x, y, z, sx, sy, sz); o.receiveShadow = true; g.add(o); return o; }
+/** 사다리꼴 상자 — 아래 면(L0 × W0)에서 위 면으로 앞 · 뒤 · 옆이 안쪽으로 기운다 (차의 객실 · 보닛) */
+function taperGeo(L0, W0, H, fIn, bIn, sIn) {
+  const x0 = -L0 / 2, x1 = L0 / 2, z0 = -W0 / 2, z1 = W0 / 2;
+  const P = [[x0, 0, z0], [x1, 0, z0], [x1, 0, z1], [x0, 0, z1], [x0 + bIn, H, z0 + sIn], [x1 - fIn, H, z0 + sIn], [x1 - fIn, H, z1 - sIn], [x0 + bIn, H, z1 - sIn]];
+  const F = [[4, 5, 6, 7], [0, 3, 2, 1], [1, 2, 6, 5], [0, 4, 7, 3], [3, 7, 6, 2], [0, 1, 5, 4]];
+  const pos = [];
+  for (const [a, b, c, d] of F) for (const i of [a, b, c, a, c, d]) pos.push(...P[i]);
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.computeVertexNormals();
+  return g;
+}
+const carGeoCache = new Map();
+function carGeos(L, W) {
+  const key = (L | 0) + 'x' + (W | 0);
+  if (!carGeoCache.has(key)) carGeoCache.set(key, {
+    body: taperGeo(L, W, 8, 2, 1.5, 1.2),
+    cabin: taperGeo(L * 0.56, W * 0.86, 7.5, L * 0.13, L * 0.09, 1.6),
+    glass: taperGeo(L * 0.565, W * 0.87, 6.2, L * 0.125, L * 0.085, 1.3),
+  });
+  return carGeoCache.get(key);
+}
+/** 승용차 — 비스듬한 앞유리 · 뒷유리가 있는 객실, 범퍼 · 바퀴 덮개 · 거울 · 등 */
+function carBody(g, L, Wd, colr) {
+  const G3 = carGeos(L, Wd), P = paint(colr);
+  const body = new THREE.Mesh(G3.body, P); body.position.y = 4; body.castShadow = body.receiveShadow = true; g.add(body);
+  const cab = new THREE.Mesh(G3.cabin, P); cab.position.set(-L * 0.05, 11.6, 0); cab.castShadow = true; g.add(cab);
+  const gl = new THREE.Mesh(G3.glass, GLASS()); gl.position.set(-L * 0.05, 11.7, 0); g.add(gl);
+  const trim = mat('#121416', { roughness: 0.6 });
+  bx(g, trim, L / 2 + 0.4, 5.2, 0, 1.4, 2.6, Wd * 0.96); bx(g, trim, -L / 2 - 0.4, 5.2, 0, 1.4, 2.6, Wd * 0.96);   // 범퍼
+  for (const sd of [-1, 1]) bx(g, trim, L * 0.12, 13, sd * (Wd / 2 + 0.8), 2, 1.6, 1.6);                         // 거울
+  bx(g, mat('#fff4d0', { emissive: col('#fff4d0'), emissiveIntensity: 0.15 }), L / 2 + 0.1, 9, Wd * 0.32, 0.6, 2.2, 4);
+  bx(g, mat('#fff4d0', { emissive: col('#fff4d0'), emissiveIntensity: 0.15 }), L / 2 + 0.1, 9, -Wd * 0.32, 0.6, 2.2, 4);
+  bx(g, mat('#c02018', { emissive: col('#c02018'), emissiveIntensity: 0.5 }), -L / 2 - 0.1, 9.5, Wd * 0.33, 0.6, 2, 4);
+  bx(g, mat('#c02018', { emissive: col('#c02018'), emissiveIntensity: 0.5 }), -L / 2 - 0.1, 9.5, -Wd * 0.33, 0.6, 2, 4);
+  wheelsOn(g, [-L * 0.32, L * 0.32], Wd / 2 - 1.5, 4.4);
+}
 function wheelsOn(g, xs, hz, r) { const m = mat('#0d0e10', { roughness: 0.9 }); for (const x of xs) for (const sd of [-1, 1]) g.add(part(GEO.wheel, m, x, r, sd * hz, r, r, 3)); }
-let propSeq = 0;
+let propSeq = 0, HEAD_M = null, BLINK_M = null, HEAD_BEAM_M = null;
+const HEAD_C = new THREE.Color(1, 0.93, 0.8), BLINK_C = new THREE.Color(1, 0.55, 0.1);
 function makeProp(pr) {
   const g = new THREE.Group(), L = pr.w, Wd = pr.h, k = pr.kind;
   // 다섯 대 중 하나 꼴로 불타는 잔해 — 그을린 차체, 유리 없음, 위에 불
@@ -940,12 +994,15 @@ function makeProp(pr) {
     return g;
   }
   if (k === 'car') {
-    bx(g, paint(pr.col), 0, 8, 0, L, 9, Wd);
-    bx(g, paint(pr.col), -L * 0.06, 16.5, 0, L * 0.52, 8, Wd * 0.86);
-    bx(g, GLASS(), -L * 0.06, 16.6, 0, L * 0.53, 6, Wd * 0.88);
-    bx(g, mat('#fff4d0', { emissive: col('#fff4d0'), emissiveIntensity: 0.15 }), L / 2, 9, Wd * 0.32, 0.6, 2.4, 4).position.z = Wd * 0.32;
-    bx(g, mat('#c02018', { emissive: col('#c02018'), emissiveIntensity: 0.5 }), -L / 2, 9.5, 0, 0.6, 2.2, Wd * 0.8);
-    wheelsOn(g, [-L * 0.32, L * 0.32], Wd / 2 - 1, 4.4);
+    // 일곱 대 중 하나는 전조등이 켜진 채 버려졌다 — 비상등이 깜빡이고 앞길에 빛이 퍼진다
+    const lit = ((Math.imul(propSeq * 7 + 3, 2246822519) >>> 0) % 7) === 0;
+    if (lit) {
+      for (const sd of [-1, 1]) bx(g, HEAD_M, L / 2 + 0.2, 9, sd * Wd * 0.32, 0.6, 2.6, 4.2);
+      for (const [x, z] of [[L / 2, Wd / 2 - 1], [L / 2, -Wd / 2 + 1], [-L / 2, Wd / 2 - 1], [-L / 2, -Wd / 2 + 1]]) bx(g, BLINK_M, x, 10.5, z, 1.2, 1.6, 1.6);
+      const hb = new THREE.Mesh(beam.geometry, HEAD_BEAM_M); hb.position.set(L / 2 + 1, 9, 0); hb.scale.set(170, 46, 46); hb.rotation.z = -0.1; hb.renderOrder = 5; hb.frustumCulled = false; g.add(hb);
+      g.userData.head = L / 2;
+    }
+    carBody(g, L, Wd, pr.col);
   } else if (k === 'humvee') {
     bx(g, mat(pr.col, { roughness: 0.6 }), 0, 9, 0, L, 10, Wd);
     bx(g, mat(pr.col, { roughness: 0.6 }), -L * 0.12, 18, 0, L * 0.5, 8, Wd * 0.9);
@@ -1040,8 +1097,8 @@ function makeSign(sg) {
 }
 
 /* ═══════════ 장면 · 빛 · 카메라 ═══════════ */
-const dyn = { props: new Map(), decor: new Map(), signs: new Map(), humans: new Map(), corpses: new Map(), pickups: new Map() };
-let player3 = null, splatMesh, dotMesh, particles, partGeo, tracerGeo, tracers, rain, rainGeo, exitRing, exitBeam, nadeMeshes = [];
+const dyn = { props: new Map(), decor: new Map(), signs: new Map(), humans: new Map(), corpses: new Map(), pickups: new Map(), relays: new Map() };
+let sparkGeo, sparks, player3 = null, splatMesh, dotMesh, particles, partGeo, tracerGeo, tracers, rain, rainGeo, exitRing, exitBeam, nadeMeshes = [];
 const MAXP = 600, MAXDEC = 450, RAIN_N = 1400;
 
 /* ═══════════ 후처리 · 빛줄기 ═══════════
@@ -1166,8 +1223,8 @@ function makeFire() {
         float f = clamp(1.25 - dx * (1.1 + uv.y * 1.2) - uv.y * 1.05 + (n - 0.5) * 1.3, 0.0, 1.0);
         f *= smoothstep(0.0, 0.06, uv.y);
         vec3 c = mix(vec3(0.9, 0.18, 0.02), vec3(1.0, 0.62, 0.16), smoothstep(0.1, 0.55, f));
-        c = mix(c, vec3(1.0, 0.92, 0.7), smoothstep(0.65, 1.0, f));
-        gl_FragColor = vec4(c * f * (1.25 * vP.g), 1.0); }`,
+        c = mix(c, vec3(1.0, 0.78, 0.45), smoothstep(0.7, 1.0, f));
+        gl_FragColor = vec4(c * f * (0.95 * vP.g), 1.0); }`,
     transparent: true, depthWrite: false, blending: THREE.AdditiveBlending
   }), FIRE_MAX * 4);
   smoke = new THREE.InstancedMesh(new THREE.PlaneGeometry(1, 1), new THREE.ShaderMaterial({
@@ -1234,6 +1291,123 @@ function addFire(x, y, z, sc, seed) {
   const d = Math.hypot(x - camT.x, z - camT.z);
   if (d < 1000) fireCand.push([d, x, y, z, sc, seed]);
 }
+/* ═══════════ 위험 · 전투 효과 ═══════════
+   산 웅덩이(스스로 빛나는 초록), 날아오는 산과 떨어질 자리의 좁혀 드는 고리, 부푼 것의 가스, 중계기, 탄피 */
+const HZ = {};
+const ACID_C = new THREE.Color(0.45, 0.85, 0.15);
+function makeHazards() {
+  const acidMat = new THREE.ShaderMaterial({
+    uniforms: { uTime: FIRE_U.uTime },
+    vertexShader: `varying vec2 vUv; varying vec3 vP; void main(){ vUv = uv; vP = vec3(1.0);
+      #ifdef USE_INSTANCING_COLOR
+      vP = instanceColor;
+      #endif
+      gl_Position = projectionMatrix * viewMatrix * modelMatrix * instanceMatrix * vec4(position, 1.0); }`,
+    fragmentShader: `uniform float uTime; varying vec2 vUv; varying vec3 vP; ${NOISE_GLSL}
+      void main(){ vec2 q = (vUv - 0.5) * 2.0; float r = length(q);
+        float n = fbm(q * 2.5 + vec2(uTime * 0.4 + vP.g * 9.0, -uTime * 0.3));
+        float edge = smoothstep(1.0, 0.75, r + (n - 0.5) * 0.35);
+        float bub = smoothstep(0.62, 0.72, fbm(q * 7.0 + vec2(vP.g * 3.0, uTime * 1.2))) * edge;
+        vec3 c = mix(vec3(0.12, 0.3, 0.03), vec3(0.5, 0.95, 0.2), n * 0.8 + bub * 0.6) * (0.35 + 0.65 * vP.r);
+        gl_FragColor = vec4(c * 1.6, edge * (0.55 + 0.4 * vP.r)); }`,
+    transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -3
+  });
+  HZ.acid = new THREE.InstancedMesh(GEO.plane, acidMat, 32);
+  HZ.ring = new THREE.InstancedMesh(GEO.ring, new THREE.MeshBasicMaterial({ color: new THREE.Color(0.9, 1.8, 0.4), transparent: true, opacity: 0.85, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide }), 12);
+  HZ.spit = new THREE.InstancedMesh(new THREE.SphereGeometry(1, 10, 8), new THREE.MeshBasicMaterial({ color: new THREE.Color(1.2, 2.4, 0.5) }), 12);
+  HZ.gas = new THREE.InstancedMesh(new THREE.PlaneGeometry(1, 1), new THREE.ShaderMaterial({
+    uniforms: FIRE_U,
+    vertexShader: BB_VERT(''),
+    fragmentShader: `uniform float uTime; varying vec2 vUv; varying vec3 vP; ${NOISE_GLSL}
+      void main(){ vec2 q = vUv - 0.5; float n = fbm(vUv * 3.0 + vec2(vP.g * 7.0 + uTime * 0.15, uTime * 0.1));
+        float a = smoothstep(0.5, 0.1, length(q) + (n - 0.5) * 0.3) * 0.42 * vP.r;
+        gl_FragColor = vec4(mix(vec3(0.28, 0.36, 0.1), vec3(0.5, 0.6, 0.18), n), a); }`,
+    transparent: true, depthWrite: false
+  }), 40);
+  HZ.casing = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.8, 0.8, 3, 6).rotateZ(Math.PI / 2), enhanceNew(new THREE.MeshStandardMaterial({ color: 0xc8a048, metalness: 0.9, roughness: 0.3 })), 240);
+  HZ.shell = new THREE.InstancedMesh(new THREE.CylinderGeometry(1.4, 1.4, 5, 6).rotateZ(Math.PI / 2), enhanceNew(new THREE.MeshStandardMaterial({ color: 0x9c2f24, metalness: 0.3, roughness: 0.5 })), 120);
+  for (const k of ['acid', 'gas']) HZ[k].instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(HZ[k].count * 3), 3);
+  for (const k in HZ) { HZ[k].count = 0; HZ[k].frustumCulled = false; }
+  HZ.acid.renderOrder = 3; HZ.gas.renderOrder = 9;
+  return Object.values(HZ);
+}
+function updateHazards(g, near) {
+  let n = 0;
+  for (const a of g.acids) {
+    if (n >= 32 || !near(a.x, a.y, 900)) continue;
+    const k = Math.min(1, a.t / a.max), wob = 1 + Math.sin(g.time * 3 + (a.phase || 0)) * 0.04;
+    dm.compose(dpos.set(a.x, 3.9, a.y), dq.identity(), dsc.set(a.r * 2.3 * wob, 1, a.r * 1.9 * wob));
+    HZ.acid.setMatrixAt(n, dm); HZ.acid.instanceColor.setXYZ(n, k, (a.phase || 0) % 1, 0); n++;
+    pushLight(a.x, 10, a.y, a.r * 3.2, ACID_C, 0.9 * k);
+  }
+  HZ.acid.count = n;
+  let nr = 0, ns = 0;
+  for (const sp of g.spits) {
+    if (nr >= 12) break;
+    const k = Math.min(1, sp.t / sp.dur), R = 18 + (1 - k) * 26;
+    dm.compose(dpos.set(sp.tx, 4.2, sp.ty), dq.identity(), dsc.set(R, 1, R)); HZ.ring.setMatrixAt(nr++, dm);
+    dm.compose(dpos.set(sp.x, 16 + (sp.h || 0) * 1.0, sp.y), dq.identity(), dsc.setScalar(4.5)); HZ.spit.setMatrixAt(ns++, dm);
+    pushLight(sp.x, 20 + (sp.h || 0), sp.y, 120, ACID_C, 1.2);
+  }
+  HZ.ring.count = nr; HZ.spit.count = ns;
+  let ng = 0;
+  for (const q of g.gas) {
+    if (!near(q.x, q.y, 900)) continue;
+    const k = q.t / q.max;
+    for (let i = 0; i < 5 && ng < 40; i++) {
+      const a = i * 1.257 + g.time * 0.3, r = q.r * (0.45 + 0.12 * Math.sin(g.time + i));
+      dm.compose(dpos.set(q.x + Math.cos(a) * r * 0.5, 22 + i * 4, q.y + Math.sin(a) * r * 0.5), dq.identity(), dsc.set(r * 1.6, r * 1.3, 1));
+      HZ.gas.setMatrixAt(ng, dm); HZ.gas.instanceColor.setXYZ(ng, k, i * 0.21, 0); ng++;
+    }
+  }
+  HZ.gas.count = ng;
+  let nc = 0, nh = 0;
+  for (const c of g.casings) {
+    if (!near(c.x, c.y, 800)) continue;
+    const air = c.t > 0 ? Math.sin(Math.min(1, c.t / 0.5) * Math.PI) * 10 : 0;
+    dm.compose(dpos.set(c.x, (c.shell ? 1.6 : 1) + air, c.y), dq.setFromAxisAngle(UPY, -c.a), dsc.setScalar(1));
+    if (c.shell) { if (nh < 120) HZ.shell.setMatrixAt(nh++, dm); } else if (nc < 240) HZ.casing.setMatrixAt(nc++, dm);
+  }
+  HZ.casing.count = nc; HZ.shell.count = nh;
+  for (const k in HZ) { HZ[k].instanceMatrix.needsUpdate = true; if (HZ[k].instanceColor) HZ[k].instanceColor.needsUpdate = true; }
+  updateRelays(g, near);
+}
+/** 중계기 — 상자 · 안테나 · 깜빡이는 등, 바닥에 진행 고리(셰이더로 호를 채운다) */
+function updateRelays(g, near) {
+  const seen = new Set();
+  for (const r of g.relays || []) {
+    let o = dyn.relays.get(r);
+    if (!o) {
+      o = new THREE.Group();
+      o.add(part(GEO.box, mat('#4e5a60', { roughness: 0.6, metalness: 0.4 }), 0, 13, 0, 22, 26, 16));
+      o.add(part(GEO.cyl, mat('#9aa4aa', { metalness: 0.7, roughness: 0.3 }), 0, 50, 0, 1.2, 48, 1.2));
+      for (const hgt of [44, 58]) o.add(part(GEO.box, mat('#9aa4aa', { metalness: 0.7 }), 0, hgt, 0, 14, 1, 1));
+      const lamp = new THREE.Mesh(GEO.eye, new THREE.MeshBasicMaterial({ color: 0xffb432 })); lamp.scale.setScalar(4); lamp.position.y = 75; o.add(lamp);
+      const panel = new THREE.Mesh(GEO.box, new THREE.MeshBasicMaterial({ color: 0x6b5a2a })); panel.scale.set(10, 4, 0.5); panel.position.set(0, 16, 8.2); o.add(panel);
+      const ringM = new THREE.ShaderMaterial({
+        uniforms: { uProg: { value: 0 }, uCol: { value: new THREE.Color(1, 0.7, 0.16) }, uBase: { value: new THREE.Color(0.3, 0.2, 0.05) } },
+        vertexShader: 'varying vec2 vP; void main(){ vP = position.xz; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+        fragmentShader: `uniform float uProg; uniform vec3 uCol, uBase; varying vec2 vP;
+          void main(){ float a = atan(vP.x, -vP.y) / 6.2832 + 0.5; gl_FragColor = vec4(a < uProg ? uCol * 2.0 : uBase, 1.0); }`,
+        transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide
+      });
+      const ring = new THREE.Mesh(new THREE.RingGeometry(74, 80, 64).rotateX(-Math.PI / 2), ringM); ring.position.y = 4.3; o.add(ring);
+      o.userData = { lamp, panel, ringM };
+      dyn.relays.set(r, o); scene.add(o);
+    }
+    seen.add(r);
+    o.visible = near(r.x, r.y, 1000);
+    o.position.set(r.x, 0, r.y);
+    const on = r === g.relayOn, u = o.userData;
+    const blink = r.done ? 1 : on ? (Math.sin(g.time * 14) > 0 ? 1 : 0.3) : (Math.sin(g.time * 3 + r.x) > 0.6 ? 1 : 0.25);
+    u.lamp.material.color.set(r.done ? 0x78f08c : 0xffb432).multiplyScalar(blink * 2.5);
+    u.panel.material.color.set(r.done ? 0x5fd17a : on ? 0xf0c040 : 0x6b5a2a);
+    u.ringM.uniforms.uProg.value = r.done ? 1 : r.prog || 0;
+    u.ringM.uniforms.uCol.value.set(r.done ? 0x78e68c : 0xf0c850);
+    if (o.visible) pushLight(r.x, 70, r.y, 150, tmpC.set(r.done ? 0x78f08c : 0xffb432), 1.2 * blink);
+  }
+  for (const [r, o] of dyn.relays) if (!seen.has(r)) { scene.remove(o); dyn.relays.delete(r); }
+}
 /* 값싼 빛 모으기 — 매 프레임 후보(가로등 · 간판 · 불 · 출구)를 카메라 둘레 가까운 순으로 골라 시점 좌표로 넣는다 */
 const clCand = [], clTmp = new THREE.Vector3(), tmpC = new THREE.Color();
 const SODIUM = new THREE.Color(1.0, 0.62, 0.3);
@@ -1250,7 +1424,7 @@ function gatherLights(g) {
     if (!l.state) continue;
     if (Math.abs(l.x - camT.x) > 900 || Math.abs(l.z - camT.z) > 760) continue;
     const f = lampFlick(l, t);
-    pushLight(l.x, l.y - 4, l.z, 185, SODIUM, 1.45 * f);
+    pushLight(l.x, l.y - 4, l.z, 175, SODIUM, 1.15 * f);
     if (nc < LCONE_MAX) {
       dm.compose(dpos.set(l.x, l.y, l.z), dq.identity(), dsc.set(l.y * 0.62, l.y, l.y * 0.62));
       lampCones.setMatrixAt(nc, dm);
@@ -1299,6 +1473,32 @@ function makeDust() {
   const o = new THREE.Points(g, m); o.frustumCulled = false; o.renderOrder = 6;
   return o;
 }
+/** 빗방울 물결 — 플레이어 둘레 바닥에 번지는 고리. 손전등 안에서만 또렷하다 */
+const RIP_N = 160;
+let ripples = null;
+function makeRipples() {
+  const geo = new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2);
+  const off = new Float32Array(RIP_N * 3);
+  for (let i = 0; i < RIP_N; i++) { off[i * 3] = (Math.random() - 0.5) * 700; off[i * 3 + 1] = (Math.random() - 0.5) * 700; off[i * 3 + 2] = Math.random(); }
+  const ig = new THREE.InstancedBufferGeometry().copy(geo); ig.instanceCount = RIP_N;
+  ig.setAttribute('off', new THREE.InstancedBufferAttribute(off, 3));
+  const m = new THREE.ShaderMaterial({
+    uniforms: dust.material.uniforms,
+    vertexShader: `attribute vec3 off; uniform vec3 uApex, uDir, uOrigin; uniform float uCos, uRange, uTime; varying vec2 vUv; varying float vK, vA;
+      void main(){ vUv = uv; float ph = fract(uTime * 1.3 + off.z); vK = ph;
+        float cyc = floor(uTime * 1.3 + off.z);
+        vec2 jit = vec2(fract(sin(cyc * 12.9 + off.z * 78.2) * 437.5), fract(sin(cyc * 39.3 + off.z * 11.1) * 951.7)) - 0.5;
+        vec3 c = vec3(uOrigin.x + mod(off.x + jit.x * 160.0 + 350.0, 700.0) - 350.0, 0.7, uOrigin.z + mod(off.y + jit.y * 160.0 + 350.0, 700.0) - 350.0);
+        vec3 v = c - uApex; float d = length(v);
+        vA = (0.03 + 1.1 * smoothstep(uCos, uCos + 0.06, dot(v / max(d, 0.001), uDir)) * clamp(1.0 - d / uRange, 0.0, 1.0)) * (1.0 - ph);
+        vec3 p = c + position * (2.5 + ph * 7.0);
+        gl_Position = projectionMatrix * viewMatrix * vec4(p, 1.0); }`,
+    fragmentShader: `varying vec2 vUv; varying float vK, vA; void main(){ float r = length(vUv - 0.5) * 2.0; float ring = smoothstep(0.12, 0.0, abs(r - 0.8)); gl_FragColor = vec4(vec3(0.7, 0.78, 0.86) * ring * vA, 1.0); }`,
+    transparent: true, depthWrite: false, blending: THREE.AdditiveBlending
+  });
+  ripples = new THREE.Mesh(ig, m); ripples.frustumCulled = false; ripples.renderOrder = 2;
+  return ripples;
+}
 /** 밤하늘 환경 — 웅덩이 · 젖은 면에 비치는 아주 어두운 하늘과 먼 도시 불빛(주황) */
 function makeEnv() {
   const es = new THREE.Scene();
@@ -1306,7 +1506,7 @@ function makeEnv() {
     side: THREE.BackSide, depthWrite: false,
     vertexShader: 'varying vec3 vD; void main(){ vD = normalize(position); gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
     fragmentShader: `varying vec3 vD; void main(){
-      float y = vD.y; vec3 top = vec3(0.012, 0.016, 0.026), hor = vec3(0.07, 0.045, 0.03), low = vec3(0.006);
+      float y = vD.y; vec3 top = vec3(0.03, 0.04, 0.06), hor = vec3(0.12, 0.08, 0.055), low = vec3(0.01);
       vec3 c = y > 0.0 ? mix(hor, top, pow(y, 0.45)) : mix(hor * 0.5, low, pow(-y, 0.5));
       float a = atan(vD.z, vD.x); c += vec3(0.09, 0.05, 0.02) * pow(max(0.0, sin(a * 3.0 + 1.0)), 18.0) * smoothstep(0.35, 0.0, abs(y));
       gl_FragColor = vec4(c, 1.0); }`
@@ -1362,8 +1562,11 @@ function init() {
   camera = new THREE.PerspectiveCamera(FOV, 1, 20, 4000);
   makeTextures(); makeMaterials(); makeGeos();
   scene.environment = makeEnv();
-  beam = makeBeam(); dust = makeDust(); scene.add(beam, dust, makeLampCones(), makeGlows(), ...makeFire());
+  beam = makeBeam(); dust = makeDust(); scene.add(beam, dust, makeRipples(), makeLampCones(), makeGlows(), ...makeFire(), ...makeHazards());
   makeComposer();
+  HEAD_M = new THREE.MeshBasicMaterial({ color: new THREE.Color(5, 4.6, 3.8) });
+  BLINK_M = new THREE.MeshBasicMaterial({ color: new THREE.Color(3, 1.6, 0.3) });
+  HEAD_BEAM_M = beam.material.clone(); HEAD_BEAM_M.uniforms.uInt.value = 0.07; HEAD_BEAM_M.uniforms.uTime = beam.material.uniforms.uTime;
 
   // 달빛과 하늘빛 — 아주 어둡게. 거리와 벽의 윤곽만 겨우 읽힌다
   hemi = new THREE.HemisphereLight(0x6f80a0, 0x15171c, 0.6);
@@ -1389,7 +1592,7 @@ function init() {
 
 
   // 핏자국 · 작은 핏방울 — 바닥에 눕힌 판의 인스턴스
-  const decMat = (tex) => new THREE.MeshStandardMaterial({ map: tex, transparent: true, depthWrite: false, roughness: 0.25, metalness: 0.1, polygonOffset: true, polygonOffsetFactor: -2 });
+  const decMat = (tex) => enhanceNew(new THREE.MeshStandardMaterial({ map: tex, transparent: true, depthWrite: false, roughness: 0.18, metalness: 0.1, polygonOffset: true, polygonOffsetFactor: -2, envMapIntensity: 1.5 }));
   splatMesh = new THREE.InstancedMesh(GEO.plane, decMat(TEX.splat), MAXDEC); splatMesh.count = 0; splatMesh.receiveShadow = true; splatMesh.frustumCulled = false;
   dotMesh = new THREE.InstancedMesh(GEO.plane, decMat(TEX.dot), MAXDEC); dotMesh.count = 0; dotMesh.receiveShadow = true; dotMesh.frustumCulled = false;
   scene.add(splatMesh, dotMesh);
@@ -1399,17 +1602,32 @@ function init() {
   partGeo.setAttribute('color', new THREE.Float32BufferAttribute(new Float32Array(MAXP * 3), 3));
   particles = new THREE.Points(partGeo, new THREE.PointsMaterial({ size: 5, vertexColors: true, map: TEX.glow, transparent: true, depthWrite: false, sizeAttenuation: true }));
   particles.frustumCulled = false; scene.add(particles);
+  // 불똥 · 총알이 튀는 빛 — 가산 혼합, HDR 이라 번진다
+  sparkGeo = new THREE.BufferGeometry();
+  sparkGeo.setAttribute('position', new THREE.Float32BufferAttribute(new Float32Array(MAXP * 3), 3));
+  sparkGeo.setAttribute('color', new THREE.Float32BufferAttribute(new Float32Array(MAXP * 3), 3));
+  sparks = new THREE.Points(sparkGeo, new THREE.PointsMaterial({ size: 4, vertexColors: true, map: TEX.glow, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, sizeAttenuation: true }));
+  sparks.frustumCulled = false; scene.add(sparks);
   // 총알 궤적
   tracerGeo = new THREE.BufferGeometry();
   tracerGeo.setAttribute('position', new THREE.Float32BufferAttribute(new Float32Array(200 * 6), 3));
-  tracers = new THREE.LineSegments(tracerGeo, new THREE.LineBasicMaterial({ color: 0xffe0a0, transparent: true, opacity: 0.8 }));
+  tracers = new THREE.LineSegments(tracerGeo, new THREE.LineBasicMaterial({ color: new THREE.Color(4, 3, 1.5), transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false }));
   tracers.frustumCulled = false; scene.add(tracers);
   // 비 — 카메라 둘레 상자 안에서 떨어지는 짧은 선
   rainGeo = new THREE.BufferGeometry();
   const rp = new Float32Array(RAIN_N * 6);
   for (let i = 0; i < RAIN_N; i++) { const x = (Math.random() - 0.5) * 1600, y = Math.random() * 700, z = (Math.random() - 0.5) * 1400; rp.set([x, y, z, x - 4, y - 22, z], i * 6); }
   rainGeo.setAttribute('position', new THREE.Float32BufferAttribute(rp, 3));
-  rain = new THREE.LineSegments(rainGeo, new THREE.LineBasicMaterial({ color: 0x9fb2c8, transparent: true, opacity: 0.32 }));
+  // 빗줄기는 손전등 원뿔 안에서 반짝인다(먼지와 같은 원뿔 값을 쓴다)
+  rain = new THREE.LineSegments(rainGeo, new THREE.ShaderMaterial({
+    uniforms: dust.material.uniforms,
+    vertexShader: `uniform vec3 uApex, uDir; uniform float uCos, uRange; varying float vA;
+      void main(){ vec4 w = modelMatrix * vec4(position, 1.0); vec3 v = w.xyz - uApex; float d = length(v);
+        float inC = smoothstep(uCos, uCos + 0.05, dot(v / max(d, 0.001), uDir)) * clamp(1.0 - d / (uRange * 1.1), 0.0, 1.0);
+        vA = 0.16 + inC * 1.4; gl_Position = projectionMatrix * viewMatrix * w; }`,
+    fragmentShader: 'varying float vA; void main(){ gl_FragColor = vec4(vec3(0.62, 0.7, 0.8) * vA, vA); }',
+    transparent: true, depthWrite: false, blending: THREE.AdditiveBlending
+  }));
   rain.frustumCulled = false; scene.add(rain);
   // 출구 — 빛나는 고리와 옅은 빛기둥
   exitRing = new THREE.Mesh(GEO.ring, new THREE.MeshBasicMaterial({ color: 0x50c8ff, transparent: true, opacity: 0.7, side: THREE.DoubleSide }));
@@ -1420,6 +1638,8 @@ function init() {
   // 총구 불꽃 · 폭발 섬광 — 빛(점광원)과 함께 보이는 밝은 판
   const addSprite = (c, sz) => { const m = new THREE.Sprite(new THREE.SpriteMaterial({ map: TEX.glow, color: c, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false })); m.scale.set(sz, sz, 1); m.visible = false; scene.add(m); return m; };
   R3D._flash = addSprite(0xffd090, 34);
+  R3D._flash.material.map = TEX.star; R3D._flash.material.color.setRGB(5, 3.6, 1.8);
+  R3D._flashCore = addSprite(0xffffff, 14); R3D._flashCore.material.color.setRGB(6, 5.5, 4.5);
   R3D._boom = addSprite(0xffe0a0, 220);
   R3D._boomCore = addSprite(0xffffff, 90);
   window.addEventListener('resize', size);
@@ -1451,7 +1671,7 @@ function size() {
 
 function resetWorld(w) {
   clearChunks();
-  for (const k of ['props', 'decor', 'signs', 'humans', 'corpses', 'pickups']) { for (const [, o] of dyn[k]) scene.remove(o); dyn[k].clear(); }
+  for (const k of ['props', 'decor', 'signs', 'humans', 'corpses', 'pickups', 'relays']) { for (const [, o] of dyn[k]) scene.remove(o); dyn[k].clear(); }
   if (player3) { scene.remove(player3); player3 = null; }
   for (const lm of LM3) scene.remove(lm); LM3.length = 0;
   curWorld = w;
@@ -1503,12 +1723,16 @@ function draw3(g) {
   syncChunks(w, camT.x, camT.z);
   const near = (x, y, m) => Math.abs(x - camT.x) < m && Math.abs(y - camT.z) < m * 1.1;
 
+  TEX.waterN.offset.set(g.time * 0.012, g.time * 0.02);
+  const blinkOn = (g.time % 1.1) < 0.55;
+  BLINK_M.color.setRGB(blinkOn ? 3 : 0.15, blinkOn ? 1.6 : 0.08, blinkOn ? 0.3 : 0.02);
   // 탈것 · 장식 · 간판 — 게임이 플레이어 곁의 사본으로 옮겨 둔 자리
   for (const pr of w.props) {
     let o = dyn.props.get(pr);
     if (!near(pr.x, pr.y, 1100)) { if (o) o.visible = false; continue; }
     if (!o) { o = makeProp(pr); dyn.props.set(pr, o); scene.add(o); }
     o.visible = true; o.position.set(pr.x, 0, pr.y); o.rotation.y = -pr.a;
+    if (o.userData.head) { const ca = Math.cos(pr.a), sa = Math.sin(pr.a), hd = o.userData.head; pushLight(pr.x + ca * (hd + 70), 14, pr.y + sa * (hd + 70), 190, HEAD_C, 1.3); if (blinkOn) pushLight(pr.x, 14, pr.y, 90, BLINK_C, 0.9); }
     if (o.userData.fire) addFire(pr.x + Math.cos(pr.a) * pr.w * 0.18, 12, pr.y + Math.sin(pr.a) * pr.w * 0.18, 1, o.userData.fire);
   }
   // 드럼통 불 — 덩어리가 들고 있는 자리
@@ -1528,6 +1752,7 @@ function draw3(g) {
   updateDecals(g, near);
   updateParticles(g);
   updatePickups(g, near);
+  updateHazards(g, near);
   updateMisc(g, p, w);
   updateLights(g, p, w);
   updateRain(g, p);
@@ -1588,6 +1813,12 @@ function zombieLook(z) {
   if (t.scream) { look.top = t.body; look.skin = t.head; }
   return look;
 }
+const FLASH_M = new THREE.MeshBasicMaterial({ color: new THREE.Color(2.2, 2.1, 2.0) });
+function setFlash(h, on) {
+  if (!!h.userData.flashOn === on) return;
+  h.userData.flashOn = on;
+  h.traverse(o => { if (!o.isMesh || o.material === EYE) return; if (on) { o.userData.m0 = o.material; o.material = FLASH_M; } else if (o.userData.m0) o.material = o.userData.m0; });
+}
 function updateHumans(g, p) {
   const seen = new Set();
   for (const z of g.zombies) {
@@ -1621,7 +1852,7 @@ function updateHumans(g, p) {
     const eyes = h.userData.head.userData.eyes;
     if (eyes) { const on = aggro || (t.weeper && z.startle > 0.5); eyes[0].visible = eyes[1].visible = on; }
     // 맞은 순간 하얗게 — 몸 전체를 잠깐 밝힌다
-    h.userData.flash = z.flash > 0;
+    setFlash(h, z.flash > 0);
     if (vis < 0.02 && d > 260) h.visible = h.visible && g.lightning > 0.05 ? true : h.visible;
   }
   for (const [z, h] of dyn.humans) if (!seen.has(z)) { scene.remove(h); dyn.humans.delete(z); }
@@ -1673,14 +1904,15 @@ function updateCorpses(g, near) {
 
 const dm = new THREE.Matrix4(), dq = new THREE.Quaternion(), dpos = new THREE.Vector3(), dsc = new THREE.Vector3(), UPY = new THREE.Vector3(0, 1, 0);
 function updateDecals(g, near) {
-  let ns = 0, nd = 0;
+  let ns = 0, nd = 0; const w = g.world;
   for (const d of g.decals) {
     if (!near(d.x, d.y, 1000)) continue;
     const big = d.s !== undefined;
     if (big ? ns >= MAXDEC : nd >= MAXDEC) continue;
     const r = d.r * (big ? 2 : 1.6);
     dq.setFromAxisAngle(UPY, -(d.rot || 0));
-    dpos.set(d.x, big ? 0.6 : 0.5, d.y); dsc.set(r, 1, r);
+    const onSw = w.deco[w.idx(Math.floor(d.x / TILE), Math.floor(d.y / TILE))] === D_SIDEWALK ? 3 : 0;
+    dpos.set(d.x, (big ? 0.6 : 0.5) + onSw, d.y); dsc.set(r, 1, r);
     dm.compose(dpos, dq, dsc);
     if (big) splatMesh.setMatrixAt(ns++, dm); else dotMesh.setMatrixAt(nd++, dm);
   }
@@ -1692,7 +1924,16 @@ const pcol = new THREE.Color();
 function updateParticles(g) {
   const pos = partGeo.attributes.position.array, cl = partGeo.attributes.color.array;
   let n = 0;
+  const sp = sparkGeo.attributes.position.array, sc = sparkGeo.attributes.color.array;
+  let m2 = 0;
   for (const q of g.particles) {
+    if (q.kind === 'spark') {
+      if (m2 >= MAXP) continue;
+      const k = Math.max(0, Math.min(1, q.life / q.max));
+      sp[m2 * 3] = q.x; sp[m2 * 3 + 1] = 14 + k * 12; sp[m2 * 3 + 2] = q.y;
+      pcol.set(q.col || '#ffb050'); sc[m2 * 3] = pcol.r * k * 4; sc[m2 * 3 + 1] = pcol.g * k * 4; sc[m2 * 3 + 2] = pcol.b * k * 4;
+      m2++; continue;
+    }
     if (n >= MAXP) break;
     const k = Math.max(0, Math.min(1, q.life / q.max));
     const hgt = q.kind === 'smoke' ? 20 + (1 - k) * 40 : q.kind === 'mist' ? 22 : 14 + k * 10;
@@ -1701,6 +1942,7 @@ function updateParticles(g) {
     cl[n * 3] = pcol.r * a; cl[n * 3 + 1] = pcol.g * a; cl[n * 3 + 2] = pcol.b * a;
     n++;
   }
+  sparkGeo.setDrawRange(0, m2); sparkGeo.attributes.position.needsUpdate = true; sparkGeo.attributes.color.needsUpdate = true;
   partGeo.setDrawRange(0, n);
   partGeo.attributes.position.needsUpdate = true; partGeo.attributes.color.needsUpdate = true;
   particles.material.size = 7;
@@ -1779,9 +2021,14 @@ function updateLights(g, p, w) {
   dust.visible = beam.visible;
   muzzle.position.set(p.x + ca * 24, 24, p.y + sa * 24);
   R3D._fill.position.set(p.x - ca * 20, 70, p.y - sa * 20 + 30);
-  muzzle.intensity = p.muzzle > 0 ? 7 : 0;
+  muzzle.intensity = p.muzzle > 0 ? 12 : 0;
   R3D._flash.visible = p.muzzle > 0 && !p.dead;
-  if (R3D._flash.visible) { R3D._flash.position.set(p.x + ca * 34, 22, p.y + sa * 34); const k = 0.8 + Math.random() * 0.5; R3D._flash.scale.set(30 * k, 30 * k, 1); }
+  R3D._flashCore.visible = R3D._flash.visible;
+  if (R3D._flash.visible) {
+    R3D._flash.position.set(p.x + ca * 34, 30, p.y + sa * 34); const k = 0.8 + Math.random() * 0.5; R3D._flash.scale.set(34 * k, 34 * k, 1);
+    R3D._flash.material.rotation = Math.random() * 6.28;
+    R3D._flashCore.position.copy(R3D._flash.position); R3D._flashCore.scale.set(12 * k, 12 * k, 1);
+  }
   // 폭발 섬광
   let fl = null;
   for (const f of g.flashes) if (!fl || f.t < fl.t) fl = f;

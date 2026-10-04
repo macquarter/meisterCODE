@@ -318,6 +318,31 @@ function makeMaterials() {
   const std = (o) => new THREE.MeshStandardMaterial(o);
   const set = (S, o = {}) => Object.assign({ map: S.map, roughnessMap: S.rough, normalMap: S.normal, roughness: 1 }, o);
   MAT.asphalt = std(set(TEX.asphaltSet, { normalScale: new THREE.Vector2(0.35, 0.35), envMapIntensity: 1.8 }));   // 젖은 아스팔트 — 웅덩이는 거울처럼
+  // 지역의 길 — 모래길(카이로) · 흙길(바라나시) · 돌길(베네치아) · 눈길(레이캬비크 · 남극). 세계 좌표 240 마다 되풀이
+  {
+    const street = (seed, base, draw, nk) => { const t = canvasTex(512, 512, (x, W, H) => { const r = rng(seed); x.fillStyle = base; x.fillRect(0, 0, W, H); draw(x, W, H, r); }); return [t, normalFrom(t.image, nk)]; };
+    const [sand, sandN] = street(71, '#a8834f', (x, W, H, r) => {
+      for (let i = 0; i < 2600; i++) { x.fillStyle = r() < 0.5 ? 'rgba(255,230,180,.08)' : 'rgba(80,50,20,.09)'; x.fillRect(r() * W, r() * H, 2 + r() * 3, 2 + r() * 3); }
+      x.lineWidth = 2; for (let i = 0; i < 140; i++) { const sx = r() * W, sy = r() * H, l = 30 + r() * 60; x.strokeStyle = r() < 0.5 ? 'rgba(70,45,15,.22)' : 'rgba(255,230,190,.16)'; x.beginPath(); x.moveTo(sx, sy); x.bezierCurveTo(sx + l * 0.3, sy - 6, sx + l * 0.7, sy + 6, sx + l, sy); x.stroke(); }
+      for (let k = 0; k < 2; k++) { const tx = 140 + k * 220; x.fillStyle = 'rgba(60,40,15,.16)'; x.fillRect(tx, 0, 16, H); x.fillRect(tx + 60, 0, 16, H); } }, 1.8);
+    const [dirt, dirtN] = street(72, '#4e3c2a', (x, W, H, r) => {
+      for (let i = 0; i < 60; i++) blob(x, r() * W, r() * H, 20 + r() * 60, 12 + r() * 30, r() * 3, r() < 0.5 ? 'rgba(30,20,12,.45)' : 'rgba(120,95,65,.3)', 'rgba(0,0,0,0)');
+      for (let i = 0; i < 900; i++) { x.fillStyle = r() < 0.5 ? 'rgba(150,130,100,.35)' : 'rgba(20,14,8,.4)'; const s2 = 1 + r() * 4; x.fillRect(r() * W, r() * H, s2, s2); } }, 2.2);
+    const [stone, stoneN] = street(73, '#57534d', (x, W, H, r) => {
+      // 마세니 — 비스듬히 깐 커다란 회색 조면암 판석
+      for (let row = 0; row < H / 48 + 1; row++) { const off = (row % 2) * 40; for (let c = -1; c < W / 80 + 1; c++) {
+        const v = 70 + r() * 30; x.fillStyle = `rgb(${v},${v - 3},${v - 8})`; x.fillRect(c * 80 + off + 2, row * 48 + 2, 76, 44);
+        for (let q = 0; q < 20; q++) { x.fillStyle = r() < 0.5 ? 'rgba(255,255,255,.05)' : 'rgba(0,0,0,.08)'; x.fillRect(c * 80 + off + 2 + r() * 72, row * 48 + 2 + r() * 40, 3, 3); } } }
+      x.fillStyle = 'rgba(20,20,18,.9)'; }, 2.6);
+    const [snow, snowN] = street(74, '#c9d2dc', (x, W, H, r) => {
+      for (let i = 0; i < 50; i++) blob(x, r() * W, r() * H, 30 + r() * 70, 14 + r() * 30, r() * 3, r() < 0.6 ? 'rgba(150,170,195,.28)' : 'rgba(255,255,255,.35)', 'rgba(0,0,0,0)');
+      for (let k = 0; k < 2; k++) { const tx = 120 + k * 230; x.fillStyle = 'rgba(110,125,145,.35)'; x.fillRect(tx, 0, 14, H); x.fillRect(tx + 58, 0, 14, H); for (let y = 0; y < H; y += 8) { x.fillStyle = 'rgba(80,95,115,.3)'; x.fillRect(tx, y, 14, 2); x.fillRect(tx + 58, y + 4, 14, 2); } }
+      for (let i = 0; i < 40; i++) { const fx = r() * W, fy = r() * H; x.fillStyle = 'rgba(100,115,135,.35)'; x.beginPath(); x.ellipse(fx, fy, 3, 5, 0.3, 0, 6.283); x.fill(); x.beginPath(); x.ellipse(fx + 8, fy + 14, 3, 5, 0.3, 0, 6.283); x.fill(); } }, 1.4);
+    MAT.st_sand = std({ map: sand, normalMap: sandN, roughness: 0.95, envMapIntensity: 0.15 });
+    MAT.st_dirt = std({ map: dirt, normalMap: dirtN, roughness: 0.55, envMapIntensity: 1.3 });       // 몬순에 젖은 흙
+    MAT.st_stone = std({ map: stone, normalMap: stoneN, roughness: 0.4, envMapIntensity: 1.5 });    // 늘 젖어 있는 돌길
+    MAT.st_snow = std({ map: snow, normalMap: snowN, roughness: 0.82, envMapIntensity: 0.3 });
+  }
   MAT.sidewalk = std(set(TEX.sidewalkSet, { normalScale: new THREE.Vector2(0.8, 0.8), envMapIntensity: 1.1 }));
   MAT.curb = std({ color: 0x8a8a84, roughness: 0.8 });
   MAT.plaza = std({ map: TEX.plaza, normalMap: normalFrom(TEX.plaza.image, 1.2), roughness: 0.68, envMapIntensity: 1.0 });
@@ -328,26 +353,30 @@ function makeMaterials() {
     return normalFrom(c, 2.5); })();
   MAT.water = std({ color: 0x0c1c24, emissive: 0x03090c, roughness: 0.1, metalness: 0.1, normalMap: TEX.waterN, normalScale: new THREE.Vector2(0.7, 0.7), envMapIntensity: 3 });
   MAT.bridge = std({ color: 0x4a4e54, roughness: 0.6 });
-  // 지형 덮개 — 모래 · 얼음 · 얕은 물 · 용암 · 진흙. 세계 좌표 UV 라 이웃 칸과 이어진다
+  // 지형 덮개 — 모래 · 얼음 · 얕은 물 · 용암 · 진흙. 칸마다 가장자리가 흐린 둥근 얼룩(데칼)을 돌려 겹쳐 놓아
+  // 네모난 칸 모양이 아니라 자연스러운 웅덩이 · 모래톱이 된다(알파 지도)
+  TEX.blobA = canvasTex(256, 256, (x, W, H) => { const r = rng(96); x.fillStyle = '#000'; x.fillRect(0, 0, W, H);
+    const g = x.createRadialGradient(128, 128, 30, 128, 128, 126); g.addColorStop(0, '#fff'); g.addColorStop(0.55, '#eee'); g.addColorStop(1, '#000'); x.fillStyle = g; x.fillRect(0, 0, W, H);
+    x.globalCompositeOperation = 'multiply'; for (let i = 0; i < 26; i++) { const a = r() * 6.283, d = 70 + r() * 50; blob(x, 128 + Math.cos(a) * d, 128 + Math.sin(a) * d, 20 + r() * 26, 14 + r() * 20, a, 'rgba(0,0,0,.9)', 'rgba(0,0,0,0)'); } }, false);
   {
-    const sandT = canvasTex(256, 256, (x, W, H) => { const r = rng(91); x.clearRect(0, 0, W, H);
+    const sandT = canvasTex(256, 256, (x, W, H) => { const r = rng(91); x.fillStyle = '#c49c62'; x.fillRect(0, 0, W, H);
       for (let i = 0; i < 70; i++) blob(x, r() * W, r() * H, 30 + r() * 50, 10 + r() * 18, -0.3, 'rgba(196,156,98,.85)', 'rgba(196,156,98,0)');
       x.strokeStyle = 'rgba(120,88,50,.35)'; x.lineWidth = 1.5; for (let i = 0; i < 40; i++) { const sx = r() * W, sy = r() * H; x.beginPath(); x.moveTo(sx, sy); x.quadraticCurveTo(sx + 14, sy - 6, sx + 30, sy - 2); x.stroke(); } });
-    MAT.tSand = std({ map: sandT, transparent: true, roughness: 0.95, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 });
+    MAT.tSand = std({ map: sandT, alphaMap: TEX.blobA, transparent: true, roughness: 0.95, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 });
     const iceT = canvasTex(256, 256, (x, W, H) => { const r = rng(92); x.fillStyle = 'rgba(170,205,230,.62)'; x.fillRect(0, 0, W, H);
       x.strokeStyle = 'rgba(240,250,255,.5)'; x.lineWidth = 1; for (let i = 0; i < 26; i++) { let px = r() * W, py = r() * H; x.beginPath(); x.moveTo(px, py); for (let k = 0; k < 4; k++) { px += (r() - 0.5) * 60; py += (r() - 0.5) * 60; x.lineTo(px, py); } x.stroke(); }
       for (let i = 0; i < 30; i++) blob(x, r() * W, r() * H, 10 + r() * 30, 6 + r() * 12, r(), 'rgba(255,255,255,.25)', 'rgba(255,255,255,0)'); });
-    MAT.tIce = std({ map: iceT, transparent: true, roughness: 0.04, metalness: 0.1, envMapIntensity: 3.2, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 });
-    MAT.tFlood = std({ color: 0x0e2028, transparent: true, opacity: 0.82, roughness: 0.06, metalness: 0.1, normalMap: TEX.waterN, normalScale: new THREE.Vector2(0.5, 0.5), envMapIntensity: 3, depthWrite: false });
+    MAT.tIce = std({ map: iceT, alphaMap: TEX.blobA, transparent: true, roughness: 0.04, metalness: 0.1, envMapIntensity: 3.2, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 });
+    MAT.tFlood = std({ color: 0x0e2028, alphaMap: TEX.blobA, transparent: true, opacity: 0.88, roughness: 0.06, metalness: 0.1, normalMap: TEX.waterN, normalScale: new THREE.Vector2(0.5, 0.5), envMapIntensity: 3, depthWrite: false });
     const lavaA = canvasTex(256, 256, (x, W, H) => { const r = rng(93); x.fillStyle = '#1a120e'; x.fillRect(0, 0, W, H);
       for (let i = 0; i < 300; i++) { x.fillStyle = r() < 0.5 ? 'rgba(60,50,46,.5)' : 'rgba(0,0,0,.4)'; x.fillRect(r() * W, r() * H, 3 + r() * 8, 3 + r() * 8); } });
     const lavaE = canvasTex(256, 256, (x, W, H) => { const r = rng(94); x.fillStyle = '#000'; x.fillRect(0, 0, W, H); x.lineJoin = 'round';
       for (let i = 0; i < 18; i++) { let px = r() * W, py = r() * H; x.strokeStyle = '#ff6a14'; x.lineWidth = 3 + r() * 5; x.beginPath(); x.moveTo(px, py); for (let k = 0; k < 6; k++) { px += (r() - 0.5) * 70; py += (r() - 0.5) * 70; x.lineTo(px, py); } x.stroke(); x.strokeStyle = '#ffd060'; x.lineWidth = 1.2; x.stroke(); } });
-    MAT.tLava = std({ map: lavaA, emissive: 0xffffff, emissiveMap: lavaE, emissiveIntensity: 2.6, roughness: 0.85, polygonOffset: true, polygonOffsetFactor: -2 });
-    const mudT = canvasTex(256, 256, (x, W, H) => { const r = rng(95); x.clearRect(0, 0, W, H);
+    MAT.tLava = std({ map: lavaA, alphaMap: TEX.blobA, transparent: true, depthWrite: false, emissive: 0xffffff, emissiveMap: lavaE, emissiveIntensity: 2.6, roughness: 0.85, polygonOffset: true, polygonOffsetFactor: -2 });
+    const mudT = canvasTex(256, 256, (x, W, H) => { const r = rng(95); x.fillStyle = '#3a2818'; x.fillRect(0, 0, W, H);
       for (let i = 0; i < 50; i++) blob(x, r() * W, r() * H, 26 + r() * 40, 18 + r() * 26, r() * 3, 'rgba(58,40,24,.9)', 'rgba(58,40,24,0)');
       for (let i = 0; i < 30; i++) blob(x, r() * W, r() * H, 8 + r() * 14, 4 + r() * 6, r() * 3, 'rgba(120,100,80,.35)', 'rgba(120,100,80,0)'); });
-    MAT.tMud = std({ map: mudT, transparent: true, roughness: 0.18, envMapIntensity: 1.8, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 });
+    MAT.tMud = std({ map: mudT, alphaMap: TEX.blobA, transparent: true, roughness: 0.18, envMapIntensity: 1.8, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 });
   }
   MAT.paint = std({ color: 0xd8d6cc, roughness: 0.5 });
   MAT.yellow = std({ color: 0xc9a83a, roughness: 0.5 });
@@ -489,6 +518,32 @@ const ROOFS_BY = {
   reykjavik: ['#d8dee4', '#a83a2a', '#d0d8de', '#3a5a7a', '#e0e4e8', '#5a6a5a'],
   antarctic: ['#e0e6ec', '#d8dee4', '#e8ecf0', '#d0d8e0', '#e4e8ec', '#dce2e8'],
 };
+/** 필지의 테두리 상자(세계마다 한 번 계산) — rect: 필지가 빈틈없는 네모인가 */
+function lotBox(w, lot) {
+  if (!lot) return null;
+  if (!w._lotBox) {
+    const M = new Map();
+    for (let y = 0; y < w.h; y++) for (let x = 0; x < w.w; x++) {
+      const i = y * w.w + x, l = w.lot[i]; if (!l || w.deco[i] !== D_BUILDING) continue;
+      let b = M.get(l); if (!b) M.set(l, b = { x0: x, y0: y, x1: x, y1: y, n: 0 });
+      b.x0 = Math.min(b.x0, x); b.y0 = Math.min(b.y0, y); b.x1 = Math.max(b.x1, x); b.y1 = Math.max(b.y1, y); b.n++;
+    }
+    for (const b of M.values()) b.rect = b.n === (b.x1 - b.x0 + 1) * (b.y1 - b.y0 + 1) && b.x1 - b.x0 < w.w / 2 && b.y1 - b.y0 < w.h / 2;
+    w._lotBox = M;
+  }
+  return w._lotBox.get(lot) || null;
+}
+/** 우진각 지붕 — 긴 쪽으로 용마루, 네 경사면 */
+function hipQuads(B, x0, z0, x1, z1, y, hgt, color) {
+  const wd = x1 - x0, dp = z1 - z0, alongX = wd >= dp, ins = Math.min(wd, dp) / 2, Y = y + hgt;
+  const r0 = alongX ? [x0 + ins, Y, (z0 + z1) / 2] : [(x0 + x1) / 2, Y, z0 + ins];
+  const r1 = alongX ? [x1 - ins, Y, (z0 + z1) / 2] : [(x0 + x1) / 2, Y, z1 - ins];
+  const a = [x0, y, z0], b = [x1, y, z0], c = [x1, y, z1], d = [x0, y, z1];
+  const N = (p, q, r) => { const ux = q[0] - p[0], uy = q[1] - p[1], uz = q[2] - p[2], vx = r[0] - p[0], vy = r[1] - p[1], vz = r[2] - p[2]; const nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx, L = Math.hypot(nx, ny, nz) || 1; return [nx / L, ny / L, nz / L]; };
+  const face = (p, q, r, s2) => { const n = N(p, s2, q); B.quad(p, s2, r, q, n[1] < 0 ? n.map(v => -v) : n, [[0, 0], [0, 1], [1, 1], [1, 0]], color); };
+  if (alongX) { face(d, c, r1, r0); face(b, a, r0, r1); face(a, d, r0, r0); face(c, b, r1, r1); }
+  else { face(a, d, r1, r0); face(c, b, r0, r1); face(b, a, r0, r0); face(d, c, r1, r1); }
+}
 /** 바닥 사각형 (y 높이) — UV 는 세계 좌표를 무늬 크기로 나눈 것이라 이웃 칸과 이어진다 */
 function floorQuad(B, x0, z0, x1, z1, y, S, color) {
   B.quad([x0, y, z0], [x0, y, z1], [x1, y, z1], [x1, y, z0], [0, 1, 0], [[x0 / S, -z0 / S], [x0 / S, -z1 / S], [x1 / S, -z1 / S], [x1 / S, -z0 / S]], color);
@@ -521,15 +576,26 @@ function buildChunk(w, cx, cy) {
     const X0 = x * T, Z0 = y * T, X1 = X0 + T, Z1 = Z0 + T;
     const tr = w.terr ? w.terr[i] : 0;
     if (tr && d !== D_BUILDING && d !== D_WATER && d !== D_BRIDGE) {
-      const fy = (d === D_SIDEWALK ? SW_H : d === D_GRASS ? 1 : 0) + (tr === 3 ? 1.6 : 0.5);
-      floorQuad(get(TERR_MAT[tr]), X0, Z0, X1, Z1, fy, tr === 4 ? 260 : 200);
+      const fy = (d === D_SIDEWALK ? SW_H : d === D_GRASS ? 1 : 0) + (tr === 3 ? 1.6 : 0.5) + (x & 1) * 0.05;
+      // 칸보다 큰 둥근 얼룩을 해시로 돌리고 밀어 놓는다 — 이웃 얼룩과 겹쳐 한 덩어리가 된다
+      const th = (Math.imul(x * 374761393 ^ y * 668265263, 2246822519) >>> 0), ang = (th % 628) / 100, hs = T * (0.92 + ((th >>> 9) % 30) / 100);
+      const cx = X0 + T / 2 + (((th >>> 4) % 13) - 6), cz = Z0 + T / 2 + (((th >>> 7) % 13) - 6), ca = Math.cos(ang) * hs, sa = Math.sin(ang) * hs;
+      get(TERR_MAT[tr]).quad([cx - ca + sa, fy, cz - sa - ca], [cx - ca - sa, fy, cz - sa + ca], [cx + ca - sa, fy, cz + sa + ca], [cx + ca + sa, fy, cz + sa - ca], [0, 1, 0], [[0, 0], [0, 1], [1, 1], [1, 0]]);
       if (tr === 4 && (Math.imul(x * 2654435761 ^ y * 40503, 2246822519) >>> 0) % 3 === 0) marks.push({ x: X0 + T / 2, y: 10, z: Z0 + T / 2, r: 110, c: [1, 0.36, 0.08], k: 1.1 });
+    }
+    // 물가 — 강 · 운하와 맞닿은 칸 가장자리에 밝은 돌 테두리(이스트리아석)
+    if (d !== D_WATER && d !== D_BUILDING && d !== D_BRIDGE) {
+      const ey = (d === D_SIDEWALK ? SW_H : 0) + 0.45, Cp = get('paint');
+      if (deco(x, y - 1) === D_WATER) floorQuad(Cp, X0, Z0, X1, Z0 + 5, ey, 100);
+      if (deco(x, y + 1) === D_WATER) floorQuad(Cp, X0, Z1 - 5, X1, Z1, ey, 100);
+      if (deco(x - 1, y) === D_WATER) floorQuad(Cp, X0, Z0, X0 + 5, Z1, ey, 100);
+      if (deco(x + 1, y) === D_WATER) floorQuad(Cp, X1 - 5, Z0, X1, Z1, ey, 100);
     }
     if (d === D_BUILDING) {
       const h = bh(w, x, y), LS = lotStyle(w, x, y), wc = col(LS.color, LS.k), brick = LS.brick;
       const wallK = LS.style === 'brick' || LS.style === 'stucco' ? LS.style : 'f_' + LS.style;
       const lot = w.lot[i];
-      const RP = ROOFS_BY[w.theme.key] || ROOFS3, rc = col(RP[(lot || (x * 7 + y * 3)) % RP.length], 1.3);
+      const RP = ROOFS_BY[w.theme.key] || ROOFS3, rc = col(RP[(lot || (x * 7 + y * 3)) % RP.length], w.theme.street === 'snow' ? 2.6 : 1.3);
       floorQuad(get('roof'), X0, Z0, X1, Z1, h, 300, rc);
       // 바깥 벽 — 이웃이 건물이 아니거나 낮으면 그 높이부터
       const sides = [[0, 1, X0, Z1, X1, Z1, [0, 0, 1]], [0, -1, X1, Z0, X0, Z0, [0, 0, -1]], [1, 0, X1, Z1, X1, Z0, [1, 0, 0]], [-1, 0, X0, Z0, X0, Z1, [-1, 0, 0]]];
@@ -560,12 +626,30 @@ function buildChunk(w, cx, cy) {
       }
       // 옥상 설비 — 필지 안쪽 칸마다 해시로
       const hh = (Math.imul(x * 2654435761 ^ y * 40503, 2246822519) >>> 0);
+      // 경사 지붕(레이캬비크 골함석 집 · 베네치아 기와) — 필지가 네모면 그 모서리 칸에서 필지 전체를 덮는 우진각 지붕
+      if (LS.style === 'nordic' || LS.style === 'palazzo') {
+        const LB = lotBox(w, lot), lx = ((x % w.w) + w.w) % w.w, ly = ((y % w.h) + w.h) % w.h;
+        if (LB && LB.rect) { if (lx === LB.x0 && ly === LB.y0) hipQuads(get('roof'), X0, Z0, X0 + (LB.x1 - LB.x0 + 1) * T, Z0 + (LB.y1 - LB.y0 + 1) * T, h + 0.5, Math.min(LB.x1 - LB.x0 + 1, LB.y1 - LB.y0 + 1) * T * (LS.style === 'nordic' ? 0.42 : 0.24), rc); continue; }
+      }
       const inner = isB(x + 1, y) && isB(x - 1, y) && isB(x, y + 1) && isB(x, y - 1) && [[1, 0], [-1, 0], [0, 1], [0, -1]].every(([a, b]) => w.lot[w.idx(x + a, y + b)] === lot);
       if (inner) { if (!roofIcon(get, w, X0, Z0, h, hh, marks)) roofStuff(get, X0, Z0, h, hh); }
       else if (hh % 5 === 0) roofBox(get('rooftop'), X0 + 14, Z0 + 14, 12, 9, h, 7);
       continue;
     }
-    if (d === D_WATER) { floorQuad(get('water'), X0, Z0, X1, Z1, -8, 200); bankWalls(w, get('curb'), x, y, X0, Z0, X1, Z1); continue; }
+    if (d === D_WATER) {
+      floorQuad(get('water'), X0, Z0, X1, Z1, -8, 200); bankWalls(w, get('curb'), x, y, X0, Z0, X1, Z1);
+      // 운하의 계류 말뚝(브리콜라) — 물가 쪽에 줄무늬 기둥
+      if (w.theme.canals) {
+        const hp = (Math.imul(x * 2654435761 ^ y * 1597334677, 3266489917) >>> 0);
+        for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+          if (hp % 4 || deco(x + dx, y + dy) === D_WATER || deco(x + dx, y + dy) === D_BRIDGE) continue;
+          const px = X0 + T / 2 + dx * (T / 2 - 6) + dy * ((hp >>> 5) % 20 - 10), pz = Z0 + T / 2 + dy * (T / 2 - 6) + dx * ((hp >>> 5) % 20 - 10);
+          for (let q = 0; q < 4; q++) cylB(get(q % 2 ? 'paint' : 'awning' + ((hp >>> 9) % 6)), px, pz, 1.8, -8 + q * 7, -1 + q * 7, 6, q === 3);
+          break;
+        }
+      }
+      continue;
+    }
     if (d === D_BRIDGE) {
       floorQuad(get('bridge'), X0, Z0, X1, Z1, 0, 200);
       // 난간 — 물과 맞닿은 쪽에 낮은 콘크리트 벽과 기둥
@@ -616,8 +700,8 @@ function buildChunk(w, cx, cy) {
       if (isRoadish(x - 1, y)) wallQuad(C, X0, Z0, X0, Z1, 0, SW_H, [-1, 0, 0], null, 0);
       continue;
     }
-    // 차도
-    floorQuad(get('asphalt'), X0, Z0, X1, Z1, 0, 900);
+    // 차도 — 지역의 길이면 그 재질
+    floorQuad(get(STREET_MAT[w.theme.street] || 'asphalt'), X0, Z0, X1, Z1, 0, w.theme.street ? 240 : 900);
     { const hs = (Math.imul(x * 2246822519 ^ y * 3266489917, 668265263) >>> 0); if (hs % 4 === 0) clutter.push({ k: 'paper', x: X0 + (hs >>> 4) % 44 + 2, y: 0.35, z: Z0 + (hs >>> 10) % 44 + 2, r: (hs % 628) / 100, sx: 7 + (hs >>> 16) % 6, sy: 1, sz: 9 }); }
     const m = w.mark[i], cw = w.cross[i];
     if (m === 1 && (y & 1) === 0) { floorQuad(get('yellow'), X0 - 3, Z0 + 6, X0 - 1, Z1 - 6, 0.4, 100); floorQuad(get('yellow'), X0 + 1, Z0 + 6, X0 + 3, Z1 - 6, 0.4, 100); }
@@ -638,7 +722,7 @@ function buildChunk(w, cx, cy) {
   for (const k in B) {
     const m = B[k].mesh(MAT[k]);
     if (!m) continue;
-    if (k !== 'glow' && k !== 'asphalt' && k !== 'sidewalk' && k !== 'plaza' && k !== 'grass' && k !== 'water' && !k.startsWith('sign') && !TERR_MAT.includes(k) && k !== 'shopLit' && k !== 'lensFlick') m.castShadow = true;
+    if (k !== 'glow' && k !== 'asphalt' && !k.startsWith('st_') && k !== 'sidewalk' && k !== 'plaza' && k !== 'grass' && k !== 'water' && !k.startsWith('sign') && !TERR_MAT.includes(k) && k !== 'shopLit' && k !== 'lensFlick') m.castShadow = true;
     if (k === 'fence') m.receiveShadow = false;
     g.add(m);
   }
@@ -650,6 +734,7 @@ function buildChunk(w, cx, cy) {
   return g;
 }
 const TERR_MAT = [null, 'tSand', 'tIce', 'tFlood', 'tLava', 'tMud'];
+const STREET_MAT = { sand: 'st_sand', dirt: 'st_dirt', stone: 'st_stone', snow: 'st_snow' };
 /* ═══════════ 거리 잡동사니 · 전선 ═══════════ */
 let CLUT = null;
 function clutterKit() {
@@ -740,13 +825,13 @@ function lampPost(get, px, pz, dx, dy, state, seed) {
   L.quad([hx - hw / 2 + 1, y, hz - hd / 2 + 1], [hx + hw / 2 - 1, y, hz - hd / 2 + 1], [hx + hw / 2 - 1, y, hz + hd / 2 - 1], [hx - hw / 2 + 1, y, hz + hd / 2 - 1], [0, -1, 0], [[0, 0], [1, 0], [1, 1], [0, 1]]);
   return { x: hx, z: hz, y, state, seed };
 }
-function roofBox(B, x, z, wd, dp, y, h) {
+function roofBox(B, x, z, wd, dp, y, h, color = null) {
   const x1 = x + wd, z1 = z + dp, y1 = y + h;
-  B.quad([x, y1, z], [x, y1, z1], [x1, y1, z1], [x1, y1, z], [0, 1, 0], [[0, 0], [0, 1], [1, 1], [1, 0]]);
-  wallQuad(B, x, z1, x1, z1, y, y1, [0, 0, 1], null, 0);
-  wallQuad(B, x1, z, x, z, y, y1, [0, 0, -1], null, 0);
-  wallQuad(B, x1, z1, x1, z, y, y1, [1, 0, 0], null, 0);
-  wallQuad(B, x, z, x, z1, y, y1, [-1, 0, 0], null, 0);
+  B.quad([x, y1, z], [x, y1, z1], [x1, y1, z1], [x1, y1, z], [0, 1, 0], [[0, 0], [0, 1], [1, 1], [1, 0]], color);
+  wallQuad(B, x, z1, x1, z1, y, y1, [0, 0, 1], color, 0);
+  wallQuad(B, x1, z, x, z, y, y1, [0, 0, -1], color, 0);
+  wallQuad(B, x1, z1, x1, z, y, y1, [1, 0, 0], color, 0);
+  wallQuad(B, x, z, x, z1, y, y1, [-1, 0, 0], color, 0);
 }
 /* 작은 재질의 별명 — [실제 묶음, 기본 색]. 색은 선형 값이라 1 을 넘으면(빛나는 것) 블룸으로 번진다 */
 const lin = (hex, k = 1) => { const c = new THREE.Color(hex); c.multiplyScalar(k); return c; };
@@ -832,18 +917,18 @@ const KIT = {
   base: { styles: [['brick', 3], ['stucco', 3]], lamp: [0.95, 0.97, 1.0], fog: 0x080a0a, fogD: 0.0007, sh: [0.86, 0.98, 1.0], hi: [1.0, 1.0, 0.94], wires: 1, trees: 0, words: null },
   // 2부 — 바라나시: 색칠한 흙벽 집과 숍하우스, 축 늘어진 전선, 주황 등 / 카이로: 모래빛 흙벽돌, 위성 안테나 / 베네치아: 아치 창의 팔라초와 운하 /
   // 레이캬비크: 함석 벽의 알록달록한 집, 눈 / 남극: 기둥 위 조립식 연구동, 얼음
-  varanasi: { styles: [['sandstone', 4], ['shophouse', 3], ['stucco', 1]], lamp: [1.0, 0.6, 0.28], fog: 0x140e08, fogD: 0.00082, sh: [0.95, 0.9, 0.92], hi: [1.12, 0.98, 0.8], wires: 6, trees: 1,
+  varanasi: { styles: [['sandstone', 4], ['shophouse', 3], ['stucco', 1]], lamp: [1.0, 0.6, 0.28], fog: 0x140e08, fogD: 0.00082, sh: [0.95, 0.9, 0.92], hi: [1.12, 0.98, 0.8], wires: 6, trees: 2,
     words: ['चाय', 'दवाखाना', 'होटल', 'मिठाई', 'लस्सी', 'साड़ी', 'मेडिकल', 'पान', 'ढाबा', 'STD PCP', 'GUEST HOUSE', 'घाट', 'बैंक', 'किराना'] },
-  cairo: { styles: [['sandstone', 7], ['stucco', 2]], lamp: [1.0, 0.72, 0.42], fog: 0x18120a, fogD: 0.00074, sh: [0.98, 0.92, 0.86], hi: [1.12, 1.0, 0.82], wires: 3, trees: 0,
-    ground: [1.7, 1.38, 0.98], side: [1.45, 1.22, 0.92], wet: 0.5,
+  cairo: { styles: [['sandstone', 7], ['stucco', 2]], lamp: [1.0, 0.72, 0.42], fog: 0x18120a, fogD: 0.00074, sh: [0.98, 0.92, 0.86], hi: [1.12, 1.0, 0.82], wires: 3, trees: 1,
+    side: [1.45, 1.22, 0.92], plaza: [2.7, 1.95, 1.05], wet: 0.5,
     words: ['صيدلية', 'مطعم', 'قهوة', 'فندق', 'كشري', 'فول', 'بنك', 'سوبر ماركت', 'حلويات', 'مخبز', 'عصير', 'موبايل'] },
   venice: { styles: [['palazzo', 7], ['brick', 1]], lamp: [1.0, 0.8, 0.55], fog: 0x0c0f12, fogD: 0.00105, sh: [0.86, 0.96, 1.08], hi: [1.06, 0.98, 0.9], wires: 0, trees: 0,
     words: ['TRATTORIA', 'FARMACIA', 'GELATERIA', 'BACARO', 'OSTERIA', 'ALBERGO', 'TABACCHI', 'VAPORETTO', 'PIZZERIA', 'BAR', 'MASCHERE', 'VETRO'] },
   reykjavik: { styles: [['nordic', 7], ['stucco', 2]], lamp: [0.9, 0.95, 1.0], fog: 0x0a0e14, fogD: 0.0008, sh: [0.84, 0.96, 1.14], hi: [1.0, 1.0, 1.0], wires: 1, trees: 0,
-    ground: [2.0, 2.1, 2.3], side: [1.8, 1.9, 2.05], wet: 0.6,
+    side: [1.8, 1.9, 2.05], plaza: [2.6, 2.75, 3.0], wet: 0.6,
     words: ['KAFFI', 'APÓTEK', 'BAKARÍ', 'HÓTEL', 'BÓKABÚÐ', 'SUNDLAUG', 'PYLSUR', 'BÍÓ', 'BÚÐ', 'KRÁ', 'LYFJA', 'BANKI'] },
   antarctic: { styles: [['module', 1]], lamp: [0.85, 0.92, 1.0], fog: 0x0c1218, fogD: 0.00095, sh: [0.86, 0.98, 1.16], hi: [1.0, 1.02, 1.06], wires: 0, trees: 0,
-    ground: [3.4, 3.6, 3.9], side: [3.0, 3.2, 3.5], wet: 0.25,
+    side: [3.0, 3.2, 3.5], plaza: [3.0, 3.2, 3.5], wet: 0.25,
     words: ['LAB', 'MESS', 'MEDICAL', 'POWER', 'COMMS', 'STORE', 'GARAGE', 'FUEL', 'BUNK A', 'BUNK B', 'GYM', 'WORKSHOP'] },
 };
 const PASTEL = {
@@ -1099,6 +1184,26 @@ function roofIcon(get, w, X0, Z0, h, hh, marks) {
     for (let q = 0; q < 2 + (hh >>> 4) % 3; q++) { const ax = X0 + 8 + q * 11, az = Z0 + 14 + ((hh >>> (q * 3)) % 14); roofBox(get('metal'), ax, az, 1.2, 1.2, h, 8); get('paint').quad([ax - 5, h + 6, az + 4], [ax + 6, h + 6, az + 4], [ax + 6, h + 15, az - 2], [ax - 5, h + 15, az - 2], [0, 0.55, 0.83], [[0, 0], [1, 0], [1, 1], [0, 1]]); }
     return true;
   }
+  if (key === 'cairo' && hh % 9 === 4) {                          // 동네 사원 — 작은 돔과 가는 첨탑(미나렛)
+    const cx = X0 + 24, cz = Z0 + 24, S = get('ledge'), sand = lin('#c2a272'), dome = lin('#6c8a8a');
+    roofBox(S, cx - 10, cz - 10, 20, 20, h, 8, sand); cylB(get('ledge'), cx, cz, 9, h + 8, h + 11, 12, true, sand);
+    for (let q = 0; q < 5; q++) { const r = 9 * Math.cos(q / 5 * Math.PI / 2), r2 = 9 * Math.cos((q + 1) / 5 * Math.PI / 2); cylB(get('ledge'), cx, cz, (r + r2) / 2 + 0.5, h + 11 + q * 1.8, h + 12.8 + q * 1.8, 12, q === 4, dome); }
+    if (hh % 27 === 4) { roofBox(S, X0 + 38, Z0 + 6, 5, 5, h, 46, sand); roofBox(S, X0 + 37, Z0 + 5, 7, 7, h + 34, 2.5, sand); roofBox(S, X0 + 39.5, Z0 + 7.5, 2, 2, h + 46, 7, dome);
+      marks.push({ x: X0 + 40.5, y: h + 36, z: Z0 + 8.5, r: 120, c: [0.4, 1, 0.55], k: 1.0, glow: 18 }); }
+    return true;
+  }
+  if (key === 'varanasi' && hh % 11 === 6) {                      // 집 위의 작은 사당 — 층층이 좁아지는 첨탑과 주황 깃발
+    const cx = X0 + 24, cz = Z0 + 24, S = get('ledge'), stn = lin('#d8a070'), stn2 = lin('#b07850');
+    for (let q = 0; q < 6; q++) { const r = 10 - q * 1.5; roofBox(S, cx - r, cz - r, r * 2, r * 2, h + q * 5, 5, q % 2 ? stn2 : stn); }
+    roofBox(get('metal'), cx - 0.5, cz - 0.5, 1, 1, h + 30, 16);
+    get('awning0').quad([cx + 0.5, h + 40, cz], [cx + 12, h + 37, cz], [cx + 12, h + 32, cz], [cx + 0.5, h + 34, cz], [0, 0, 1], [[0, 0], [1, 0], [1, 1], [0, 1]]);
+    marks.push({ x: cx, y: h + 8, z: cz + 12, r: 90, c: [1, 0.6, 0.25], k: 0.9 });
+    return true;
+  }
+  if (key === 'venice' && hh % 3 === 1) {                         // 베네치아 굴뚝(깔때기 모양 카미노)
+    for (let q = 0; q < 1 + (hh >>> 3) % 2; q++) { const cx = X0 + 12 + q * 22, cz = Z0 + 14 + ((hh >>> (q * 4)) % 18); roofBox(get('ledge'), cx - 2.5, cz - 2.5, 5, 5, h, 14, lin('#9a4a32')); cylB(get('ledge'), cx, cz, 5, h + 14, h + 20, 8, true, lin('#7a3a28')); }
+    return true;
+  }
   if (key === 'bangkok' && hh % 13 === 5) {
     roofBox(get('rust'), X0 + 6, Z0 + 8, 30, 22, h, 14);
     get('rust').quad([X0 + 4, h + 16, Z0 + 6], [X0 + 4, h + 13, Z0 + 32], [X0 + 38, h + 13, Z0 + 32], [X0 + 38, h + 16, Z0 + 6], [0, 1, 0], [[0, 0], [0, 1], [1, 1], [1, 0]]);
@@ -1107,12 +1212,12 @@ function roofIcon(get, w, X0, Z0, h, hh, marks) {
   return false;
 }
 /** 원기둥(옆면 + 윗면) — 물탱크 · 환기통 */
-function cylB(B, cx, cz, r, y0, y1, seg = 10, cap = true) {
+function cylB(B, cx, cz, r, y0, y1, seg = 10, cap = true, color = null) {
   for (let i = 0; i < seg; i++) {
     const a0 = i / seg * Math.PI * 2, a1 = (i + 1) / seg * Math.PI * 2, am = (a0 + a1) / 2;
     const p0 = [cx + Math.cos(a0) * r, cz + Math.sin(a0) * r], p1 = [cx + Math.cos(a1) * r, cz + Math.sin(a1) * r];
-    B.quad([p1[0], y0, p1[1]], [p0[0], y0, p0[1]], [p0[0], y1, p0[1]], [p1[0], y1, p1[1]], [Math.cos(am), 0, Math.sin(am)], [[i / seg, 0], [(i + 1) / seg, 0], [(i + 1) / seg, 1], [i / seg, 1]]);
-    if (cap) B.quad([cx, y1, cz], [p1[0], y1, p1[1]], [p0[0], y1, p0[1]], [cx, y1, cz], [0, 1, 0], [[0.5, 0.5], [1, 0], [0, 0], [0.5, 0.5]]);
+    B.quad([p1[0], y0, p1[1]], [p0[0], y0, p0[1]], [p0[0], y1, p0[1]], [p1[0], y1, p1[1]], [Math.cos(am), 0, Math.sin(am)], [[i / seg, 0], [(i + 1) / seg, 0], [(i + 1) / seg, 1], [i / seg, 1]], color);
+    if (cap) B.quad([cx, y1, cz], [p1[0], y1, p1[1]], [p0[0], y1, p0[1]], [cx, y1, cz], [0, 1, 0], [[0.5, 0.5], [1, 0], [0, 0], [0.5, 0.5]], color);
   }
 }
 /** 옥상 한 칸의 설비 — 실외기 · 환기구 · 물탱크 · 채광창 · 계단실 · 안테나 · 태양광 */
@@ -1146,6 +1251,8 @@ function bankWalls(w, B, x, y, X0, Z0, X1, Z1) {
   const dry = (dx, dy) => w.deco[w.idx(x + dx, y + dy)] !== D_WATER && w.deco[w.idx(x + dx, y + dy)] !== D_BRIDGE;
   if (dry(0, -1)) wallQuad(B, X1, Z0, X0, Z0, -8, 0, [0, 0, 1], null, 0);
   if (dry(0, 1)) wallQuad(B, X0, Z1, X1, Z1, -8, 0, [0, 0, -1], null, 0);
+  if (dry(-1, 0)) wallQuad(B, X0, Z0, X0, Z1, -8, 0, [1, 0, 0], null, 0);
+  if (dry(1, 0)) wallQuad(B, X1, Z1, X1, Z0, -8, 0, [-1, 0, 0], null, 0);
 }
 /** 랜드마크의 막힌 칸 — 돌담 · 기단. 랜드마크마다 높이를 다르게 */
 const LM_H = { palace: 44, tower: 30, scramble: 70, lattice: 26, temple: 40, prang: 60, monument: 50, market: 22, checkpoint: 14, railyard: 30, gas: 26, hawker: 18, grove: 10, port: 34, base: 30 };
@@ -1464,6 +1571,13 @@ function makeDecor(d) {
     g.add(part(GEO.cone, mat('#b03a2a'), 0, 31, 0, 9, 6, 9));
   } else if (k === 'bike') {
     wheelsOn(g, [-6, 6], 0, 4); bx(g, mat('#3a4a5a'), 0, 6, 0, 12, 1.2, 1.2);
+  } else if (k === 'boat' && d.gondola) {
+    // 곤돌라 — 길고 검은 배, 뱃머리의 은빛 장식(페로), 붉은 의자
+    const blk = mat('#0e0f12', { roughness: 0.25, metalness: 0.2 });
+    bx(g, blk, 0, 1, 0, 74, 6, 12);
+    const bow = bx(g, blk, 38, 6, 0, 14, 4, 8); bow.rotation.z = 0.5; const st = bx(g, blk, -38, 5, 0, 12, 4, 8); st.rotation.z = -0.4;
+    bx(g, mat('#c8ccd0', { metalness: 0.9, roughness: 0.3 }), 45, 12, 0, 2, 9, 4);
+    bx(g, mat('#7a1a1a', { roughness: 0.6 }), -4, 5, 0, 12, 3, 10);
   } else if (k === 'boat') {
     bx(g, mat('#3a3530', { roughness: 0.7 }), 0, -2, 0, 70, 10, 22); bx(g, mat('#cfc9bd'), -10, 8, 0, 22, 10, 16);
   } else bx(g, mat('#555'), 0, 6, 0, 10, 12, 10);
@@ -2097,6 +2211,8 @@ function applyKit(w) {
   // 땅빛 — 모래 도시 · 눈 도시는 차도와 보도에 색을 곱한다. 마른 땅은 덜 번들거린다
   MAT.asphalt.color.setRGB(...(K.ground || [1, 1, 1])); MAT.sidewalk.color.setRGB(...(K.side || [1, 1, 1]));
   MAT.asphalt.envMapIntensity = 1.8 * (K.wet ?? 1); MAT.sidewalk.envMapIntensity = 1.1 * (K.wet ?? 1);
+  MAT.plaza.color.setRGB(...(K.plaza || K.side || [1, 1, 1]));
+  MAT.water.emissive.setHex(w.theme.canals ? 0x08222a : 0x03090c);
   RAIN_KIND = w.theme.weather === 'sandstorm' ? 2 : (w.theme.weather === 'snow' || w.theme.weather === 'blizzard') ? 1 : 0;
   rain.material.uniforms.uRainCol.value.set(...[[0.62, 0.7, 0.8], [1.6, 1.65, 1.75], [1.1, 0.82, 0.5]][RAIN_KIND]);
   resetRain();

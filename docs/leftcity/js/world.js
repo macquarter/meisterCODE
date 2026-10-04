@@ -69,6 +69,8 @@ class World {
     // 마지막 장처럼 '다리 앞'에서 시작하는 판 — 출구까지 도로로 approach 칸 남짓한 트인 곳
     if (opts.approach) this.spawn = this.tileCenter(this.approachTile(opts.approach));
     // 지형 — 지역마다 땅이 다르다. 걸을 수 있는 칸 위에 덧칠한다(길찾기 · 충돌은 그대로)
+    // 차선 · 횡단보도가 없는 길(모래 · 흙 · 돌 · 눈길)
+    if (this.theme.street) { this.mark.fill(0); this.cross.fill(0); }
     this.terr = new Uint8Array(this.w * this.h);
     this.terrain = opts.terrain !== undefined ? opts.terrain : (this.theme.terrain || null);
     if (this.terrain) this.paintTerrain(this.terrain, makeRng((seed ^ 0x51ed) >>> 0));
@@ -242,6 +244,21 @@ class World {
         if (this.at(x, y) === T_ROAD && this.dirm[y * W + x] === 1 && this.deco[y * W + x] !== D_BRIDGE) this.cross[y * W + x] = 1;
       for (let y = h.p; y < h.p + h.w; y++) for (const x of [v.p - 1, v.p + v.w])
         if (this.at(x, y) === T_ROAD && this.dirm[y * W + x] === 2) this.cross[y * W + x] = 2;
+    }
+
+    // 운하 도시(베네치아) — 대로는 가운데 두 줄이 물길이 되고 양옆 한 줄씩 물가 길(폰다멘타)이 남는다.
+    // 다른 길과 만나는 곳은 다리. 대로끼리 만나는 곳은 통째로 다리 광장
+    if (this.theme.canals) for (const L of [...vs.map(v => [v, true]), ...hs.map(h => [h, false])]) {
+      const [ln, vert] = L;
+      if (!ln.blvd || ln.bank) continue;
+      ln.canal = true;
+      for (let a = 0; a < (vert ? H : W); a++) for (let k = 1; k < ln.w - 1; k++) {
+        const x = vert ? ln.p + k : a, y = vert ? a : ln.p + k, i = y * W + x;
+        if (this.deco[i] === D_WATER || this.deco[i] === D_BRIDGE) continue;
+        this.mark[i] = 0; this.cross[i] = 0;
+        if (this.dirm[i] === 3) { this.deco[i] = D_BRIDGE; continue; }
+        this.grid[i] = T_WATER; this.deco[i] = D_WATER; this.dirm[i] = 0;
+      }
     }
 
     // 블록 목록 (도로선 사이 사각형)
@@ -443,7 +460,7 @@ class World {
     };
 
     // 승용차 · 택시 — 한 칸
-    const cars = Math.floor(blocks * blocks * 1.4);
+    const cars = T.noCars ? 0 : Math.floor(blocks * blocks * 1.4);
     for (let i = 0; i < cars; i++) {
       const x = 1 + Math.floor(rng() * (this.w - 2)), y = 1 + Math.floor(rng() * (this.h - 2));
       if (!freeRoad(x, y)) continue;
@@ -460,7 +477,7 @@ class World {
         w: kind === 'car' ? 40 : kind === 'humvee' ? 42 : 30, h: kind === 'car' ? 21 : kind === 'humvee' ? 24 : 19, tiles: [[x, y]] });
     }
     // 버스 · 트럭 · 컨테이너 — 두 칸, 도로 방향으로
-    const longs = Math.floor(blocks * blocks * 0.6);
+    const longs = T.noCars ? 0 : Math.floor(blocks * blocks * 0.6);
     for (let i = 0; i < longs; i++) {
       const x = 1 + Math.floor(rng() * (this.w - 2)), y = 1 + Math.floor(rng() * (this.h - 2));
       if (!freeRoad(x, y)) continue;
@@ -479,6 +496,16 @@ class World {
         const x = 3 + Math.floor(rng() * (this.w - 6));
         if (this.deco[(this.river.y0 + 1) * this.w + x] !== D_WATER) continue;
         this.decor.push({ kind: 'boat', x: x * TILE, y: (this.river.y0 + 1.5 + rng() * 1.5) * TILE, a: (rng() - 0.5) * 0.4 });
+      }
+    }
+    // 운하에 매어 둔 곤돌라 · 작은 배 — 물길 방향으로
+    if (T.canals) for (const ln of [...(this.vlines || []), ...(this.hlines || [])]) {
+      if (!ln.canal) continue;
+      const vert = (this.vlines || []).includes(ln);
+      for (let a = 2; a < (vert ? this.h : this.w) - 2; a += 5 + Math.floor(rng() * 6)) {
+        const x = vert ? ln.p + 1 : a, y = vert ? a : ln.p + 1;
+        if (this.deco[y * this.w + x] !== D_WATER) continue;
+        this.decor.push({ kind: 'boat', gondola: rng() < 0.6, x: (x + (vert ? 1 : 0.5)) * TILE, y: (y + (vert ? 0.5 : 1)) * TILE, a: (vert ? Math.PI / 2 : 0) + (rng() - 0.5) * 0.2 });
       }
     }
     // 나라별 길가 장식 — 자판기(도쿄) · 노점 수레(방콕) · 편의점 파라솔(서울)

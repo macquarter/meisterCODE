@@ -2360,10 +2360,10 @@ function drawCrosshair(g, p) {
 
 /** 지역의 땅빛 — [차도에 덧칠, 보도에 덧칠] */
 const GROUND_TINT = {
-  cairo: ['rgba(150,112,64,.42)', 'rgba(160,124,76,.38)'],
-  antarctic: ['rgba(196,208,220,.62)', 'rgba(206,216,226,.6)'],
-  reykjavik: ['rgba(170,180,190,.3)', 'rgba(190,198,206,.42)'],
-  varanasi: ['rgba(70,50,30,.18)', 'rgba(110,80,50,.16)']
+  cairo: ['rgba(0,0,0,0)', 'rgba(160,124,76,.38)', 'rgba(150,118,74,.45)'],
+  antarctic: ['rgba(0,0,0,0)', 'rgba(206,216,226,.6)', 'rgba(200,210,222,.55)'],
+  reykjavik: ['rgba(0,0,0,0)', 'rgba(190,198,206,.42)', 'rgba(180,190,200,.4)'],
+  varanasi: ['rgba(0,0,0,0)', 'rgba(110,80,50,.16)', 'rgba(120,90,55,.2)']
 };
 /** 지형 덧칠 — 칸 목록 [종류, x, y, 잡음] */
 function drawTerrain(tt, t) {
@@ -2426,8 +2426,11 @@ function drawGround(cam, w) {
         ctx.strokeStyle = 'rgba(120,160,190,.10)'; ctx.lineWidth = 1;
         const ph = (G.time * 0.6 + n * 0.37) % 1;
         ctx.beginPath(); ctx.ellipse(px + 10 + n * 2, py + 14 + (n & 7) * 3, 4 + ph * 9, (4 + ph * 9) * 0.5, 0, 0, 6.283); ctx.stroke();
-        if (at(x, y - 1) === T_ROAD) { ctx.fillStyle = '#2b2f33'; ctx.fillRect(px, py, TILE, 5); }      // 둑
-        if (at(x, y + 1) === T_ROAD) { ctx.fillStyle = '#2b2f33'; ctx.fillRect(px, py + TILE - 5, TILE, 5); }
+        const bank = w.theme.canals ? '#8a867c' : '#2b2f33';                                                  // 둑 — 운하는 흰 돌 테두리
+        if (at(x, y - 1) === T_ROAD) { ctx.fillStyle = bank; ctx.fillRect(px, py, TILE, 5); }
+        if (at(x, y + 1) === T_ROAD) { ctx.fillStyle = bank; ctx.fillRect(px, py + TILE - 5, TILE, 5); }
+        if (at(x - 1, y) === T_ROAD) { ctx.fillStyle = bank; ctx.fillRect(px, py, 5, TILE); }
+        if (at(x + 1, y) === T_ROAD) { ctx.fillStyle = bank; ctx.fillRect(px + TILE - 5, py, 5, TILE); }
       } else if (d === D_BRIDGE) {
         ctx.fillStyle = n < 8 ? '#2c3138' : '#2a2f36';
         ctx.fillRect(px, py, TILE, TILE);
@@ -2452,6 +2455,7 @@ function drawGround(cam, w) {
         ctx.moveTo(px + 12.5, py + 16); ctx.lineTo(px + 12.5, py + 32);
         ctx.moveTo(px + 36.5, py + 32); ctx.lineTo(px + 36.5, py + 48);
         ctx.stroke();
+        const PT = GROUND_TINT[w.theme.key]; if (PT) { ctx.fillStyle = PT[2]; ctx.fillRect(px, py, TILE, TILE); }
       } else if (d === D_SIDEWALK) {
         side.rect(px, py, TILE, TILE);
         detail.push(i, x, y, 1);
@@ -2465,7 +2469,8 @@ function drawGround(cam, w) {
   // 프레임이 크게 떨어진다(쓰레기 조각을 칸마다 그리던 판: 58 → 40fps)
   ctx.imageSmoothingEnabled = false;
   const tex = texOn();
-  ctx.fillStyle = tex ? bakedPattern('road') : '#28292c'; ctx.fill(road);
+  const st = w.theme.street;
+  ctx.fillStyle = tex ? bakedPattern(st ? 'road_' + st : 'road') : ({ sand: '#6e5634', dirt: '#33281c', stone: '#3a3936', snow: '#8a929c' })[st] || '#28292c'; ctx.fill(road);
   ctx.fillStyle = tex ? bakedPattern('side') : '#35362f'; ctx.fill(side);
   ctx.imageSmoothingEnabled = true;
   // 지역의 땅빛 — 모래 도시는 모래가 덮고, 눈 도시는 눈이 덮는다
@@ -3738,7 +3743,23 @@ function drawRoof(x) {
     않으니 거르기(smoothing)를 꺼도 깨끗하고, 소프트웨어 렌더러에서도 단색 칠하기와 비슷한 비용이 된다.
     확대해 찍던 때는 카메라를 당기자 화면 전체를 거르며 늘이느라 58 → 43fps 까지 떨어졌다.
     그리는 배율이 바뀌면(자동 화질 · 카메라 거리) 다시 굽는다 */
-const PATS = { road: [288, 288, drawRoad], side: [96, 96, drawSide], brick: [96, 48, drawBrick], stucco: [96, 96, drawStucco], roof: [96, 96, drawRoof] };
+/** 지역의 길 무늬 — 모래 · 흙 · 돌(베네치아 판석) · 눈 */
+function streetPat(base, draw) {
+  return x => { const S = 192; let seed = 53; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647; x.fillStyle = base; x.fillRect(0, 0, S, S); draw(x, S, rnd); };
+}
+const drawSandRoad = streetPat('#6e5634', (x, S, r) => {
+  for (let i = 0; i < 1800; i++) { x.fillStyle = r() < 0.5 ? 'rgba(255,225,170,.07)' : 'rgba(40,25,10,.1)'; x.fillRect(r() * S, r() * S, 1.5, 1.5); }
+  x.lineWidth = 1.2; for (let i = 0; i < 46; i++) { const sx = r() * S, sy = r() * S; x.strokeStyle = r() < 0.5 ? 'rgba(40,25,8,.3)' : 'rgba(255,225,170,.12)'; x.beginPath(); x.moveTo(sx, sy); x.quadraticCurveTo(sx + 12, sy - 4, sx + 26, sy); x.stroke(); } });
+const drawDirtRoad = streetPat('#33281c', (x, S, r) => {
+  for (let i = 0; i < 26; i++) { x.fillStyle = r() < 0.5 ? 'rgba(10,6,3,.35)' : 'rgba(110,90,60,.16)'; x.beginPath(); x.ellipse(r() * S, r() * S, 8 + r() * 24, 5 + r() * 14, r() * 3, 0, 6.283); x.fill(); }
+  for (let i = 0; i < 700; i++) { x.fillStyle = r() < 0.5 ? 'rgba(150,130,100,.25)' : 'rgba(0,0,0,.3)'; x.fillRect(r() * S, r() * S, 1.5, 1.5); } });
+const drawStoneRoad = streetPat('#3a3936', (x, S, r) => {
+  for (let row = 0; row < S / 24; row++) for (let c = -1; c < S / 40 + 1; c++) { const v = 52 + r() * 18; x.fillStyle = `rgb(${v},${v - 1},${v - 4})`; x.fillRect(c * 40 + (row % 2) * 20 + 1, row * 24 + 1, 38, 22); }
+  for (let i = 0; i < 500; i++) { x.fillStyle = r() < 0.5 ? 'rgba(255,255,255,.04)' : 'rgba(0,0,0,.1)'; x.fillRect(r() * S, r() * S, 1, 1); } });
+const drawSnowRoad = streetPat('#8a929c', (x, S, r) => {
+  for (let i = 0; i < 24; i++) { x.fillStyle = r() < 0.6 ? 'rgba(60,72,90,.18)' : 'rgba(255,255,255,.18)'; x.beginPath(); x.ellipse(r() * S, r() * S, 12 + r() * 30, 6 + r() * 14, r() * 3, 0, 6.283); x.fill(); }
+  x.fillStyle = 'rgba(55,65,80,.28)'; for (const tx of [44, 74, 124, 154]) x.fillRect(tx, 0, 8, S); });
+const PATS = { road_sand: [192, 192, drawSandRoad], road_dirt: [192, 192, drawDirtRoad], road_stone: [192, 192, drawStoneRoad], road_snow: [192, 192, drawSnowRoad], road: [288, 288, drawRoad], side: [96, 96, drawSide], brick: [96, 48, drawBrick], stucco: [96, 96, drawStucco], roof: [96, 96, drawRoof] };
 const patCache = {};
 function bakedPattern(key) {
   // 자동 화질이 배율을 조금씩 바꿀 때마다 다시 굽지 않게 1/4 단위로 묶는다 (그 정도 차이는 눈에 띄지 않는다)

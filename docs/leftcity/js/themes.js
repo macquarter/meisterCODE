@@ -61,7 +61,7 @@ const THEMES = {
   /* ── 2부: 새벽호의 항해 — 지역마다 땅이 다르다(terrain) · 날씨가 다르다(weather) ── */
   /* 인도 바라나시 — 강가강의 가트(계단 강변), 좁은 골목의 파스텔 집들, 우기. 진흙탕이 발을 붙잡는다 */
   varanasi: {
-    key: 'varanasi', name: '바라나시', river: '갠지스강', terrain: 'mud', weather: 'monsoon',
+    key: 'varanasi', street: 'dirt', name: '바라나시', river: '갠지스강', terrain: 'mud', weather: 'monsoon',
     signs: ['चाय', 'दवाखाना', 'होटल', 'मिठाई', 'किराना', 'दवा', 'भोजनालय', 'साड़ी', 'मोबाइल', 'बैंक', 'पान', 'ढाबा'],
     signCols: ['#ffca28', '#ff7043', '#26c6da', '#ec407a', '#66bb6a', '#ffffff'],
     carCols: ['#2e7d32', '#f2c21a', '#c9ccd1', '#3a3d42', '#8a2b2b', '#2f4a63'],     // 초록·노랑 오토릭샤 빛깔
@@ -72,7 +72,7 @@ const THEMES = {
   },
   /* 이집트 카이로 — 나일강, 기자의 피라미드, 사암 건물. 모래가 길에 쌓이고 모래 폭풍이 불빛을 삼킨다 */
   cairo: {
-    key: 'cairo', name: '카이로', river: '나일강', terrain: 'sand', weather: 'sandstorm',
+    key: 'cairo', street: 'sand', name: '카이로', river: '나일강', terrain: 'sand', weather: 'sandstorm',
     signs: ['صيدلية', 'مطعم', 'قهوة', 'فندق', 'بنك', 'سوق', 'مخبز', 'كشري', 'عطارة', 'مكتبة'],
     signCols: ['#ffd54f', '#4fc3f7', '#ff8a65', '#81c784', '#ffffff', '#ce93d8'],
     carCols: ['#e0e0e0', '#2f2f2f', '#c9b48a', '#8a2b2b', '#3a5a7a', '#f2f2f2'],     // 흑백 택시
@@ -83,7 +83,7 @@ const THEMES = {
   },
   /* 베네치아 — 대운하와 다리, 물에 잠긴 골목. 얕은 물이 모두의 발을 늦춘다 */
   venice: {
-    key: 'venice', name: '베네치아', river: '대운하', terrain: 'flood', weather: 'fog',
+    key: 'venice', street: 'stone', canals: true, noCars: true, name: '베네치아', river: '대운하', terrain: 'flood', weather: 'fog',
     signs: ['FARMACIA', 'TRATTORIA', 'HOTEL', 'GELATERIA', 'BAR', 'PANIFICIO', 'VAPORETTO', 'OSTERIA', 'MASCHERE', 'BANCA'],
     signCols: ['#ffffff', '#ffcc80', '#80deea', '#f48fb1', '#c5e1a5', '#ffe082'],
     carCols: ['#7a2a24', '#c9ccd1', '#2f4a63', '#3a3d42', '#d8d2c4', '#5a6a4a'],
@@ -94,7 +94,7 @@ const THEMES = {
   },
   /* 아이슬란드 레이캬비크 — 함석 지붕의 알록달록한 집, 계단식 교회, 땅을 가르는 용암 균열과 김 */
   reykjavik: {
-    key: 'reykjavik', name: '레이캬비크', river: null, terrain: 'lava', weather: 'snow',
+    key: 'reykjavik', street: 'snow', name: '레이캬비크', river: null, terrain: 'lava', weather: 'snow',
     signs: ['APÓTEK', 'KAFFI', 'HÓTEL', 'BAKARÍ', 'BANKI', 'BÚÐ', 'PÖBB', 'FISKUR', 'LAUG', 'BÓKABÚÐ'],
     signCols: ['#ffffff', '#80d8ff', '#ffab91', '#fff59d', '#b9f6ca', '#ff8a80'],
     carCols: ['#c9ccd1', '#3a3d42', '#2f4a63', '#7a2a24', '#e0e0e0', '#2d3a2e'],
@@ -105,7 +105,7 @@ const THEMES = {
   },
   /* 남극 연구 기지 — 기둥 위의 조립식 동, 레이더 돔, 연료 탱크. 얼음판은 미끄럽고 눈보라가 시야를 지운다 */
   antarctic: {
-    key: 'antarctic', name: '남극 기지', river: null, terrain: 'ice', weather: 'blizzard',
+    key: 'antarctic', street: 'snow', name: '남극 기지', river: null, terrain: 'ice', weather: 'blizzard',
     signs: ['LAB', 'MESS', 'GARAGE', 'MED', 'COMMS', 'FUEL', 'DORM 1', 'DORM 2', 'STORES', 'WORKSHOP'],
     signCols: ['#ffffff', '#ff8a65', '#80d8ff', '#fff176', '#a5d6a7', '#ef9a9a'],
     carCols: ['#e8641a', '#c8201a', '#e0b83a', '#c9ccd1', '#2f4a63', '#e8641a'],     // 주황 · 빨강 설상차

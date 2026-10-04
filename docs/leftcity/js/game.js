@@ -1219,6 +1219,8 @@ const G = {
     this.checkpoint = cp && cp.level === index ? cp : null;
     if (this.checkpoint) this.applyCheckpoint(this.checkpoint);
 
+    // 3D — 도시 · 덩어리 · 인물 · 첫 그림을 지금(브리핑 화면이 떠 있는 동안) 마쳐 둔다. 첫 프레임들이 멈칫거리지 않게
+    if (window.R3D && window.R3D.ok && window.R3D.prime) window.R3D.prime(this);
     SFX.menuMusic(false);
     SFX.ambience(true);
     this.state = 'play';
@@ -5676,6 +5678,11 @@ function step(now) {
 
 G.migrateSaves();                // 저장 배치를 먼저 맞춘 뒤에 타이틀을 그린다
 UI.enterMenu();
+// 3D 판 — 타이틀을 보는 동안 렌더러 · 인물 모형 · 셰이더를 미리 준비한다(첫 판의 멈칫거림을 메뉴 쪽으로 옮긴다)
+addEventListener('load', () => setTimeout(() => {
+  const go = () => { if (window.R3D && window.R3D.preload && window.R3D.ok && G.state === 'title') window.R3D.preload(); };
+  if (window.requestIdleCallback) requestIdleCallback(go, { timeout: 1500 }); else go();
+}, 400));
 requestAnimationFrame(frame);
 
 /** 세계 좌표 → 화면 좌표 (시험·도구용) */

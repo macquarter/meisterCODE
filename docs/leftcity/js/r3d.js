@@ -1292,7 +1292,8 @@ function fencePanel(B, w, x, y, X0, Z0, X1, Z1) {
   if (fence(0, 1) || fence(0, -1)) wallQuad(B, cxm, Z0, cxm, Z1, 0, H, [1, 0, 0], null, 0, 1 / 24, 1 / 24);
 }
 
-function syncChunks(w, px, pz) {
+let lastChunkT = 0;
+function syncChunks(w, px, pz, all) {
   const ccx = Math.floor(px / TILE / CH), ccy = Math.floor(pz / TILE / CH);
   const need = new Set(), miss = [];
   for (let dy = -3; dy <= 1; dy++) for (let dx = -2; dx <= 2; dx++) {
@@ -1300,12 +1301,16 @@ function syncChunks(w, px, pz) {
     need.add(key);
     if (!chunks.has(key)) miss.push([Math.max(Math.abs(dx), Math.abs(dy)), dx, dy, key]);
   }
-  // 발밑과 바로 곁(3×3)은 곧바로 — 시작 화면이 비지 않게. 그 바깥은 가까운 것부터 한 프레임에 하나씩
+  // 발밑과 바로 곁(3×3)은 곧바로 — 시작 화면이 비지 않게. 그 바깥은 가까운 것부터 하나씩, 0.1초 이상 띄워서
+  // (한 덩어리에 15‒40ms — 연달아 지으면 멈칫거림이 이어진다. 앞쪽으로 세 덩어리를 미리 두므로 늦지 않는다).
+  // all = 판을 시작할 때 둘레 25 덩어리를 한꺼번에(시작 화면이 떠 있는 동안)
   miss.sort((a, b) => a[0] - b[0]);
+  const now = performance.now();
   for (let i = 0; i < miss.length; i++) {
     const [d, dx, dy, key] = miss[i];
-    if (d > 1 && i > 0) break;
-    const g = buildChunk(w, ccx + dx, ccy + dy);
+    if (!all && d > 1 && (i > 0 || now - lastChunkT < 100)) break;
+    if (d > 1) lastChunkT = now;
+    const t0 = performance.now(), g = buildChunk(w, ccx + dx, ccy + dy); prof('chunk', t0);
     chunks.set(key, g); scene.add(g);
   }
   for (const [key, g] of chunks) {
@@ -2180,7 +2185,10 @@ function init() {
   size();
 }
 /* 느린 기기 — 프레임이 오래 걸리면 해상도 → 그림자 → 해상도 순으로 한 단계씩 내린다('높음' 설정이면 그대로) */
-const PERF = { ema: 16, last: 0, since: 0, level: 0 };
+const PERF = { ema: 16, last: 0, since: 0, level: 0, calm: 0, frame: 0 };
+/** 끊김 추적 — 무거운 일(덩어리 · 인물 · 소품 만들기, 셰이더 엮기)의 횟수 · 합 · 최대(ms). R3D.prof 로 본다 */
+const PROF = R3D.prof = { progs: [] };
+function prof(k, t0) { const d = performance.now() - t0, e = PROF[k] || (PROF[k] = [0, 0, 0]); e[0]++; e[1] += d; if (d > e[2]) e[2] = d; return d; }
 /** 단계별 픽셀 배율 상한 — '자동'이라도 1 밑으로는 내리지 않는다(화면보다 낮은 해상도는 계단 · 뭉개짐이 눈에 띈다).
     대신 MSAA → 그림자 → 빛 번짐(후처리) 순으로 덜어 낸다. '선명하게'는 기기 배율 2 까지 */
 const PR_CAP = [1.5, 1.25, 1.0, 1.0];
@@ -2188,13 +2196,24 @@ function perfStep(now) {
   const dt = now - PERF.last;
   PERF.last = now;
   if (dt > 3000) { PERF.since = now; return; }          // 메뉴 · 탭 전환 뒤 — 다시 재기 시작
-  // 아주 느린 프레임도 센다(예전엔 400ms 넘는 프레임을 멈춤으로 보고 버려, 느린 기기에서 화질이 내려가지 않았다)
-  PERF.ema += (Math.min(dt, 400) - PERF.ema) * (dt > 100 ? 0.25 : 0.05);
-  if (SETTINGS.quality === 'high' || PERF.level >= 3 || document.hidden) return;
+  // 한 번씩 멈칫하는 프레임(모형 · 덩어리 · 셰이더 준비)은 120ms 로 잘라 센다 — 예전엔 그대로 세어 시작 직후의
+  // 준비 끊김만으로 화질을 내렸고, 화질을 내리는 일이 다시 셰이더를 전부 엮어 끊김이 이어졌다.
+  // 꾸준히 느린 기기(프레임마다 40ms 넘게)는 그대로 내려간다
+  PERF.ema += (Math.min(dt, 120) - PERF.ema) * 0.05;
+  if (SETTINGS.quality === 'high' || PERF.level >= 3 || document.hidden || now < PERF.calm) return;
   if (now - PERF.since > 2500 && PERF.ema > 42) {
     PERF.level++; PERF.since = now; PERF.ema = 30;
+    (PROF.lv || (PROF.lv = [])).push([Math.round(now), PERF.level]);
+    // 어느 단계도 셰이더를 다시 엮지 않는다(재질 · 출력 색공간을 바꾸지 않음) — 바꾸는 순간 수십 개가 한꺼번에 엮여 멈춘다
     if (PERF.level === 1 && composer) for (const t of [composer.renderTarget1, composer.renderTarget2]) if (t.samples) { t.samples = 0; t.dispose(); }
-    if (PERF.level === 2) { renderer.shadowMap.enabled = false; spot.castShadow = false; scene.traverse(o => { if (o.material) for (const m of [].concat(o.material)) m.needsUpdate = true; }); }
+    if (PERF.level === 2) {                              // 그림자는 끄지 않고 가볍게 — 달빛 그림자 지도를 줄이고 두 프레임에 한 번 그린다
+      moon.shadow.mapSize.set(1024, 1024); if (moon.shadow.map) { moon.shadow.map.dispose(); moon.shadow.map = null; }
+      renderer.shadowMap.autoUpdate = false; renderer.shadowMap.needsUpdate = true;
+    }
+    if (PERF.level === 3) {                              // 빛 번짐을 끄고 손전등 그림자 지도도 줄인다(후처리 자체는 남겨 색 · 셰이더가 그대로)
+      if (bloom) bloom.enabled = false;
+      spot.shadow.mapSize.set(512, 512); if (spot.shadow.map) { spot.shadow.map.dispose(); spot.shadow.map = null; }
+    }
     size();
   }
 }
@@ -2251,6 +2270,7 @@ function resetWorld(w) {
   dropPlayer();
   for (const lm of LM3) scene.remove(lm); LM3.length = 0;
   curWorld = w;
+  PERF.calm = performance.now() + 5000;                  // 새 판의 준비 끊김은 화질 판단에서 뺀다
   ensureSignMats(w);
   applyKit(w);
   buildLandmarks(w);
@@ -2295,6 +2315,51 @@ R3D.unproject = (sx, sy) => {
 R3D.info = () => renderer ? { chunks: chunks.size, calls: renderer.info.render.calls, tris: renderer.info.render.triangles, programs: renderer.info.programs.length, level: PERF.level, ms: Math.round(PERF.ema), failed: R3D.failed } : null;
 R3D._dbg = () => ({ CHAR, dyn, THREE, renderer, scene, camera, moon, hemi, spot, bloom, grade, MAT, CL, PERF });
 R3D.hide = () => { if (cv) cv.style.display = 'none'; };
+/** 판 준비 — '시작'을 누른 그 순간(브리핑 화면이 떠 있는 동안) 도시 · 둘레 덩어리 25 개 · 인물 · 첫 그림을 모두 마친다.
+    예전엔 이 일이 게임 화면이 뜬 뒤의 첫 프레임들에 나뉘어 몰려 시작하자마자 여러 번 멈칫했다 */
+R3D.prime = g => {
+  if (!R3D.ok || !g || !g.world || !g.player) return;
+  try {
+    const t0 = performance.now();
+    if (!renderer) init();
+    if (g.world !== curWorld) resetWorld(g.world);
+    placeCamera(g);
+    syncChunks(g.world, camT.x, camT.z, true);
+    draw3(g);
+    PROF.prime = Math.round(performance.now() - t0);
+  } catch (e) { fail('init', e); }
+};
+/** 미리 준비 — 타이틀 화면에서 렌더러를 만들고 인물 모형을 읽어 셰이더를 미리 엮어 둔다.
+    예전엔 '시작'을 누른 첫 프레임에 이 모두(모형 해석 · 셰이더 60여 개)가 몰려 첫 판이 여러 번 멈칫했다 */
+R3D.preload = () => {
+  try { if (!renderer) { init(); R3D.hide(); } } catch (e) { fail('init', e); }
+};
+/** 셰이더 미리 엮기 — 공용 재질 · 인물 몸체마다 상자 하나씩을 장면에 잠깐 넣고 엮는다. 실제 그리기와 같은 조건이어야
+    같은 셰이더가 재사용된다: 빛은 장면의 것, 출력은 후처리 버퍼(선형 색공간). 엮기를 나눠 해 주는 확장이 있으면 기다리지 않는다 */
+function warmShaders() {
+  if (!renderer || PROF.warm || !renderer.compileAsync) return;
+  PROF.warm = 'busy';
+  const t0 = performance.now(), grp = new THREE.Group(), box = new THREE.BoxGeometry(1, 1, 1);
+  const seen = new Set(), extra = [];
+  const add = m => { if (!m || seen.has(m)) return; seen.add(m); const o = new THREE.Mesh(box, m); o.castShadow = o.receiveShadow = true; grp.add(o); };
+  for (const k in MAT) add(MAT[k]);
+  for (const c of [texMatCache, matCache, matTCache]) for (const [, m] of c) add(m);
+  if (CHAR.ready) try {
+    grp.add(makeRig('xbot', { look: { skin: '#8a8f7c', top: '#5a5a50', pants: '#2d3440' } }));
+    for (const t of ['zombie', 'hazmat']) grp.add(makeRig('soldier', { tex: t }));
+    const keepG = pGun, keepL = chestLamp;             // 플레이어 몸체는 총 · 가슴 손전등을 전역에 걸어 둔다 — 미리 엮기용은 따로
+    grp.add(makePlayerRig()); extra.push(pGun, chestLamp); pGun = keepG; chestLamp = keepL;
+  } catch (_) { /* 모형이 이상해도 미리 엮기는 건너뛰면 그만 */ }
+  grp.position.set(camT.x, -400, camT.z);
+  scene.add(grp);
+  const prev = renderer.getRenderTarget();
+  if (composer && SETTINGS.quality !== 'low') renderer.setRenderTarget(composer.renderTarget1);
+  let p;
+  try { p = renderer.compileAsync(scene, camera); } catch (e) { p = Promise.resolve(); }
+  renderer.setRenderTarget(prev);
+  const done = () => { scene.remove(grp); for (const o of extra) if (o) scene.remove(o); grp.traverse(o => { if (o.userData && o.userData.mixer) o.userData.mixer.stopAllAction(); }); PROF.warm = Math.round(performance.now() - t0) + 'ms'; };
+  p.then(done, done);
+}
 
 /* ═══════════ 매 프레임 ═══════════ */
 R3D.render = g => {
@@ -2306,8 +2371,10 @@ function draw3(g) {
   const w = g.world, p = g.player;
   if (w !== curWorld) resetWorld(w);
   cv.style.display = '';
+  const T0 = performance.now();
   placeCamera(g);
   syncChunks(w, camT.x, camT.z);
+  const T1 = performance.now();
   const near = (x, y, m) => Math.abs(x - camT.x) < m && Math.abs(y - camT.z) < m * 1.1;
 
   TEX.waterN.offset.set(g.time * 0.012, g.time * 0.02);
@@ -2317,7 +2384,7 @@ function draw3(g) {
   for (const pr of w.props) {
     let o = dyn.props.get(pr);
     if (!near(pr.x, pr.y, 1100)) { if (o) o.visible = false; continue; }
-    if (!o) { o = mergeStatic(makeProp(pr)); dyn.props.set(pr, o); scene.add(o); }
+    if (!o) { const t0 = performance.now(); o = mergeStatic(makeProp(pr)); dyn.props.set(pr, o); scene.add(o); prof('prop', t0); }
     o.visible = true; o.position.set(pr.x, 0, pr.y); o.rotation.y = -pr.a;
     if (o.userData.head) { const ca = Math.cos(pr.a), sa = Math.sin(pr.a), hd = o.userData.head; pushLight(pr.x + ca * (hd + 70), 14, pr.y + sa * (hd + 70), 190, HEAD_C, 1.3); if (blinkOn) pushLight(pr.x, 14, pr.y, 90, BLINK_C, 0.9); }
     if (o.userData.fire) addFire(pr.x + Math.cos(pr.a) * pr.w * 0.18, 12, pr.y + Math.sin(pr.a) * pr.w * 0.18, 1, o.userData.fire);
@@ -2328,7 +2395,7 @@ function draw3(g) {
     if (d.kind === 'tree' && w.deco[w.idx(Math.floor(d.x / TILE), Math.floor(d.y / TILE))] === D_BUILDING) continue;
     let o = dyn.decor.get(d);
     if (!near(d.x, d.y, 1100)) { if (o) o.visible = false; continue; }
-    if (!o) { o = mergeStatic(makeDecor(d)); dyn.decor.set(d, o); scene.add(o); }
+    if (!o) { const t0 = performance.now(); o = mergeStatic(makeDecor(d)); dyn.decor.set(d, o); scene.add(o); prof('decor', t0); }
     o.visible = true; o.position.set(d.x, d.kind === 'boat' ? -6 : (w.deco[w.idx(Math.floor(d.x / TILE), Math.floor(d.y / TILE))] === D_SIDEWALK ? 3 : 0), d.y);
     o.rotation.y = -(d.a || 0) + (d.wall === 'n' ? Math.PI / 2 : d.wall === 'w' ? 0 : d.wall === 'e' ? Math.PI : d.wall ? -Math.PI / 2 : 0);
   }
@@ -2353,13 +2420,19 @@ function draw3(g) {
   SEE.depth.value = (tmpV.z + 1) / 2 - 0.0004;
   SEE.rad.value = 95 * bh2 / Math.max(1, (window.STAGE && window.STAGE.h) || window.innerHeight) * Math.max(1, ((window.STAGE && window.STAGE.h) || window.innerHeight) / 800);
   // 후처리 — '가볍게' 설정이나 가장 낮은 화질 단계에서는 끈다
-  const fx = composer && SETTINGS.quality !== 'low' && PERF.level < 3;
+  const T2 = performance.now();
+  const fx = composer && SETTINGS.quality !== 'low';
+  if (!renderer.shadowMap.autoUpdate) renderer.shadowMap.needsUpdate = (PERF.frame++ & 1) === 0;
   if (fx) {
     grade.uniforms.uTime.value = g.time;
     grade.uniforms.uLift.value = (SETTINGS.brightness - 50) / 50;
     bloom.strength = 0.75 + Math.min(1, g.lightning) * 0.4;
     composer.render();
   } else renderer.render(scene, camera);
+  if (window.LC_TRACE) { const T3 = performance.now(); if (T3 - T0 > 200) (PROF.slow || (PROF.slow = [])).push([Math.round(g.time * 10) / 10, Math.round(T1 - T0), Math.round(T2 - T1), Math.round(T3 - T2), renderer.info.render.calls, renderer.info.memory.textures]); }
+  // 새로 엮인 셰이더 — 판 도중에 생기면 그 프레임이 멈칫한다(미리 엮기에서 빠진 것을 찾는 데 쓴다)
+  const pl = renderer.info.programs;
+  if (pl.length !== PROF.np) { for (let i = PROF.np || 0; i < pl.length; i++) PROF.progs.push([Math.round(g.time * 10) / 10, pl[i].name, pl[i].cacheKey.length > 60 ? pl[i].cacheKey.slice(0, 60) : pl[i].cacheKey]); PROF.np = pl.length; if (PROF.progs.length > 300) PROF.progs.splice(0, 100); }
 };
 
 function updateSigns(g, w, near) {
@@ -2368,7 +2441,7 @@ function updateSigns(g, w, near) {
     let o = dyn.signs.get(sg);
     const X = (sg.x + 0.5) * TILE, Z = (sg.y + 0.5) * TILE;
     if (!near(X, Z, 900)) { if (o) o.visible = false; continue; }
-    if (!o) { o = makeSign(sg); dyn.signs.set(sg, o); scene.add(o); }
+    if (!o) { const t0 = performance.now(); o = makeSign(sg); dyn.signs.set(sg, o); scene.add(o); prof('sign', t0); }
     const dead = (sg.ph * 10 | 0) % 3 === 0;
     const flick = dead ? 0.08 : (sg.ph * 7 | 0) % 4 === 0 ? (Math.sin(t * 23 + sg.ph * 9) > 0.3 ? 1 : 0.15) : 0.85 + Math.sin(t * 2 + sg.ph) * 0.15;
     o.userData.mat.opacity = flick;
@@ -2408,7 +2481,7 @@ function setFlash(h, on) {
 }
 
 /* ═══════════ 사실적인 인물 — 뼈대 · 애니메이션이 있는 3D 모형 ═══════════
-   세 몸체: 남성 시민(xbot — 몸 부위별로 옷 색을 칠한다), 여성 시민(michelle — 무늬를 좀비 빛깔로 바꾼 변형),
+   두 몸체: 남성 시민(xbot — 몸 부위별로 옷 색을 칠한다),
    군인(soldier — 플레이어 · 대피 기지의 감염체 · 방호복). 모두 같은 Mixamo 뼈대라 걷기 · 뛰기 · 서기 동작을 나눠 쓴다.
    좀비다운 자세(앞으로 뻗은 팔, 구부정한 등, 꺾인 고개)는 동작 위에 세계 좌표 보정으로 덧입힌다.
    모형을 불러오기 전 · 실패하면 예전의 단순 인형으로 그린다 */
@@ -2434,16 +2507,18 @@ function loadModel(L, src) {
 function loadChars() {
   if (CHAR.loading) return; CHAR.loading = true; CHAR.t0 = performance.now();
   const L = new GLTFLoader();
-  Promise.all(['xbot', 'michelle', 'soldier'].map(k => loadModel(L, modelSrc(k)).then(g => [k, g])))
+  // 여성 몸체(michelle, 2.4MB)는 rc.16 부터 쓰지 않는다 — 불러오지 않는다(첫 판 버퍼링의 절반이었다)
+  Promise.all(['xbot', 'soldier'].map(k => loadModel(L, modelSrc(k)).then(g => [k, g])))
     .then(list => {
       const t0 = performance.now();
       const G = Object.fromEntries(list);
       const walk = G.xbot.animations;
       prepBody('xbot', G.xbot, walk);
-      prepBody('michelle', G.michelle, walk, true);
       prepBody('soldier', G.soldier, G.soldier.animations);
       CHAR.ready = true; CHAR.prepMs = Math.round(performance.now() - t0); CHAR.loadMs = Math.round(performance.now() - CHAR.t0);
+      PERF.calm = Math.max(PERF.calm, performance.now() + 3000);
       resetPeople();
+      warmShaders();
     })
     .catch(e => { CHAR.failed = true; try { console.warn('[LEFT CITY 3D] 인물 모형을 불러오지 못해 단순 인형으로 그립니다', e); } catch (_) { /* 무시 */ } });
 }
@@ -2560,7 +2635,7 @@ function texMat(tex, normal, rough, rim) {
   return texMatCache.get(key);
 }
 const BONES = ['Hips', 'Spine', 'Spine1', 'Spine2', 'Neck', 'Head', 'LeftArm', 'LeftForeArm', 'LeftHand', 'RightArm', 'RightForeArm', 'RightHand', 'LeftUpLeg', 'LeftLeg', 'RightUpLeg', 'RightLeg'];
-/** 사람 한 명 — kind: xbot | michelle | soldier, skin: 무늬 변형 이름 또는 부위 색(look) */
+/** 사람 한 명 — kind: xbot | soldier, skin: 무늬 변형 이름 또는 부위 색(look) */
 function makeRig(kind, opt = {}) {
   const B = CHAR.body[kind];
   const root = new THREE.Group(), body = new THREE.Group(), inner = cloneSkinned(B.scene);
@@ -2848,7 +2923,8 @@ function updateHumans(g, p) {
     let h = dyn.humans.get(z);
     if (!h) {
       const t = z.t, S = t.boss ? 2.3 : t.size >= 18 ? 1.55 : t.bloat ? 1.18 : t.scream ? 1.08 : t.speed > 100 ? 1 : 1.05;
-      if (rigs) { h = zombieRig(z); h.scale.setScalar(S * CHAR_S); }
+      const t0 = performance.now();
+      if (rigs) { h = zombieRig(z); h.scale.setScalar(S * CHAR_S); prof('zrig', t0); }
       else { h = makeHuman(zombieLook(z)); h.scale.setScalar(S * 1.25 * CHAR_S); }
       dyn.humans.set(z, h); scene.add(h);
     }
@@ -2925,12 +3001,13 @@ function updateCorpses(g, near) {
       const look = c.type === 'player' ? { top: '#2f3a44', pants: '#262b31', skin: '#a8866e' } :
         { top: c.hazmat ? '#d9d7cc' : c.top || '#5a5a50', pants: c.hazmat ? '#cfcdc2' : c.pants || '#2d3440', skin: '#8a8f7c', gore: true };
       if (CHAR.ready) {
-        o = makeCorpseRig(c);
+        const t0 = performance.now(); o = makeCorpseRig(c); prof('corpse', t0);
         o.scale.setScalar(CHAR_S * (c.type === 'brute' ? 1.5 : c.type === 'behemoth' ? 2.2 : c.type === 'bloater' ? 1.2 : 1));
         o.rotation.y = -(c.a || 0) + Math.PI;
         dyn.corpses.set(c, o); scene.add(o);
         o.position.set(c.x, 0, c.y);
-      }
+      } else {
+      // 모형이 아직 없을 때만 단순 인형 — 예전엔 둘 다 만들어 뼈대 시체가 장면에 남은 채(지워지지 않고) 쌓였다
       const h = makeHuman(look);
       const r = () => Math.random();
       poseHuman(h, { ph: 0, amp: 0, arms: 'hang' });
@@ -2941,6 +3018,7 @@ function updateCorpses(g, near) {
       o.scale.setScalar(S * 1.25 * CHAR_S);
       o.rotation.y = -(c.a || 0) + Math.PI;
       dyn.corpses.set(c, o); scene.add(o);
+      }
     }
     o.position.set(c.x, 0, c.y);
     if (o.userData.fall && (c.age || 0) < 1) fallPose(o, c.age || 0);

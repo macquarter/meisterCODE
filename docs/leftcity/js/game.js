@@ -5092,7 +5092,7 @@ const UI = {
       ? `${Math.max(0, Math.round(G.boss.hp / G.boss.hpMax * 100))}%` : T('처치')]);
     $('pauseStats').innerHTML = rows.map(r =>
       `<div><dt>${r[0]}</dt><dd>${r[1]}</dd></div>`).join('');
-    this.show('scrPause');
+    (this.syncSettings(), this.show('scrPause'));
   },
 
   /** 전역을 끝낸 뒤의 마무리 화면 — 챕터별 평가를 모아 보여 준다 */

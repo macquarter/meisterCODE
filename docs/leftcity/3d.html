@@ -242,6 +242,10 @@ html:not(.r3d-off) #view{background:transparent !important}
         <h2>일시정지</h2>
         <p class="pause__where" id="pauseWhere"></p>
         <dl class="result__stats" id="pauseStats"></dl>
+        <div class="seg pause__view" aria-label="시점">
+          <button type="button" data-set="cam3d" data-val="near">시점 가깝게</button>
+          <button type="button" data-set="cam3d" data-val="far">시점 멀리</button>
+        </div>
         <div class="screen__side screen__actions">
           <button class="btn btn--primary" data-act="resume">계속하기</button>
           <button class="btn" data-act="restart">재시작</button>
@@ -306,11 +310,10 @@ html:not(.r3d-off) #view{background:transparent !important}
             어느 방식이든 왼쪽 화면 아무 데나 누르면 그 자리에 이동 스틱이 생긴다.</p>
 
           <div class="set__row set__row--stack">
-            <div class="set__label">카메라 거리</div>
-            <div class="seg" id="setCam">
-              <button type="button" data-set="cam" data-val="near">가까이</button>
-              <button type="button" data-set="cam" data-val="mid">보통</button>
-              <button type="button" data-set="cam" data-val="far">멀리</button>
+            <div class="set__label">시점</div>
+            <div class="seg" id="setCam3d">
+              <button type="button" data-set="cam3d" data-val="near">가깝게</button>
+              <button type="button" data-set="cam3d" data-val="far">멀리</button>
             </div>
           </div>
           <div class="set__row set__row--stack">

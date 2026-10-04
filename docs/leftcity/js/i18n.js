@@ -42,6 +42,7 @@ const I18N = (() => {
     '광화문': 'Gwanghwamun', '남산타워': 'Namsan Tower', '시부야 스크램블': 'Shibuya Scramble', '도쿄 타워': 'Tokyo Tower',
     '센소지': 'Senso-ji', '왓 아룬': 'Wat Arun', '민주기념탑': 'Democracy Monument', '야시장': 'Night Market',
     /* ── 2부: 새벽호의 항해 ── */
+    '시점': 'View', '가깝게': 'Close', '시점 가깝게': 'View: close', '시점 멀리': 'View: far',
     '용암 지대를 지나 교회 앞 집결지까지': 'Cross the lava field to the rally point by the church',
     '헬기장으로 이동': 'Reach the helipad', '헬기가 내릴 때까지 헬기장을 지킬 것': 'Hold the helipad until the helicopter lands', '헬기에 탑승': 'Board the helicopter',
     '헬기장': 'Helipad', '헬기가 온다 — {s}초 버텨라': 'The helicopter is coming — hold out {s}s', '헬기 착륙까지 {s}초 — 버텨라': '{s}s until the helicopter lands — hold out',

@@ -22,7 +22,7 @@
 })();
 
 /** 제품 정보 — 이름 · 판. 출시 이름이 정해지면 여기와 index.html · manifest 를 함께 바꾼다 */
-const APP = { name: 'LEFT CITY', subtitle: '남겨진 도시', version: '1.0.0-rc.16' };
+const APP = { name: 'LEFT CITY', subtitle: '남겨진 도시', version: '1.0.0-rc.17' };
 const APP_VERSION = APP.version;
 
 /** 난이도 배수. 1 = 기준값(잔존) */
@@ -60,6 +60,7 @@ const SETTINGS = (() => {
     fps: false,            // 화면 구석에 FPS · 해상도 표시
     touchSize: 'normal',   // 터치 버튼 · 스틱 크기
     haptics: true,         // 맞거나 폭발이 가까우면 짧게 진동 (지원 기기)
+    cam3d: 'far',          // 3D 시점: near = 가깝게(인물이 크게 — rc.15 까지의 크기) · far = 멀리(지금 크기)
     cam: 'near',           // 카메라 거리: near = 가까이(원작 예고편 거리) · mid · far = 멀리(예전 거리)
     lang: 'auto'           // auto = 브라우저 언어(한국어면 한국어, 아니면 영어) · ko · en
   };
@@ -121,6 +122,7 @@ const SETTINGS = (() => {
       if (k === 'touchSize' && !TOUCH_SIZES.includes(v)) return;
       if (k === 'lang' && !['auto', 'ko', 'en'].includes(v)) return;
       if (k === 'cam' && !CAM_MODES.includes(v)) return;
+      if (k === 'cam3d' && !['near', 'far'].includes(v)) return;
       if (typeof DEF[k] === 'boolean') v = !!v;
       if (state[k] === v) return;
       state[k] = v; save();

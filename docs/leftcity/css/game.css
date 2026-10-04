@@ -118,6 +118,7 @@ body.touch .boss{top:calc(96px + env(safe-area-inset-top));width:min(300px,62vw)
   background:radial-gradient(ellipse at center,transparent 35%,rgba(150,20,15,.75) 100%);
   transition:opacity .18s ease-out}
 
+.pause__view{margin:0 auto 14px;max-width:320px}
 .citycard{position:absolute;left:0;right:0;top:30%;text-align:center;pointer-events:none;opacity:0;transition:opacity 1.2s ease;color:#efe6d4;text-shadow:0 2px 18px rgba(0,0,0,.9)}
 .citycard.show{opacity:1;transition:opacity .6s ease}
 .citycard small{display:block;font-size:calc(11px * var(--hudz,1));letter-spacing:.42em;opacity:.7;margin-bottom:6px}

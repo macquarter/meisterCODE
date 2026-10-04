@@ -2045,7 +2045,7 @@ function makeEnv() {
 function makeComposer() {
   // 다중 표본(MSAA)은 HDR 버퍼에서 값이 크다 — 터치 기기(화소가 촘촘해 계단이 덜 보인다)에서는 끈다
   const touch = matchMedia && matchMedia('(pointer: coarse)').matches;
-  const samples = window.LC_SAMPLES !== undefined ? window.LC_SAMPLES : touch ? 0 : 4;
+  const samples = window.LC_SAMPLES !== undefined ? window.LC_SAMPLES : touch ? 2 : 4;          // 터치 기기도 2 — 계단이 덜 보인다(느리면 자동 화질 1 단계에서 끈다)
   const rt = new THREE.WebGLRenderTarget(4, 4, { type: THREE.HalfFloatType, samples });
   composer = new EffectComposer(renderer, rt);
   composer.addPass(new RenderPass(scene, camera));
@@ -2173,11 +2173,17 @@ function init() {
   R3D._boom = addSprite(0xffe0a0, 220);
   R3D._boomCore = addSprite(0xffffff, 90);
   window.addEventListener('resize', size);
+  SETTINGS.onChange(k => { if (k === 'quality' || k === null) size(); });
+  // 바닥 · 벽 무늬 — 비스듬히 내려다보므로 비등방성 거르기로 먼 쪽 결이 뭉개지지 않게
+  const an = Math.min(8, renderer.capabilities.getMaxAnisotropy ? renderer.capabilities.getMaxAnisotropy() : 1);
+  for (const k in MAT) for (const t of ['map', 'normalMap', 'roughnessMap', 'emissiveMap']) if (MAT[k][t] && MAT[k][t].anisotropy < an) { MAT[k][t].anisotropy = an; MAT[k][t].needsUpdate = true; }
   size();
 }
 /* 느린 기기 — 프레임이 오래 걸리면 해상도 → 그림자 → 해상도 순으로 한 단계씩 내린다('높음' 설정이면 그대로) */
 const PERF = { ema: 16, last: 0, since: 0, level: 0 };
-const PR_CAP = [1.5, 1.0, 0.85, 0.6];
+/** 단계별 픽셀 배율 상한 — '자동'이라도 1 밑으로는 내리지 않는다(화면보다 낮은 해상도는 계단 · 뭉개짐이 눈에 띈다).
+    대신 MSAA → 그림자 → 빛 번짐(후처리) 순으로 덜어 낸다. '선명하게'는 기기 배율 2 까지 */
+const PR_CAP = [1.5, 1.25, 1.0, 1.0];
 function perfStep(now) {
   const dt = now - PERF.last;
   PERF.last = now;
@@ -2194,7 +2200,7 @@ function perfStep(now) {
 }
 function size() {
   if (!renderer) return;
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, SETTINGS.quality === 'low' ? 0.75 : PR_CAP[PERF.level]));
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, SETTINGS.quality === 'low' ? 0.75 : SETTINGS.quality === 'high' ? 2 : PR_CAP[PERF.level]));
   const SW = (window.STAGE && window.STAGE.w) || window.innerWidth, SH = (window.STAGE && window.STAGE.h) || window.innerHeight;
   renderer.setSize(SW, SH, false);
   if (composer) { composer.setPixelRatio(renderer.getPixelRatio()); composer.setSize(SW, SH); grade.uniforms.uRes.value.set(SW * renderer.getPixelRatio(), SH * renderer.getPixelRatio()); }
@@ -2233,11 +2239,13 @@ function resetWorld(w) {
 /* 카메라 — 플레이어 앞쪽(바라보는 방향)으로 조금 당긴 곳을 남쪽 위에서 내려다본다 */
 const camT = new THREE.Vector3();
 function placeCamera(g) {
-  const p = g.player, lead = 70 * Math.min(1, R3D.zoom || 1);
+  // 시점 — 가깝게는 인물이 rc.15 까지의 크기로 보이도록 카메라를 당긴다(CHAR_S 만큼)
+  const vz = (R3D.zoom || 1) * (SETTINGS.get('cam3d') === 'near' ? CHAR_S + 0.04 : 1);
+  const p = g.player, lead = 70 * Math.min(1, vz);
   const tx = p.x + Math.cos(p.angle) * lead, tz = p.y + Math.sin(p.angle) * lead;
   camT.set(tx, 12, tz);
   const sh = g.shake > 0.1 && SETTINGS.shake ? g.shake * 0.8 : 0;
-  const D = DIST * (R3D.zoom || 1);
+  const D = DIST * vz;
   camera.position.set(tx + (Math.random() - 0.5) * sh + (g.kickX || 0), D * Math.sin(PITCH), tz + D * Math.cos(PITCH) + (Math.random() - 0.5) * sh + (g.kickY || 0));
   camera.lookAt(camT);
   camera.updateMatrixWorld();

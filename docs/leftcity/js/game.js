@@ -185,6 +185,7 @@ addEventListener('keydown', e => {
     if (e.code === 'Escape') { UI.storyEnd(); return; }
   }
   if (e.code === 'Escape') {
+    if (Modal.close()) return;
     if (G.state === 'arms') { G.closeArms(); return; }
     if (G.state === 'map') { G.toggleMap(); return; }
     G.togglePause();
@@ -234,6 +235,7 @@ function padFocus(el) {
   el.scrollIntoView({ block: 'nearest' });
 }
 function padBack() {
+  if (Modal.close()) return;
   if (G.state === 'pause') { G.togglePause(); return; }
   if (G.state === 'arms') { G.closeArms(); return; }
   if (G.state === 'map') { G.toggleMap(); return; }
@@ -480,6 +482,163 @@ $('btnSprint').addEventListener('touchstart', e => {
 $('btnLight').addEventListener('touchstart', e => {
   e.preventDefault(); if (G.state === 'play') G.toggleLight();
 }, { passive: false });
+
+/* ═══════════ 임무 중 HUD 버튼 · 홈으로 · 시점 거리 · 버튼 배치 ═══════════ */
+/* 오른쪽 위 일시정지 · 홈 — 터치에는 Esc 가 없어 멈출 길이 없었다. 홈은 게임을 멈춘 채로 한 번 묻는다 */
+const Modal = {
+  homeFrom: null,
+  askHome() {
+    if (G.state === 'map') G.toggleMap();
+    if (G.state === 'arms') G.closeArms(null);
+    if (G.state !== 'play' && G.state !== 'pause') return;
+    this.homeFrom = G.state;
+    G.state = 'pause'; input.firing = false;
+    UI.hideScreens();
+    $('homeAskNote').textContent = G.survival || G.challenge
+      ? T('이번 판의 기록은 남지 않습니다.')
+      : T('이번 임무의 진행은 저장되지 않습니다. 앞서 마친 장은 그대로 남습니다.');
+    $('homeAsk').classList.remove('hidden');
+  },
+  homeAnswer(go) {
+    $('homeAsk').classList.add('hidden');
+    if (go) { G.state = 'title'; Radio.reset(); SFX.ambience(false); UI.enterMenu(); return; }
+    if (this.homeFrom === 'play') { G.state = 'play'; UI.hideScreens(); } else UI.showPause();
+  },
+  /** 열린 모달을 닫는다(Esc · 게임패드 B) — 닫았으면 true */
+  close() {
+    if (!$('homeAsk').classList.contains('hidden')) { this.homeAnswer(false); return true; }
+    if ($('viewSheet') && !$('viewSheet').classList.contains('hidden')) { ViewSheet.close(); return true; }
+    if (!$('layoutEd').classList.contains('hidden')) { TLayout.close(); return true; }
+    return false;
+  }
+};
+$('btnHudHome').addEventListener('click', e => { e.stopPropagation(); SFX.click(); Modal.askHome(); });
+$('btnHudPause').addEventListener('click', e => { e.stopPropagation(); SFX.click(); if (G.state === 'play') G.togglePause(); });
+
+/* 시점 거리 — 끄는 대로 뒤의 3D 화면이 바로 바뀐다(모달 아래가 실제 화면).
+   게임 중(일시정지)이면 그 장면을, 타이틀에서 열면 미리 보기 판을 잠깐 띄운다 */
+const ViewSheet = {
+  from: null, preview: false,
+  open() {
+    if (!$('viewSheet')) return;
+    this.from = $('scrSettings').classList.contains('hidden') ? 'pause' : 'settings';
+    this.back = UI.settingsFrom;
+    if (G.state !== 'pause') {
+      this.preview = true;
+      G.start('survival');                    // 정지된 채 그리기만 한다 — 기록 · 진행에는 남지 않는다
+      G.state = 'pause';
+      clearTimeout(G.cityCardT); $('cityCard').classList.remove('show');
+    }
+    UI.hideScreens();
+    $('hud').classList.add('hidden'); $('touch').classList.add('hidden');
+    $('viewSheet').classList.remove('hidden');
+    this.sync();
+  },
+  sync() {
+    const v = SETTINGS.get('view3d');
+    $('viewRange').value = v; $('viewVal').textContent = v;
+    for (const b of document.querySelectorAll('[data-view]')) b.classList.toggle('on', +b.dataset.view === v);
+  },
+  close() {
+    $('viewSheet').classList.add('hidden');
+    UI.settingsFrom = this.back;
+    if (this.preview) {
+      this.preview = false;
+      G.state = 'title'; SFX.ambience(false); SFX.menuMusic(true);
+      UI.syncSettings(); UI.show('scrSettings');
+      return;
+    }
+    $('hud').classList.remove('hidden'); $('touch').classList.toggle('hidden', !isTouch);
+    if (this.from === 'settings') { UI.syncSettings(); UI.show('scrSettings'); } else UI.showPause();
+  }
+};
+if ($('viewSheet')) {
+  $('viewRange').addEventListener('input', e => { SETTINGS.set('view3d', +e.target.value); ViewSheet.sync(); });
+  $('viewSheet').addEventListener('click', e => {
+    const b = e.target.closest('[data-view]');
+    if (b) { SFX.click(); SETTINGS.set('view3d', +b.dataset.view); ViewSheet.sync(); }
+  });
+}
+
+/* 버튼 배치 — 터치 버튼을 끌어 옮긴다. 자리는 화면 비율 좌표(가운데 점)로 가로 · 세로 화면을 따로 기억하고,
+   기억이 없는 버튼은 CSS 의 기본 자리에 둔다. 스틱은 엄지가 닿는 곳에 생기므로 옮길 것이 없다 */
+const TLayout = {
+  ids: ['btnSwap', 'btnMelee', 'btnReload', 'btnSprint', 'btnLight', 'btnNade', 'btnFire'],
+  key: () => innerWidth >= innerHeight ? 'L' : 'P',
+  load() { try { const o = JSON.parse(SETTINGS.get('tlayout') || '{}'); return o && typeof o === 'object' ? o : {}; } catch (e) { return {}; } },
+  apply() {
+    const m = this.load()[this.key()] || {};
+    for (const id of this.ids) {
+      const el = $(id), q = m[id];
+      if (q && isFinite(q[0]) && isFinite(q[1])) {
+        el.classList.add('tbtn--free');
+        el.style.left = (clamp(q[0], 0, 1) * 100) + '%'; el.style.top = (clamp(q[1], 0, 1) * 100) + '%';
+        el.style.right = el.style.bottom = 'auto';
+      } else {
+        el.classList.remove('tbtn--free');
+        el.style.left = el.style.top = el.style.right = el.style.bottom = '';
+      }
+    }
+  },
+  open() {
+    this.from = $('scrSettings').classList.contains('hidden') ? 'pause' : 'settings';
+    this.touchWas = $('touch').classList.contains('hidden');
+    UI.hideScreens();
+    applyTouchLayout(); this.apply();
+    $('touch').classList.remove('hidden');
+    document.body.classList.add('tl-edit');
+    $('layoutEd').classList.remove('hidden');
+  },
+  close() {
+    document.body.classList.remove('tl-edit');
+    $('layoutEd').classList.add('hidden');
+    $('touch').classList.toggle('hidden', this.touchWas);
+    if (this.from === 'settings') { UI.syncSettings(); UI.show('scrSettings'); } else UI.showPause();
+  },
+  reset() {
+    const all = this.load(); delete all[this.key()];
+    SETTINGS.set('tlayout', Object.keys(all).length ? JSON.stringify(all) : '');
+    this.apply();
+  }
+};
+(() => {
+  let drag = null;
+  $('touch').addEventListener('pointerdown', e => {
+    if (!document.body.classList.contains('tl-edit')) return;
+    const el = e.target.closest('.tbtn');
+    if (!el) return;
+    e.preventDefault(); e.stopPropagation();
+    const r = el.getBoundingClientRect();
+    drag = { el, id: e.pointerId, dx: e.clientX - (r.left + r.width / 2), dy: e.clientY - (r.top + r.height / 2), half: Math.max(r.width, r.height) / 2 };
+    el.classList.add('dragging');
+    try { el.setPointerCapture(e.pointerId); } catch (_) { /* 무시 */ }
+  }, true);
+  const move = e => {
+    if (!drag || e.pointerId !== drag.id) return;
+    const W0 = innerWidth, H0 = innerHeight, m = Math.min(drag.half, 40);
+    const x = clamp(e.clientX - drag.dx, m, W0 - m), y = clamp(e.clientY - drag.dy, m, H0 - m);
+    const el = drag.el;
+    el.classList.add('tbtn--free');
+    el.style.left = x + 'px'; el.style.top = y + 'px'; el.style.right = el.style.bottom = 'auto';
+    drag.x = x / W0; drag.y = y / H0;
+  };
+  const up = e => {
+    if (!drag || e.pointerId !== drag.id) return;
+    drag.el.classList.remove('dragging');
+    if (drag.x !== undefined) {
+      const all = TLayout.load(), k = TLayout.key();
+      all[k] = Object.assign({}, all[k], { [drag.el.id]: [+drag.x.toFixed(4), +drag.y.toFixed(4)] });
+      SETTINGS.set('tlayout', JSON.stringify(all));
+    }
+    drag = null; TLayout.apply();
+  };
+  window.addEventListener('pointermove', move);
+  window.addEventListener('pointerup', up);
+  window.addEventListener('pointercancel', up);
+})();
+SETTINGS.onChange(k => { if (k === 'tlayout' || k === null) TLayout.apply(); });
+window.addEventListener('resize', () => TLayout.apply());
+TLayout.apply();
 
 /* ═══════════ 도움말 ═══════════ */
 /* 처음 마주치는 순간에 한 번만 뜨는 한 줄 설명. 본 것은 기억해 두고 다시 띄우지 않는다. */
@@ -5144,6 +5303,7 @@ const UI = {
     $('setBright').value = SETTINGS.brightness;
     $('setBrightVal').textContent = SETTINGS.brightness;
     $('setDiffNote').textContent = `${T(SETTINGS.mod.name)} — ${T(SETTINGS.mod.note)}`;
+    if ($('setViewVal')) $('setViewVal').textContent = SETTINGS.get('view3d');
     for (const b of document.querySelectorAll('.tog[data-set]'))
       b.setAttribute('aria-pressed', String(!!SETTINGS.get(b.dataset.set)));
     const n = Hints.seenCount;
@@ -5328,6 +5488,13 @@ document.addEventListener('click', e => {
       break;
     case 'start':    G.start(G.pendingLevel); break;
     case 'resume':   G.togglePause(); break;
+    case 'homeno':   Modal.homeAnswer(false); break;
+    case 'homeyes':  Modal.homeAnswer(true); break;
+    case 'view':     ViewSheet.open(); break;
+    case 'viewdone': ViewSheet.close(); break;
+    case 'layout':   TLayout.open(); break;
+    case 'layoutdone': TLayout.close(); break;
+    case 'layoutreset': TLayout.reset(); break;
     case 'restart':  G.start(G.challenge ? 'ch:' + G.challenge.id : G.survival ? 'survival' : G.levelIndex); break;
     case 'challenges': if (G.challengeOpen()) UI.showChallenges(); break;
     case 'chstart': G.start('ch:' + btn.dataset.id); break;

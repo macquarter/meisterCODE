@@ -2209,14 +2209,24 @@ function size() {
   // 멀리까지 늘어지고, 거리만 늘리면 사람이 작아진다. 더 넓은 화면(21:9)은 기준 그대로 옆이 더 보인다
   const a = SW / Math.max(1, SH), r = Math.max(1, Math.min(3.2, (16 / 9) / a));
   camera.aspect = a;
-  camera.fov = 2 * Math.atan(Math.tan(FOV / 2 * Math.PI / 180) * Math.pow(r, 0.45)) * 180 / Math.PI;
+  VIEW.fov = 2 * Math.atan(Math.tan(FOV / 2 * Math.PI / 180) * Math.pow(r, 0.45)) * 180 / Math.PI;
+  camera.fov = lensFov();
   VIEW.dist = Math.pow(r, 0.2);
   // 세로 터치 화면은 사람을 조금 위(42%)에 둔다 — 아래쪽은 엄지가 가린다(2D 판과 같은 높이)
   const touch = matchMedia && matchMedia('(pointer: coarse)').matches;
   if (touch && a < 1) camera.setViewOffset(SW, SH, 0, SH * 0.08, SW, SH); else camera.clearViewOffset();
   camera.updateProjectionMatrix();
 }
-const VIEW = { dist: 1 };
+const VIEW = { dist: 1, fov: FOV, vz: 0 };
+/* 시점 거리(설정 0‒100) → 배율. 100 = 1(가장 멀리), 0 = 0.34(인물이 약 3배).
+   0.62 까지는 카메라를 당기고(입체감), 그보다 가까이는 렌즈를 좁힌다 — 더 당기면 카메라가 높은 건물
+   지붕보다 낮아져 남쪽 건물이 사람을 가린다 */
+const VZ_NEAR = 0.34, DOLLY_MIN = 0.62;
+function viewZoom() { return VZ_NEAR + (1 - VZ_NEAR) * (SETTINGS.get('view3d') ?? 100) / 100; }
+function lensFov() {
+  const k = Math.min(1, (VIEW.vz || 1) / DOLLY_MIN);
+  return 2 * Math.atan(Math.tan(VIEW.fov / 2 * Math.PI / 180) * k) * 180 / Math.PI;
+}
 
 /** 도시의 공기 — 가로등 빛깔 · 안개 · 색 보정 */
 function applyKit(w) {
@@ -2249,13 +2259,19 @@ function resetWorld(w) {
 /* 카메라 — 플레이어 앞쪽(바라보는 방향)으로 조금 당긴 곳을 남쪽 위에서 내려다본다 */
 const camT = new THREE.Vector3();
 function placeCamera(g) {
-  // 시점 — 가깝게는 인물이 rc.15 까지의 크기로 보이도록 카메라를 당긴다(CHAR_S 만큼)
-  const vz = (R3D.zoom || 1) * (SETTINGS.get('cam3d') === 'near' ? CHAR_S + 0.04 : 1);
+  // 시점 거리 — 설정을 끄는 동안 부드럽게 따라간다(약 0.1초에 남은 차이의 70%, 프레임 빠르기와 무관)
+  const want = viewZoom(), now = performance.now(), dt = Math.min(0.5, (now - (VIEW.t || now)) / 1000);
+  VIEW.t = now;
+  VIEW.vz = VIEW.vz ? VIEW.vz + (want - VIEW.vz) * (1 - Math.exp(-dt * 12)) : want;
+  if (Math.abs(VIEW.vz - want) < 0.002) VIEW.vz = want;
+  const f = lensFov();
+  if (Math.abs(camera.fov - f) > 0.01) { camera.fov = f; camera.updateProjectionMatrix(); }
+  const vz = (R3D.zoom || 1) * VIEW.vz;
   const p = g.player, lead = 70 * Math.min(1, vz);
   const tx = p.x + Math.cos(p.angle) * lead, tz = p.y + Math.sin(p.angle) * lead;
   camT.set(tx, 12, tz);
   const sh = g.shake > 0.1 && SETTINGS.shake ? g.shake * 0.8 : 0;
-  const D = DIST * vz * VIEW.dist;
+  const D = DIST * Math.max(DOLLY_MIN, vz) * VIEW.dist;
   camera.position.set(tx + (Math.random() - 0.5) * sh + (g.kickX || 0), D * Math.sin(PITCH), tz + D * Math.cos(PITCH) + (Math.random() - 0.5) * sh + (g.kickY || 0));
   camera.lookAt(camT);
   camera.updateMatrixWorld();

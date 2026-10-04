@@ -43,6 +43,10 @@ const I18N = (() => {
     '센소지': 'Senso-ji', '왓 아룬': 'Wat Arun', '민주기념탑': 'Democracy Monument', '야시장': 'Night Market',
     /* ── 2부: 새벽호의 항해 ── */
     '시점': 'View', '가깝게': 'Close', '시점 가깝게': 'View: close', '시점 멀리': 'View: far', '화면 비율': 'Aspect ratio', '꽉 채우기': 'Fill screen',
+    '홈으로': 'Home', '홈으로 나갈까요?': 'Leave to the home screen?', '이번 임무의 진행은 저장되지 않습니다. 앞서 마친 장은 그대로 남습니다.': 'Progress in this mission will not be saved. Chapters you have finished stay unlocked.',
+    '이번 판의 기록은 남지 않습니다.': 'This run will not be recorded.', '완료': 'Done', '중간': 'Medium', '아주 가깝게': 'Very close',
+    '시점 거리': 'View distance', '미리 보며 조절 →': 'Adjust with preview →', '버튼 배치': 'Button layout', '편집 →': 'Edit →',
+    '버튼을 끌어 원하는 자리에 놓으세요': 'Drag the buttons where you want them', '기본 배치': 'Reset',
     '용암 지대를 지나 교회 앞 집결지까지': 'Cross the lava field to the rally point by the church',
     '헬기장으로 이동': 'Reach the helipad', '헬기가 내릴 때까지 헬기장을 지킬 것': 'Hold the helipad until the helicopter lands', '헬기에 탑승': 'Board the helicopter',
     '헬기장': 'Helipad', '헬기가 온다 — {s}초 버텨라': 'The helicopter is coming — hold out {s}s', '헬기 착륙까지 {s}초 — 버텨라': '{s}s until the helicopter lands — hold out',

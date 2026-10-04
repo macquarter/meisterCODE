@@ -40,6 +40,10 @@ html:not(.r3d-off) #view{background:transparent !important}
         <span id="hudKills">0</span> 처치
         <span class="hud__sep">·</span>
         <span id="hudClock">00:00</span>
+        <span class="hud__btns">
+          <button type="button" class="hudbtn" id="btnHudPause" aria-label="일시정지"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="4.5" width="4" height="15" rx="1" fill="currentColor" stroke="none"/><rect x="14" y="4.5" width="4" height="15" rx="1" fill="currentColor" stroke="none"/></svg></button>
+          <button type="button" class="hudbtn" id="btnHudHome" aria-label="홈으로"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11.5 12 3.5l9 8"/><path d="M5.5 9.5V20.5h4.5v-6h4v6h4.5V9.5"/></svg></button>
+        </span>
       </div>
     </div>
 
@@ -96,13 +100,13 @@ html:not(.r3d-off) #view{background:transparent !important}
   <div id="touch" class="hidden">
     <div class="pad pad--move" id="padMove"><i></i></div>
     <div class="pad pad--turn" id="padTurn"><i></i></div>
-    <button class="tbtn tbtn--swap" id="btnSwap">무기</button>
-    <button class="tbtn tbtn--melee" id="btnMelee">밀치기</button>
-    <button class="tbtn tbtn--reload" id="btnReload">장전</button>
-    <button class="tbtn tbtn--sprint" id="btnSprint">질주</button>
-    <button class="tbtn tbtn--light" id="btnLight">손전등</button>
-    <button class="tbtn tbtn--nade" id="btnNade">수류탄</button>
-    <button class="tbtn tbtn--fire" id="btnFire">사격</button>
+    <button class="tbtn tbtn--swap" id="btnSwap" aria-label="무기" data-tb="swap"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 6h17v4.2h-8.2l-.7 1.8a1.5 1.5 0 0 1-1.4 1H8.4L7.2 18.5H3.3L5 10.2H2.5z" fill="currentColor" stroke="none"/><circle cx="11" cy="8" r="0.9" fill="#0d1014" stroke="none"/><path d="M14 17.5h7m-2.2-2.2 2.2 2.2-2.2 2.2"/></svg></button>
+    <button class="tbtn tbtn--melee" id="btnMelee" aria-label="밀치기" data-tb="melee"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 13V6.5a1.5 1.5 0 0 1 3 0V11m0-1V4.5a1.5 1.5 0 0 1 3 0V10m0 0V5.5a1.5 1.5 0 0 1 3 0V11m0 0V8.5a1.5 1.5 0 0 1 3 0V14a7 7 0 0 1-7 7h-.6a6 6 0 0 1-4.7-2.3L3.9 15a1.6 1.6 0 0 1 2.5-2L7 13.6"/></svg></button>
+    <button class="tbtn tbtn--reload" id="btnReload" aria-label="장전" data-tb="reload"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3"/><path d="M19.5 3.5v4.5H15"/><rect x="10" y="9" width="4" height="6" rx="1" fill="currentColor" stroke="none"/></svg></button>
+    <button class="tbtn tbtn--sprint" id="btnSprint" aria-label="질주" data-tb="sprint"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="15.5" cy="4" r="2.1" fill="currentColor" stroke="none"/><path d="M12.5 8 9 9.5 7 13M12.5 8l-1.8 5.2 3.6 2.6V21M10.7 13.2 8.4 17.2H4.5M12.5 8l2.6 2.8 3.4.4"/></svg></button>
+    <button class="tbtn tbtn--light" id="btnLight" aria-label="손전등" data-tb="light"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2.5h8v3l-2 3V20a2 2 0 0 1-4 0V8.5l-2-3z"/><path d="M12 12.5v2"/></svg></button>
+    <button class="tbtn tbtn--nade" id="btnNade" aria-label="수류탄" data-tb="nade"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="15" rx="5.6" ry="6.4"/><path d="M9.6 8.6V6h4.8v2.6M14.4 6.4h1.4a1.6 1.6 0 0 1 1.6 1.6v4.2"/><circle cx="7.6" cy="5.2" r="1.7"/><path d="M6.8 13h10.4M6.6 17h10.8" stroke-width="1.4"/></svg></button>
+    <button class="tbtn tbtn--fire" id="btnFire" aria-label="사격" data-tb="fire"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="7"/><path d="M12 1.5V6m0 12v4.5M1.5 12H6m12 0h4.5"/><circle cx="12" cy="12" r="1.6" fill="currentColor" stroke="none"/></svg></button>
   </div>
 
   <!-- 전체 지도 (원작 1.1): 보는 동안 시간이 멈춘다 -->
@@ -116,6 +120,48 @@ html:not(.r3d-off) #view{background:transparent !important}
   <div id="arms" class="arms hidden" role="dialog" aria-label="무기 선택">
     <div class="arms__row" id="armsRow"></div>
     <p class="arms__note" id="armsNote">무기를 누르면 바로 이어집니다</p>
+  </div>
+
+  <!-- 홈으로 — 임무 중 HUD 의 집 모양 버튼. 게임이 멈춘 채로 묻는다 -->
+  <div id="homeAsk" class="modal hidden" role="dialog" aria-modal="true" aria-label="홈으로">
+    <div class="modal__box">
+      <h3>홈으로 나갈까요?</h3>
+      <p id="homeAskNote">이번 임무의 진행은 저장되지 않습니다. 앞서 마친 장은 그대로 남습니다.</p>
+      <div class="modal__acts">
+        <button type="button" class="btn btn--primary" data-act="homeno">계속하기</button>
+        <button type="button" class="btn" data-act="homeyes">홈으로</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 버튼 배치 — 터치 버튼을 끌어 옮긴다. 가로 · 세로 화면을 따로 기억한다 -->
+  <div id="layoutEd" class="layouted hidden" role="dialog" aria-modal="true" aria-label="버튼 배치">
+    <div class="layouted__bar">
+      <p id="layoutNote">버튼을 끌어 원하는 자리에 놓으세요</p>
+      <div class="layouted__acts">
+        <button type="button" class="btn btn--ghost" data-act="layoutreset">기본 배치</button>
+        <button type="button" class="btn btn--primary" data-act="layoutdone">완료</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 시점 거리 — 끄는 대로 뒤의 3D 화면이 바로 바뀐다 -->
+  <div id="viewSheet" class="sheet hidden" role="dialog" aria-modal="true" aria-label="시점 거리">
+    <div class="sheet__panel">
+      <div class="sheet__head"><b>시점 거리</b><span id="viewVal">100</span></div>
+      <div class="sheet__range">
+        <span>가깝게</span>
+        <input type="range" id="viewRange" min="0" max="100" step="1" value="100" aria-label="시점 거리">
+        <span>멀리</span>
+      </div>
+      <div class="seg sheet__presets">
+        <button type="button" data-view="0">아주 가깝게</button>
+        <button type="button" data-view="40">가깝게</button>
+        <button type="button" data-view="70">중간</button>
+        <button type="button" data-view="100">멀리</button>
+      </div>
+      <button type="button" class="btn btn--primary" data-act="viewdone">완료</button>
+    </div>
   </div>
 
   <!-- ══════════ SCREENS ══════════ -->
@@ -242,9 +288,9 @@ html:not(.r3d-off) #view{background:transparent !important}
         <h2>일시정지</h2>
         <p class="pause__where" id="pauseWhere"></p>
         <dl class="result__stats" id="pauseStats"></dl>
-        <div class="seg pause__view" aria-label="시점">
-          <button type="button" data-set="cam3d" data-val="near">시점 가깝게</button>
-          <button type="button" data-set="cam3d" data-val="far">시점 멀리</button>
+        <div class="pause__tools">
+          <button type="button" class="btn btn--ghost" data-act="view">시점 거리</button>
+          <button type="button" class="btn btn--ghost touch-only" data-act="layout">버튼 배치</button>
         </div>
         <div class="screen__side screen__actions">
           <button class="btn btn--primary" data-act="resume">계속하기</button>
@@ -309,12 +355,9 @@ html:not(.r3d-off) #view{background:transparent !important}
             <b>조준 스틱</b>은 민 방향을 바로 비추는 트윈 스틱. <b>회전</b>은 원작처럼 좌우로 민 만큼 돈다.
             어느 방식이든 왼쪽 화면 아무 데나 누르면 그 자리에 이동 스틱이 생긴다.</p>
 
-          <div class="set__row set__row--stack">
-            <div class="set__label">시점</div>
-            <div class="seg" id="setCam3d">
-              <button type="button" data-set="cam3d" data-val="near">가깝게</button>
-              <button type="button" data-set="cam3d" data-val="far">멀리</button>
-            </div>
+          <div class="set__row">
+            <div class="set__label">시점 거리 <b id="setViewVal">100</b></div>
+            <button type="button" class="set__btn" data-act="view">미리 보며 조절 →</button>
           </div>
           <div class="set__row set__row--stack">
             <div class="set__label">화면 비율</div>
@@ -354,6 +397,10 @@ html:not(.r3d-off) #view{background:transparent !important}
               <button type="button" data-set="touchSize" data-val="normal">보통</button>
               <button type="button" data-set="touchSize" data-val="large">크게</button>
             </div>
+          </div>
+          <div class="set__row touch-only">
+            <div class="set__label">버튼 배치</div>
+            <button type="button" class="set__btn" data-act="layout">편집 →</button>
           </div>
           <div class="set__row touch-only">
             <div class="set__label">진동</div>

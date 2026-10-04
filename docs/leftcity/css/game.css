@@ -118,7 +118,8 @@ body.touch .boss{top:calc(96px + env(safe-area-inset-top));width:min(300px,62vw)
   background:radial-gradient(ellipse at center,transparent 35%,rgba(150,20,15,.75) 100%);
   transition:opacity .18s ease-out}
 
-.pause__view{margin:0 auto 14px;max-width:320px}
+.pause__tools{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin:0 auto 14px}
+.screen .pause__tools .btn{width:auto;margin-top:0;padding:9px 16px;font-size:12px}
 .citycard{position:absolute;left:0;right:0;top:30%;text-align:center;pointer-events:none;opacity:0;transition:opacity 1.2s ease;color:#efe6d4;text-shadow:0 2px 18px rgba(0,0,0,.9)}
 .citycard.show{opacity:1;transition:opacity .6s ease}
 .citycard small{display:block;font-size:calc(11px * var(--hudz,1));letter-spacing:.42em;opacity:.7;margin-bottom:6px}
@@ -425,11 +426,11 @@ kbd{display:inline-block;min-width:30px;padding:5px 9px;font-family:var(--font);
 .set__note{font-size:11px;line-height:1.8;color:var(--fog);opacity:.7;margin:0 0 8px;
   border-bottom:1px solid rgba(255,255,255,.06);padding-bottom:11px}
 
-.set input[type=range]{-webkit-appearance:none;appearance:none;width:min(220px,48vw);height:3px;
+.set input[type=range],.sheet input[type=range]{-webkit-appearance:none;appearance:none;width:min(220px,48vw);height:3px;
   background:rgba(255,255,255,.14);outline:none;border-radius:2px}
-.set input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;
+.set input[type=range]::-webkit-slider-thumb,.sheet input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;
   width:15px;height:15px;border-radius:50%;background:var(--amber);cursor:pointer;border:none}
-.set input[type=range]::-moz-range-thumb{width:15px;height:15px;border-radius:50%;
+.set input[type=range]::-moz-range-thumb,.sheet input[type=range]::-moz-range-thumb{width:15px;height:15px;border-radius:50%;
   background:var(--amber);cursor:pointer;border:none}
 
 .seg{display:flex;gap:0;border:1px solid rgba(255,255,255,.14);border-radius:3px;overflow:hidden}
@@ -494,7 +495,7 @@ body.touch .hud__meter{bottom:calc(20px + env(safe-area-inset-bottom))}
   body.touch .hud__bottom{position:absolute;top:calc(60px + env(safe-area-inset-top));
     left:max(14px,env(safe-area-inset-left));margin:0;flex-wrap:nowrap;gap:10px}
   body.touch .gauge{width:min(92px,15vw)}
-  body.touch .ammo{position:fixed;top:calc(40px + env(safe-area-inset-top))}
+  body.touch .ammo{position:fixed;top:calc(50px + env(safe-area-inset-top))}
   body.touch .ammo__icon,body.touch .ammo__pips,body.touch .ammo__nadeIcon{display:none}   /* 낮은 가로 화면 — 근접 버튼과 겹치지 않게 */
   body.touch .boss{top:calc(100px + env(safe-area-inset-top))}
   body.touch #hint{top:calc(124px + env(safe-area-inset-top))}
@@ -644,3 +645,61 @@ body.ts-large #touch{--ts:1.14}
 /* 큰 모니터 — 게임 화면을 키운 만큼(ZOOM) HUD 와 메뉴도 키운다 */
 body:not(.touch) #hud{zoom:var(--hudz,1)}
 body:not(.touch) .screen__inner,body:not(.touch) .arms,body:not(.touch) .bigmap__legend,body:not(.touch) .bigmap__note{zoom:var(--hudz,1)}
+
+/* ── 터치 버튼 아이콘 (rc.19) — 글자 대신 그림. 이름은 aria-label 로 ── */
+.tbtn{display:flex;align-items:center;justify-content:center;padding:0}
+.tbtn svg{width:50%;height:50%;display:block;pointer-events:none}
+.tbtn--fire svg{width:44%;height:44%}
+#touch .tbtn.tbtn--free{transform:translate(-50%,-50%) scale(var(--ts))}
+#touch .tbtn.tbtn--free:active{transform:translate(-50%,-50%) scale(calc(var(--ts) * .94))}
+
+/* ── HUD 오른쪽 위 — 일시정지 · 홈 ── */
+.hud__stats{white-space:nowrap}
+.hud__btns{display:inline-flex;gap:6px;margin-left:12px;vertical-align:middle}
+.hudbtn{pointer-events:auto;width:32px;height:32px;border-radius:50%;display:inline-flex;align-items:center;
+  justify-content:center;padding:0;border:1px solid rgba(255,255,255,.16);background:rgba(4,6,9,.5);
+  color:var(--bone);cursor:pointer;touch-action:manipulation}
+.hudbtn svg{width:16px;height:16px}
+.hudbtn:hover{background:rgba(255,255,255,.12)}
+.hudbtn:active{transform:scale(.94)}
+body:not(.touch) .minimap{top:calc(54px + env(safe-area-inset-top))}
+
+/* ── 모달 — 홈으로 ── */
+.modal{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;padding:20px;
+  background:rgba(0,0,0,.55);-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px)}
+.modal__box{width:min(360px,100%);background:rgba(12,15,19,.96);border:1px solid rgba(255,255,255,.12);
+  border-radius:10px;padding:22px 20px 18px;text-align:center}
+.modal__box h3{font-size:17px;margin:0 0 8px;letter-spacing:.04em;font-weight:600}
+.modal__box p{font-size:12.5px;color:var(--fog);line-height:1.7;margin:0 0 18px}
+.modal__acts{display:flex;gap:10px}
+.modal__acts .btn{flex:1;width:auto}
+
+/* ── 시점 거리 — 아래쪽 판만 가리고 위는 실제 3D 화면 ── */
+.sheet{position:fixed;inset:0;pointer-events:none;display:flex;align-items:flex-end;justify-content:center;
+  padding:0 12px max(14px,env(safe-area-inset-bottom))}
+.sheet__panel{pointer-events:auto;width:min(520px,100%);background:rgba(10,13,17,.86);
+  -webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);border:1px solid rgba(255,255,255,.12);
+  border-radius:12px;padding:14px 16px;display:flex;flex-direction:column;gap:12px}
+.sheet__head{display:flex;justify-content:space-between;align-items:baseline}
+.sheet__head b{font-size:14px;letter-spacing:.06em;font-weight:600}
+.sheet__head span{color:var(--amber);font-variant-numeric:tabular-nums;font-size:15px}
+.sheet__range{display:flex;align-items:center;gap:12px;font-size:11px;color:var(--fog);white-space:nowrap}
+.sheet input[type=range]{flex:1;width:auto;height:4px;touch-action:none}
+.sheet input[type=range]::-webkit-slider-thumb{width:24px;height:24px}
+.sheet input[type=range]::-moz-range-thumb{width:24px;height:24px}
+.sheet__presets button{padding:8px 6px;font-size:11px}
+.sheet .btn{width:100%;margin:0}
+
+/* ── 버튼 배치 편집 — 버튼을 끌어 옮긴다 ── */
+.layouted{position:fixed;left:50%;top:max(12px,env(safe-area-inset-top));transform:translateX(-50%);
+  width:min(560px,calc(100% - 24px));pointer-events:none}
+.layouted__bar{pointer-events:auto;background:rgba(10,13,17,.92);border:1px solid rgba(240,180,41,.4);
+  border-radius:10px;padding:10px 12px;display:flex;align-items:center;gap:12px;justify-content:space-between;flex-wrap:wrap}
+.layouted__bar p{font-size:12px;color:var(--bone);margin:0}
+.layouted__acts{display:flex;gap:8px;margin-left:auto}
+.layouted__acts .btn{width:auto;padding:8px 14px;font-size:12px;margin:0}
+body.tl-edit #touch{background:rgba(0,0,0,.4)}
+body.tl-edit #touch .pad{opacity:.12;pointer-events:none}
+body.tl-edit #touch .tbtn{outline:1px dashed rgba(240,180,41,.8);outline-offset:3px;cursor:grab;touch-action:none;
+  background:rgba(255,255,255,.1);opacity:1}
+body.tl-edit #touch .tbtn.dragging{cursor:grabbing;background:rgba(240,180,41,.28)}

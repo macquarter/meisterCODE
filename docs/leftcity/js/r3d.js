@@ -58,6 +58,8 @@ function hasGL2() {
 }
 
 /* ── 설정 ── */
+/** 간판 · 표지 글꼴 — 게임과 같은 Pretendard */
+const LCF = window.LC_FONT || 'sans-serif';
 const CH = 16;                         // 덩어리 한 변(칸)
 const FLOOR_PX = 34;                   // 한 층 높이 (세계 px)
 const HMUL = 1.12;                     // 2D 판의 건물 높이(BLD_H) → 3D 높이 배수 — 원작처럼 벽이 높게 선다
@@ -239,7 +241,7 @@ function makeTextures() {
       if (r() < 0.45) {                                                  // 셔터
         x.fillStyle = '#9aa0a6'; x.fillRect(bx + 8, 18, 112, 78);
         x.fillStyle = 'rgba(0,0,0,.35)'; for (let k = 22; k < 96; k += 6) x.fillRect(bx + 8, k, 112, 1.5);
-        if (r() < 0.5) { x.fillStyle = 'rgba(40,40,40,.6)'; x.font = 'bold 16px sans-serif'; x.fillText(['X', '/', '#', 'S'][(r() * 4) | 0], bx + 40 + r() * 40, 60); }
+        if (r() < 0.5) { x.fillStyle = 'rgba(40,40,40,.6)'; x.font = '700 16px ' + LCF; x.fillText(['X', '/', '#', 'S'][(r() * 4) | 0], bx + 40 + r() * 40, 60); }
       } else {                                                           // 유리 가게
         x.fillStyle = '#141a20'; x.fillRect(bx + 10, 20, 108, 76);
         x.fillStyle = 'rgba(150,180,210,.2)'; x.fillRect(bx + 10, 20, 108, 10);
@@ -1110,14 +1112,14 @@ function ensureSignMats(w) {
       const cx = (i % 4) * 256, cy = Math.floor(i / 4) * 64, [bg, fg] = C[(r() * C.length) | 0], word = words[(r() * words.length) | 0];
       x.fillStyle = bg; x.fillRect(cx + 2, cy + 3, 252, 58);
       x.strokeStyle = 'rgba(0,0,0,.35)'; x.lineWidth = 3; x.strokeRect(cx + 4, cy + 5, 248, 54);
-      x.fillStyle = fg; x.font = `900 ${word.length > 6 ? 30 : 40}px sans-serif`; x.textAlign = 'center'; x.textBaseline = 'middle';
+      x.fillStyle = fg; x.font = `900 ${word.length > 6 ? 30 : 40}px ${LCF}`; x.textAlign = 'center'; x.textBaseline = 'middle';
       x.fillText(word, cx + 128, cy + 34, 236);
-      if (r() < 0.4) { x.font = '700 14px sans-serif'; x.fillText(['☎ 02-' + ((r() * 9000 + 1000) | 0), 'OPEN 24', '★★★', '2F', '3F'][(r() * 5) | 0], cx + 210, cy + 52); }
+      if (r() < 0.4) { x.font = '700 14px ' + LCF; x.fillText(['☎ 02-' + ((r() * 9000 + 1000) | 0), 'OPEN 24', '★★★', '2F', '3F'][(r() * 5) | 0], cx + 210, cy + 52); }
     }
     for (let i = 0; i < 16; i++) {                                // 세로 간판
       const cx = i * 64, cy = 768, [bg, fg] = C[(r() * C.length) | 0], word = words[(r() * words.length) | 0];
       x.fillStyle = bg; x.fillRect(cx + 4, cy + 2, 56, 252);
-      x.fillStyle = fg; x.font = '900 34px sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle';
+      x.fillStyle = fg; x.font = '900 34px ' + LCF; x.textAlign = 'center'; x.textBaseline = 'middle';
       const chars = [...word].slice(0, 5);
       chars.forEach((ch, k) => x.fillText(ch, cx + 32, cy + 30 + k * (220 / Math.max(1, chars.length - 0.2)), 54));
     }
@@ -1596,7 +1598,7 @@ function signTexture(text, color) {
     x.clearRect(0, 0, W, H);
     x.fillStyle = 'rgba(10,12,14,.85)'; x.fillRect(4, 8, W - 8, H - 16);
     x.strokeStyle = color; x.lineWidth = 3; x.strokeRect(8, 12, W - 16, H - 24);
-    x.fillStyle = color; x.font = `700 ${text.length > 4 ? 40 : 54}px sans-serif`; x.textAlign = 'center'; x.textBaseline = 'middle';
+    x.fillStyle = color; x.font = `700 ${text.length > 4 ? 40 : 54}px ${LCF}`; x.textAlign = 'center'; x.textBaseline = 'middle';
     x.shadowColor = color; x.shadowBlur = 16; x.fillText(text, W / 2, H / 2 + 2);
   }, false);
   signTex.set(key, t);
@@ -1610,7 +1612,7 @@ function makeSign(sg) {
 }
 
 /* ═══════════ 장면 · 빛 · 카메라 ═══════════ */
-const dyn = { props: new Map(), decor: new Map(), signs: new Map(), humans: new Map(), corpses: new Map(), pickups: new Map(), relays: new Map() };
+const dyn = { props: new Map(), decor: new Map(), signs: new Map(), humans: new Map(), corpses: new Map(), pickups: new Map(), relays: new Map(), tw: new Map() };
 let sparkGeo, sparks, player3 = null, splatMesh, dotMesh, particles, partGeo, tracerGeo, tracers, rain, rainGeo, exitRing, exitBeam, nadeMeshes = [];
 const MAXP = 600, MAXDEC = 450, RAIN_N = 1400;
 
@@ -1850,7 +1852,21 @@ function makeHazards() {
   }), 40);
   HZ.casing = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.8, 0.8, 3, 6).rotateZ(Math.PI / 2), enhanceNew(new THREE.MeshStandardMaterial({ color: 0xc8a048, metalness: 0.9, roughness: 0.3 })), 240);
   HZ.shell = new THREE.InstancedMesh(new THREE.CylinderGeometry(1.4, 1.4, 5, 6).rotateZ(Math.PI / 2), enhanceNew(new THREE.MeshStandardMaterial({ color: 0x9c2f24, metalness: 0.3, roughness: 0.5 })), 120);
-  for (const k of ['acid', 'gas']) HZ[k].instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(HZ[k].count * 3), 3);
+  // 돌진 · 도약 예고선 — 바닥에 깔린 붉은 띠(앞쪽 끝에서 흐려진다)
+  HZ.tele = new THREE.InstancedMesh(new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2).translate(0.5, 0, 0), new THREE.ShaderMaterial({
+    vertexShader: `varying vec2 vUv; varying vec3 vP; void main(){ vUv = uv; vP = vec3(1.0);
+      #ifdef USE_INSTANCING_COLOR
+      vP = instanceColor;
+      #endif
+      gl_Position = projectionMatrix * viewMatrix * modelMatrix * instanceMatrix * vec4(position, 1.0); }`,
+    fragmentShader: `varying vec2 vUv; varying vec3 vP;
+      void main(){ float e = smoothstep(0.0, 0.25, vUv.y) * smoothstep(1.0, 0.75, vUv.y) * (1.0 - vUv.x * 0.7);
+        gl_FragColor = vec4(vec3(1.6, 0.28, 0.16) * vP.r * e, 1.0); }`,
+    transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, polygonOffset: true, polygonOffsetFactor: -4
+  }), 6);
+  // 휘감는 것의 혀 — 입에서 끝까지 늘어나는 붉은 끈
+  HZ.tongue = new THREE.InstancedMesh(new THREE.CylinderGeometry(1, 1, 1, 6, 1, true).rotateZ(Math.PI / 2).translate(0.5, 0, 0), enhanceNew(new THREE.MeshStandardMaterial({ color: 0x8a3038, roughness: 0.35, emissive: 0x2a0808 })), 4);
+  for (const k of ['acid', 'gas', 'tele']) HZ[k].instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(HZ[k].count * 3), 3);
   for (const k in HZ) { HZ[k].count = 0; HZ[k].frustumCulled = false; }
   HZ.acid.renderOrder = 3; HZ.gas.renderOrder = 9;
   return Object.values(HZ);
@@ -1893,8 +1909,26 @@ function updateHazards(g, near) {
     if (c.shell) { if (nh < 120) HZ.shell.setMatrixAt(nh++, dm); } else if (nc < 240) HZ.casing.setMatrixAt(nc++, dm);
   }
   HZ.casing.count = nc; HZ.shell.count = nh;
+  let nt = 0, ntg = 0;
+  if (window.LC_TELEGRAPHS) for (const b of window.LC_TELEGRAPHS(g)) {
+    if (nt >= 6) break;
+    const len = g.world.ray(b.x, b.y, b.dir, b.len);
+    dm.compose(dpos.set(b.x, 4.6, b.y), dq.setFromAxisAngle(UPY, -b.dir), dsc.set(len, 1, b.w));
+    HZ.tele.setMatrixAt(nt, dm); HZ.tele.instanceColor.setXYZ(nt, b.locked ? 0.75 : 0.32 + Math.sin(g.time * 22) * 0.14, 0, 0); nt++;
+  }
+  for (const z of g.zombies) {
+    if (ntg >= 4 || z.dead || !z.tonguePhase || z.tonguePhase === 'wind' || !(z.tongueLen > 2)) continue;
+    const h = dyn.humans.get(z), S = h ? h.scale.x : 1;
+    const y0 = 40 * S, y1 = z.tonguePhase === 'pull' ? 30 : 22, dx = z.tipX - z.x, dz = z.tipY - z.y, L = Math.hypot(dx, dz) || 1;
+    tv1.set(dx, y1 - y0, dz); const LL = tv1.length();
+    dq.setFromUnitVectors(XAX, tv1.normalize());
+    dm.compose(dpos.set(z.x + dx / L * 6, y0, z.y + dz / L * 6), dq, dsc.set(LL, 1.1, 1.1));
+    HZ.tongue.setMatrixAt(ntg++, dm);
+  }
+  HZ.tele.count = nt; HZ.tongue.count = ntg;
   for (const k in HZ) { HZ[k].instanceMatrix.needsUpdate = true; if (HZ[k].instanceColor) HZ[k].instanceColor.needsUpdate = true; }
   updateRelays(g, near);
+  updateTwist(g, near);
 }
 /** 중계기 — 상자 · 안테나 · 깜빡이는 등, 바닥에 진행 고리(셰이더로 호를 채운다) */
 function updateRelays(g, near) {
@@ -1932,7 +1966,69 @@ function updateRelays(g, near) {
   }
   for (const [r, o] of dyn.relays) if (!seen.has(r)) { scene.remove(o); dyn.relays.delete(r); }
 }
+/** 미션 변주의 물건 — 제어반(크레센도) · 낙하산 보급 상자 · 연료를 넣을 탈것 자리 */
+const TW_RING = () => new THREE.ShaderMaterial({
+  uniforms: { uProg: { value: 0 }, uCol: { value: new THREE.Color(1, 0.7, 0.16) }, uBase: { value: new THREE.Color(0.3, 0.2, 0.05) } },
+  vertexShader: 'varying vec2 vP; void main(){ vP = position.xz; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+  fragmentShader: `uniform float uProg; uniform vec3 uCol, uBase; varying vec2 vP;
+    void main(){ float a = atan(vP.x, -vP.y) / 6.2832 + 0.5; gl_FragColor = vec4(a < uProg ? uCol * 2.0 : uBase, 1.0); }`,
+  transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide
+});
+function updateTwist(g, near) {
+  const seen = new Set(), tw = g.tw;
+  for (const ob of g.twObjs || []) {
+    seen.add(ob);
+    let o = dyn.tw.get(ob);
+    if (!o) {
+      o = new THREE.Group(); const u = o.userData;
+      if (ob.kind === 'panel') {
+        o.add(part(GEO.box, mat('#5a5048', { roughness: 0.6, metalness: 0.4 }), 0, 15, 0, 18, 30, 12));
+        o.add(part(GEO.box, mat('#2c2724'), 0, 20, 6.2, 12, 9, 0.6));
+        for (const sx of [-4, 0, 4]) o.add(part(GEO.box, mat('#c8b070', { emissive: col('#806020'), emissiveIntensity: 0.6 }), sx, 13, 6.4, 2, 2, 0.6));
+        u.lamp = new THREE.Mesh(GEO.eye, new THREE.MeshBasicMaterial({ color: 0xffb432 })); u.lamp.scale.setScalar(4.5); u.lamp.position.y = 34; o.add(u.lamp);
+        u.ringM = TW_RING();
+        const ring = new THREE.Mesh(new THREE.RingGeometry(66, 72, 64).rotateX(-Math.PI / 2), u.ringM); ring.position.y = 4.3; o.add(ring);
+      } else if (ob.kind === 'crate') {
+        u.box = new THREE.Group();
+        u.box.add(part(GEO.box, mat('#56653f', { roughness: 0.8 }), 0, 8, 0, 22, 16, 22));
+        for (const z of [-11.2, 11.2]) u.box.add(part(GEO.box, mat('#2e3424'), 0, 8, z, 22, 3, 0.4));
+        u.chute = new THREE.Mesh(new THREE.SphereGeometry(30, 16, 8, 0, Math.PI * 2, 0, Math.PI / 2), mat('#d8d4c8', { roughness: 0.9, side: THREE.DoubleSide }));
+        u.chute.scale.y = 0.5; u.chute.position.y = 60; u.box.add(u.chute);
+        o.add(u.box);
+        u.beam = new THREE.Mesh(new THREE.CylinderGeometry(6, 10, 300, 12, 1, true), new THREE.MeshBasicMaterial({ color: 0xff4030, transparent: true, opacity: 0.12, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
+        u.beam.position.y = 150; o.add(u.beam);
+      } else {                                                                     // 탈것 자리 — 연료를 들고 오면 붉은 고리
+        u.ringM = TW_RING(); u.ringM.uniforms.uCol.value.set(0xff5a3a); u.ringM.uniforms.uBase.value.set(0x401008);
+        const ring = new THREE.Mesh(new THREE.RingGeometry(112, 120, 64).rotateX(-Math.PI / 2), u.ringM); ring.position.y = 4.4; o.add(ring);
+      }
+      dyn.tw.set(ob, o); scene.add(o);
+    }
+    const u = o.userData;
+    o.position.set(ob.x, 0, ob.y);
+    o.visible = near(ob.x, ob.y, 1100);
+    if (ob.kind === 'panel') {
+      const run = tw && tw.phase === 'run';
+      const blink = ob.done ? 1 : run ? (Math.sin(g.time * 16) > 0 ? 1 : 0.2) : (Math.sin(g.time * 4) > 0.3 ? 1 : 0.3);
+      const c = ob.done ? 0x78f08c : run ? 0xff4a32 : 0xffb432;
+      u.lamp.material.color.set(c).multiplyScalar(blink * 2.6);
+      u.ringM.uniforms.uProg.value = ob.prog || 0; u.ringM.uniforms.uCol.value.set(ob.done ? 0x78e68c : run ? 0xff5a3a : 0xf0c850);
+      if (o.visible) pushLight(ob.x, 40, ob.y, run ? 220 : 140, tmpC.set(c), (run ? 1.8 : 1.1) * blink);
+    } else if (ob.kind === 'crate') {
+      o.visible = o.visible && !ob.lost;
+      u.box.position.y = (ob.fall || 0) * 260;
+      u.chute.visible = (ob.fall || 0) > 0.02;
+      u.beam.visible = !ob.done;
+      if (o.visible && !ob.done) pushLight(ob.x, 30, ob.y, 200, tmpC.set(0xff4030), 1.6 + Math.sin(g.time * 11) * 0.5);
+    } else {
+      o.visible = o.visible && !ob.done && g.player.carry === 'fuel';
+      u.ringM.uniforms.uProg.value = (g.time * 0.5) % 1;
+      if (o.visible) pushLight(ob.x, 30, ob.y, 180, tmpC.set(0xff5a3a), 1.1);
+    }
+  }
+  for (const [ob, o] of dyn.tw) if (!seen.has(ob)) { scene.remove(o); dyn.tw.delete(ob); }
+}
 /* 값싼 빛 모으기 — 매 프레임 후보(가로등 · 간판 · 불 · 출구)를 카메라 둘레 가까운 순으로 골라 시점 좌표로 넣는다 */
+let carry3 = null;
 const clCand = [], clTmp = new THREE.Vector3(), tmpC = new THREE.Color();
 const SODIUM = new THREE.Color(1.0, 0.62, 0.3);
 function lampFlick(l, t) {
@@ -2278,7 +2374,7 @@ function applyKit(w) {
 function resetWorld(w) {
   clearChunks();
   for (const [, h] of dyn.humans) removeHuman(h);
-  for (const k of ['props', 'decor', 'signs', 'humans', 'corpses', 'pickups', 'relays']) { for (const [, o] of dyn[k]) scene.remove(o); dyn[k].clear(); }
+  for (const k of ['props', 'decor', 'signs', 'humans', 'corpses', 'pickups', 'relays', 'tw']) { for (const [, o] of dyn[k]) scene.remove(o); dyn[k].clear(); }
   dropPlayer();
   for (const lm of LM3) scene.remove(lm); LM3.length = 0;
   curWorld = w;
@@ -2728,8 +2824,8 @@ function poseZombieRig(h, z, g, dt) {
   tiltBone(B.Neck, fwd, roll * 0.5); tiltBone(B.Head, lat, -0.1 + Math.sin(g.time * 1.7 + seed * 5) * 0.05);
   // 팔 — 개체마다 다르게: 0 두 팔을 앞으로(나란히) · 1 한 팔만 뻗고 한 팔은 늘어뜨림 · 2 두 팔을 늘어뜨림 · 3 팔꿈치를 굽혀 낮게 쥠
   const style = u.style ?? 0;
-  const reach = !t.boss && !t.bloat && !t.spit && !runner && !(t.weeper && !z.rage) && style !== 2;
-  const claw = (t.scream && z.screamPhase === 'wind') || (t.weeper && !z.rage);
+  const reach = !t.boss && !t.bloat && !t.spit && !t.armor && !t.charge && !t.tongue && !runner && !(t.weeper && !z.rage) && style !== 2;
+  const claw = (t.scream && z.screamPhase === 'wind') || (t.weeper && !z.rage) || (t.leap && !!z.leapPhase);
   if (reach || claw) {
     const sw = Math.sin(g.time * 2.2 + seed * 6) * 0.08, W0 = z.aggro ? 0.85 : 0.5;
     for (const [up, lo, sd] of [[B.LeftArm, B.LeftForeArm, 1], [B.RightArm, B.RightForeArm, -1]]) {
@@ -2760,6 +2856,29 @@ function poseZombieRig(h, z, g, dt) {
     u.body.position.y = 0; u.body.rotation.z = 0;
     u.body.rotation.x = moving && seed > 0.72 ? Math.sin(g.time * (runner ? 7 : 4.2) + seed * 9) * 0.09 : 0;
   }
+  // 덮치는 것 — 웅크리면 무릎을 굽혀 가라앉고, 날 때는 몸을 앞으로 뻗은 채 포물선을 그린다
+  if (t.leap) {
+    if (z.leapPhase === 'crouch') {
+      u.body.position.y = -9;
+      for (const [ul, ll] of [[B.LeftUpLeg, B.LeftLeg], [B.RightUpLeg, B.RightLeg]]) { aimBone(ul, tdir.copy(fwd).addScaledVector(YAX, 0.1), 0.8); aimBone(ll, tdir.copy(fwd).multiplyScalar(-0.3).addScaledVector(YAX, -1), 0.8); }
+      tiltBone(B.Spine, lat, 0.45); tiltBone(B.Spine1, lat, 0.3);
+    } else if (z.leapPhase === 'air') {
+      const k = 1 - Math.max(0, z.airT) / t.leap.dur;
+      u.body.position.y = Math.sin(k * Math.PI) * 20;
+      tiltBone(B.Spine, lat, 0.75);
+    }
+  }
+  // 들이받는 것 — 오른팔이 비대하게 부풀었고 왼팔은 말라붙었다. 땅을 긁을 때 어깨를 낮춘다
+  if (t.charge && !t.boss && B.RightArm) {
+    B.RightArm.scale.setScalar(1.7); if (B.LeftArm) B.LeftArm.scale.setScalar(0.8);
+    aimBone(B.RightArm, tdir.copy(fwd).multiplyScalar(0.35).addScaledVector(YAX, -1).addScaledVector(lat, 0.2), 0.7);
+    if (z.chargePhase === 'wind') tiltBone(B.Spine, lat, 0.5);
+    else if (z.chargePhase === 'dash') tiltBone(B.Spine, lat, 0.35);
+  }
+  // 휘감는 것 — 기침할 때 몸이 앞으로 꺾이며 들썩인다
+  if (t.tongue && z.tonguePhase === 'wind') tiltBone(B.Spine1, lat, 0.45 + Math.sin(g.time * 30) * 0.1);
+  // 진압 경찰 — 방패를 든 왼팔을 앞으로
+  if (t.armor && B.LeftArm) { aimBone(B.LeftArm, tdir.copy(fwd).addScaledVector(YAX, -0.6).addScaledVector(lat, 0.3), 0.9); aimBone(B.LeftForeArm, tdir.copy(fwd).addScaledVector(lat, -0.5), 0.9); }
   // 부푼 것 — 배가 부풀었다
   if (t.bloat && B.Spine1) { B.Spine1.scale.set(1.55, 1.15, 1.55); B.Spine2.scale.set(1 / 1.3, 1 / 1.05, 1 / 1.3); }
   // 눈 — 머리뼈 앞에 붉은 점 둘
@@ -2774,10 +2893,11 @@ function zombieRig(z) {
   const k = MODELS.lookOf(z), t = z.t;
   let h;
   const hs = (Math.imul(Math.floor(z.x * 13 + z.y * 7), 2654435761) >>> 0);
-  if (k.helmet) h = makeRig('soldier', { tex: hs % 2 ? 'zombie' : 'zombie2' });
+  if (k.helmet || t.armor) h = makeRig('soldier', { tex: hs % 2 ? 'zombie' : 'zombie2' });
   else if (k.hazmat) h = makeRig('soldier', { tex: 'hazmat' });
     else {
-    const look = { skin: deadSkin(t.boss || t.bloat || t.scream || t.weeper ? t.head : k.skin), top: t.boss || t.weeper || t.scream ? t.body : k.top, pants: t.weeper ? t.body : k.pants, shoes: '#141618' };
+    const sp = t.leap || t.tongue || t.charge;
+    const look = { skin: deadSkin(t.boss || t.bloat || t.scream || t.weeper ? t.head : k.skin), top: t.boss || t.weeper || t.scream || sp ? t.body : k.top, pants: t.weeper ? t.body : k.pants, shoes: '#141618' };
     for (const q of ['skin', 'top', 'pants']) look[q] = '#' + new THREE.Color(look[q]).multiplyScalar(0.8).getHexString(THREE.SRGBColorSpace);
     look.sleeve = hs % 2 ? look.top : look.skin;                    // 반소매면 팔뚝이 드러난다
     h = makeRig('xbot', { look });
@@ -2787,6 +2907,13 @@ function zombieRig(z) {
   for (const sd of [-1, 1]) { const e = new THREE.Mesh(GEO.eye, EYE); e.position.set(0, 0, sd * 1.4); eyes.add(e); }
   eyes.visible = false; scene.add(eyes);
   h.userData.eyes = eyes;
+  if (t.armor) {                                                       // 투명 방패 — 앞에서 쏜 총알을 받는다
+    const sh = new THREE.Group();
+    sh.add(part(GEO.box, new THREE.MeshStandardMaterial({ color: 0x9fb4c4, roughness: 0.15, metalness: 0.2, transparent: true, opacity: 0.38, depthWrite: false }), 0, 0, 0, 1.2, 30, 20));
+    sh.add(part(GEO.box, mat('#1a1d20'), 0, 13.5, 0, 1.6, 2, 20.4));
+    sh.add(part(GEO.box, mat('#e8ecef', { emissive: col('#606870'), emissiveIntensity: 0.4 }), 0.7, 4, 0, 0.3, 2.5, 14));
+    sh.position.set(10, 22, -2); h.add(sh);
+  }
   if (t.spit) { const sac = part(GEO.head, mat('#7da040', { roughness: 0.4, emissive: col('#304a10'), emissiveIntensity: 0.8 }), -4, 34, 0, 1.3, 1.3, 1.3); h.add(sac); }
   return h;
 }
@@ -2992,7 +3119,7 @@ function updateHumans(g, p) {
     seen.add(z);
     let h = dyn.humans.get(z);
     if (!h) {
-      const t = z.t, S = t.boss ? 2.3 : t.size >= 18 ? 1.55 : t.bloat ? 1.18 : t.scream ? 1.08 : t.speed > 100 ? 1 : 1.05;
+      const t = z.t, S = t.boss ? 2.3 : t.size >= 18 ? 1.55 : t.charge ? 1.42 : t.tongue ? 1.16 : t.bloat ? 1.18 : t.scream ? 1.08 : t.speed > 100 ? 1 : 1.05;
       const t0 = performance.now();
       if (rigs) { h = zombieRig(z); h.scale.setScalar(S * CHAR_S); prof('zrig', t0); }
       else { h = makeHuman(zombieLook(z)); h.scale.setScalar(S * 1.25 * CHAR_S); }
@@ -3034,6 +3161,20 @@ function updateHumans(g, p) {
     if (vis < 0.02 && d > 260) h.visible = h.visible && g.lightning > 0.05 ? true : h.visible;
   }
   for (const [z, h] of dyn.humans) if (!seen.has(z)) { removeHuman(h); dyn.humans.delete(z); }
+  // 들고 가는 연료통 — 몸 옆에 매달아 무게를 보여 준다
+  if (p.carry === 'fuel' && !p.dead) {
+    if (!carry3) {
+      carry3 = new THREE.Group();
+      const m = mat('#b8321f', { emissive: col('#501008'), emissiveIntensity: 0.5, roughness: 0.45, metalness: 0.3 });
+      carry3.add(part(GEO.box, m, 0, 0, 0, 10, 14, 5.5));
+      carry3.add(part(GEO.box, mat('#3a1410'), 0, 8.5, 0, 6, 2, 2));
+      scene.add(carry3);
+    }
+    const a = p.angle, sw = Math.sin((p.walkPhase || 0)) * 0.12;
+    carry3.visible = true;
+    carry3.position.set(p.x - Math.sin(a) * 13 - Math.cos(a) * 3, 15, p.y + Math.cos(a) * 13 - Math.sin(a) * 3);
+    carry3.rotation.set(sw, -a, 0);
+  } else if (carry3) carry3.visible = false;
   // 플레이어
   if (!player3 && rigs) { player3 = makePlayerRig(); player3.scale.setScalar(1.06 * CHAR_S); scene.add(player3); }
   if (player3 && player3.userData.rig) {
@@ -3073,7 +3214,7 @@ function updateCorpses(g, near) {
         { top: c.hazmat ? '#d9d7cc' : c.top || '#5a5a50', pants: c.hazmat ? '#cfcdc2' : c.pants || '#2d3440', skin: '#8a8f7c', gore: true };
       if (CHAR.ready) {
         const t0 = performance.now(); o = makeCorpseRig(c); prof('corpse', t0);
-        o.scale.setScalar(CHAR_S * (c.type === 'brute' ? 1.5 : c.type === 'behemoth' ? 2.2 : c.type === 'bloater' ? 1.2 : 1));
+        o.scale.setScalar(CHAR_S * (c.type === 'brute' ? 1.5 : c.type === 'behemoth' ? 2.2 : c.type === 'charger' ? 1.4 : c.type === 'bloater' ? 1.2 : 1));
         o.rotation.y = -(c.a || 0) + Math.PI;
         dyn.corpses.set(c, o); scene.add(o);
         o.position.set(c.x, 0, c.y);
@@ -3085,7 +3226,7 @@ function updateCorpses(g, near) {
       h.userData.armL.a.rotation.x = 0.8 + r() * 0.8; h.userData.armR.a.rotation.x = -0.8 - r() * 0.8;
       h.userData.legL.a.rotation.x = 0.2 + r() * 0.3; h.userData.legR.a.rotation.x = -0.2 - r() * 0.3;
       o = new THREE.Group(); h.rotation.z = Math.PI / 2; h.position.set(-12, 4, 0); o.add(h);
-      const S = c.type === 'brute' ? 1.5 : c.type === 'behemoth' ? 2.2 : c.type === 'bloater' ? 1.2 : 1;
+      const S = c.type === 'brute' ? 1.5 : c.type === 'behemoth' ? 2.2 : c.type === 'charger' ? 1.4 : c.type === 'bloater' ? 1.2 : 1;
       o.scale.setScalar(S * 1.25 * CHAR_S);
       o.rotation.y = -(c.a || 0) + Math.PI;
       dyn.corpses.set(c, o); scene.add(o);
@@ -3099,6 +3240,7 @@ function updateCorpses(g, near) {
 }
 
 const dm = new THREE.Matrix4(), dq = new THREE.Quaternion(), dpos = new THREE.Vector3(), dsc = new THREE.Vector3(), UPY = new THREE.Vector3(0, 1, 0);
+const XAX = new THREE.Vector3(1, 0, 0), tv1 = new THREE.Vector3();
 function updateDecals(g, near) {
   let ns = 0, nd = 0; const w = g.world;
   for (const d of g.decals) {
@@ -3156,7 +3298,7 @@ function updateParticles(g) {
 }
 
 const LT_PICK = [];
-const PICK_COL = { ammo: '#e8c04a', shells: '#d0503a', rounds: '#c08a3a', medkit: '#e8e8e0', battery: '#5ab0e8', nade: '#6a8a3a', goal: '#59b7d8', note: '#f0ece0' };
+const PICK_COL = { fuel: '#d0402e', ammo: '#e8c04a', shells: '#d0503a', rounds: '#c08a3a', medkit: '#e8e8e0', battery: '#5ab0e8', nade: '#6a8a3a', goal: '#59b7d8', note: '#f0ece0' };
 function updatePickups(g, near) {
   const seen = new Set();
   for (const pk of g.pickups) {
@@ -3176,6 +3318,14 @@ function updatePickups(g, near) {
       }
       else if (pk.type === 'goal') o.add(part(GEO.box, mat(c, { emissive: col(c), emissiveIntensity: 0.9 }), 0, 7, 0, 12, 10, 12));
       else if (pk.type === 'note') o.add(part(GEO.box, mat(c, { emissive: col(c), emissiveIntensity: 0.4 }), 0, 1, 0, 10, 0.6, 13));
+      else if (pk.type === 'fuel') {                                            // 붉은 연료통 — 손잡이 · 주둥이
+        const m = mat(c, { emissive: col('#601810'), emissiveIntensity: 0.5, roughness: 0.45, metalness: 0.3 });
+        const can = new THREE.Group();
+        can.add(part(GEO.box, m, 0, 8, 0, 11, 15, 6));
+        can.add(part(GEO.box, mat('#3a1410'), 0, 17, 0, 6, 2, 2));
+        can.add(part(GEO.cyl, mat('#2a2a2a', { metalness: 0.6 }), 4, 17, 0, 1.4, 3, 1.4));
+        o.add(can);
+      }
       else o.add(part(GEO.box, mat(c, { emissive: col(c), emissiveIntensity: 0.55 }), 0, 4, 0, 9, 7, 9));
       const halo = new THREE.Mesh(GEO.plane, new THREE.MeshBasicMaterial({ map: TEX.glow, color: col(c), transparent: true, opacity: 0.35, depthWrite: false, blending: THREE.AdditiveBlending }));
       halo.position.y = 0.8; halo.scale.set(46, 1, 46); o.add(halo);

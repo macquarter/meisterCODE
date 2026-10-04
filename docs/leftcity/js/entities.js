@@ -44,6 +44,25 @@ const ZTYPES = {
   // 그 전에 쓰러뜨리면 막을 수 있다. 맞을 때마다 들이켜기가 조금씩 늦춰진다 — 먼저 쏘라는 표적
   screamer: { hp: 66, speed: 62, dmg: 10, r: 12, size: 12, hear: 560, score: 45,   // 비명은 한 마리당 한 번
               body: '#5d4b48', head: '#9a7c70', scream: { wind: 1.6, cool: 15, range: 560, delay: 0.25 } },
+  // ── L4D2 에서 빌린 특수 감염체 — 혼자 하는 게임이라 붙잡아 묶어 두는 것은 없다. 치고 빠지거나 끌어당길 뿐 ──
+  // 덮치는 것 (헌터) — 웅크려 숨을 고르고(0.7초) 몸을 날린다. 맞으면 넘어지듯 밀리지만 붙잡지는 않는다.
+  // 날아오는 도중에 맞히면 떨어져 뒹군다 — 받아치는 맛
+  leaper: { hp: 78, speed: 64, dmg: 8, r: 11, size: 11, hear: 520, score: 40,
+            body: '#3c4148', head: '#8a7466',
+            leap: { min: 80, range: 330, crouch: 0.7, lock: 0.22, speed: 560, dur: 0.6, dmg: 20, knock: 64, cool: 2.8 } },
+  // 들이받는 것 (차저) — 한쪽 팔이 비대하다. 잠깐 땅을 긁고 직선으로 돌진한다. 들이받히면 크게 밀려나 잠시 휘청이지만
+  // 붙들려 가지는 않는다. 벽에 박으면 한참 비틀거린다 — 비켜서서 벽으로 유도하라
+  charger: { hp: 420, speed: 46, dmg: 20, r: 17, size: 16, hear: 380, score: 90,
+             body: '#4a4038', head: '#7a6252',
+             charge: { wind: 0.85, dash: 1.0, cool: 5.2, mul: 4.6, min: 150, max: 520, dmg: 22, knock: 96, slow: 0.8, stun: 1.5 } },
+  // 휘감는 것 (스모커) — 멀리서 기침하다(0.6초) 혀를 쏜다. 혀는 곧게 날아가니 옆으로 비키면 빗나간다.
+  // 감기면 0.5초 동안 끌려가고 한동안 발이 무겁다. 그것을 맞히면 혀가 끊긴다. 죽으면 매캐한 연기를 남긴다
+  puller: { hp: 120, speed: 44, dmg: 8, r: 12, size: 13, hear: 600, score: 50,
+            body: '#4d4a40', head: '#8a8070',
+            tongue: { range: 400, hold: 270, wind: 0.6, speed: 980, drag: 160, pull: 0.5, slow: 1.3, dmg: 6, cool: 6.5 } },
+  // 진압 경찰 (언커먼) — 방패와 방탄복. 앞에서 쏜 총알은 거의 막는다. 옆 · 뒤를 노리거나, 밀쳐서 돌려세우거나, 터뜨려라
+  riot: { hp: 130, speed: 46, dmg: 16, r: 14, size: 13, hear: 330, score: 35,
+          body: '#23262a', head: '#6d7466', armor: { arc: 1.25, mul: 0.08 } },
   // 그것 — 마지막 다리를 막아선 개체. 한 마리뿐이고, 죽어야 길이 열린다
   behemoth: { hp: 1150, speed: 40, dmg: 44, r: 24, size: 26, hear: 1600, score: 500,
               body: '#2f3a42', head: '#4a5a64', boss: true,
@@ -181,10 +200,10 @@ class Player {
       while (da > Math.PI) da -= Math.PI * 2;
       while (da < -Math.PI) da += Math.PI * 2;
       if (Math.abs(da) > 1.0) continue;
-      z.hurt(24, a, g);
+      z.hurt(24, a, g, 0, 'melee');
       if (z.dead) killed = true;
       if (!z.dead && !z.t.boss) {
-        const brute = z.type === 'brute';
+        const brute = z.type === 'brute' || z.type === 'charger';
         g.world.slide(z, Math.cos(a) * (brute ? 22 : 56), Math.sin(a) * (brute ? 22 : 56));
         z.stagger = Math.max(z.stagger, brute ? 0.14 : 0.44);
       }
@@ -328,17 +347,35 @@ class Zombie {
     this.dead = false;
   }
 
-  hurt(dmg, ang, g, knock = 0) {
+  hurt(dmg, ang, g, knock = 0, src = '') {
+    // 진압 경찰 — 앞에서 온 총알은 방패가 받는다. 밀치기는 몸을 돌려세워 등을 드러낸다. 폭발은 그대로
+    const ar = this.t.armor;
+    if (ar && src !== 'blast' && this.hp > 0) {
+      const front = Math.abs(Math.atan2(Math.sin(ang - this.face - Math.PI), Math.cos(ang - this.face - Math.PI))) < ar.arc;
+      if (src === 'melee') { this.face += (Math.random() < 0.5 ? -1 : 1) * 2.2; this.stagger = Math.max(this.stagger, 0.9); this.aggro = true; if (front) return; }
+      else if (front) {
+        dmg *= ar.mul; this.aggro = true; this.flash = 0.05;
+        if (g.spawnSparks) g.spawnSparks(this.x + Math.cos(this.face) * 12, this.y + Math.sin(this.face) * 12, ang);
+        SFX.pan(this.x - g.player.x); SFX.ric(Math.hypot(this.x - g.player.x, this.y - g.player.y)); SFX.pan(0);
+        this.hp -= dmg; if (this.hp > 0) return;
+        dmg = 0;
+      }
+    }
+    // 덮치는 것 — 날아오는 도중에 맞으면 떨어져 뒹군다(받아치기). 그 한 방은 더 아프다
+    if (this.leapPhase === 'air') { dmg *= 1.6; this.leapPhase = ''; this.leapT = this.t.leap.cool; this.stagger = Math.max(this.stagger, 1.0); this.skeet = 0.5; }
+    else if (this.leapPhase === 'crouch' && dmg >= 10) { this.leapPhase = ''; this.leapT = 1.2; }
+    // 휘감는 것 — 맞으면 혀가 끊긴다
+    if (this.tonguePhase) this.cutTongue(g);
     this.hp -= dmg;
     this.aggro = true;
     if (this.t.weeper && !this.rage && this.hp > 0) this.enrage(g);
     if (this.screamPhase === 'wind') this.windT = Math.min(this.t.scream.wind, this.windT + this.t.scream.delay);
     this.flash = 0.07;                                        // 맞은 순간 하얗게
     this.recoil = 0.28; this.hitAng = ang || 0;                // 맞은 쪽으로 몸이 젖혀진다(3D)
-    if (this.type !== 'brute' && !this.t.boss) this.stagger = 0.09;
+    if (this.type !== 'brute' && this.type !== 'charger' && !this.t.boss) this.stagger = Math.max(this.stagger, 0.09);
     // 넉백 — 맞은 방향으로 밀린다. 덩치는 덜 밀린다
     if (knock) {
-      const k = knock * (this.t.boss ? 0.08 : this.type === 'brute' ? 0.3 : 1);
+      const k = knock * (this.t.boss ? 0.08 : this.type === 'brute' || this.type === 'charger' ? 0.3 : 1);
       g.world.slide(this, Math.cos(ang) * k, Math.sin(ang) * k);
     }
     g.spawnBlood(this.x, this.y, ang, this.type === 'brute' ? 10 : 6);
@@ -349,6 +386,7 @@ class Zombie {
       if (g.splat) g.splat(this.x, this.y, ang, this.t.size || 12);   // 원작처럼 큰 핏자국이 남는다
       g.onKill(this);
       if (this.t.bloat) g.bloaterBurst(this);
+      if (this.t.tongue && g.smokeCloud) g.smokeCloud(this.x, this.y);
       SFX.pan(this.x - g.player.x);
       SFX.zombieDie(Math.hypot(this.x - g.player.x, this.y - g.player.y));
       SFX.pan(0);
@@ -421,6 +459,99 @@ class Zombie {
     if (this.rageT <= 0 || p.dead) { this.rage = false; this.startle = 0; this.aggro = false; }   // 그 자리에 다시 주저앉는다
   }
 
+  cutTongue(g, quiet) {
+    if (!this.tonguePhase) return;
+    const was = this.tonguePhase;
+    this.tonguePhase = ''; this.tongueLen = 0; this.tongueT = this.t.tongue.cool;
+    if (was === 'pull' || was === 'fly') { this.stagger = Math.max(this.stagger, 0.7); if (!quiet) SFX.snap(Math.hypot(this.x - g.player.x, this.y - g.player.y)); }
+  }
+  /* 덮치는 것: 웅크림 → 비행 → (명중하면 튕겨 나가 잠깐 멍함). true 를 돌려주면 이번 프레임의 다른 움직임을 건너뛴다 */
+  updateLeap(dt, g, p, d, dx, dy) {
+    const L = this.t.leap;
+    if (this.leapT === undefined) this.leapT = 0.4 + Math.random() * 0.6;
+    if (this.leapPhase === 'crouch') {
+      this.crouchT -= dt;
+      if (this.crouchT > L.lock) { this.face = Math.atan2(dy, dx); this.leapDir = this.face; }
+      this.phase += dt * 3;
+      if (this.crouchT <= 0) { this.leapPhase = 'air'; this.airT = L.dur; SFX.pounce(d); }
+      return true;
+    }
+    if (this.leapPhase === 'air') {
+      this.airT -= dt;
+      const st = L.speed * dt, nx = Math.cos(this.leapDir) * st, ny = Math.sin(this.leapDir) * st;
+      if (g.world.hits(this.x + nx, this.y + ny, this.r)) { this.leapPhase = ''; this.leapT = L.cool; this.stagger = 0.5; SFX.slam(d * 1.6); return true; }
+      this.x += nx; this.y += ny; this.phase += dt * 6;
+      if (!p.dead && Math.hypot(p.x - this.x, p.y - this.y) < this.r + p.r + 6) {
+        // 덮쳐서 넘어뜨리듯 밀어낸다 — 붙잡지는 않는다. 저것은 튕겨 나가 잠깐 멍하다
+        p.hurt(L.dmg * SETTINGS.mod.dmg);
+        g.hitFrom(this.x, this.y, 'leaper');
+        g.world.slide(p, Math.cos(this.leapDir) * L.knock, Math.sin(this.leapDir) * L.knock);
+        p.slowT = Math.max(p.slowT || 0, 0.35);
+        g.world.slide(this, -Math.cos(this.leapDir) * 34, -Math.sin(this.leapDir) * 34);
+        g.shake = Math.min(20, g.shake + 10);
+        SFX.hurt();
+        this.leapPhase = ''; this.leapT = L.cool; this.stagger = 0.6;
+        return true;
+      }
+      if (this.airT <= 0) { this.leapPhase = ''; this.leapT = L.cool * 0.6; this.stagger = 0.25; }
+      return true;
+    }
+    this.leapT -= dt;
+    if (this.aggro && this.leapT <= 0 && !p.dead && d > L.min && d < L.range && g.world.los(this.x, this.y, p.x, p.y)) {
+      this.leapPhase = 'crouch'; this.crouchT = L.crouch; this.face = Math.atan2(dy, dx); this.leapDir = this.face;
+      SFX.hiss(d);
+      return true;
+    }
+    return false;
+  }
+  /* 휘감는 것: 기침(예고) → 혀가 곧게 날아감 → 맞으면 0.5초 끌어당김. 비키면 빗나간다 */
+  updateTongue(dt, g, p, d, dx, dy) {
+    const T0 = this.t.tongue;
+    if (this.tongueT === undefined) this.tongueT = 2 + Math.random() * 2;
+    if (this.tonguePhase === 'wind') {
+      this.windT -= dt; this.face = Math.atan2(dy, dx); this.tongueDir = this.face; this.phase += dt * 5;
+      if (this.windT <= 0) {
+        if (!g.world.los(this.x, this.y, p.x, p.y)) { this.tonguePhase = ''; this.tongueT = 1.5; return true; }
+        this.tonguePhase = 'fly'; this.tongueLen = 0; SFX.lash(d);
+      }
+      return true;
+    }
+    if (this.tonguePhase === 'fly') {
+      this.tongueLen += T0.speed * dt;
+      const tx = this.x + Math.cos(this.tongueDir) * this.tongueLen, ty = this.y + Math.sin(this.tongueDir) * this.tongueLen;
+      this.tipX = tx; this.tipY = ty;
+      if (!p.dead && Math.hypot(p.x - tx, p.y - ty) < p.r + 9) {
+        this.tonguePhase = 'pull'; this.pullT = T0.pull;
+        p.hurt(T0.dmg * SETTINGS.mod.dmg); g.hitFrom(this.x, this.y, 'puller');
+        p.slowT = Math.max(p.slowT || 0, T0.slow);
+        g.shake = Math.min(14, g.shake + 6); SFX.hurt();
+        g.toast(T('혀에 감겼다 — 쏘면 끊긴다'), 1.6);
+      } else if (this.tongueLen >= T0.range || g.world.hits(tx, ty, 2)) { this.tonguePhase = 'back'; }
+      return true;
+    }
+    if (this.tonguePhase === 'pull') {
+      this.pullT -= dt;
+      const dd = Math.hypot(this.x - p.x, this.y - p.y) || 1;
+      if (dd > this.r + p.r + 30) g.world.slide(p, (this.x - p.x) / dd * T0.drag * dt, (this.y - p.y) / dd * T0.drag * dt);
+      this.tipX = p.x; this.tipY = p.y; this.tongueLen = dd; this.face = Math.atan2(p.y - this.y, p.x - this.x);
+      if (this.pullT <= 0 || p.dead) { this.tonguePhase = 'back'; }
+      return true;
+    }
+    if (this.tonguePhase === 'back') {
+      this.tongueLen -= T0.speed * 1.4 * dt;
+      this.tipX = this.x + Math.cos(this.tongueDir) * Math.max(0, this.tongueLen); this.tipY = this.y + Math.sin(this.tongueDir) * Math.max(0, this.tongueLen);
+      if (this.tongueLen <= 0) { this.tonguePhase = ''; this.tongueLen = 0; this.tongueT = T0.cool; }
+      return true;
+    }
+    this.tongueT -= dt;
+    if (this.aggro && this.tongueT <= 0 && !p.dead && d < T0.range * 0.92 && d > 90 && g.world.los(this.x, this.y, p.x, p.y)) {
+      this.tonguePhase = 'wind'; this.windT = T0.wind; this.face = Math.atan2(dy, dx);
+      SFX.cough(d);
+      return true;
+    }
+    return false;
+  }
+
   update(dt, g) {
     const p = g.player;
     const dx = p.x - this.x, dy = p.y - this.y;
@@ -445,14 +576,17 @@ class Zombie {
       if (d < 760) SFX.growl(d);
     }
 
-    if (this.stagger > 0) { this.stagger -= dt; return; }
+    if (this.skeet > 0) this.skeet -= dt;
+    if (this.stagger > 0) { this.stagger -= dt; if (this.tonguePhase === 'pull') this.cutTongue(g, true); return; }
+    if (this.t.leap && this.updateLeap(dt, g, p, d, dx, dy)) return;
+    if (this.t.tongue && this.updateTongue(dt, g, p, d, dx, dy)) return;
 
-    // ── 그것: 포효로 무리를 부르고, 직선으로 돌진한다 ──
-    if (this.t.boss && this.aggro) {
+    // ── 그것 · 들이받는 것: 직선으로 돌진한다 (그것은 포효로 무리도 부른다) ──
+    if (this.t.charge && this.aggro) {
       const rr = this.t.roar, ch = this.t.charge;
 
-      this.roarT -= dt;
-      if (this.roarT <= 0) {
+      if (rr) this.roarT -= dt;
+      if (rr && this.roarT <= 0) {
         this.roarT = rr.cool;
         SFX.roar(d);
         g.shake = Math.min(18, g.shake + 7);
@@ -478,18 +612,28 @@ class Zombie {
         if (g.world.hits(this.x + nx, this.y + ny, this.r)) {
           // 벽에 박으면 스스로 비틀거린다 — 유일한 안정적 반격 창구
           this.chargePhase = ''; this.chargeT = ch.cool * 0.6;
-          this.stagger = 1.1; g.shake = Math.min(22, g.shake + 14);
+          this.stagger = ch.stun || 1.1; g.shake = Math.min(22, g.shake + (this.t.boss ? 14 : 8));
           SFX.slam(d);
           return;
         }
         this.x += nx; this.y += ny;
+        // 들이받는 것은 가는 길의 무리를 옆으로 쳐낸다
+        if (!this.t.boss) for (const o of g.zombies) {
+          if (o === this || o.dead || o.t.boss) continue;
+          const ox = o.x - this.x, oy = o.y - this.y, od = Math.hypot(ox, oy);
+          if (od < this.r + o.r + 4 && od > 0) { const side = Math.sign(-Math.sin(this.chargeDir) * ox + Math.cos(this.chargeDir) * oy) || 1; g.world.slide(o, -Math.sin(this.chargeDir) * side * 26, Math.cos(this.chargeDir) * side * 26); o.stagger = Math.max(o.stagger, 0.5); }
+        }
         if (!p.dead && Math.hypot(p.x - this.x, p.y - this.y) < this.r + p.r + 4) {
           p.hurt(ch.dmg * SETTINGS.mod.dmg);
           g.hitFrom(this.x, this.y, 'charge');
-          g.world.slide(p, Math.cos(this.chargeDir) * 54, Math.sin(this.chargeDir) * 54);
+          // 비스듬히 쳐낸다 — 가는 길에서 밀려나며 붙들려 가지는 않는다
+          const k = ch.knock || 54, side = Math.sign(-Math.sin(this.chargeDir) * (p.x - this.x) + Math.cos(this.chargeDir) * (p.y - this.y)) || 1;
+          g.world.slide(p, Math.cos(this.chargeDir) * k * 0.8 - Math.sin(this.chargeDir) * side * k * 0.4, Math.sin(this.chargeDir) * k * 0.8 + Math.cos(this.chargeDir) * side * k * 0.4);
+          if (ch.slow) p.slowT = Math.max(p.slowT || 0, ch.slow);
           g.shake = Math.min(24, g.shake + 16);
           SFX.hurt();
           this.chargePhase = ''; this.chargeT = ch.cool;
+          if (!this.t.boss) this.stagger = 0.5;
         }
         if (this.chargeT <= 0) { this.chargePhase = ''; this.chargeT = ch.cool; }
         this.phase += dt * 12;
@@ -566,10 +710,18 @@ class Zombie {
       this.losT = (this.losT || 0) - dt;
       if (this.losT <= 0) { this.losT = 0.25 + Math.random() * 0.1; this.seen = d < 70 || g.world.los(this.x, this.y, p.x, p.y); }
       if (!this.seen) { const fa = g.world.flowDir(this.x, this.y); if (fa !== null) target = fa; }
-      if (sp) {
-        if (d < sp.hold * 0.75) { target += Math.PI; speed *= 0.8; }
-        else if (d < sp.hold) speed = 0;
+      const hold = sp ? sp.hold : this.t.tongue ? this.t.tongue.hold : 0;
+      if (hold && this.seen) {
+        if (d < hold * 0.75) { target += Math.PI; speed *= 0.8; }
+        else if (d < hold) speed = 0;
       }
+      if (this.t.leap) {
+        speed *= 1.6;                                                  // 덮치는 것은 낮게 웅크려 재빨리 다가온다
+        // 숨을 고르는 동안은 달려들지 않고 옆으로 돈다 — 다음 도약을 볼 틈을 준다
+        if (this.seen && this.leapT > 0 && d < 200 && d > 60) { if (!this.circ) this.circ = Math.random() < 0.5 ? 1 : -1; target += this.circ * 1.45; speed *= 0.55; }
+      }
+      if (this.type === 'riot') speed *= 1 + 1.4 * Math.min(1, this.aggroT / 1.2);
+      if (this.type === 'charger') speed *= 1.25;
     } else {
       this.aggroT = 0;
       this.wanderT -= dt;
@@ -685,7 +837,7 @@ class Grenade {
       if (z.dead) continue;
       const d = Math.hypot(z.x - this.x, z.y - this.y);
       if (d > R || !g.world.los(this.x, this.y, z.x, z.y)) continue;
-      z.hurt(200 * (1 - d / R) + 40, Math.atan2(z.y - this.y, z.x - this.x), g, 30 * (1 - d / R));
+      z.hurt(200 * (1 - d / R) + 40, Math.atan2(z.y - this.y, z.x - this.x), g, 30 * (1 - d / R), 'blast');
     }
     const pd = Math.hypot(g.player.x - this.x, g.player.y - this.y);
     if (pd < R * 0.75 && !g.player.dead) g.player.hurt(34 * (1 - pd / (R * 0.75)));
@@ -756,7 +908,8 @@ const PICKUPS = {
   rounds:      { label: '소총탄 +10',    col: '#b9b08a', icon: 'round' },
   wpn_rifle:   { label: '소총 획득',     col: '#a8b89a', icon: 'gun' },
   goal:        { label: '보급 상자 확보', col: '#59b7d8', icon: 'goal' },
-  note:        { label: '기록', col: '#e8e2d0', icon: 'note' }
+  note:        { label: '기록', col: '#e8e2d0', icon: 'note' },
+  fuel:        { label: '연료통을 들었다', col: '#d0402e', icon: 'fuel' }   // 미션 변주 '연료 모으기' — 하나씩 날라 탈것에 넣는다
 };
 
 class Pickup {
@@ -768,6 +921,10 @@ class Pickup {
     this.bob += dt * 2.4;
     const p = g.player;
     if (Math.hypot(p.x - this.x, p.y - this.y) > 26) return;
+    if (this.type === 'fuel') {                              // 한 번에 하나만 든다(이미 들고 있으면 그대로 둔다)
+      if (p.carry) return;
+      p.carry = 'fuel'; this.dead = true; SFX.pickup(); g.toast(T(this.p.label)); return;
+    }
     this.dead = true;
     SFX.pickup();
     switch (this.type) {

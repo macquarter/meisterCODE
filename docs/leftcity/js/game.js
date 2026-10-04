@@ -6,6 +6,10 @@
 
 const $ = id => document.getElementById(id);
 const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
+/** 캔버스 글자의 글꼴 — CSS 변수(var(--font))는 캔버스가 읽지 못해 기본 글꼴로 그려졌다. 화면 · 간판 모두 Pretendard 로 */
+const CANVAS_FONT = '"Pretendard", -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans KR", sans-serif';
+window.LC_FONT = CANVAS_FONT;
+if (document.fonts && document.fonts.load) for (const w of [400, 700]) document.fonts.load(`${w} 16px Pretendard`).catch(() => {});
 const lerp = (a, b, t) => a + (b - a) * t;
 
 const view = $('view');
@@ -646,6 +650,199 @@ SETTINGS.onChange(k => { if (k === 'tlayout' || k === null) TLayout.apply(); });
 window.addEventListener('resize', () => TLayout.apply());
 TLayout.apply();
 
+/* ═══════════ 미션 변주 — 좀비 게임의 이름난 장면을 장마다 하나씩 ═══════════
+   crescendo — 장치를 켜면 경보가 울리고, 다 될 때까지 몰려오는 무리를 버틴다(L4D 의 '크레센도 이벤트').
+               끝나야 출구가 열린다 — 목표를 먼저 마쳐도 기다리고, 장치를 먼저 켜 두면 목표를 마치는 즉시 열린다
+   gauntlet  — 경보가 울린 뒤 출구까지 쉼 없이 몰려오는 길을 뛴다(L4D2 '교구'의 다리 달리기)
+   scavenge  — 흩어진 연료통을 하나씩 날라 탈것을 채워야 버티기가 시작된다(L4D2 '죽음의 중심가' 마지막)
+   airdrop   — 섬광탄이 떨어진 자리에 보급이 내려온다. 60초 안에 열면 장비, 늦으면 놓친다(Dying Light). 선택 목표
+   어느 것도 플레이어를 붙잡아 두지 않는다 — 혼자 하는 게임이라 도와줄 동료가 없다 */
+const Twist = {
+  /** 출구까지 길의 f 지점(1 = 출발, 0 = 출구) 언저리의 트인 길 */
+  routePoint(w, f, seed) {
+    const rr = makeRng(seed);
+    for (const tol of [0.05, 0.1, 0.2]) {
+      const cand = w.reach.filter(i => Math.abs(w.toExit[i] / w.maxDist - f) < tol && w.roadNeighbours(i % w.w, (i / w.w) | 0) >= 5);
+      if (cand.length) return w.tileCenter(cand[Math.floor(rr() * cand.length)]);
+    }
+    return { x: w.exit.x, y: w.exit.y };
+  },
+  setup(g) {
+    const L = g.level, def = L.twist;
+    g.tw = null; g.twObjs = [];
+    if (!def || g.survival || g.challenge) return;
+    const w = g.world, tw = Object.assign({ phase: 'idle' }, def);
+    g.tw = tw;
+    if (def.type === 'crescendo') {
+      const q = this.routePoint(w, def.at ?? 0.3, L.seed ^ 0xc5e);
+      tw.obj = { kind: 'panel', x: q.x, y: q.y, prog: 0, done: false, on: false };
+      g.twObjs.push(tw.obj);
+      if (L.objective.type === 'escape') { g.exitOpen = false; tw.waiting = '셔터가 열렸다 — 집결지로'; }
+    } else if (def.type === 'scavenge') {
+      tw.need = def.count || 3; tw.got = 0;
+      tw.obj = { kind: 'tank', x: w.exit.x, y: w.exit.y, done: false };
+      g.twObjs.push(tw.obj);
+      const rr = makeRng(L.seed ^ 0xf0e1);
+      for (let i = 0; i < tw.need; i++) {
+        // 출구에서 멀리, 서로 떨어지게 — 날라 오는 길이 곧 싸움터다
+        let best = null;
+        for (let t = 0; t < 40; t++) {
+          const q = w.pickPoint(w.exit.x, w.exit.y, 520, 1300, rr);
+          if (g.pickups.some(k => k.type === 'fuel' && w.wrapDist(k.x, k.y, q.x, q.y) < 420) && t < 35) continue;
+          best = q; break;
+        }
+        if (best) g.pickups.push(new Pickup(best.x, best.y, 'fuel'));
+      }
+    } else if (def.type === 'airdrop') {
+      tw.at = def.at || 45;
+    }
+  },
+  /** 출구를 열려는 순간 — 크레센도가 남았으면 기다리게 하고, 출구 달리기는 여기서 시작한다. true = 막았다 */
+  blockExit(g, msg) {
+    const tw = g.tw;
+    if (!tw) return false;
+    if (tw.type === 'crescendo' && !tw.obj.done) { tw.waiting = msg; g.toast(T(tw.blocked || '{name}을(를) 가동해야 길이 열린다', { name: T(tw.name) }), 3); return true; }
+    if (tw.type === 'gauntlet' && tw.when === 'exit' && tw.phase === 'idle') this.startGauntlet(g);
+    return false;
+  },
+  /** 마지막 버티기를 시작해도 되는가 — 연료를 다 채워야 */
+  finaleReady(g) {
+    const tw = g.tw;
+    if (!tw || tw.type !== 'scavenge' || tw.got >= tw.need) return true;
+    if (!tw.warned) { tw.warned = true; g.toast(T('{tank}에 연료가 없다 — 연료통 {n}개를 날라 와라', { tank: T(tw.tank || '배'), n: tw.need - tw.got }), 3.2); }
+    return false;
+  },
+  startGauntlet(g) {
+    const tw = g.tw;
+    tw.phase = 'run'; tw.waveT = 1.5; tw.t = 0;
+    SFX.alarm(200); g.shake = Math.min(14, g.shake + 6);
+    g.toast(T(tw.msg || '경보 — 집결지까지 뛰어라'), 3);
+    g.callHorde(g.hordeSize() + 2);
+  },
+  update(g, dt) {
+    const tw = g.tw, p = g.player, w = g.world;
+    if (!tw || p.dead) return;
+    const D = g.dir;
+    if (tw.type === 'crescendo') {
+      const o = tw.obj;
+      if (tw.phase === 'idle') {
+        const near = Math.hypot(o.x - p.x, o.y - p.y) < 70;
+        o.on = near;
+        o.prog = near ? Math.min(1, o.prog + dt / 1.2) : Math.max(0, o.prog - dt * 2);
+        if (o.prog >= 1) {
+          g.makeCheckpoint(tw.name);
+          tw.phase = 'run'; tw.left = tw.time || 25; tw.waveT = 0; tw.alarmT = 0; o.prog = 0;
+          g.toast(T(tw.start || '{name} 가동 — 경보에 무리가 몰려온다. 버텨라', { name: T(tw.name) }), 3);
+          for (const z of g.zombies) if (!z.t.weeper && Math.hypot(z.x - o.x, z.y - o.y) < 700) z.aggro = true;
+        }
+      } else if (tw.phase === 'run') {
+        tw.left -= dt; o.prog = 1 - tw.left / (tw.time || 25);
+        tw.alarmT -= dt;
+        if (tw.alarmT <= 0) { tw.alarmT = 6; SFX.pan(o.x - p.x); SFX.alarm(Math.hypot(o.x - p.x, o.y - p.y)); SFX.pan(0); }
+        tw.waveT -= dt;
+        if (tw.waveT <= 0) tw.waveT = g.callHorde(g.hordeSize() + 1, o) ? (tw.every || 7) : 1;
+        if (D && D.phase !== 'build') { D.phase = 'build'; D.t = 0; }                       // 경보가 울리는 동안은 숨 고르기 없음
+        if (tw.left <= 0) {
+          tw.phase = 'done'; o.done = true; o.prog = 1;
+          SFX.objective(); g.stress(10);
+          if (tw.waiting) { const m = tw.waiting; tw.waiting = null; g.openExit(T(m)); }
+          else g.toast(T(tw.done || '{name} 완료 — 남은 목표를 마쳐라', { name: T(tw.name) }), 2.6);
+          g.makeCheckpoint(tw.name);
+        }
+      }
+    } else if (tw.type === 'gauntlet') {
+      if (tw.phase === 'idle' && tw.when === 'half') {
+        const d = w.toExit[w.idx(Math.floor(p.x / TILE), Math.floor(p.y / TILE))];
+        if (d >= 0 && d <= w.maxDist * (tw.at || 0.5)) { g.makeCheckpoint('길의 절반'); this.startGauntlet(g); }
+      } else if (tw.phase === 'run') {
+        tw.t += dt; tw.waveT -= dt;
+        if (D && D.phase !== 'build') { D.phase = 'build'; D.t = 0; }
+        if (tw.waveT <= 0 && g.zombies.length < 56) {
+          // 뒤쪽 · 옆에서 서넛씩 — 서 있으면 쌓이고, 달리면 빠져나갈 수 있다
+          tw.waveT = 2.4;
+          for (let i = 0; i < 3 + (Math.random() < 0.4 ? 1 : 0); i++) { const z = g.spawnZombie(380, 640); if (z) { z.aggro = true; z.horde = true; } }
+        }
+      }
+    } else if (tw.type === 'scavenge') {
+      const o = tw.obj;
+      if (p.carry === 'fuel' && Math.hypot(o.x - p.x, o.y - p.y) < 120) {
+        p.carry = null; tw.got++;
+        SFX.objective(); g.stress(8);
+        if (tw.got < tw.need) {
+          g.toast(T('연료 {n}/{t} — 소리를 듣고 몰려온다', { n: tw.got, t: tw.need }), 2.4);
+          g.callHorde(g.hordeSize(), o);
+          g.makeCheckpoint('연료 {n}/{t}', { n: tw.got, t: tw.need });
+        } else { o.done = true; tw.phase = 'done'; g.toast(T('{tank} 연료를 다 채웠다 — 이제 버텨라', { tank: T(tw.tank || '배') }), 2.6); }
+      }
+    } else if (tw.type === 'airdrop') {
+      if (tw.phase === 'idle' && g.time >= tw.at) {
+        const q = w.pickPoint(p.x, p.y, 380, 640);
+        tw.obj = { kind: 'crate', x: q.x, y: q.y, fall: 1, done: false, lost: false };
+        g.twObjs.push(tw.obj);
+        tw.phase = 'fall'; tw.left = tw.window || 60;
+        SFX.pan(q.x - p.x); SFX.horn(); SFX.pan(0);
+        g.toast(T('보급 투하 — 붉은 섬광이 떨어진 곳(선택)'), 3);
+      } else if (tw.phase === 'fall' || tw.phase === 'wait') {
+        const o = tw.obj;
+        o.fall = Math.max(0, o.fall - dt / 4);                                                  // 4초에 걸쳐 내려온다
+        if (o.fall === 0) tw.phase = 'wait';
+        tw.left -= dt;
+        if (tw.phase === 'wait' && Math.hypot(o.x - p.x, o.y - p.y) < 46) {
+          o.done = true; tw.phase = 'done';
+          const loot = ['ammo', 'ammo', 'shells', 'rounds', 'rounds', 'nade', 'medkit', 'battery'];
+          const drop = (g.level.drops || []).find(k => !p.owned.has(k));
+          if (drop) loot.push('wpn_' + drop);
+          for (const t of loot) { const q = w.pickPoint(o.x, o.y, 18, 70); g.pickups.push(new Pickup(q.x, q.y, t)); }
+          SFX.objective(); g.toast(T('보급을 열었다 — 무리가 냄새를 맡았다'), 2.6);
+          g.callHorde(g.hordeSize() + 1, o);
+        } else if (tw.left <= 0) { o.lost = true; tw.phase = 'lost'; g.toast(T('보급을 놓쳤다 — 감염체가 먼저 닿았다')); }
+      }
+    }
+  },
+  /** HUD 둘째 줄 */
+  hud(g) {
+    const tw = g.tw;
+    if (!tw) return '';
+    if (tw.type === 'crescendo') {
+      if (tw.phase === 'run') return T('{name} — {s}초 버텨라', { name: T(tw.name), s: Math.ceil(tw.left) });
+      if (tw.phase === 'idle') return tw.obj.on ? T('{name} 가동 중…', { name: T(tw.name) }) : T('{name}을(를) 가동하라', { name: T(tw.name) });
+    }
+    if (tw.type === 'gauntlet' && tw.phase === 'run' && !g.exitOpen) return T(tw.msg || '경보 — 집결지까지 뛰어라');
+    if (tw.type === 'gauntlet' && tw.phase === 'run') return T('경보 — 멈추지 말고 뛰어라');
+    if (tw.type === 'scavenge' && tw.phase !== 'done') return T('연료 {n}/{t}', { n: tw.got, t: tw.need }) + (g.player.carry === 'fuel' ? ' — ' + T('{tank}(으)로', { tank: T(tw.tank || '배') }) : '');
+    if (tw.type === 'airdrop' && (tw.phase === 'fall' || tw.phase === 'wait')) return T('보급 투하 {s}초 (선택)', { s: Math.max(0, Math.ceil(tw.left)) });
+    return '';
+  },
+  /** 나침반이 가리킬 곳 — 지금 가장 급한 변주 목표 */
+  target(g) {
+    const tw = g.tw, p = g.player;
+    if (!tw) return null;
+    if (tw.type === 'crescendo' && tw.phase === 'idle' && (tw.waiting || g.level.objective.type === 'escape')) return tw.obj;
+    if (tw.type === 'scavenge' && tw.phase !== 'done') {
+      if (p.carry === 'fuel') return tw.obj;
+      let best = null, bd = 1e9;
+      for (const k of g.pickups) if (k.type === 'fuel' && !k.dead) { const d = Math.hypot(k.x - p.x, k.y - p.y); if (d < bd) { bd = d; best = k; } }
+      return best;
+    }
+    if (tw.type === 'airdrop' && (tw.phase === 'fall' || tw.phase === 'wait')) return tw.obj;
+    return null;
+  },
+  save(g) { const tw = g.tw; return tw ? { phase: tw.phase === 'run' ? 'idle' : tw.phase, got: tw.got || 0, done: !!(tw.obj && tw.obj.done) } : null; },
+  restore(g, s) {
+    const tw = g.tw;
+    if (!tw || !s) return;
+    if (tw.type === 'crescendo' && s.done) { tw.phase = 'done'; tw.obj.done = true; tw.obj.prog = 1; }
+    if (tw.type === 'scavenge') {
+      tw.got = s.got;
+      let drop = s.got;                                     // 이미 넣은 만큼 연료통을 치운다(먼 것부터)
+      for (const k of g.pickups) if (drop > 0 && k.type === 'fuel' && !k.dead) { k.dead = true; drop--; }
+      if (tw.got >= tw.need) { tw.phase = 'done'; tw.obj.done = true; }
+    }
+    if (tw.type === 'airdrop' && s.phase !== 'idle') tw.phase = 'done';
+    if (tw.type === 'gauntlet' && s.phase !== 'idle') this.startGauntlet(g);
+  }
+};
+
 /* ═══════════ 도움말 ═══════════ */
 /* 처음 마주치는 순간에 한 번만 뜨는 한 줄 설명. 본 것은 기억해 두고 다시 띄우지 않는다. */
 const Hints = (() => {
@@ -683,6 +880,10 @@ const Hints = (() => {
     spitter:  () => [T('뱉는 것'), T('거리를 두고 산을 뱉는다. 초록 웅덩이는 밟지 말 것')],
     behemoth: () => [T('그것'), T('붉은 선이 뜨면 옆으로 비켜라. 벽에 박으면 비틀거린다')],
     screamer: () => [T('비명 지르는 것'), T('숨을 들이켜는 소리가 들리면 먼저 쏴라 — 비명을 지르면 무리가 온다')],
+    leaper:   () => [T('덮치는 것'), T('웅크리면 곧 날아든다 — 옆으로 비키거나, 날아오는 순간 쏘면 떨어진다')],
+    charger:  () => [T('들이받는 것'), T('땅을 긁으면 돌진한다 — 옆으로 비켜 벽에 박게 하라')],
+    puller:   () => [T('휘감는 것'), T('기침 소리 뒤에 혀가 날아온다 — 옆으로 비키거나 그것을 쏴서 끊어라')],
+    riot:     () => [T('진압 경찰'), T('앞에서는 총알을 막는다 — 밀쳐서 돌려세우거나 옆 · 뒤를 쏴라')],
     // 2부의 땅 — 처음 밟는 순간
     terr1:    () => [T('모래 더미'), T('발이 빠져 느려진다 — 감염체도 마찬가지')],
     terr2:    () => [T('얼음판'), T('멈추려 해도 미끄러진다 — 일찍 방향을 틀어라')],
@@ -691,7 +892,7 @@ const Hints = (() => {
     terr5:    () => [T('진흙'), T('발이 빠져 느려진다 — 감염체도 마찬가지')]
   };
   // 지금 당장 알아야 하는 것은 줄 앞으로 끼워 넣는다
-  const URGENT = new Set(['terr2', 'terr4', 'bile', 'weeper', 'horde', 'melee', 'reload', 'nade', 'runner', 'brute', 'crawler', 'spitter', 'behemoth', 'screamer']);
+  const URGENT = new Set(['terr2', 'terr4', 'bile', 'weeper', 'horde', 'melee', 'reload', 'nade', 'runner', 'brute', 'crawler', 'spitter', 'behemoth', 'screamer', 'leaper', 'charger', 'puller', 'riot']);
 
   const queue = [];
   let cur = null, t = 0, gap = 0;
@@ -709,7 +910,7 @@ const Hints = (() => {
     el.querySelector('span').textContent = msg;
     el.classList.add('show');
     cur = id;
-    t = id in { runner: 1, brute: 1, crawler: 1, spitter: 1, behemoth: 1, horde: 1, weeper: 1, bloater: 1, bile: 1, screamer: 1 } ? 4.6 : 3.8;
+    t = id in { runner: 1, brute: 1, crawler: 1, spitter: 1, behemoth: 1, horde: 1, weeper: 1, bloater: 1, bile: 1, screamer: 1, leaper: 1, charger: 1, puller: 1, riot: 1 } ? 4.6 : 3.8;
     seen[id] = 1; save();
   }
   function hide() { $('hint').classList.remove('show'); cur = null; gap = 0.5; }
@@ -746,6 +947,7 @@ const Hints = (() => {
         if (z.lit > 0.5 && z.type !== 'walker' && !z.t.weeper) push(z.type);
         if (z.t.weeper && d < 560) push('weeper');
         if (z.screamPhase === 'wind') push('screamer');
+        if (z.leapPhase === 'crouch' || z.tonguePhase === 'wind' || z.chargePhase === 'wind') push(z.type);
       }
       if (g.boss && !g.boss.dead && g.boss.aggro &&
           Math.hypot(g.boss.x - p.x, g.boss.y - p.y) < 700) push('behemoth');
@@ -1126,6 +1328,7 @@ const G = {
       this.goalsTotal = this.goalsLeft = this.relays.length;
     }
     this.holding = false; this.holdT = 0; this.bossCalled = false;
+    Twist.setup(this);
     if (ob.type === 'finale') this.surviveLeft = ob.time;
     // 기록 — 이 장에 떨어진 종이 두 장. 이미 주운 것도 다시 놓인다 (보관함은 그대로)
     if (!this.survival) {
@@ -1256,7 +1459,8 @@ const G = {
       goals: this.pickups.filter(k => k.type === 'goal' && !k.dead).map(k => ({ x: k.x, y: k.y })), goalsLeft: this.goalsLeft,
       relays: (this.relays || []).map(r => ({ x: r.x, y: r.y, done: r.done })),
       bossHp: this.boss && !this.boss.dead ? this.boss.hp : null,
-      fired: Object.assign({}, Radio.fired), notesFound: this.notesFound || 0
+      fired: Object.assign({}, Radio.fired), notesFound: this.notesFound || 0,
+      twist: Twist.save(this)
     };
     const el = $('cpMark');
     if (el) { el.classList.remove('show'); void el.offsetWidth; el.classList.add('show'); }
@@ -1280,6 +1484,8 @@ const G = {
     }
     if (ob.type === 'purge') this.goalsLeft = Math.max(0, this.goalsTotal - this.kills);
     if (this.boss && cp.bossHp != null) this.boss.hp = cp.bossHp;
+    Twist.restore(this, cp.twist);
+    p.carry = null;
     // 되살아난 자리 곁의 감염체는 치운다 — 들어서자마자 물리지 않게
     this.zombies = this.zombies.filter(z => z.t.boss || Math.hypot(z.x - p.x, z.y - p.y) > 520);
     Radio.fired = Object.assign({}, cp.fired, { start: true });
@@ -1298,9 +1504,11 @@ const G = {
   pickType() {
     const mix = this.level.mix;
     // 특수 감염체 상한 (L4D 처럼) — 뱉는 것은 동시에 둘까지. 넘으면 그 자리는 다른 종류로
-    let spitters = 0, screamers = 0;
-    for (const z of this.zombies) if (!z.dead) { if (z.t.spit) spitters++; if (z.t.scream) screamers++; }
-    const capped = k => (k === 'spitter' && spitters >= SPITTER_CAP) || (k === 'screamer' && screamers >= 1);
+    // 덮치는 것은 둘, 들이받는 것 · 휘감는 것은 하나까지 — 혼자 상대하는 게임이라 특수 감염체가 겹치지 않게
+    const n = {};
+    for (const z of this.zombies) if (!z.dead) n[z.type] = (n[z.type] || 0) + 1;
+    const CAP = { spitter: SPITTER_CAP, screamer: 1, leaper: 2, charger: 1, puller: 1 };
+    const capped = k => k in CAP && (n[k] || 0) >= CAP[k];
     let total = 0;
     for (const k in mix) if (ZTYPES[k] && !ZTYPES[k].special && !capped(k)) total += Math.max(0, mix[k]);
     if (total <= 0) return 'walker';
@@ -1422,6 +1630,16 @@ const G = {
     if (D && D.pending) D.pending.n += 2;
     else this.callHorde(this.hordeSize(), { x: z.x, y: z.y });
     this.toast(T('비명 — 무리가 몰려온다'));
+  },
+  /** 휘감는 것이 쓰러지면 매캐한 연기가 퍼진다 — 잠깐 앞이 흐리다 */
+  smokeCloud(x, y) {
+    for (let i = 0; i < 18; i++) {
+      const a = Math.random() * 6.283, sp = 20 + Math.random() * 70;
+      this.particles.push({ x: x + Math.cos(a) * 10, y: y + Math.sin(a) * 10, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, life: 2.4 + Math.random() * 1.6, max: 4,
+        size: 14 + Math.random() * 12, col: i % 2 ? '#6a6658' : '#565248', kind: 'smoke' });
+    }
+    const d = Math.hypot(x - this.player.x, y - this.player.y);
+    SFX.cough(d);
   },
   /** 부푼 것이 터졌다 — 녹색 가스가 남고, 가까웠으면 담즙을 뒤집어쓴다 */
   bloaterBurst(z) {
@@ -1628,6 +1846,7 @@ const G = {
     const p = this.player, w = this.world;
     if (!this.holding) {
       if (p.dead || Math.hypot(p.x - w.exit.x, p.y - w.exit.y) > 340) return;
+      if (!Twist.finaleReady(this)) return;
       this.holding = true; this.holdT = 0;
       this.toast(T(ob.holdMsg || '배가 들어온다 — {s}초 버텨라', { s: ob.time }));
       this.makeCheckpoint(ob.place || '3번 부두');
@@ -1737,6 +1956,7 @@ const G = {
     else this.openExit(T('전부 확보했다 — 집결지로 이동하라'));
   },
   openExit(msg) {
+    if (Twist.blockExit(this, msg)) return;
     this.exitOpen = true;
     this.toast(msg);
     SFX.objective();
@@ -1928,7 +2148,7 @@ const G = {
     const limp = p.hp < 25 ? 0.8 : 1;
     // 지형 — 진흙 · 모래 더미 · 얕은 물은 발을 늦추고, 얼음판은 미끄러워 멈추려 해도 밀려간다
     const tr = w.terrAt(p.x, p.y);
-    const speed = (p.dead ? 0 : 158) * (p.sprinting ? 1.42 : p.reloading ? 0.78 : 1) * grab * limp * TERRAIN_SLOW[tr];
+    const speed = (p.dead ? 0 : 158) * (p.sprinting ? 1.42 : p.reloading ? 0.78 : 1) * grab * limp * TERRAIN_SLOW[tr] * (p.carry ? 0.88 : 1) * (p.slowT > 0 ? 0.55 : 1);
     const tvx = !p.dead && (mx || my) ? mx * speed : 0, tvy = !p.dead && (mx || my) ? my * speed : 0;
     if (tr === 2) {
       const k = Math.min(1, dt * 1.6);
@@ -2127,7 +2347,11 @@ const G = {
         crawler: Math.min(0.26, Math.max(0, (t - 35) / 420)),
         spitter: Math.min(0.20, Math.max(0, (t - 90) / 600)),
         bloater: Math.min(0.10, Math.max(0, (t - 50) / 700)),
-        screamer: Math.min(0.07, Math.max(0, (t - 70) / 800))
+        screamer: Math.min(0.07, Math.max(0, (t - 70) / 800)),
+        leaper:  Math.min(0.07, Math.max(0, (t - 80) / 900)),
+        puller:  Math.min(0.05, Math.max(0, (t - 110) / 1000)),
+        charger: Math.min(0.05, Math.max(0, (t - 140) / 1000)),
+        riot:    Math.min(0.08, Math.max(0, (t - 60) / 700))
       };
       if (this.pickups.length < 6 && Math.random() < dt * 0.35) {
         let types = ['ammo', 'ammo', 'shells', 'medkit', 'battery', 'nade'];
@@ -2155,6 +2379,8 @@ const G = {
     }
     if (ob.type === 'signal' && !this.exitOpen) this.updateRelays(dt, ob);
     if (ob.type === 'finale' && !this.exitOpen) this.updateFinale(dt, ob);
+    Twist.update(this, dt);
+    if (p.slowT > 0) p.slowT -= dt;
     this.storyCues(ob);
     Radio.update(dt);
     if (this.exitOpen && ob.type !== 'endless' &&
@@ -2321,6 +2547,7 @@ function render() {
 
   for (const pk of g.pickups) drawPickup(pk, g.time, cam);
   for (const r of g.relays || []) drawRelay(r, g, cam);
+  for (const o of g.twObjs || []) drawTwist(o, g, cam);
   // 자동 조준의 표적 — 발밑에 옅은 노란 괄호. 무엇을 비추고 있는지 알 수 있게
   const at = g.aimTarget;
   if (at && !at.dead && autoAimOn() && at.lit > 0.2) {
@@ -2330,17 +2557,24 @@ function render() {
   }
   for (const gr of g.grenades) drawGrenade(gr);
   // 그것의 돌진 예고선 — 선딜 동안만 보이고, 비키라는 신호다
-  if (g.boss && !g.boss.dead && g.boss.chargePhase === 'wind') {
-    const b = g.boss, len = w.ray(b.x, b.y, b.chargeDir, 820);
+  // 들이받는 것 · 덮치는 것도 같은 예고선을 쓴다 — 덮치는 것은 짧고 가늘다
+  for (const b of telegraphs(g)) {
+    const len = w.ray(b.x, b.y, b.dir, b.len);
     ctx.save();
     // 방향이 굳으면 깜빡임을 멈추고 진해진다 — '지금 비켜라'
-    ctx.strokeStyle = b.chargeLocked ? 'rgba(236,72,48,.62)' : `rgba(214,60,42,${0.26 + Math.sin(g.time * 22) * 0.12})`;
-    ctx.lineWidth = b.r * 1.8;
+    ctx.strokeStyle = b.locked ? 'rgba(236,72,48,.62)' : `rgba(214,60,42,${0.26 + Math.sin(g.time * 22) * 0.12})`;
+    ctx.lineWidth = b.w;
     ctx.beginPath();
     ctx.moveTo(b.x, b.y);
-    ctx.lineTo(b.x + Math.cos(b.chargeDir) * len, b.y + Math.sin(b.chargeDir) * len);
+    ctx.lineTo(b.x + Math.cos(b.dir) * len, b.y + Math.sin(b.dir) * len);
     ctx.stroke();
     ctx.restore();
+  }
+  // 휘감는 것의 혀
+  for (const z of g.zombies) {
+    if (z.dead || !z.tonguePhase || z.tonguePhase === 'wind') continue;
+    ctx.strokeStyle = '#8a3a40'; ctx.lineWidth = 2.4;
+    ctx.beginPath(); ctx.moveTo(z.x, z.y - GUN_LIFT * 1.3); ctx.lineTo(z.tipX, z.tipY - GUN_LIFT * 0.8); ctx.stroke();
   }
 
   for (const sp of g.spits) {
@@ -2856,7 +3090,7 @@ function drawCityLights(cam, g, w) {
     glow(cx, cy, 34, hexA(sg.col), 0.16 * flick);
     ctx.globalAlpha = 0.75 * flick;
     ctx.fillStyle = sg.col;
-    ctx.font = `600 ${sg.text.length > 4 ? 10 : 12}px var(--font), sans-serif`;
+    ctx.font = `600 ${sg.text.length > 4 ? 10 : 12}px ${CANVAS_FONT}`;
     ctx.fillText(sg.text, cx, cy);
     ctx.globalAlpha = 1;
   }
@@ -3241,7 +3475,7 @@ const LANDMARK_TOP = {
   station(lm, E) {
     const pd = liftPt(E, lm.pad[0] * TILE, lm.pad[1] * TILE, 0);
     ctx.strokeStyle = 'rgba(230,200,60,.75)'; ctx.lineWidth = 4; ctx.beginPath(); ctx.ellipse(pd[0], pd[1], 70, 52, 0, 0, 6.283); ctx.stroke();
-    ctx.fillStyle = 'rgba(230,200,60,.8)'; ctx.font = '900 48px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('H', pd[0], pd[1]);
+    ctx.fillStyle = 'rgba(230,200,60,.8)'; ctx.font = `900 48px ${CANVAS_FONT}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('H', pd[0], pd[1]);
     const C = ['#d8642a', '#3c7a52', '#d8642a'];
     lm.mods.forEach(([x, y, w, h], i) => {
       liftBox(E, x + 0.3, y + 0.3, w - 0.6, h - 0.6, 0.05, '#2a2c2e', '#3a3c3e');                 // 기둥 사이 그늘
@@ -3513,7 +3747,7 @@ const LANDMARK_TOP = {
     ctx.strokeStyle = '#5a5e62'; ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(sb[0], sb[1]); ctx.lineTo(st[0], st[1]); ctx.stroke();
     ctx.fillStyle = '#1a1c1e'; ctx.fillRect(st[0] - 16, st[1] - 26, 32, 28);
     ctx.fillStyle = '#c94a3a'; ctx.fillRect(st[0] - 14, st[1] - 24, 28, 8);
-    ctx.fillStyle = '#e8d070'; ctx.font = '600 8px var(--font), monospace'; ctx.textAlign = 'center';
+    ctx.fillStyle = '#e8d070'; ctx.font = `600 8px ${CANVAS_FONT}`; ctx.textAlign = 'center';
     ctx.fillText('— . —', st[0], st[1] - 6);
     lm.signGlow = [st[0], st[1] - 12];
   },
@@ -4071,6 +4305,17 @@ function drawPlayer(p) {
   }
 }
 
+/** 돌진 · 도약 예고선 — 2D · 3D 가 함께 쓴다 */
+function telegraphs(g) {
+  const out = [];
+  for (const z of g.zombies) {
+    if (z.dead) continue;
+    if (z.chargePhase === 'wind') out.push({ x: z.x, y: z.y, dir: z.chargeDir, len: z.t.boss ? 820 : 560, w: z.r * 1.8, locked: !!z.chargeLocked });
+    else if (z.leapPhase === 'crouch' && z.t.leap) out.push({ x: z.x, y: z.y, dir: z.leapDir, len: z.t.leap.speed * z.t.leap.dur, w: z.r * 1.3, locked: z.crouchT <= z.t.leap.lock });
+  }
+  return out;
+}
+window.LC_TELEGRAPHS = telegraphs;
 function drawZombie(z) {
   // Darkwood 처럼 — 거리·건물 같은 정적인 것은 어둠 속에서도 희미하게 보이지만,
   // 적은 손전등 원뿔 안에서만 형체가 있다. 밖에서는 붉은 눈(발광 층)만 남는다.
@@ -4151,6 +4396,11 @@ function drawPickup(pk, time, cam) {
   } else if (pk.p.icon === 'nade') {
     ctx.beginPath(); ctx.arc(0, 1, 6.5, 0, 6.283); ctx.fill();
     ctx.fillRect(-1.5, -9, 3, 4);
+  } else if (pk.p.icon === 'fuel') {
+    // 붉은 연료통 — 손잡이와 주둥이
+    ctx.fillRect(-8, -9, 16, 19);
+    ctx.fillStyle = 'rgba(0,0,0,.35)'; ctx.fillRect(-5, -6, 10, 2); ctx.fillRect(-6, -2, 12, 1.5);
+    ctx.fillStyle = '#9a2a1e'; ctx.fillRect(-4, -13, 6, 4); ctx.fillRect(4, -12, 3, 4);
   } else {
     ctx.fillRect(-8, -5, 16, 10);
     ctx.fillStyle = 'rgba(0,0,0,.35)';
@@ -4272,7 +4522,7 @@ function drawJourney(cv, j) {
       c.fillStyle = id === j.to ? '#f0b429' : past ? '#e8e2d0' : 'rgba(150,160,170,.5)';
       c.beginPath(); c.arc(x, y, id === j.to ? 5 + (here ? Math.sin(now / 200) * 1.5 : 0) : 4, 0, 6.283); c.fill();
       if (here) { c.strokeStyle = 'rgba(240,180,41,.4)'; c.lineWidth = 1.5; c.beginPath(); c.arc(x, y, 11 + (now / 60) % 14, 0, 6.283); c.stroke(); }
-      c.font = '600 14px var(--font), sans-serif'; c.fillStyle = past ? '#e8e2d0' : 'rgba(170,175,180,.6)';
+      c.font = `600 14px ${CANVAS_FONT}`; c.fillStyle = past ? '#e8e2d0' : 'rgba(170,175,180,.6)';
       const right = id === 'tokyo' || id === 'singapore' && two;
       c.textAlign = right ? 'right' : 'left';
       c.fillText(T(CITY_NAME[id]), x + (right ? -10 : 10), y + (id === 'singapore' || id === 'antarctic' ? 16 : -8));
@@ -4309,6 +4559,40 @@ function drawRelay(r, g, cam) {
   ctx.fillStyle = r.done ? '#5fd17a' : on ? '#f0c040' : '#6b5a2a';
   ctx.fillRect(panel[0] - 5, panel[1] - 2, 10, 4);
   worldTransform(ctx, cam);
+}
+
+/** 미션 변주의 물건 — 제어반(크레센도) · 보급 상자(투하) · 연료 넣는 자리(탈것) */
+function drawTwist(o, g, cam) {
+  if (o.x < cam.x - 140 || o.x > cam.x + W + 140 || o.y < cam.y - 200 || o.y > cam.y + VH() + 140) return;
+  const tw = g.tw;
+  if (o.kind === 'tank') {
+    if (o.done || g.player.carry !== 'fuel') return;
+    ctx.strokeStyle = `rgba(224,80,58,${0.4 + Math.sin(g.time * 5) * 0.2})`; ctx.lineWidth = 4;
+    ctx.beginPath(); ctx.arc(o.x, o.y, 120, 0, 6.283); ctx.stroke();
+    return;
+  }
+  if (o.kind === 'panel') {
+    const running = tw && tw.phase === 'run';
+    ctx.lineWidth = 3; ctx.strokeStyle = o.done ? 'rgba(120,230,140,.55)' : 'rgba(240,180,41,.25)';
+    ctx.beginPath(); ctx.arc(o.x, o.y, 70, 0, 6.283); ctx.stroke();
+    if (!o.done && o.prog > 0) { ctx.strokeStyle = running ? 'rgba(255,90,60,.9)' : 'rgba(240,200,80,.9)'; ctx.lineWidth = 6; ctx.beginPath(); ctx.arc(o.x, o.y, 70, -Math.PI / 2, -Math.PI / 2 + o.prog * 6.283); ctx.stroke(); }
+    screenTransform(ctx, cam);
+    const at = MODELS.box(ctx, o.x, o.y, 0, -10, 10, -7, 7, 0, 30, '#5a5048', '#433b35');
+    const top = at(0, 0, 38), blink = o.done ? 1 : running ? (Math.sin(g.time * 16) > 0 ? 1 : 0.2) : (Math.sin(g.time * 4) > 0.3 ? 1 : 0.3);
+    ctx.fillStyle = o.done ? `rgba(120,240,140,${blink})` : running ? `rgba(255,70,50,${blink})` : `rgba(255,180,50,${blink})`;
+    ctx.beginPath(); ctx.arc(top[0], top[1], 4, 0, 6.283); ctx.fill();
+    worldTransform(ctx, cam);
+    return;
+  }
+  if (o.kind === 'crate') {
+    if (o.lost) return;
+    const lift = (o.fall || 0) * 260;
+    if (!o.done) { const gl = ctx.createRadialGradient(o.x, o.y, 0, o.x, o.y, 120); gl.addColorStop(0, `rgba(255,60,40,${0.35 + Math.sin(g.time * 9) * 0.1})`); gl.addColorStop(1, 'rgba(255,60,40,0)'); ctx.fillStyle = gl; ctx.beginPath(); ctx.arc(o.x, o.y, 120, 0, 6.283); ctx.fill(); }
+    screenTransform(ctx, cam);
+    MODELS.box(ctx, o.x, o.y, 0, -11, 11, -11, 11, lift, lift + 16, o.done ? '#4a4a40' : '#5a6a48', '#46543a');
+    if (lift > 0) { const at = MODELS.box(ctx, o.x, o.y, 0, -1, 1, -1, 1, lift + 16, lift + 17, '#999', '#888'); const t = at(0, 0, lift + 60); ctx.fillStyle = 'rgba(220,220,210,.85)'; ctx.beginPath(); ctx.ellipse(t[0], t[1], 26, 12, 0, Math.PI, 0); ctx.fill(); }
+    worldTransform(ctx, cam);
+  }
 }
 
 function drawGrenade(gr) {
@@ -4829,6 +5113,8 @@ const Minimap = {
     const ob = g.level.objective;
     for (const pk of g.pickups) if (pk.type === 'goal') dot(pk.x, pk.y, '#59b7d8', 5);
     for (const r of g.relays || []) dot(r.x, r.y, r.done ? '#7fe08a' : '#f0b429', 5);
+    for (const o of g.twObjs || []) if (!o.done && !o.lost && o.kind !== 'tank') dot(o.x, o.y, o.kind === 'crate' ? '#ff5a4a' : '#f0b429', 5);
+    for (const pk of g.pickups) if (pk.type === 'fuel' && !pk.dead) dot(pk.x, pk.y, '#e0503a', 4);
     if ((g.exitOpen || ob.type === 'finale') && ob.type !== 'endless') dot(g.world.exit.x, g.world.exit.y, '#78dcff', 6);
     // 플레이어 — 바라보는 쪽을 가리키는 삼각형
     c.translate(S / 2, S / 2); c.rotate(p.angle);
@@ -4852,7 +5138,7 @@ function drawBigMap(g) {
   c.drawImage(img, ox, oy, w.w * k, w.h * k);
   // 원환 지도 — 좌표를 지도 한 장 안으로 접는다
   const fold = (x, y) => { const WW = w.w * TILE, HH = w.h * TILE; x %= WW; if (x < 0) x += WW; y %= HH; if (y < 0) y += HH; return [ox + x / TILE * k, oy + y / TILE * k]; };
-  c.font = '600 12px ' + getComputedStyle(document.body).fontFamily; c.textAlign = 'center'; c.textBaseline = 'bottom';
+  c.font = `600 12px ${CANVAS_FONT}`; c.textAlign = 'center'; c.textBaseline = 'bottom';
   for (const lm of w.landmarks) {
     const x = ox + (lm.x + lm.w / 2) * k, y = oy + lm.y * k, tw = c.measureText(T(lm.name)).width;
     c.fillStyle = 'rgba(0,0,0,.65)'; c.fillRect(x - tw / 2 - 4, y - 17, tw + 8, 16);
@@ -4861,6 +5147,8 @@ function drawBigMap(g) {
   const mark = (x, y, col, r) => { const [sx, sy] = fold(x, y); c.fillStyle = col; c.beginPath(); c.arc(sx, sy, r, 0, 6.283); c.fill(); c.strokeStyle = 'rgba(0,0,0,.75)'; c.lineWidth = 2; c.stroke(); };
   for (const pk of g.pickups) if (pk.type === 'goal') mark(pk.x, pk.y, '#59b7d8', 5);
   for (const r of g.relays || []) mark(r.x, r.y, r.done ? '#7fe08a' : '#f0b429', 6);
+  for (const o of g.twObjs || []) if (!o.lost && o.kind !== 'tank') mark(o.x, o.y, o.done ? '#7fe08a' : o.kind === 'crate' ? '#ff5a4a' : '#f0b429', 6);
+  for (const pk of g.pickups) if (pk.type === 'fuel' && !pk.dead) mark(pk.x, pk.y, '#e0503a', 5);
   if ((g.exitOpen || g.level.objective.type === 'finale') && g.level.objective.type !== 'endless') mark(w.exit.x, w.exit.y, '#78dcff', 7);
   // 나 — 바라보는 쪽 화살표와 손전등 부채
   const [px, py] = fold(g.player.x, g.player.y);
@@ -4885,7 +5173,7 @@ function drawBriefMap(L) {
     c.beginPath(); c.arc(ox + pt.x / TILE * k, oy + pt.y / TILE * k, 5, 0, 6.283); c.fill();
     c.strokeStyle = 'rgba(0,0,0,.7)'; c.lineWidth = 2; c.stroke();
   };
-  c.font = '600 11px sans-serif'; c.textAlign = 'center'; c.textBaseline = 'bottom';
+  c.font = `600 11px ${CANVAS_FONT}`; c.textAlign = 'center'; c.textBaseline = 'bottom';
   for (const lm of w.landmarks) {
     const x = ox + (lm.x + lm.w / 2) * k, y = oy + lm.y * k;
     c.fillStyle = 'rgba(0,0,0,.6)'; c.fillRect(x - c.measureText(T(lm.name)).width / 2 - 3, y - 15, c.measureText(T(lm.name)).width + 6, 14);
@@ -4915,6 +5203,8 @@ G.refreshHud = function (force) {
   else if (ob.type === 'boss') obj = T('그것을 쓰러뜨려라');
   else obj = T('탈출로를 찾아라');
   $('hudObjective').textContent = obj;
+  const sub = Twist.hud(this), subEl = $('hudSub');
+  if (subEl && subEl.textContent !== sub) { subEl.textContent = sub; subEl.hidden = !sub; }
 
   $('hudKills').textContent = this.kills;
   const t = Math.floor(this.time);
@@ -4993,6 +5283,9 @@ G.refreshHud = function (force) {
       }
       if (ob.type === 'collect' && best) { tx = best.x; ty = best.y; }
     }
+    // 미션 변주 — 지금 급한 것(크레센도 장치 · 연료통 · 보급)이 있으면 그쪽을 먼저 가리킨다
+    const twt = Twist.target(this);
+    if (twt) { tx = twt.x; ty = twt.y; }
     $('hudMeter').style.opacity = tx === null ? '0' : '1';
     if (tx === null) { compass.style.opacity = '0'; }
     else {
@@ -5241,6 +5534,7 @@ const UI = {
     const kit = startKit(L, SETTINGS.difficulty).map(k => T(WEAPONS[k].name)).join(' · ');
     const pool = (L.drops || []).filter(k => !startKit(L, SETTINGS.difficulty).includes(k)).map(k => T(WEAPONS[k].name)).join(' · ');
     $('briefGoals').innerHTML = L.goals.map(g => `<li>${T(g)}</li>`).join('') +
+      (L.twist && L.twist.brief ? `<li class="brief__twist">${T(L.twist.brief)}</li>` : '') +
       `<li class="brief__kit">${T('시작 무기: {k}', { k: kit })}${pool ? ' — ' + T('{p}은(는) 감염체가 떨어뜨린다', { p: pool }) : ''}</li>`;
     drawBriefMap(L);
     this.show('scrBrief');
@@ -5439,6 +5733,9 @@ const DEATH_TIP = {
   runner: '달리는 것은 멀리서 끊어 쏴라. 붙으면 밀치기로 떼어 낸다.',
   crawler: '기는 것은 웅크렸다 튄다 — 튀는 순간 옆으로.',
   bloater: '부푼 것은 멀리서 쏴라.',
+  leaper: '덮치는 것이 웅크리면 옆으로 — 날아오는 순간 쏘면 떨어져 뒹군다.',
+  puller: '기침 소리가 들리면 옆으로 비켜라. 혀에 감기면 그것을 쏴서 끊는다.',
+  riot:   '진압 경찰은 앞에서 쏘지 말 것 — 밀쳐서 돌려세우고 등을 쏴라. 수류탄은 방패를 무시한다.',
   crowd:  '둘러싸이면 밀치기로 떼어 내고 트인 길로 빠져나가라. 막다른 골목은 피할 것.'
 };
 
@@ -5699,7 +5996,8 @@ G.migrateSaves();                // 저장 배치를 먼저 맞춘 뒤에 타이
 UI.enterMenu();
 // 3D 판 — 타이틀을 보는 동안 렌더러 · 인물 모형 · 셰이더를 미리 준비한다(첫 판의 멈칫거림을 메뉴 쪽으로 옮긴다)
 addEventListener('load', () => setTimeout(() => {
-  const go = () => { if (window.R3D && window.R3D.preload && window.R3D.ok && G.state === 'title') window.R3D.preload(); };
+  // 간판 글자를 그리기 전에 글꼴부터 — 늦으면 3D 간판이 기본 글꼴로 구워진다
+  const go = () => (document.fonts ? document.fonts.ready : Promise.resolve()).then(() => { if (window.R3D && window.R3D.preload && window.R3D.ok && G.state === 'title') window.R3D.preload(); });
   if (window.requestIdleCallback) requestIdleCallback(go, { timeout: 1500 }); else go();
 }, 400));
 requestAnimationFrame(frame);

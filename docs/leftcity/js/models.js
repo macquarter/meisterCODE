@@ -316,6 +316,43 @@ const MODELS = (() => {
               R2.ball(L - 2.4, 0, 19 + bob, 3.2 * pulse, '#5a7a2a', false);
             } };
       shadow(ctx, z.x, z.y, 12);
+    } else if (t.leap) {
+      // 덮치는 것 — 후드를 뒤집어쓴 마른 몸. 웅크리면 낮게 가라앉고, 날 때는 몸을 앞으로 뻗는다
+      const cr = z.leapPhase === 'crouch', air = z.leapPhase === 'air';
+      o = { S: cr ? 0.86 : 1.04, lean: air ? 10 : cr ? 8 : 5.5, arms: 'claw', amp: cr ? 0.1 : amp, skin: t.head, top: t.body, pants: '#24272b', hair: null,
+            head: { dz: cr ? -1.6 : -0.6, dx: 0.8 },
+            extra(R2, bob, L) { R2.ball(L + 0.6, 0, 21.4 + bob, 3.5, t.body, false); R2.ball(L + 2.4, 0, 20.4 + bob, 1.6, '#0c0c0c', false); } };
+      shadow(ctx, z.x, z.y, air ? 8 : 11, air ? 0.22 : 0.4);
+    } else if (t.charge) {
+      // 들이받는 것 — 한쪽 팔이 비대하게 부풀어 땅에 끌린다. 다른 팔은 말라붙었다
+      const wind = z.chargePhase === 'wind';
+      o = { S: 1.5 * (wind ? 1 + Math.sin(ph * 2) * 0.04 : 1), lean: z.chargePhase === 'dash' ? 7 : 4, arms: 'hang', bulk: 1.2, amp, skin: t.head, top: t.body, pants: '#2a2622', sleeve: t.head, hair: null,
+            head: { r: 2.4, dz: -1.4, dx: 1 },
+            extra(R2, bob, L) {
+              R2.chain([L - 0.5, 5.2, 18 + bob], [L + 2.5, 8, 10.5 + bob], [L + 4, 7.2, 2.4 + bob], 3.6, 3.2, t.head, t.head, 3.4, '#5a4436');
+              R2.ball(L - 0.5, 5.4, 18 + bob, 4, t.head);
+            } };
+      shadow(ctx, z.x, z.y, 17);
+    } else if (t.tongue) {
+      // 휘감는 것 — 키가 크고 얼굴 한쪽이 혹으로 덮였다. 기침할 때 몸이 앞으로 꺾인다
+      const wind = z.tonguePhase === 'wind';
+      o = { S: 1.24, lean: wind ? 6 : 1.5, arms: 'hang', amp: amp * 0.8, skin: t.head, top: t.body, pants: '#2b2a26', hair: '#1a1714',
+            head: { dz: 0.6, dx: wind ? 1.4 : 0 },
+            extra(R2, bob, L) {
+              for (const [bx, by, bz, br] of [[L + 2.2, 2.2, 22 + bob, 1.9], [L + 1.2, 3.2, 20.2 + bob, 1.5], [L - 0.6, 3.6, 17.5 + bob, 1.7], [L + 0.4, -3, 16.5 + bob, 1.3]]) R2.ball(bx, by, bz, br, '#7a5a3a', false);
+            } };
+      shadow(ctx, z.x, z.y, 12);
+    } else if (t.armor) {
+      // 진압 경찰 — 헬멧과 방탄복, 앞으로 든 투명 방패
+      o = { S: 1.16, lean: 2.4, arms: 'hang', amp: amp * 0.85, bulk: 1.1, skin: k.skin, top: t.body, pants: '#1d2024', sleeve: t.body, hair: null,
+            head: { dz: -0.4 },
+            extra(R2, bob, L) {
+              R2.ball(L + 0.4, 0, 22.4 + bob, 3.5, '#15181b');                                          // 헬멧
+              R2.ball(L + 3, 0, 21.6 + bob, 1.4, '#7a8a96', false);                                     // 안면 보호대
+              for (const sy of [-4.6, -1.6, 1.4, 4.4]) R2.limb([L + 6.5, sy, 4 + bob], [L + 6.5, sy, 19 + bob], 1.9, 'rgba(150,170,185,.55)');   // 방패
+              R2.limb([L + 6.6, -4.6, 19 + bob], [L + 6.6, 4.4, 19 + bob], 0.8, '#d8dde2');
+            } };
+      shadow(ctx, z.x, z.y, 13);
     } else if (t.size >= 18) {   // brute
       o = { S: 1.75, lean: 2.2, arms: 'hang', bulk: 1.3, amp, skin: k.skin, top: '#3b3f3a', pants: k.pants,
             sleeve: k.skin, head: { r: 2.9, dz: -0.6 }, hair: null,
@@ -372,7 +409,7 @@ const MODELS = (() => {
     }
     // 쓰러진 몸은 움직이지 않는다 — 한 번 그려 둔 그림을 옮겨 찍는다 (시체 40구에서도 프레임이 버틴다)
     if (!c.img) {
-      const S0 = c.type === 'brute' ? 1.6 : c.type === 'behemoth' ? 2.3 : c.type === 'bloater' ? 1.3 : 1.1;
+      const S0 = c.type === 'brute' ? 1.6 : c.type === 'behemoth' ? 2.3 : c.type === 'charger' ? 1.5 : c.type === 'bloater' ? 1.3 : 1.1;
       const half = Math.ceil(26 * S0 * CS), dpr = Math.min(4, window.AFT_SCALE || window.devicePixelRatio || 1);
       const cv = document.createElement('canvas');
       cv.width = cv.height = half * 2 * dpr;

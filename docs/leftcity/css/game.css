@@ -1,6 +1,12 @@
 /* ═══════════════════════════════════════════
    LEFT CITY — 남겨진 도시 : UI 스타일
    ═══════════════════════════════════════════ */
+/* 글꼴 — Pretendard(SIL OFL 1.1, vendor/fonts/Pretendard-LICENSE.txt). 저자가 배포하는 KS X 1001 부분 집합(한글 2,350자 + 라틴)
+   보통 · 굵게 두 벌. 게임이 쓰는 한글 915자가 모두 들어 있다. 중간 굵기(500 · 600 · 800)는 가까운 벌로 그린다 */
+@font-face{font-family:"Pretendard";font-style:normal;font-weight:100 500;font-display:swap;
+  src:url("../vendor/fonts/Pretendard-Regular.subset.woff2") format("woff2")}
+@font-face{font-family:"Pretendard";font-style:normal;font-weight:600 900;font-display:swap;
+  src:url("../vendor/fonts/Pretendard-Bold.subset.woff2") format("woff2")}
 :root{
   --ink:#07090c;
   --fog:#9aa6b2;
@@ -39,6 +45,8 @@ html.letterbox #hud{position:fixed}
 .hud__chapter{font-size:11px;letter-spacing:.22em;color:var(--fog);opacity:.75}
 .hud__objective{font-size:14px;font-weight:600;letter-spacing:.02em;
   text-shadow:0 2px 10px rgba(0,0,0,.9)}
+.hud__sub{font-size:12.5px;font-weight:600;color:var(--amber);letter-spacing:.02em;text-shadow:0 2px 10px rgba(0,0,0,.9)}
+.hud__sub[hidden]{display:none}
 .hud__stats{font-size:12px;color:var(--fog);letter-spacing:.06em;
   font-variant-numeric:tabular-nums;text-align:right}
 .hud__sep{opacity:.4;margin:0 4px}
@@ -150,8 +158,8 @@ body.touch .boss{top:calc(96px + env(safe-area-inset-top));width:min(300px,62vw)
 .radio b{display:block;font-size:11px;font-weight:600;letter-spacing:.08em;margin-bottom:2px}
 .radio b::before{content:'';display:inline-block;width:6px;height:6px;border-radius:50%;background:currentColor;
   margin-right:6px;vertical-align:1px;animation:radioBlink 1s steps(2) infinite}
-.radio.note{border-left-color:rgba(232,220,192,.6);font-family:Georgia,'Noto Serif KR',serif;font-style:italic}
-.radio.note b{font-family:var(--font),sans-serif;font-style:normal}
+.radio.note{border-left-color:rgba(232,220,192,.6);font-family:var(--font);color:#e8dcc0}
+.radio.note b{font-family:var(--font);font-style:normal}
 .radio.note b::before{border-radius:1px;animation:none}
 @keyframes radioBlink{50%{opacity:.25}}
 /* 터치: 미니맵이 왼쪽 위에 있으므로 그 오른쪽에. 세로 화면은 탄약 줄 아래로 */
@@ -220,7 +228,7 @@ body.touch #achMark{top:calc(74px + env(safe-area-inset-top))}
 .journal__ch{font-size:11px;letter-spacing:.18em;color:var(--fog);opacity:.8;margin-top:6px}
 .journal__rec{padding:10px 12px;background:rgba(232,226,208,.05);border-left:2px solid rgba(232,226,208,.35)}
 .journal__rec b{display:block;font-size:13px;margin-bottom:3px}
-.journal__rec p{margin:0;font-size:13px;line-height:1.6;font-family:Georgia,'Noto Serif KR',serif;font-style:italic;opacity:.9}
+.journal__rec p{margin:0;font-size:13px;line-height:1.7;font-family:var(--font);color:#e8dcc0;opacity:.9}
 .journal__rec.missing{border-left-color:rgba(255,255,255,.1);opacity:.45}
 .journal__rec.missing p{font-style:normal;font-family:inherit}
 #scrJournal h2 small{font-size:13px;font-weight:400;opacity:.6;margin-left:8px;letter-spacing:.06em}
@@ -513,7 +521,7 @@ body.touch .hud__meter{bottom:calc(20px + env(safe-area-inset-bottom))}
 #fpsMeter {
   position: absolute; left: 50%; top: calc(6px + env(safe-area-inset-top));
   transform: translateX(-50%);
-  font: 600 11px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+  font: 600 11px/1 var(--font); font-variant-numeric: tabular-nums;
   color: #9fb0c0; background: rgba(5,7,10,.6);
   padding: 4px 8px; border-radius: 4px; pointer-events: none; z-index: 5;
   letter-spacing: .02em;
@@ -804,3 +812,7 @@ body.tl-edit #touch .tbtn.dragging{cursor:grabbing;background:rgba(240,180,41,.2
 }
 .screen--settings.live .set__row--stack{flex-direction:column;align-items:stretch;gap:8px}
 .screen--settings.live .set__row--stack .seg button{flex:1 1 0;min-width:0;padding:9px 6px}
+
+/* 브리핑 — 이번 장의 변수 */
+.brief__twist{color:var(--amber);list-style:none;margin-top:6px}
+.brief__twist::before{content:'⚠ ';}

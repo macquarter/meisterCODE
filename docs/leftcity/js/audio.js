@@ -442,6 +442,27 @@ const SFX = (() => {
       voice({ f0: 640, f1: 900, dur: 1.4, gain: 0.32 * n, vowel: 'ae', to: 'a', size: 1.12, rasp: 0.95, shake: 1.4, fryAmt: 0.35, attack: 0.03, hold: 0.7, bright: 4600 });
       burst(1.2, 3000, 0.7, 0.16 * n, 'bandpass', 1.1);
     },
+    /** 덮치는 것 — 웅크릴 때 이 사이로 새는 쉿 소리(예고), 날아들 때 짧은 괴성 */
+    hiss(d)   { const n = Math.max(0.3, near(d));
+                burst(0.6, 3200, 1.6, 0.1 * n, 'bandpass', 0.55);
+                voiceAt(n, { f0: 210, f1: 240, dur: 0.5, gain: 0.12, vowel: 'e', to: 'ae', rasp: 1.2, fryAmt: 0.3, attack: 0.05, bright: 5200 }); },
+    pounce(d) { const n = Math.max(0.3, near(d));
+                voiceAt(n, { f0: 380, f1: 260, dur: 0.42, gain: 0.3, vowel: 'ae', to: 'a', size: 1.0, rasp: 1.1, fryAmt: 0.35, attack: 0.015, bright: 4800 });
+                burst(0.3, 1200, 0.8, 0.1 * n, 'bandpass', 0.25); },
+    /** 휘감는 것 — 가래 끓는 기침(예고) · 혀가 채찍처럼 날아가는 소리 · 끊기는 소리 */
+    cough(d)  { const n = Math.max(0.25, near(d));
+                for (let i = 0; i < 3; i++) voiceAt(n, { delay: i * 0.17, f0: 130 + i * 8, f1: 95, dur: 0.14, gain: 0.26, vowel: 'uh', to: 'u', size: 0.9, rasp: 1.3, fryAmt: 0.7, attack: 0.01, hold: 0.2 });
+                burst(0.5, 500, 0.9, 0.06 * n, 'bandpass', 0.45); },
+    lash(d)   { const n = Math.max(0.3, near(d));
+                burst(0.22, 1800, 1.4, 0.16 * n, 'bandpass', 0.2);
+                tone(320, 0.2, 0.05 * n, 'sine', 120); },
+    snap(d)   { const n = Math.max(0.3, near(d));
+                burst(0.12, 2400, 1.2, 0.18 * n, 'bandpass', 0.1);
+                voiceAt(n, { f0: 150, f1: 90, dur: 0.35, gain: 0.2, vowel: 'o', to: 'u', rasp: 1.0, fryAmt: 0.6 }); },
+    /** 방패에 총알이 튕기는 소리 */
+    ric(d)    { const n = near(d); if (n <= 0.02) return;
+                tone(2400 + Math.random() * 900, 0.12, 0.05 * n, 'sine', 1300 + Math.random() * 400);
+                burst(0.08, 3400, 1.5, 0.08 * n, 'highpass', 0.07); },
     /** 부푼 것 — 배 속에서 끓는 소리 */
     gurgle(d) {
       const n = near(d); if (n <= 0.02) return;

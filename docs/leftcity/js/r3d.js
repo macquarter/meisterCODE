@@ -2380,10 +2380,24 @@ function setFlash(h, on) {
 const CHAR = { ready: false, loading: false, body: {} };
 const MODEL_H = 50;
 function modelSrc(k) { return (window.LC_MODELS && window.LC_MODELS[k]) || ('vendor/models/' + k + '.glb'); }
+/** 모형 하나 — 단일 파일 판(아티팩트)은 모형을 data: 로 품고 있다. 그곳의 보안 정책(CSP)은 fetch 를 막으므로
+    (connect-src) 네트워크를 쓰지 않고 base64 를 직접 풀어 파싱한다. 안의 그림도 fetch 를 쓰는 ImageBitmapLoader 대신
+    <img> 로 읽게 createImageBitmap 을 파서가 만들어지는 동안만 가린다 */
+function loadModel(L, src) {
+  if (!src.startsWith('data:')) return L.loadAsync(src);
+  const b64 = src.slice(src.indexOf(',') + 1), bin = atob(b64), buf = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) buf[i] = bin.charCodeAt(i);
+  const cib = window.createImageBitmap;
+  try { window.createImageBitmap = undefined; } catch (_) { /* 무시 */ }
+  return new Promise((ok, bad) => {
+    try { L.parse(buf.buffer, '', ok, bad); } catch (e) { bad(e); }
+    try { window.createImageBitmap = cib; } catch (_) { /* 무시 */ }
+  });
+}
 function loadChars() {
   if (CHAR.loading) return; CHAR.loading = true; CHAR.t0 = performance.now();
   const L = new GLTFLoader();
-  Promise.all(['xbot', 'michelle', 'soldier'].map(k => L.loadAsync(modelSrc(k)).then(g => [k, g])))
+  Promise.all(['xbot', 'michelle', 'soldier'].map(k => loadModel(L, modelSrc(k)).then(g => [k, g])))
     .then(list => {
       const t0 = performance.now();
       const G = Object.fromEntries(list);

@@ -22,7 +22,7 @@
 })();
 
 /** 제품 정보 — 이름 · 판. 출시 이름이 정해지면 여기와 index.html · manifest 를 함께 바꾼다 */
-const APP = { name: 'LEFT CITY', subtitle: '남겨진 도시', version: '1.0.0-rc.21' };
+const APP = { name: 'LEFT CITY', subtitle: '남겨진 도시', version: '1.0.0-rc.22' };
 const APP_VERSION = APP.version;
 
 /** 난이도 배수. 1 = 기준값(잔존) */
@@ -61,6 +61,7 @@ const SETTINGS = (() => {
     touchSize: 'normal',   // 터치 버튼 · 스틱 크기
     haptics: true,         // 맞거나 폭발이 가까우면 짧게 진동 (지원 기기)
     aspect: 'fill',        // 화면 비율: fill = 창을 꽉 채운다(어떤 비율이든) · wide = 16:9 띠(레터박스)
+    speed: 3,              // 게임 속도 1 · 2 · 3배 — 3 이 rc.21 까지의 빠르기(처음 정한 균형). 낮추면 모든 것이 그만큼 느리게
     view3d: 100,           // 3D 시점 거리 0‒100: 100 = 가장 멀리(rc.16 의 크기) · 0 = 아주 가까이(인물이 약 2.7배)
     tlayout: '',           // 터치 버튼 배치(JSON) — { L: 가로 화면, P: 세로 화면 } 각각 { 버튼: [x, y] } 화면 비율 좌표. 빈 값 = 기본
     cam: 'near',           // 카메라 거리: near = 가까이(원작 예고편 거리) · mid · far = 멀리(예전 거리)
@@ -88,6 +89,7 @@ const SETTINGS = (() => {
   // rc.17‒18 의 두 단계 시점(near · far) → 연속 값. 가깝게는 예전과 같은 거리(44)로
   try { const raw = JSON.parse(localStorage.getItem(KEY) || '{}'); if (raw.cam3d === 'near' && !('view3d' in raw)) state.view3d = 44; } catch (e) { /* 무시 */ }
   state.view3d = Math.max(0, Math.min(100, Math.round(+state.view3d) || 0));
+  state.speed = Math.max(1, Math.min(3, Math.round(+state.speed) || 3));
   state.volume = Math.max(0, Math.min(100, state.volume | 0));
   state.brightness = Math.max(0, Math.min(100, state.brightness | 0));
 
@@ -129,6 +131,7 @@ const SETTINGS = (() => {
       if (k === 'lang' && !['auto', 'ko', 'en'].includes(v)) return;
       if (k === 'cam' && !CAM_MODES.includes(v)) return;
       if (k === 'view3d') v = Math.max(0, Math.min(100, Math.round(+v) || 0));
+      if (k === 'speed') v = Math.max(1, Math.min(3, Math.round(+v) || 3));
       if (k === 'aspect' && !['fill', 'wide'].includes(v)) return;
       if (typeof DEF[k] === 'boolean') v = !!v;
       if (state[k] === v) return;

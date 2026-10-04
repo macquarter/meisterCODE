@@ -2717,7 +2717,9 @@ function poseZombieRig(h, z, g, dt) {
   h.updateMatrixWorld(true);
   const face = u.yaw !== undefined ? -u.yaw : z.face;                // 화면에 보이는(부드럽게 돈) 방향 기준
   fwd.set(Math.cos(face), 0, Math.sin(face)); lat.set(fwd.z, 0, -fwd.x);
-  const seed = (z.x * 0.013 + z.y * 0.007) % 1;
+  // 개체마다 정해진 버릇(구부정함 · 고개 · 절뚝임 · 팔) — 예전엔 지금 위치로 셈해 걸을 때마다 바뀌었고,
+  // 특히 팔 자세가 프레임마다 넷 사이를 오가 손이 심하게 떨렸다. 몸체를 만들 때 한 번 정한다
+  const seed = u.seed ?? 0.5;
   // 등 · 고개
   const hunch = t.boss ? 0.25 : runner ? 0.45 : 0.32 + seed * 0.15;
   tiltBone(B.Spine, lat, hunch * 0.5); tiltBone(B.Spine1, lat, hunch * 0.5);
@@ -2725,7 +2727,7 @@ function poseZombieRig(h, z, g, dt) {
   const roll = Math.sin(g.time * 0.9 + seed * 9) * 0.12 + (seed - 0.5) * 0.3;
   tiltBone(B.Neck, fwd, roll * 0.5); tiltBone(B.Head, lat, -0.1 + Math.sin(g.time * 1.7 + seed * 5) * 0.05);
   // 팔 — 개체마다 다르게: 0 두 팔을 앞으로(나란히) · 1 한 팔만 뻗고 한 팔은 늘어뜨림 · 2 두 팔을 늘어뜨림 · 3 팔꿈치를 굽혀 낮게 쥠
-  const style = ((z.x * 7 + z.y * 3) | 0) & 3;
+  const style = u.style ?? 0;
   const reach = !t.boss && !t.bloat && !t.spit && !runner && !(t.weeper && !z.rage) && style !== 2;
   const claw = (t.scream && z.screamPhase === 'wind') || (t.weeper && !z.rage);
   if (reach || claw) {
@@ -2780,6 +2782,7 @@ function zombieRig(z) {
     look.sleeve = hs % 2 ? look.top : look.skin;                    // 반소매면 팔뚝이 드러난다
     h = makeRig('xbot', { look });
   }
+  h.userData.seed = (hs % 9973) / 9973; h.userData.style = (hs >>> 5) & 3;
   const eyes = new THREE.Group();
   for (const sd of [-1, 1]) { const e = new THREE.Mesh(GEO.eye, EYE); e.position.set(0, 0, sd * 1.4); eyes.add(e); }
   eyes.visible = false; scene.add(eyes);
@@ -2958,7 +2961,7 @@ function trackMotion(u, x, y, yawTo, dt, turn) {
   const dx = x - u.px, dy = y - u.py, dd = Math.hypot(dx, dy);
   u.px = x; u.py = y;
   if (dt > 0 && dd < 60) {                               // 이어 붙은 지도의 가장자리를 넘으면(순간 이동) 무시
-    const k = Math.min(1, dt * 10);
+    const k = Math.min(1, dt * 6);                       // 약 0.17초 평균 — 돌진 · 비켜 가기의 순간 변화에 동작이 휘둘리지 않게
     u.vx += (dx / dt - u.vx) * k; u.vy += (dy / dt - u.vy) * k;
     u.spd = Math.hypot(u.vx, u.vy);
   }
@@ -2970,8 +2973,12 @@ function turnToward(a, b, max) { const d = wrapA(b - a); return a + Math.max(-ma
 const NAT_SPEED = { xbot: { walk: 43, run: 92 }, soldier: { walk: 44, run: 100 } };
 function gaitFor(u, sp, sc, canRun) {
   const nat = NAT_SPEED[u.kind] || NAT_SPEED.xbot;
-  if (sp < 6) return ['idle', 1];
-  const clip = canRun && sp > nat.walk * sc * 1.7 ? 'run' : 'walk';
+  // 문턱마다 여유(이력)를 둔다 — 빠르기가 문턱 언저리에서 오르내리면 걷기 · 뛰기가 프레임마다 바뀌어 팔다리가 떨렸다
+  const was = u.gait || 'idle';
+  if (sp < (was === 'idle' ? 9 : 4)) { u.gait = 'idle'; return ['idle', 1]; }
+  const runAt = nat.walk * sc * (was === 'run' ? 1.45 : 1.85);
+  const clip = canRun && sp > runAt ? 'run' : 'walk';
+  u.gait = clip;
   return [clip, Math.max(0.35, Math.min(clip === 'run' ? 2.4 : 2.2, sp / (nat[clip] * sc)))];
 }
 
@@ -3216,7 +3223,7 @@ function updateLights(g, p, w) {
     beam.material.uniforms.uTime.value = g.time;
     beam.material.uniforms.uInt.value = 0.12 * Math.min(1, range / 300);
     const du = dust.material.uniforms;
-    du.uApex.value.set(ox, oy, oz); du.uDir.value.copy(dir); du.uRange.value = reach; du.uTime.value = g.time;
+    du.uApex.value.set(ox, oy, oz); du.uDir.value.copy(dir); du.uRange.value = reach; du.uTime.value = RAIN_CLOCK;   // 물방울 · 먼지는 실제 시간으로(게임 속도와 무관)
     du.uOrigin.value.set(p.x, 0, p.y);
     du.uScale.value = renderer.domElement.height * 0.9;
   }
@@ -3261,14 +3268,15 @@ function resetRain() {
   for (let i = 0; i < RAIN_N; i++) { const o = i * 6; a[o + 3] = a[o] + sx; a[o + 4] = a[o + 1] + sy; a[o + 5] = a[o + 2]; }
   rainGeo.attributes.position.needsUpdate = true;
 }
-let rainT = -1;
+let rainT = -1, RAIN_CLOCK = 0;
 function updateRain(g, p) {
   /* 빗줄기는 세계 좌표에 둔다 — 예전엔 카메라에 붙은 상자 안에서 떨어져, 걸으면 비가 사람을 따라왔고 땅에 닿은 자리도
      매번 같은 둘레였다. 이제 상자는 카메라 둘레로 감싸 이어 붙이기만 하고(벗어나면 반대편으로), 땅에 닿으면 상자 안
      아무 데서나 다시 떨어진다. 떨어지는 빠르기는 실제 지난 시간으로(예전엔 1/60 초 고정이라 느린 기기에서 비가 느렸다),
      한 줄기마다 조금씩 다르게 */
   const a = rainGeo.attributes.position.array, st = g.storm || 0, K = curWorld ? kitOf(curWorld) : KIT.seoul;
-  const dt = rainT < 0 ? 1 / 60 : Math.max(0, Math.min(0.1, g.time - rainT)); rainT = g.time;
+  const now = performance.now() / 1000;                 // 실제 시간 — 게임 속도를 늦춰도 비는 제 빠르기로(멈춤 화면에서도 내린다)
+  const dt = rainT < 0 ? 1 / 60 : Math.max(0, Math.min(0.1, now - rainT)); rainT = now; RAIN_CLOCK += dt;
   const [sx, sy] = RAIN_SEG[RAIN_KIND];
   const vy = [900, 70 + st * 60, 60][RAIN_KIND], vx = [160, 40 + st * 260, 420 + st * 600][RAIN_KIND];
   const cx = camT.x, cz = camT.z - 200;

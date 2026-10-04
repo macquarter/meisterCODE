@@ -5319,7 +5319,7 @@ const UI = {
     $('setVolume').value = SETTINGS.volume;
     $('setVolVal').textContent = SETTINGS.volume;
     for (const b of document.querySelectorAll('.seg [data-set]'))
-      b.classList.toggle('on', b.dataset.val === SETTINGS.get(b.dataset.set));
+      b.classList.toggle('on', b.dataset.val === String(SETTINGS.get(b.dataset.set)));
     $('setBright').value = SETTINGS.brightness;
     $('setBrightVal').textContent = SETTINGS.brightness;
     $('setDiffNote').textContent = `${T(SETTINGS.mod.name)} — ${T(SETTINGS.mod.note)}`;
@@ -5677,11 +5677,13 @@ function step(now) {
     }
   } else if (!fpsEl.hidden) fpsEl.hidden = true;
 
+  // 게임 속도(설정 1 · 2 · 3배) — 세상의 시간만 늦춘다. 3배가 처음부터의 빠르기
+  const gdt = dt * (SETTINGS.get('speed') || 3) / 3;
   if (G.state === 'play' && G.freezeT > 0) {
-    G.freezeT -= dt;                                   // 처치 직후의 짧은 정지 — 그림만 그린다
+    G.freezeT -= gdt;                                  // 처치 직후의 짧은 정지 — 그림만 그린다
     render();
   } else if (G.state === 'play') {
-    G.update(dt);
+    G.update(gdt);
     if (G.state === 'play' || G.state === 'result') render();
     hudT -= dt;
     if (hudT <= 0) { hudT = 0.07; G.refreshHud(); }

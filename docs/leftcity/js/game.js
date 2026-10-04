@@ -154,7 +154,7 @@ const input = { mx: W / 2, my: H / 2, firing: false, moveX: 0, moveY: 0, aimTouc
 
 /** 키 다시 묶기 대기 중이면 그 행동 id — 이때 누른 키는 게임으로 가지 않는다 */
 let rebinding = null;
-const WEAPON_OF = { w1: 'pistol', w2: 'smg', w3: 'shotgun', w4: 'rifle' };
+const WEAPON_OF = { w1: 'pistol', w2: 'smg', w3: 'shotgun', w4: 'rifle', w5: 'magnum', w6: 'auto', w7: 'lmg', w8: 'crossbow', w9: 'flamer', w10: 'launcher', w11: 'rail', w12: 'minigun' };
 
 /** 누름 한 번에 일어나는 행동 (누르고 있는 행동은 프레임마다 KEYBIND.held 로 읽는다) */
 function pressAction(act, e) {
@@ -354,7 +354,7 @@ function bindPad(el, onVec, axisX) {
   }
   return { begin, active: () => id !== null };
 }
-const movePad = bindPad($('padMove'), (x, y) => { input.moveX = x; input.moveY = y; });
+const movePad = bindPad($('padMove'), (x, y, k) => { input.moveX = x; input.moveY = y; input.moveMag = k || 0; });
 /* 오른쪽 스틱은 설정에 따라 넷 중 하나로 동작한다.
    auto  — 자동 조준(기본): 손대지 않으면 손전등이 가까운 적, 없으면 걷는 쪽을 비춘다(Archero · Survivor.io).
            끌면 그 방향을 곧바로 비추고, 짧게 톡 치면 가장 가까운 적으로 홱 돌린다(Brawl Stars 의 퀵 파이어)
@@ -657,6 +657,37 @@ TLayout.apply();
    scavenge  — 흩어진 연료통을 하나씩 날라 탈것을 채워야 버티기가 시작된다(L4D2 '죽음의 중심가' 마지막)
    airdrop   — 섬광탄이 떨어진 자리에 보급이 내려온다. 60초 안에 열면 장비, 늦으면 놓친다(Dying Light). 선택 목표
    어느 것도 플레이어를 붙잡아 두지 않는다 — 혼자 하는 게임이라 도와줄 동료가 없다 */
+/* ═══════════ 화성의 특전 무기 — 3 · 5 · 10 · 20분에 하나씩 열린다 ═══════════
+   HUD 둘째 줄에 다음 무기와 남은 시간을 늘 보여 주고(기대감), 열리는 순간 큰 알림과 함께 손에 쥐어 준다 */
+const Specials = {
+  update(g) {
+    const p = g.player;
+    if (p.dead) return;
+    for (const [k, t] of SPECIAL_UNLOCKS) {
+      if (g.time < t || p.owned.has(k)) continue;
+      const w = WEAPONS[k];
+      p.owned.add(k); p.mag[k] = w.mag; p.equip(k);
+      SFX.objective(); g.shake = Math.min(14, g.shake + 4);
+      this.banner(T(w.name), SPECIAL_UNLOCKS.findIndex(q => q[0] === k) + 1);
+      g.toast(T('특전 무기 — {w}', { w: T(w.name) }), 3);
+    }
+  },
+  next(g) { return SPECIAL_UNLOCKS.find(([k]) => !g.player.owned.has(k)); },
+  hud(g) {
+    if (!g.survival || !g.world || g.world.theme.key !== 'mars') return '';
+    const n = this.next(g), got = SPECIAL_UNLOCKS.filter(([k]) => g.player.owned.has(k)).length;
+    if (!n) return T('특전 무기 4/4 — 전부 열렸다');
+    const left = Math.max(0, Math.ceil(n[1] - g.time)), mm = (left / 60) | 0, ss = String(left % 60).padStart(2, '0');
+    return T('특전 {n}/4 · 다음 {w} — {t}', { n: got, w: T(WEAPONS[n[0]].name), t: `${mm}:${ss}` });
+  },
+  banner(name, i) {
+    let el = document.getElementById('unlockBanner');
+    if (!el) { el = document.createElement('div'); el.id = 'unlockBanner'; el.className = 'unlock'; (document.getElementById('hud') || document.body).appendChild(el); }
+    el.innerHTML = `<small>${T('특전 무기 {i}/4', { i })}</small><b>${name}</b>`;
+    el.classList.remove('show'); void el.offsetWidth; el.classList.add('show');
+  }
+};
+
 const Twist = {
   /** 출구까지 길의 f 지점(1 = 출발, 0 = 출구) 언저리의 트인 길 */
   routePoint(w, f, seed) {
@@ -790,6 +821,7 @@ const Twist = {
         if (tw.phase === 'wait' && Math.hypot(o.x - p.x, o.y - p.y) < 46) {
           o.done = true; tw.phase = 'done';
           const loot = ['ammo', 'ammo', 'shells', 'rounds', 'rounds', 'nade', 'medkit', 'battery'];
+          if (p.owned.has('crossbow')) loot.push('bolts');
           const drop = (g.level.drops || []).find(k => !p.owned.has(k));
           if (drop) loot.push('wpn_' + drop);
           for (const t of loot) { const q = w.pickPoint(o.x, o.y, 18, 70); g.pickups.push(new Pickup(q.x, q.y, t)); }
@@ -872,7 +904,7 @@ const Hints = (() => {
                             : [KEYBIND.labelOf('sprint'), T('질주 — 빠르지만 발소리가 커서 멀리서도 깨운다')],
     pickup:   () => ['', T('빛나는 물건은 밟으면 줍는다')],
     gundrop:  () => [T('무기'), T('쓰러뜨린 감염체가 총을 떨어뜨렸다 — 빛나는 총을 밟아 줍자')],
-    battery:  () => [isTouch ? T('손전등') : KEYBIND.labelOf('light'), T('손전등을 꺼서 배터리를 아낀다 · 노란 상자로 채운다')],
+    battery:  () => [isTouch ? T('손전등') : KEYBIND.labelOf('light'), T('손전등을 꺼 두면 배터리가 다시 찬다 · 노란 상자는 한 번에 채운다')],
     nade:     () => [isTouch ? T('수류탄') : KEYBIND.labelOf('nade'), T('무리가 몰렸다 — 수류탄')],
     runner:   () => [T('달리는 것'), T('약하지만 빠르다. 멀리 있을 때 끊어 쏘자')],
     brute:    () => [T('거대한 것'), T('잘 밀리지 않는다. 수류탄을 아끼지 말 것')],
@@ -880,6 +912,7 @@ const Hints = (() => {
     spitter:  () => [T('뱉는 것'), T('거리를 두고 산을 뱉는다. 초록 웅덩이는 밟지 말 것')],
     behemoth: () => [T('그것'), T('붉은 선이 뜨면 옆으로 비켜라. 벽에 박으면 비틀거린다')],
     screamer: () => [T('비명 지르는 것'), T('숨을 들이켜는 소리가 들리면 먼저 쏴라 — 비명을 지르면 무리가 온다')],
+    alarmcar: () => [T('경보기 차'), T('붉은 점이 깜빡이는 차는 경보기가 달렸다 — 쏘거나 부딪히면 울리고 무리가 온다')],
     leaper:   () => [T('덮치는 것'), T('웅크리면 곧 날아든다 — 옆으로 비키거나, 날아오는 순간 쏘면 떨어진다')],
     charger:  () => [T('들이받는 것'), T('땅을 긁으면 돌진한다 — 옆으로 비켜 벽에 박게 하라')],
     puller:   () => [T('휘감는 것'), T('기침 소리 뒤에 혀가 날아온다 — 옆으로 비키거나 그것을 쏴서 끊어라')],
@@ -951,6 +984,7 @@ const Hints = (() => {
       }
       if (g.boss && !g.boss.dead && g.boss.aggro &&
           Math.hypot(g.boss.x - p.x, g.boss.y - p.y) < 700) push('behemoth');
+      if (!seen.alarmcar && (g.frameNo || 0) % 20 === 0) for (const pr of g.world.props) if (pr.alarm && !pr.spent && Math.hypot(pr.x - p.x, pr.y - p.y) < 300) { push('alarmcar'); break; }
       if (adjacent) push('melee');
       if (g.hordeAt) push('horde');
       if (p.bile > 0) push('bile');
@@ -1064,7 +1098,7 @@ const Ach = {
       if (g.time >= 600) this.unlock('surv10');
       const b = g.cityBests();
       if (['seoul', 'tokyo', 'bangkok', 'singapore'].every(c => b[c] && b[c].t >= 180)) this.unlock('cities');
-      if (Object.keys(SURVIVAL_CITIES).every(c => b[c] && b[c].t >= 180)) this.unlock('world');
+      if (Object.keys(SURVIVAL_CITIES).every(c => SURVIVAL_CITIES[c].bonus || (b[c] && b[c].t >= 180))) this.unlock('world');
       return;
     }
     if (!won) return;
@@ -1123,9 +1157,9 @@ const SPITTER_CAP = 2;
 const SURVIVAL_UNLOCK = PART1_END + 1;
 /** 도시 이름 카드에 쓰는 현지 표기 */
 const CITY_LOCAL = { seoul: '서울 SEOUL', base: '대피 기지 EVAC BASE', tokyo: '東京 TOKYO', bangkok: 'กรุงเทพฯ BANGKOK', singapore: '新加坡 SINGAPORE',
-  varanasi: 'वाराणसी VARANASI', cairo: 'القاهرة CAIRO', venice: 'VENEZIA', reykjavik: 'REYKJAVÍK', antarctic: 'ANTARCTICA' };
+  varanasi: 'वाराणसी VARANASI', cairo: 'القاهرة CAIRO', venice: 'VENEZIA', reykjavik: 'REYKJAVÍK', antarctic: 'ANTARCTICA', istanbul: 'İSTANBUL', rio: 'RIO DE JANEIRO', mars: 'MARS · 화성' };
 const CITY_NAME = { seoul: '서울', tokyo: '도쿄', bangkok: '방콕', singapore: '싱가포르', base: '대피 기지',
-  varanasi: '바라나시', cairo: '카이로', venice: '베네치아', reykjavik: '레이캬비크', antarctic: '남극 기지' };
+  varanasi: '바라나시', cairo: '카이로', venice: '베네치아', reykjavik: '레이캬비크', antarctic: '남극 기지', istanbul: '이스탄불', rio: '리우데자네이루', mars: '화성' };
 /** 처음 손전등이 벽이 아니라 갈 길을 비추도록 — 출구 쪽으로 몇 칸 따라간 곳과 트인 거리를 함께 본다 */
 function openingAngle(w, p) {
   let tx = Math.floor(p.x / TILE), ty = Math.floor(p.y / TILE);
@@ -1156,7 +1190,15 @@ const ARM_ICON = {
   pistol:  '<svg viewBox="0 0 84 34"><path d="M24 9h34v7H40l-3 4h-4l2 10h-9l-3-12-3-2z"/></svg>',
   smg:     '<svg viewBox="0 0 84 34"><path d="M12 10h52v6h6v3H52l-2 4h-6l-2 8h-7l2-8h-6l-2 5h-6l1-6H18l-6-4z"/></svg>',
   shotgun: '<svg viewBox="0 0 84 34"><path d="M4 12h56v3h20v4H54l-2 3H30l-8 7H8l8-9H4z"/></svg>',
-  rifle:   '<svg viewBox="0 0 84 34"><path d="M2 14h50v-3h10v3h20v3H54l-3 4H38l-2 9h-6l1-9H22l-12 6H2l6-7H2z"/></svg>'
+  rifle:   '<svg viewBox="0 0 84 34"><path d="M2 14h50v-3h10v3h20v3H54l-3 4H38l-2 9h-6l1-9H22l-12 6H2l6-7H2z"/></svg>',
+  magnum:  '<svg viewBox="0 0 84 34"><path d="M20 9h40v6H44v5h-6l-2 3h-3l2 8h-9l-3-11-4-3zM40 14a4 4 0 1 0 0 .1z"/></svg>',
+  auto:    '<svg viewBox="0 0 84 34"><path d="M4 11h58v4h18v4H56l-2 3h-6v7h-8v-7H30l-8 7H8l8-9H4zM44 19h6v6h-6z"/></svg>',
+  lmg:     '<svg viewBox="0 0 84 34"><path d="M2 12h56v-2h8v2h16v3H58v4H46l-2 3h-4v8h-8v-8h-8l-10 6H4l6-7H2zM30 19h10v9H30z"/></svg>',
+  crossbow:'<svg viewBox="0 0 84 34"><path d="M10 15h60v3H10zM52 4c6 4 6 22 0 26l-2-2c4-4 4-18 0-22zM20 18h12l-2 10h-6z"/><path d="M53 6L66 16 53 28" fill="none" stroke="currentColor" stroke-width="1.4"/></svg>',
+  flamer:  '<svg viewBox="0 0 84 34"><path d="M6 12h46v6H38l-2 10h-8l2-10H6zM52 13h12l6-3v12l-6-3H52zM14 5h14v6H14z"/><path d="M72 16c4-3 8-2 10 0-2 2-6 4-10 0z"/></svg>',
+  launcher:'<svg viewBox="0 0 84 34"><path d="M6 10h50v12H40l-2 8h-8l2-8H6zM56 9h20v14H56zM16 22h8v8h-8z"/></svg>',
+  rail:    '<svg viewBox="0 0 84 34"><path d="M2 13h62v-4h14v4h4v6h-4v4H64v-4H50l-3 4H34l-2 8h-6l1-8H18l-10 5H2l5-7H2z"/><path d="M20 15h40v2H20z" fill="#7fe8ff"/></svg>',
+  minigun: '<svg viewBox="0 0 84 34"><path d="M30 9h48v3H30zM30 14h48v3H30zM30 19h48v3H30zM10 8h22v16H10zM16 24h8v8h-8z"/></svg>'
 };
 
 const G = {
@@ -1178,13 +1220,18 @@ const G = {
   /** 저장 배치 판 — 2 부터 4장(대피 기지)이 끼어들었다. 예전 저장의 4장 이후 진행 · 평가 · 체크포인트를 한 칸씩 민다 */
   migrateSaves() {
     try {
-      if ((+localStorage.getItem('aftermath.layout') || 1) >= 2) return;
-      const pr = +(localStorage.getItem('aftermath.progress') || 0);
-      if (pr > 3) localStorage.setItem('aftermath.progress', pr + 1);
-      const gr = JSON.parse(localStorage.getItem('aftermath.grades') || '{}'), out = {};
-      for (const k in gr) out[+k >= 3 ? +k + 1 : k] = gr[k];
-      localStorage.setItem('aftermath.grades', JSON.stringify(out));
-      localStorage.setItem('aftermath.layout', '2');
+      let lay = +localStorage.getItem('aftermath.layout') || 1;
+      const shift = (fp, fk) => {
+        const pr = +(localStorage.getItem('aftermath.progress') || 0);
+        if (fp(pr) !== pr) localStorage.setItem('aftermath.progress', fp(pr));
+        const gr = JSON.parse(localStorage.getItem('aftermath.grades') || '{}'), out = {};
+        for (const k in gr) out[fk(+k)] = gr[k];
+        localStorage.setItem('aftermath.grades', JSON.stringify(out));
+      };
+      if (lay < 2) { shift(p => p > 3 ? p + 1 : p, k => k >= 3 ? k + 1 : k); lay = 2; }
+      // 3 — 2부에 이스탄불(카이로 뒤) · 리우(레이캬비크 뒤)가 끼어들었다. 베네치아 이후를 민다
+      if (lay < 3) { shift(p => p >= 10 ? p + 2 : p >= 8 ? p + 1 : p, k => k >= 9 ? k + 2 : k >= 7 ? k + 1 : k); lay = 3; }
+      localStorage.setItem('aftermath.layout', String(lay));
     } catch (e) { /* 저장 불가 — 그대로 둔다 */ }
   },
   progress() { return +(localStorage.getItem('aftermath.progress') || 0); },
@@ -1631,6 +1678,54 @@ const G = {
     else this.callHorde(this.hordeSize(), { x: z.x, y: z.y });
     this.toast(T('비명 — 무리가 몰려온다'));
   },
+  /** 늪 · 물 · 모래를 밟으면 눈에 보이게 — 물보라와 물결, 튀는 진흙, 모래 먼지. 감염체도 똑같이 느려지고 똑같이 튄다 */
+  updateTerrFx(dt) {
+    const w = this.world, p = this.player, R = this.ripples || (this.ripples = []);
+    for (let i = R.length - 1; i >= 0; i--) if ((R[i].t += dt) >= R[i].max) R.splice(i, 1);
+    if (this.beams) for (let i = this.beams.length - 1; i >= 0; i--) if ((this.beams[i].t += dt) >= this.beams[i].max) this.beams.splice(i, 1);
+    if (!w.terr) { p.terr = 0; return; }
+    const fx = (e, moving, me) => {
+      const tr = w.terrAt(e.x, e.y);
+      e.terr = tr;
+      if (tr !== 1 && tr !== 3 && tr !== 5 && tr !== 6 && tr !== 7) return;
+      e.fxT = (e.fxT || 0) - dt;
+      if (e.fxT > 0) return;
+      const run = me ? p.sprinting : e.aggro;
+      e.fxT = !moving ? (tr === 3 ? 0.7 : 9) : me ? (run ? 0.13 : 0.2) : 0.32;
+      if (tr === 3) {                                                     // 물 — 발목에 이는 물결과 튀는 물방울
+        if (R.length < 60) R.push({ x: e.x, y: e.y, t: 0, max: moving ? 0.9 : 1.4, r: (e.r || 12) * (moving ? 1.5 : 1.1) });
+        if (!moving) return;
+        for (let i = 0; i < (run ? 5 : 3); i++) {
+          const a = Math.random() * 6.283, sp = 30 + Math.random() * 70;
+          this.particles.push({ x: e.x, y: e.y, z: 4, vz: 90 + Math.random() * 110, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, life: 0.6, max: 0.6, size: 1.2 + Math.random() * 1.2, col: '#cfe2ea', kind: 'drop' });
+        }
+      } else if (tr === 5) {                                              // 진흙 — 발에 붙었다 떨어지는 덩어리
+        for (let i = 0; i < (run ? 4 : 2); i++) {
+          const a = Math.random() * 6.283, sp = 20 + Math.random() * 50;
+          this.particles.push({ x: e.x, y: e.y, z: 3, vz: 60 + Math.random() * 80, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, life: 0.6, max: 0.6, size: 1.6 + Math.random() * 1.6, col: i % 2 ? '#3b2a1a' : '#5a4128', kind: 'drop' });
+        }
+      } else {                                                            // 모래 · 화성 흙 — 발밑에서 이는 먼지
+        const red = tr >= 6;
+        for (let i = 0; i < (red ? 3 : 2); i++) {
+          const a = Math.random() * 6.283, sp = 10 + Math.random() * 30;
+          this.particles.push({ x: e.x, y: e.y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, life: 0.9, max: 0.9, size: 5 + Math.random() * 4, col: red ? '#a0583a' : '#b49a6a', kind: 'smoke' });
+        }
+      }
+    };
+    fx(p, !p.dead && p.stride > 0.2, true);
+    for (const z of this.zombies) {
+      if (z.dead || Math.abs(z.x - p.x) > 700 || Math.abs(z.y - p.y) > 500) continue;
+      const mv = z._fx !== undefined && Math.abs(z.x - z._fx) + Math.abs(z.y - z._fy) > 0.3;
+      z._fx = z.x; z._fy = z.y;
+      fx(z, mv, false);
+    }
+  },
+  /** 레일건의 빛줄기 — 벽까지 곧게 뻗었다 사라진다 */
+  beam(x, y, a, range) {
+    const len = this.world.ray(x, y, a, range);
+    (this.beams || (this.beams = [])).push({ x, y, x1: x + Math.cos(a) * len, y1: y + Math.sin(a) * len, t: 0, max: 0.35 });
+    this.shake = Math.min(18, this.shake + 4);
+  },
   /** 휘감는 것이 쓰러지면 매캐한 연기가 퍼진다 — 잠깐 앞이 흐리다 */
   smokeCloud(x, y) {
     for (let i = 0; i < 18; i++) {
@@ -1673,8 +1768,8 @@ const G = {
 
   /** 경보기 달린 차 — 맞히면 울리고, 울리면 무리가 온다 (L4D 의 "이중 기대감") */
   triggerAlarm(pr) {
-    if (!pr || !pr.alarm || pr.ringing) return;
-    pr.ringing = 7;
+    if (!pr || !pr.alarm || pr.ringing || pr.spent) return;
+    pr.ringing = 7; pr.spent = true;                             // 한 번 울리면 배터리가 다 닳는다
     SFX.pan(pr.x - this.player.x);
     SFX.alarm(Math.hypot(pr.x - this.player.x, pr.y - this.player.y));
     SFX.pan(0);
@@ -1786,7 +1881,7 @@ const G = {
     const p = this.player;
     p.lightOn = !p.lightOn;
     SFX.click();
-    this.toast(p.lightOn ? T('손전등 ON') : T('손전등 OFF — 배터리 절약'));
+    this.toast(p.lightOn ? T('손전등 ON') : T('손전등 OFF — 충전 중'));
     this.refreshHud();
   },
 
@@ -2026,7 +2121,7 @@ const G = {
     this.state = 'arms';
     input.firing = false;
     const p = this.player;
-    $('armsRow').innerHTML = SLOT_ORDER.map(k => {
+    $('armsRow').innerHTML = SLOT_ORDER.filter(k => !WEAPONS[k].special || p.owned.has(k)).map(k => {
       const w = WEAPONS[k], own = p.owned.has(k);
       const mag = p.magOf(w), res = p.reserveOf(w);
       const empty = own && w.ammoKey && mag + res <= 0;
@@ -2134,7 +2229,11 @@ const G = {
     if (ml > 1) { mx /= ml; my /= ml; }
 
     const moving = ml > 0.1;
-    p.resolveSprint(KEYBIND.held('sprint', keys) || input.sprintLatch || PAD.sprint, moving, dt);
+    // 터치 — 스틱을 끝까지(94%) 0.18초 밀고 있으면 질주한다. 버튼을 따로 누르지 않아도 엄지 하나로 걷기 · 뛰기를 오간다
+    input.edgeT = isTouch && SETTINGS.get('edgeSprint') && (input.moveMag || 0) > 0.94 ? (input.edgeT || 0) + dt : 0;
+    const edge = input.edgeT > 0.18 && !p.winded;
+    if (this.edgeOn !== edge) { this.edgeOn = edge; $('padMove').classList.toggle('sprint', edge); }
+    p.resolveSprint(KEYBIND.held('sprint', keys) || input.sprintLatch || PAD.sprint || edge, moving, dt);
     // 걸쇠는 숨이 차거나 0.6초 넘게 멈추면 스스로 풀린다 — 서 있는 동안 켜져 있다가
     // 다시 움직일 때 의도치 않게 질주(=소음)하지 않도록
     if (input.sprintLatch) {
@@ -2144,11 +2243,13 @@ const G = {
     // 붙잡히면 발이 묶인다 — 한 마리당 22%, 최대 60%. 포위되면 빠져나오기 어렵다
     const grab = 1 - Math.min(0.6, (p.grabN || 0) * 0.22);
     p.grabbed = p.grabN || 0; p.grabN = 0;
+    // 터치 — 붙잡히면 저절로 밀친다(밀치기 쿨다운마다 한 번). 두 엄지가 이동 · 조준에 묶여 있어도 빠져나올 수 있게
+    if (isTouch && SETTINGS.get('autoShove') && p.grabbed > 0 && !p.dead && p.meleeCool <= 0) { p.melee(this); this.autoShoves = (this.autoShoves || 0) + 1; }
     // 크게 다치면 절뚝인다 — "추격당하며 절뚝이며 안전지대로" (L4D)
     const limp = p.hp < 25 ? 0.8 : 1;
     // 지형 — 진흙 · 모래 더미 · 얕은 물은 발을 늦추고, 얼음판은 미끄러워 멈추려 해도 밀려간다
     const tr = w.terrAt(p.x, p.y);
-    const speed = (p.dead ? 0 : 158) * (p.sprinting ? 1.42 : p.reloading ? 0.78 : 1) * grab * limp * TERRAIN_SLOW[tr] * (p.carry ? 0.88 : 1) * (p.slowT > 0 ? 0.55 : 1);
+    const speed = (p.dead ? 0 : 158) * (p.sprinting ? 1.42 : p.reloading ? 0.78 : 1) * grab * limp * TERRAIN_SLOW[tr] * (p.carry ? 0.88 : 1) * (p.slowT > 0 ? 0.55 : 1) * (p.weapon.heavy || 1);
     const tvx = !p.dead && (mx || my) ? mx * speed : 0, tvy = !p.dead && (mx || my) ? my * speed : 0;
     if (tr === 2) {
       const k = Math.min(1, dt * 1.6);
@@ -2252,6 +2353,7 @@ const G = {
       if (this.hurtSfxT <= 0) { this.hurtSfxT = 0.75; SFX.hurt(); }
     }
     for (const pk of this.pickups) pk.update(dt, this);
+    this.updateTerrFx(dt);
     for (let i = this.gas.length - 1; i >= 0; i--) if ((this.gas[i].t -= dt) <= 0) this.gas.splice(i, 1);
 
     this.zombies = this.zombies.filter(z => !z.dead);
@@ -2265,6 +2367,7 @@ const G = {
       const q = this.particles[i];
       q.life -= dt;
       q.x += q.vx * dt; q.y += q.vy * dt;
+      if (q.vz !== undefined) { q.z += q.vz * dt; q.vz -= 520 * dt; if (q.z <= 0) { q.z = 0; q.vz = 0; q.vx *= 0.2; q.vy *= 0.2; q.life = Math.min(q.life, 0.12); } }
       const drag = Math.pow(q.kind === 'blood' ? 0.02 : q.kind === 'smoke' ? 0.25 : 0.08, dt);
       q.vx *= drag; q.vy *= drag;
       if (q.life <= 0) {
@@ -2279,7 +2382,14 @@ const G = {
       this.flashes[i].t += dt;
       if (this.flashes[i].t >= this.flashes[i].life) this.flashes.splice(i, 1);
     }
-    for (const c of this.corpses) c.age += dt;
+    for (const c of this.corpses) {
+      c.age += dt;
+      // 날아가거나 밀려나는 쓰러짐 — 처음 순간에 맞은 쪽으로 미끄러진다(벽은 넘지 않는다)
+      if (c.push > 0) {
+        const d = Math.min(c.push, (c.how === 'blast' ? 90 : 110) * dt), nx = c.x + Math.cos(c.a) * d, ny = c.y + Math.sin(c.a) * d;
+        if (!this.world.solid(nx, ny)) { c.x = nx; c.y = ny; c.push -= d; } else c.push = 0;
+      }
+    }
 
     /* 손전등에 비친 좀비 표시 (감지용) */
     const range = p.lightRange;
@@ -2338,6 +2448,7 @@ const G = {
       }
     }
 
+    if (this.survival && this.world.theme.key === 'mars') Specials.update(this);
     if (this.survival && this.time > 30) {
       const t = this.time;
       if (!this.challenge) this.level.mix = {
@@ -2356,6 +2467,7 @@ const G = {
       if (this.pickups.length < 6 && Math.random() < dt * 0.35) {
         let types = ['ammo', 'ammo', 'shells', 'medkit', 'battery', 'nade'];
         if (p.owned.has('rifle')) types.push('rounds');
+        if (p.owned.has('crossbow')) types.push('bolts');
         if (this.challenge && this.challenge.rules && this.challenge.rules.pistolOnly) types = ['medkit', 'battery', 'nade', 'medkit'];
         const q = this.world.pickPoint(p.x, p.y, 300, 1400);
         this.pickups.push(new Pickup(q.x, q.y, types[(Math.random() * types.length) | 0]));
@@ -2595,14 +2707,33 @@ function render() {
 
   /* 예광탄 — 총구 높이로 날아간다 */
   ctx.lineCap = 'round';
+  // 레일건 빛줄기
+  if (g.beams) for (const bm of g.beams) {
+    const k = 1 - bm.t / bm.max;
+    ctx.strokeStyle = `rgba(120,230,255,${0.9 * k})`; ctx.lineWidth = 2 + 6 * k;
+    ctx.beginPath(); ctx.moveTo(bm.x, bm.y - GUN_LIFT); ctx.lineTo(bm.x1, bm.y1 - GUN_LIFT); ctx.stroke();
+    ctx.strokeStyle = `rgba(255,255,255,${k})`; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(bm.x, bm.y - GUN_LIFT); ctx.lineTo(bm.x1, bm.y1 - GUN_LIFT); ctx.stroke();
+  }
   for (const b of g.bullets) {
-    ctx.strokeStyle = 'rgba(255,232,170,.85)';
+    if (b.flame) continue;                                    // 불길은 불티 파티클로만
+    ctx.strokeStyle = b.bolt ? 'rgba(200,170,120,.95)' : 'rgba(255,232,170,.85)';
     ctx.lineWidth = 2;
     ctx.beginPath(); ctx.moveTo(b.px, b.py - GUN_LIFT); ctx.lineTo(b.x, b.y - GUN_LIFT); ctx.stroke();
   }
 
+  // 물결 — 물에 들어선 발 둘레로 퍼지는 고리
+  if (g.ripples) {
+    ctx.lineWidth = 1.2;
+    for (const r of g.ripples) {
+      const k = r.t / r.max;
+      ctx.strokeStyle = `rgba(200,225,235,${0.45 * (1 - k)})`;
+      ctx.beginPath(); ctx.ellipse(r.x, r.y, r.r * (0.6 + k * 1.4), r.r * (0.6 + k * 1.4) * 0.6, 0, 0, 6.283); ctx.stroke();
+    }
+  }
   for (const q of g.particles) {
     const k = clamp(q.life / q.max, 0, 1);
+    if (q.kind === 'drop') { ctx.globalAlpha = Math.min(1, k * 2); ctx.fillStyle = q.col; ctx.fillRect(q.x - q.size / 2, q.y - q.z * 0.8 - q.size / 2, q.size, q.size); continue; }
     let r = q.size;
     if (q.kind === 'mist') { r *= 1 + (1 - k) * 2.2; ctx.globalAlpha = k * 0.45; }
     else if (q.kind === 'smoke') { r *= 1 + (1 - k) * 1.8; ctx.globalAlpha = k * 0.3; }
@@ -2788,7 +2919,9 @@ const GROUND_TINT = {
   cairo: ['rgba(0,0,0,0)', 'rgba(160,124,76,.38)', 'rgba(150,118,74,.45)'],
   antarctic: ['rgba(0,0,0,0)', 'rgba(206,216,226,.6)', 'rgba(200,210,222,.55)'],
   reykjavik: ['rgba(0,0,0,0)', 'rgba(190,198,206,.42)', 'rgba(180,190,200,.4)'],
-  varanasi: ['rgba(0,0,0,0)', 'rgba(110,80,50,.16)', 'rgba(120,90,55,.2)']
+  varanasi: ['rgba(0,0,0,0)', 'rgba(110,80,50,.16)', 'rgba(120,90,55,.2)'],
+  rio: ['rgba(0,0,0,0)', 'rgba(170,140,90,.14)', 'rgba(190,160,110,.22)'],
+  mars: ['rgba(0,0,0,0)', 'rgba(150,62,30,.5)', 'rgba(160,70,36,.5)']
 };
 /** 지형 덧칠 — 칸 목록 [종류, x, y, 잡음] */
 function drawTerrain(tt, t) {
@@ -2829,6 +2962,20 @@ function drawTerrain(tt, t) {
   ctx.fillStyle = 'rgba(56,40,26,.7)'; ctx.fill(mud);
   ctx.fillStyle = 'rgba(200,190,170,.16)'; ctx.fill(mudHi);
 }
+/** 화성의 크레이터 — 움푹한 바닥(어둡게)과 솟은 테(빛 받는 쪽은 밝게, 반대쪽은 그늘) */
+function drawCraters(cam, w) {
+  const cx = cam.x + W / 2, cy = cam.y + VH() / 2;
+  for (const c of w.craters) {
+    const q = w.near(c.x * TILE, c.y * TILE, cx, cy), R = c.r * TILE;
+    if (q.x < cam.x - R * 1.4 || q.x > cam.x + W + R * 1.4 || q.y < cam.y - R * 1.4 || q.y > cam.y + VH() + R * 1.4) continue;
+    const bowl = ctx.createRadialGradient(q.x + R * 0.2, q.y + R * 0.2, R * 0.1, q.x, q.y, R);
+    bowl.addColorStop(0, 'rgba(40,14,8,.55)'); bowl.addColorStop(0.8, 'rgba(70,26,14,.45)'); bowl.addColorStop(1, 'rgba(90,34,18,.2)');
+    ctx.fillStyle = bowl; ctx.beginPath(); ctx.arc(q.x, q.y, R, 0, 6.283); ctx.fill();
+    ctx.lineWidth = TILE * 0.7;
+    ctx.strokeStyle = 'rgba(210,120,80,.32)'; ctx.beginPath(); ctx.arc(q.x, q.y, R + TILE * 0.3, Math.PI * 0.75, Math.PI * 1.9); ctx.stroke();
+    ctx.strokeStyle = 'rgba(30,10,6,.35)'; ctx.beginPath(); ctx.arc(q.x, q.y, R + TILE * 0.3, -0.1, Math.PI * 0.75); ctx.stroke();
+  }
+}
 function drawGround(cam, w) {
   const x0 = Math.floor(cam.x / TILE), y0 = Math.floor(cam.y / TILE);
   const x1 = Math.ceil((cam.x + W) / TILE), y1 = Math.ceil((cam.y + VH()) / TILE);
@@ -2863,6 +3010,12 @@ function drawGround(cam, w) {
         // 난간 — 물과 맞닿은 쪽
         if (w.deco[w.idx(x - 1, y)] === D_WATER) { ctx.fillStyle = '#4a5058'; ctx.fillRect(px, py, 5, TILE); }
         if (w.deco[w.idx(x + 1, y)] === D_WATER) { ctx.fillStyle = '#4a5058'; ctx.fillRect(px + TILE - 5, py, 5, TILE); }
+      } else if (d === D_GRASS && w.theme.key === 'mars') {
+        // 화성의 벌판 — 붉은 흙과 자갈
+        ctx.fillStyle = n < 6 ? '#3a1a10' : n < 12 ? '#40200f' : '#361812';
+        ctx.fillRect(px, py, TILE, TILE);
+        ctx.fillStyle = 'rgba(200,120,80,.12)';
+        for (let k = 0; k < 5; k++) ctx.fillRect(px + ((n * 7 + k * 13) % 44), py + ((n * 11 + k * 17) % 44), 3, 2);
       } else if (d === D_GRASS) {
         ctx.fillStyle = n < 6 ? '#1c271d' : n < 12 ? '#1a241b' : '#202c21';
         ctx.fillRect(px, py, TILE, TILE);
@@ -2895,7 +3048,7 @@ function drawGround(cam, w) {
   ctx.imageSmoothingEnabled = false;
   const tex = texOn();
   const st = w.theme.street;
-  ctx.fillStyle = tex ? bakedPattern(st ? 'road_' + st : 'road') : ({ sand: '#6e5634', dirt: '#33281c', stone: '#3a3936', snow: '#8a929c' })[st] || '#28292c'; ctx.fill(road);
+  ctx.fillStyle = tex ? bakedPattern(st ? 'road_' + st : 'road') : ({ sand: '#6e5634', dirt: '#33281c', stone: '#3a3936', snow: '#8a929c', mars: '#4a1e10' })[st] || '#28292c'; ctx.fill(road);
   ctx.fillStyle = tex ? bakedPattern('side') : '#35362f'; ctx.fill(side);
   ctx.imageSmoothingEnabled = true;
   // 지역의 땅빛 — 모래 도시는 모래가 덮고, 눈 도시는 눈이 덮는다
@@ -2966,6 +3119,7 @@ function drawGround(cam, w) {
   ctx.fillStyle = 'rgba(200,196,182,.30)'; ctx.fill(trash);
 
   if (terrT.length) drawTerrain(terrT, G.time);
+  if (w.craters) drawCraters(cam, w);
   /* 젖은 웅덩이 */
   ctx.fillStyle = 'rgba(130,165,200,.09)';
   for (const q of G.puddles) {
@@ -3201,6 +3355,24 @@ function drawLandmarksGround(cam, w) {
       // 정문에서 정전까지 박석 길
       ctx.fillStyle = '#45464a';
       ctx.fillRect((lm.gate.x + 1) * TILE + 8, (lm.hall.y + lm.hall.h) * TILE, 3 * TILE - 16, (lm.gate.y - lm.hall.y - lm.hall.h) * TILE);
+    } else if (lm.kind === 'copacabana') {
+      // 검고 흰 파도 무늬 돌길 — 해변 산책로
+      const wk = lm.walk, X0 = wk.x * TILE, Y0 = wk.y * TILE, X1 = (wk.x + wk.w) * TILE, Y1 = (wk.y + wk.h) * TILE;
+      ctx.fillStyle = '#d8d4c8'; ctx.fillRect(X0, Y0, X1 - X0, Y1 - Y0);
+      ctx.strokeStyle = '#26282a'; ctx.lineWidth = 7;
+      for (let yy = Y0 + 10; yy < Y1; yy += 22) {
+        ctx.beginPath();
+        for (let xx = X0; xx <= X1; xx += 6) { const v = yy + Math.sin((xx - X0) / 26) * 7; xx === X0 ? ctx.moveTo(xx, v) : ctx.lineTo(xx, v); }
+        ctx.stroke();
+      }
+      ctx.fillStyle = 'rgba(214,190,140,.55)'; ctx.fillRect(X0, Y1, X1 - X0, 2 * TILE);              // 모래사장
+    } else if (lm.kind === 'redeemer') {
+      // 바위 언덕 — 등고선
+      const h = lm.hill, cx = (h.x + h.w / 2) * TILE, cy = (h.y + h.h / 2) * TILE;
+      for (let r = 4; r >= 1; r--) {
+        ctx.fillStyle = `rgba(${52 + r * 4},${64 + r * 4},${44 + r * 3},${0.22 + (4 - r) * 0.06})`;
+        ctx.beginPath(); ctx.ellipse(cx, cy, (h.w / 2 + r * 0.6) * TILE, (h.h / 2 + r * 0.6) * TILE, 0, 0, 6.283); ctx.fill();
+      }
     } else if (lm.kind === 'tower') {
       // 언덕 등고선
       for (let r = 5; r >= 2; r--) {
@@ -3447,6 +3619,74 @@ const LANDMARK_TOP = {
     lm.beacon = pyramidAt(E, b.x + 1.8, b.y + 0.3, 1.4, 0.72, '#9aa0a2', '#6a7072');
     spireAt(E, lm.statue[0], lm.statue[1], 0, 0.08, 18, '#5a5e60');
     spireAt(E, lm.statue[0], lm.statue[1], 0.08, 0.15, 8, '#3e5250');
+  },
+  /* 바이오돔 — 유리 돔 안의 초록(테라포밍한 온실) */
+  biodome(lm, E) {
+    const d = lm.dome;
+    liftBox(E, d.x, d.y, d.w, d.h, 0.04, '#8a9098', '#a8aeb4');
+    const c = liftPt(E, (d.x + d.w / 2) * TILE, (d.y + d.h / 2) * TILE, 0.04), R = d.w / 2 * TILE;
+    ctx.fillStyle = 'rgba(60,140,80,.85)'; ctx.beginPath(); ctx.ellipse(c[0], c[1], R * 0.92, R * 0.6, 0, 0, 6.283); ctx.fill();
+    for (let i = 0; i < 9; i++) { const a = i * 2.4, rr = R * 0.6 * ((i * 37) % 10) / 10; ctx.fillStyle = i % 2 ? '#2f7a44' : '#4a9a5a'; ctx.beginPath(); ctx.arc(c[0] + Math.cos(a) * rr, c[1] + Math.sin(a) * rr * 0.6 - 6, 9, 0, 6.283); ctx.fill(); }
+    lm.beacon = domeAt(E, d.x + d.w / 2, d.y + d.h / 2, d.w / 2, 0.04, 'rgba(170,220,240,.28)', 'rgba(255,255,255,.35)');
+    ctx.strokeStyle = 'rgba(220,240,250,.45)'; ctx.lineWidth = 1.4;
+    for (let i = -2; i <= 2; i++) { ctx.beginPath(); ctx.ellipse(c[0] + i * R * 0.3, c[1], Math.max(2, R * (1 - Math.abs(i) * 0.3) * 0.25), R * 0.92, 0, Math.PI, 0); ctx.stroke(); }
+  },
+  /* 귀환 로켓 — 발사대 위에 선 흰 몸통과 주황 띠 */
+  rocket(lm, E) {
+    const [x, y] = lm.pad;
+    liftBox(E, x - 1.5, y - 1.5, 3, 3, 0.03, '#4a4e54', '#5a5e64');
+    spireAt(E, x, y, 0.03, 0.62, 22, '#e8e8e4');
+    spireAt(E, x, y, 0.3, 0.36, 23, '#e8641a');
+    lm.beacon = spireAt(E, x, y, 0.62, 0.74, 12, '#c8ccd0');
+    for (const s of [-1, 1]) { const b = liftPt(E, (x + s * 0.5) * TILE, y * TILE, 0.03), t = liftPt(E, (x + s * 0.25) * TILE, y * TILE, 0.16); ctx.strokeStyle = '#9aa0a8'; ctx.lineWidth = 5; ctx.beginPath(); ctx.moveTo(b[0], b[1]); ctx.lineTo(t[0], t[1]); ctx.stroke(); }
+    const [tx, ty] = lm.tank; spireAt(E, tx, ty, 0, 0.18, 26, '#c8ccd0');
+  },
+  /* 아야 소피아 — 붉은빛 석회 벽, 큰 돔과 반 돔, 네 귀의 연필 같은 첨탑 */
+  hagia(lm, E) {
+    const h = lm.hall;
+    liftBox(E, h.x, h.y, h.w, h.h, 0.12, '#b47a62', '#c8907a');
+    for (let i = 0; i < 5; i++) { const p = liftRect(E, h.x + 0.6 + i * 1.3, h.y + h.h - 0.02, 1, 0.02, 0.08); ctx.fillStyle = '#2a1a14'; ctx.beginPath(); ctx.ellipse((p[0][0] + p[1][0]) / 2, p[0][1] + 8, 8, 11, 0, Math.PI, 0); ctx.fill(); }
+    domeAt(E, h.x + 1.6, h.y + h.h / 2, 1.1, 0.12, '#7a7e86');
+    domeAt(E, h.x + h.w - 1.6, h.y + h.h / 2, 1.1, 0.12, '#7a7e86');
+    lm.beacon = domeAt(E, h.x + h.w / 2, h.y + h.h / 2, 2.1, 0.14, '#868a92', 'rgba(230,236,244,.25)');
+    for (const [x, y] of lm.minarets) {
+      spireAt(E, x, y, 0, 0.5, 10, '#d0c8bc');
+      spireAt(E, x, y, 0.36, 0.38, 16, '#8a8478');                       // 발코니
+      spireAt(E, x, y, 0.5, 0.6, 6, '#6a6e76');
+    }
+    const f = liftPt(E, lm.fountain[0] * TILE, lm.fountain[1] * TILE, 0.02);
+    ctx.fillStyle = '#8a8478'; ctx.beginPath(); ctx.ellipse(f[0], f[1], 22, 15, 0, 0, 6.283); ctx.fill();
+    ctx.fillStyle = '#2c4a54'; ctx.beginPath(); ctx.ellipse(f[0], f[1], 15, 10, 0, 0, 6.283); ctx.fill();
+  },
+  /* 갈라타 탑 — 둥근 돌 몸통, 꼭대기 전망 고리, 원뿔 지붕 */
+  galata(lm, E) {
+    const [x, y] = lm.tower;
+    for (let k = 0; k < 0.42; k += 0.02) { const c = liftPt(E, x * TILE, y * TILE, k); ctx.fillStyle = k > 0.36 ? '#d8cbb0' : shade('#a89a82', 0.85 + k * 0.4); ctx.beginPath(); ctx.ellipse(c[0], c[1], TILE * 1.25, TILE * 0.9, 0, 0, 6.283); ctx.fill(); }
+    const top = liftPt(E, x * TILE, y * TILE, 0.42), ap = liftPt(E, x * TILE, y * TILE, 0.62);
+    ctx.fillStyle = '#4a5a6a'; ctx.beginPath(); ctx.moveTo(top[0] - TILE * 1.3, top[1]); ctx.lineTo(ap[0], ap[1]); ctx.lineTo(top[0] + TILE * 1.3, top[1]); ctx.closePath(); ctx.fill();
+    lm.beacon = ap;
+  },
+  /* 구세주상 — 바위 언덕 꼭대기에서 두 팔을 벌린 흰 조각 */
+  redeemer(lm, E) {
+    const hl = lm.hill;
+    liftBox(E, hl.x + 0.4, hl.y + 0.4, hl.w - 0.8, hl.h - 0.8, 0.12, '#4e5a44', '#5e6a50');
+    liftBox(E, hl.x + 1.2, hl.y + 1.2, hl.w - 2.4, hl.h - 2.4, 0.24, '#5a6450', '#6a7458');
+    const [sx, sy] = lm.statue;
+    liftBox(E, sx - 0.5, sy - 0.5, 1, 1, 0.3, '#a8a49a', '#c8c4ba');                    // 받침
+    spireAt(E, sx, sy, 0.3, 0.5, 9, '#e8e4dc');                                          // 몸
+    const arm = liftPt(E, sx * TILE, sy * TILE, 0.46);
+    ctx.strokeStyle = '#e8e4dc'; ctx.lineWidth = 6; ctx.beginPath(); ctx.moveTo(arm[0] - 34, arm[1]); ctx.lineTo(arm[0] + 34, arm[1]); ctx.stroke();
+    lm.beacon = spireAt(E, sx, sy, 0.5, 0.54, 8, '#f0ece4');                            // 머리
+  },
+  /* 코파카바나 — 야자수와 해변 매점 */
+  copacabana(lm, E) {
+    for (const [x, y] of lm.kiosks) { liftBox(E, x - 0.5, y - 0.5, 1, 1, 0.07, '#e0b860', '#f0d080'); domeAt(E, x, y, 0.6, 0.08, '#2a8a6a'); }
+    for (const [x, y] of lm.palms) {
+      const t = spireAt(E, x, y, 0, 0.34, 4, '#7a5a3a');
+      ctx.strokeStyle = '#2f6a3a'; ctx.lineWidth = 4;
+      for (let i = 0; i < 6; i++) { const a = i / 6 * 6.283; ctx.beginPath(); ctx.moveTo(t[0], t[1]); ctx.quadraticCurveTo(t[0] + Math.cos(a) * 18, t[1] - 10 + Math.sin(a) * 6, t[0] + Math.cos(a) * 30, t[1] + 6 + Math.sin(a) * 12); ctx.stroke(); }
+    }
+    if (!lm.beacon) lm.beacon = liftPt(E, (lm.x + 6.5) * TILE, (lm.y + 3.5) * TILE, 0.1);
   },
   /* 간헐천 들판 — 하늘빛 온천, 김, 몇십 초마다 솟는 물기둥 */
   geyser(lm, E, g) {
@@ -4184,7 +4424,10 @@ const drawStoneRoad = streetPat('#3a3936', (x, S, r) => {
 const drawSnowRoad = streetPat('#8a929c', (x, S, r) => {
   for (let i = 0; i < 24; i++) { x.fillStyle = r() < 0.6 ? 'rgba(60,72,90,.18)' : 'rgba(255,255,255,.18)'; x.beginPath(); x.ellipse(r() * S, r() * S, 12 + r() * 30, 6 + r() * 14, r() * 3, 0, 6.283); x.fill(); }
   x.fillStyle = 'rgba(55,65,80,.28)'; for (const tx of [44, 74, 124, 154]) x.fillRect(tx, 0, 8, S); });
-const PATS = { road_sand: [192, 192, drawSandRoad], road_dirt: [192, 192, drawDirtRoad], road_stone: [192, 192, drawStoneRoad], road_snow: [192, 192, drawSnowRoad], road: [288, 288, drawRoad], side: [96, 96, drawSide], brick: [96, 48, drawBrick], stucco: [96, 96, drawStucco], roof: [96, 96, drawRoof] };
+const drawMarsRoad = streetPat('#4a1e10', (x, S, r) => {
+  for (let i = 0; i < 26; i++) { x.fillStyle = r() < 0.5 ? 'rgba(20,6,2,.25)' : 'rgba(170,80,48,.18)'; x.beginPath(); x.ellipse(r() * S, r() * S, 10 + r() * 26, 6 + r() * 14, r() * 3, 0, 6.283); x.fill(); }
+  for (let i = 0; i < 700; i++) { x.fillStyle = r() < 0.5 ? 'rgba(220,130,90,.12)' : 'rgba(0,0,0,.18)'; x.fillRect(r() * S, r() * S, 1 + r() * 2, 1 + r() * 2); } });
+const PATS = { road_mars: [192, 192, drawMarsRoad], road_sand: [192, 192, drawSandRoad], road_dirt: [192, 192, drawDirtRoad], road_stone: [192, 192, drawStoneRoad], road_snow: [192, 192, drawSnowRoad], road: [288, 288, drawRoad], side: [96, 96, drawSide], brick: [96, 48, drawBrick], stucco: [96, 96, drawStucco], roof: [96, 96, drawRoof] };
 const patCache = {};
 function bakedPattern(key) {
   // 자동 화질이 배율을 조금씩 바꿀 때마다 다시 굽지 않게 1/4 단위로 묶는다 (그 정도 차이는 눈에 띄지 않는다)
@@ -4339,6 +4582,20 @@ function drawZombie(z) {
 function drawCorpse(c, cam) {
   if (c.x < cam.x - 60 || c.x > cam.x + W + 60 || c.y < cam.y - 60 || c.y > cam.y + VH() + 60) return;
   ctx.globalAlpha = clamp(1 - c.age / 240, 0.25, 1);
+  // 쓰러지는 첫 1초 — 폭발엔 떠올랐다 떨어지고, 밀치기엔 돌고, 무릎 꿇으면 잠깐 작게 웅크린다
+  const a = c.age || 0;
+  if (a < 1 && c.how) {
+    const cy = c.y * TILT;
+    let lift = 0, rot = 0, sq = 1;
+    if (c.how === 'blast') { const k = Math.min(1, a / 0.75); lift = Math.sin(k * Math.PI) * 34; rot = (1 - k) * 4; }
+    else if (c.how === 'spin') { const k = Math.min(1, a / 0.6); rot = (1 - k * k) * -3; }
+    else if (c.how === 'knees') { const k = Math.min(1, a / 0.85); sq = k < 0.5 ? 0.82 : 0.82 + (k - 0.5) * 0.36; }
+    else if (c.how === 'crumple') { const k = Math.min(1, a / 0.8); sq = 0.75 + 0.25 * k; }
+    ctx.save(); ctx.translate(c.x, cy - lift); ctx.rotate(rot); ctx.scale(sq, sq); ctx.translate(-c.x, -cy);
+    MODELS.corpse(ctx, c);
+    ctx.restore(); ctx.globalAlpha = 1;
+    return;
+  }
   MODELS.corpse(ctx, c);
   ctx.globalAlpha = 1;
 }
@@ -4479,9 +4736,13 @@ const LEGS2 = {
   'varanasi>cairo': [[83.0, 25.32], [86, 24.5], [88.2, 21.6], [86, 15], [82.2, 6], [77, 5.8], [66, 13], [55, 13.3], [46, 12.4], [43.4, 12.6], [39.5, 19.5], [35.8, 25.5], [33.6, 28], [32.6, 29.8], [31.24, 30.04]],
   'cairo>venice': [[31.24, 30.04], [31.6, 31.4], [29, 33], [24, 34.5], [20, 36.2], [18.8, 39.6], [17, 41.6], [14, 44], [12.34, 45.44]],
   'venice>reykjavik': [[12.34, 45.44], [14, 43.5], [17.5, 40.5], [18, 38.3], [14.5, 36.5], [10, 37.6], [4, 37.6], [-2, 36.2], [-6, 35.9], [-10, 37], [-10, 43.5], [-8, 48], [-6.5, 49.5], [-11, 53], [-14, 59], [-21.9, 64.15]],
+  'cairo>istanbul': [[31.24, 30.04], [31.6, 31.6], [30, 33], [27.5, 35.4], [26.2, 37.5], [26, 39.6], [26.4, 40.2], [27.6, 40.7], [28.98, 41.01]],
+  'istanbul>venice': [[28.98, 41.01], [27.6, 40.7], [26.4, 40.2], [25.2, 38.5], [24.5, 36.2], [21.5, 36.4], [19.2, 38.6], [18.6, 40.3], [17, 41.6], [14, 44], [12.34, 45.44]],
+  'reykjavik>rio': [[-21.9, 64.15], [-27, 56], [-30, 40], [-27, 18], [-25, 2], [-31, -10], [-38, -18], [-43.2, -22.9]],
+  'rio>antarctic': [[-43.2, -22.9], [-46, -32], [-52, -44], [-58, -54], [-62, -60], [-64.05, -64.77]],
   'reykjavik>antarctic': [[-21.9, 64.15], [-27, 56], [-30, 40], [-27, 18], [-25, 2], [-31, -18], [-43, -38], [-55, -52], [-61, -58], [-63, -62.5], [-64.05, -64.77]]
 };
-const ORDER2 = ['singapore', 'varanasi', 'cairo', 'venice', 'reykjavik', 'antarctic'];
+const ORDER2 = ['singapore', 'varanasi', 'cairo', 'istanbul', 'venice', 'reykjavik', 'rio', 'antarctic'];
 let journeyRaf = 0;
 function drawJourney(cv, j) {
   cancelAnimationFrame(journeyRaf);
@@ -4925,7 +5186,7 @@ function drawGlow(cam, g, p, w) {
   // 경보기 차 — 평소엔 계기판의 붉은 점이 천천히 깜빡인다(건드리지 말라는 신호).
   // 울리면 비상등이 번갈아 번쩍인다
   for (const pr of w.props) {
-    if (!pr.alarm || Math.hypot(pr.x - p.x, pr.y - p.y) > 900) continue;
+    if (!pr.alarm || (pr.spent && !pr.ringing) || Math.hypot(pr.x - p.x, pr.y - p.y) > 900) continue;
     if (pr.ringing) {
       const on = ((g.time * 4) | 0) % 2;
       for (const sgn of [-1, 1]) {
@@ -5072,7 +5333,7 @@ function mapImage(w) {
     let r, gg, b;
     if (d === D_WATER) [r, gg, b] = [24, 52, 78];
     else if (d === D_LANDMARK) [r, gg, b] = [150, 92, 60];
-    else if (d === D_GRASS) [r, gg, b] = solid ? [30, 60, 34] : [46, 78, 48];
+    else if (d === D_GRASS) [r, gg, b] = G.world && G.world.theme.key === 'mars' ? [96, 44, 26] : solid ? [30, 60, 34] : [46, 78, 48];
     else if (d === D_BUILDING) [r, gg, b] = [22, 26, 32];
     else if (solid) [r, gg, b] = [52, 56, 62];
     else if (d === D_PLAZA || d === D_BRIDGE) [r, gg, b] = [104, 104, 100];
@@ -5203,7 +5464,12 @@ G.refreshHud = function (force) {
   else if (ob.type === 'boss') obj = T('그것을 쓰러뜨려라');
   else obj = T('탈출로를 찾아라');
   $('hudObjective').textContent = obj;
-  const sub = Twist.hud(this), subEl = $('hudSub');
+  const TN = ['', '모래 — 느려짐', '', '얕은 물 — 느려짐', '', '진흙 — 느려짐', '크레이터 바닥 — 느려짐', '크레이터 둘레 — 느려짐'], tr = p.terr || 0, terEl = $('hudTerr');
+  if (terEl) {
+    const txt = TN[tr] ? T(TN[tr]) + ` −${Math.round((1 - TERRAIN_SLOW[tr]) * 100)}%` : '';
+    if (terEl.textContent !== txt) { terEl.textContent = txt; terEl.hidden = !txt; terEl.dataset.t = tr; }
+  }
+  const sub = Twist.hud(this) || Specials.hud(this), subEl = $('hudSub');
   if (subEl && subEl.textContent !== sub) { subEl.textContent = sub; subEl.hidden = !sub; }
 
   $('hudKills').textContent = this.kills;
@@ -5216,6 +5482,7 @@ G.refreshHud = function (force) {
   $('valBattery').textContent = Math.ceil(p.battery);
   $('gaugeStam').style.width = (p.stam / p.stamMax * 100) + '%';
   document.querySelector('.gauge--health').classList.toggle('low', p.hp < 30);
+  document.querySelector('.gauge--battery').classList.toggle('charging', !!p.charging);
   document.querySelector('.gauge--stam').classList.toggle('low', p.winded);
 
   const wp = p.weapon, inMag = p.magOf(wp), spare = p.reserveOf(wp);
@@ -5236,7 +5503,10 @@ G.refreshHud = function (force) {
   $('hudReloadBar').style.width = (p.reloadProgress * 100) + '%';
   $('hudNades').textContent = p.nades;
   if (isTouch) {
-    $('btnSprint').classList.toggle('on', input.sprintLatch);
+    $('btnSprint').classList.toggle('on', input.sprintLatch || !!this.edgeOn);
+    // 밀치기 버튼 — 손이 닿는 거리에 감염체가 있으면 커지고 맥박친다
+    { let reach = false; for (const z of this.zombies) if (!z.dead && Math.abs(z.x - p.x) < 70 && Math.abs(z.y - p.y) < 70 && Math.hypot(z.x - p.x, z.y - p.y) < 42 + z.r + p.r) { reach = true; break; }
+      $('btnMelee').classList.toggle('ready', reach); }
     $('btnSprint').classList.toggle('dim', p.winded);
     $('btnLight').classList.toggle('off', !p.lightOn || p.battery <= 0);
   }
@@ -5246,7 +5516,7 @@ G.refreshHud = function (force) {
   if (slots.dataset.sig !== sig) {
     slots.dataset.sig = sig;
     slots.innerHTML = SLOT_ORDER.filter(k => p.owned.has(k)).map(k =>
-      `<span class="${k === wp.key ? 'on' : ''}">${WEAPONS[k].slot} ${T(WEAPONS[k].name)}</span>`).join('');
+      `<span class="${k === wp.key ? 'on' : ''}">${WEAPONS[k].slot > 9 ? ['0', '-', '='][WEAPONS[k].slot - 10] : WEAPONS[k].slot} ${T(WEAPONS[k].name)}</span>`).join('');
   }
 
   const bossBar = $('bossBar');
@@ -5321,6 +5591,7 @@ const UI = {
       [T('<kbd>마우스</kbd>'), T('손전등 방향 · 조준')],
       [T('<kbd>클릭</kbd>') + k('fire'), T('사격 (불빛 안의 적은 자동 사격)')],
       [k('w1') + k('w2') + k('w3') + k('w4') + k('cycle'), T('무기 전환 (권총 · SMG · 샷건 · 소총)')],
+      [k('w5') + k('w6') + k('w7') + k('w8'), T('늘어난 칸 (매그넘 · 자동 샷건 · 경기관총 · 석궁)')],
       [k('arms'), T('무기 고르기 — 고르는 동안 시간이 멈춘다')],
       [k('reload'), T('재장전 (약실이 비면 자동 장전)')],
       [k('melee') + T('<kbd>우클릭</kbd>'), T('근접 밀치기 — 달라붙은 적을 떼어낸다')],

@@ -47,6 +47,12 @@ html.letterbox #hud{position:fixed}
   text-shadow:0 2px 10px rgba(0,0,0,.9)}
 .hud__sub{font-size:12.5px;font-weight:600;color:var(--amber);letter-spacing:.02em;text-shadow:0 2px 10px rgba(0,0,0,.9)}
 .hud__sub[hidden]{display:none}
+/* 지형 표시 — 느려지는 땅 위에 있는 동안 */
+.hud__terr{display:inline-block;margin-top:4px;padding:2px 9px;border-radius:999px;font-size:11.5px;font-weight:700;letter-spacing:.02em;color:#e8e2d4;background:rgba(80,64,40,.75);border:1px solid rgba(255,255,255,.12);animation:terrIn .3s ease-out}
+.hud__terr[data-t="3"]{background:rgba(40,80,100,.78)}
+.hud__terr[data-t="5"]{background:rgba(70,48,28,.82)}
+.hud__terr[hidden]{display:none}
+@keyframes terrIn{from{transform:translateY(-4px);opacity:0}}
 .hud__stats{font-size:12px;color:var(--fog);letter-spacing:.06em;
   font-variant-numeric:tabular-nums;text-align:right}
 .hud__sep{opacity:.4;margin:0 4px}
@@ -87,6 +93,10 @@ html.letterbox #hud{position:fixed}
 .gauge__track i{display:block;height:100%;transition:width .12s linear}
 .gauge--health i{background:linear-gradient(90deg,#7c1d17,var(--blood))}
 .gauge--battery i{background:linear-gradient(90deg,#6b5310,var(--amber))}
+/* 꺼 두면 충전 — 흐르는 빗금과 번개 표시 */
+.gauge--battery.charging i{background:repeating-linear-gradient(120deg,#8a6a14 0 6px,#f0c040 6px 12px);background-size:28px 100%;animation:charge 0.8s linear infinite}
+.gauge--battery.charging .gauge__label::after{content:" ⚡";color:#ffd860}
+@keyframes charge{to{background-position:28px 0}}
 .gauge--stam i{background:linear-gradient(90deg,#1d4a52,#56b6c2)}
 
 /* ── 그것 체력 바 ───────────────────────────── */
@@ -816,3 +826,22 @@ body.tl-edit #touch .tbtn.dragging{cursor:grabbing;background:rgba(240,180,41,.2
 /* 브리핑 — 이번 장의 변수 */
 .brief__twist{color:var(--amber);list-style:none;margin-top:6px}
 .brief__twist::before{content:'⚠ ';}
+
+/* 화성 특전 무기가 열릴 때 — 화면 가운데 위에 크게 */
+.unlock{position:absolute;left:50%;top:22%;transform:translate(-50%,0);text-align:center;pointer-events:none;opacity:0;z-index:30}
+.unlock small{display:block;font-size:12px;font-weight:700;letter-spacing:.2em;color:#ff9a6a;text-transform:uppercase}
+.unlock b{display:block;font-size:34px;font-weight:800;color:#fff;text-shadow:0 0 24px rgba(255,120,60,.8),0 2px 8px rgba(0,0,0,.8)}
+.unlock.show{animation:unlockIn 3.2s ease-out forwards}
+@keyframes unlockIn{0%{opacity:0;transform:translate(-50%,10px) scale(.9)}10%{opacity:1;transform:translate(-50%,0) scale(1.06)}20%{transform:translate(-50%,0) scale(1)}80%{opacity:1}100%{opacity:0}}
+
+/* 특전 맵 — 붉은 테두리와 표식 */
+.city--bonus{border-color:rgba(232,100,26,.55)!important;background:linear-gradient(135deg,rgba(120,40,16,.35),rgba(20,10,8,.2))!important}
+.city--bonus em{font-style:normal;font-size:11px;font-weight:800;color:#1a0a04;background:#ff8a50;border-radius:4px;padding:1px 6px;margin-left:6px;vertical-align:2px}
+
+/* 터치 — 스틱 끝까지 밀어 질주하는 동안 스틱 둘레가 주황으로 빛난다 */
+#padMove.sprint{box-shadow:0 0 0 3px rgba(255,160,60,.75),0 0 22px rgba(255,140,40,.55)}
+#padMove.sprint i{background:rgba(255,170,80,.9)}
+/* 밀치기 — 손 닿는 거리에 감염체가 있으면 커지고 맥박친다 */
+#touch #btnMelee.ready{transform:scale(calc(var(--ts) * 1.18));box-shadow:0 0 0 2px rgba(255,90,60,.8),0 0 18px rgba(255,80,50,.6);animation:meleeReady .5s ease-in-out infinite alternate}
+#touch #btnMelee.ready.tbtn--free{transform:translate(-50%,-50%) scale(calc(var(--ts) * 1.18))}
+@keyframes meleeReady{to{box-shadow:0 0 0 3px rgba(255,90,60,.95),0 0 26px rgba(255,80,50,.85)}}

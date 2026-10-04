@@ -22,7 +22,7 @@
 })();
 
 /** 제품 정보 — 이름 · 판. 출시 이름이 정해지면 여기와 index.html · manifest 를 함께 바꾼다 */
-const APP = { name: 'LEFT CITY', subtitle: '남겨진 도시', version: '1.0.0-rc.23' };
+const APP = { name: 'LEFT CITY', subtitle: '남겨진 도시', version: '1.0.0-rc.24' };
 const APP_VERSION = APP.version;
 
 /** 난이도 배수. 1 = 기준값(잔존) */
@@ -60,6 +60,8 @@ const SETTINGS = (() => {
     fps: false,            // 화면 구석에 FPS · 해상도 표시
     touchSize: 'normal',   // 터치 버튼 · 스틱 크기
     haptics: true,         // 맞거나 폭발이 가까우면 짧게 진동 (지원 기기)
+    edgeSprint: true,      // 터치: 이동 스틱을 끝까지 밀면 저절로 질주(질주 버튼 없이)
+    autoShove: true,       // 터치: 감염체에게 붙잡히면 저절로 밀쳐 낸다(쿨다운마다 한 번)
     aspect: 'fill',        // 화면 비율: fill = 창을 꽉 채운다(어떤 비율이든) · wide = 16:9 띠(레터박스)
     speed: 3,              // 게임 속도 1 · 2 · 3배 — 3 이 rc.21 까지의 빠르기(처음 정한 균형). 낮추면 모든 것이 그만큼 느리게
     view3d: 100,           // 3D 시점 거리 0‒100: 100 = 가장 멀리(rc.16 의 크기) · 0 = 아주 가까이(인물이 약 2.7배)
@@ -168,6 +170,14 @@ const KEYBIND = (() => {
     { id: 'w2',     name: 'SMG',             def: 'Digit2' },
     { id: 'w3',     name: '샷건',            def: 'Digit3' },
     { id: 'w4',     name: '소총',            def: 'Digit4' },
+    { id: 'w5',     name: '매그넘',          def: 'Digit5' },
+    { id: 'w6',     name: '자동 샷건',        def: 'Digit6' },
+    { id: 'w7',     name: '경기관총',         def: 'Digit7' },
+    { id: 'w8',     name: '석궁',            def: 'Digit8' },
+    { id: 'w9',     name: '화염방사기',       def: 'Digit9' },
+    { id: 'w10',    name: '유탄 발사기',      def: 'Digit0' },
+    { id: 'w11',    name: '레일건',          def: 'Minus' },
+    { id: 'w12',    name: '미니건',          def: 'Equal' },
     { id: 'map',    name: '전체 지도',        def: 'KeyM' }
   ];
   const FIXED = { up: ['ArrowUp'], down: ['ArrowDown'], left: ['ArrowLeft'], right: ['ArrowRight'],

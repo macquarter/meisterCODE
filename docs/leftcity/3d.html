@@ -36,6 +36,7 @@ html:not(.r3d-off) #view{background:transparent !important}
         <span class="hud__chapter" id="hudChapter">CHAPTER 1</span>
         <span class="hud__objective" id="hudObjective">탈출로를 찾아라</span>
         <span class="hud__sub" id="hudSub" hidden></span>
+        <span class="hud__terr" id="hudTerr" hidden></span>
       </div>
       <div class="hud__stats">
         <span id="hudKills">0</span> 처치
@@ -266,7 +267,10 @@ html:not(.r3d-off) #view{background:transparent !important}
           <button class="city" data-act="survcity" data-city="cairo"><b>카이로</b><span>기자의 피라미드 · 사원 · 나일강 — 모래 · 모래 폭풍</span></button>
           <button class="city" data-act="survcity" data-city="venice"><b>베네치아</b><span>산마르코 광장 · 운하 — 침수 · 안개</span></button>
           <button class="city" data-act="survcity" data-city="reykjavik"><b>레이캬비크</b><span>계단 교회 · 간헐천 — 용암 균열 · 눈</span></button>
+          <button class="city" data-act="survcity" data-city="istanbul"><b>이스탄불</b><span>아야 소피아 · 갈라타 탑 · 보스포루스 — 진흙 · 안개</span></button>
+          <button class="city" data-act="survcity" data-city="rio"><b>리우데자네이루</b><span>구세주상 · 코파카바나 — 모래 · 열대 폭우</span></button>
           <button class="city" data-act="survcity" data-city="antarctic"><b>남극 기지</b><span>연구 기지 · 쇄빙선 — 얼음판 · 눈보라</span></button>
+          <button class="city city--bonus" data-act="survcity" data-city="mars"><b>화성 <em>특전</em></b><span>테라포밍한 붉은 벌판 · 크레이터 — 3 · 5 · 10 · 20분에 특전 무기</span></button>
         </div>
         <button class="btn btn--ghost" data-act="back">돌아가기</button>
       </div>
@@ -406,6 +410,14 @@ html:not(.r3d-off) #view{background:transparent !important}
           <div class="set__row touch-only">
             <div class="set__label">진동</div>
             <button type="button" class="tog" data-set="haptics" aria-pressed="true"><i></i></button>
+          </div>
+          <div class="set__row touch-only">
+            <div class="set__label">스틱 끝까지 밀면 질주</div>
+            <button type="button" class="tog" data-set="edgeSprint" aria-pressed="true"><i></i></button>
+          </div>
+          <div class="set__row touch-only">
+            <div class="set__label">붙잡히면 자동 밀치기</div>
+            <button type="button" class="tog" data-set="autoShove" aria-pressed="true"><i></i></button>
           </div>
 
           <div class="set__row set__row--stack">

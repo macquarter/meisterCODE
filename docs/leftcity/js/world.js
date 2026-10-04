@@ -16,9 +16,9 @@ function makeRng(seed) {
   };
 }
 
-const TERRAIN_KIND = { sand: 1, ice: 2, flood: 3, lava: 4, mud: 5 };
+const TERRAIN_KIND = { sand: 1, ice: 2, flood: 3, lava: 4, mud: 5, crater: 6 };
 /** 지형 칸이 발을 늦추는 정도 (얼음은 늦추지 않고 미끄럽게 한다 · 용암은 데운다) */
-const TERRAIN_SLOW = [1, 0.74, 1, 0.68, 1, 0.8];
+const TERRAIN_SLOW = [1, 0.74, 1, 0.68, 1, 0.8, 0.68, 0.84];     // 6 크레이터 바닥(움푹) · 7 크레이터 둘레(솟음)
 const T_ROAD = 0, T_WALL = 1, T_WATER = 2;          // 물은 걸을 수 없지만 빛과 총알은 지나간다
 const D_ASPHALT = 0, D_SIDEWALK = 1, D_BUILDING = 2, D_RUBBLE = 3, D_PROP = 4,
       D_LANDMARK = 5, D_GRASS = 6, D_PLAZA = 7, D_WATER = 8, D_BRIDGE = 9;
@@ -81,6 +81,7 @@ class World {
   paintTerrain(kind, rng) {
     const W = this.w, H = this.h, val = TERRAIN_KIND[kind] || 0;
     if (!val) return;
+    if (kind === 'crater') { this.paintCraters(rng); return; }
     // 부드러운 잡음(칸 몇 개 크기의 덩어리) — 격자 꼭짓점에 난수, 사이를 보간
     const S = kind === 'lava' ? 4 : 5, gw = Math.ceil(W / S) + 2, gh = Math.ceil(H / S) + 2, gr = new Float32Array(gw * gh);
     for (let i = 0; i < gr.length; i++) gr[i] = rng();
@@ -106,6 +107,32 @@ class World {
       if (kind === 'flood' && d === D_SIDEWALK) n -= 0.12;            // 보도는 조금 덜 잠긴다
       if (kind === 'ice' && (d === D_PLAZA || d === D_GRASS)) n += 0.1;
       if (n > 1 - cover) this.terr[i] = val;
+    }
+  }
+  /** 크레이터 — 둥근 움푹한 바닥(6)과 그 둘레의 솟은 테(7). 크고 작은 것이 겹친다. 시작 · 출구 · 집결지는 비운다 */
+  paintCraters(rng) {
+    const W = this.w, H = this.h;
+    this.craters = [];
+    const keep = [this.spawn, this.exit].filter(Boolean).map(p => [p.x / TILE, p.y / TILE]);
+    for (const lm of this.landmarks) if (lm.rally) keep.push([lm.rally.tx + 0.5, lm.rally.ty + 0.5]);
+    const n = Math.round(W * H / 150);
+    for (let i = 0, tries = 0; i < n && tries < n * 6; tries++) {
+      const r = 1.6 + Math.pow(rng(), 1.8) * 4.4, cx = 2 + rng() * (W - 4), cy = 2 + rng() * (H - 4);
+      if (keep.some(([kx, ky]) => Math.hypot(kx - cx, ky - cy) < r + 3)) continue;
+      this.craters.push({ x: cx, y: cy, r }); i++;
+    }
+    for (const c of this.craters) {
+      const R = Math.ceil(c.r + 1.2);
+      for (let y = Math.floor(c.y - R); y <= Math.ceil(c.y + R); y++) for (let x = Math.floor(c.x - R); x <= Math.ceil(c.x + R); x++) {
+        if (!this.inside(x, y)) continue;
+        const i = y * W + x;
+        if (this.grid[i] !== T_ROAD) continue;
+        const d = this.deco[i];
+        if (d === D_BRIDGE || d === D_BUILDING || d === D_WATER || d === D_LANDMARK) continue;
+        const dd = Math.hypot(x + 0.5 - c.x, y + 0.5 - c.y);
+        if (dd < c.r - 0.3) this.terr[i] = 6;
+        else if (dd < c.r + 0.9 && this.terr[i] !== 6) this.terr[i] = 7;
+      }
     }
   }
   /** 그 자리의 지형 (0 = 없음) */
@@ -319,6 +346,8 @@ class World {
     for (const b of blocksList) {
       if (b.used === true) continue;               // 'edge' (교차로 랜드마크 옆) 은 건물로 채운다
       const r = b.used === 'edge' ? 1 : rng();
+      // 트인 땅(화성) — 건물은 드문드문, 나머지는 붉은 흙 벌판
+      if (this.theme.open && b.used !== 'edge' && rng() < this.theme.open) { this.fill(b.x, b.y, b.w, b.h, T_ROAD, D_GRASS); b.kind = 'open'; continue; }
       if (r < 0.1 && b.w >= 6 && b.h >= 6) { this.park(b, rng); b.kind = 'park'; continue; }
       if (r < 0.16) { this.fill(b.x, b.y, b.w, b.h, T_ROAD, D_PLAZA); b.kind = 'plaza'; continue; }
       if (r < 0.24) { this.fill(b.x, b.y, b.w, b.h, T_ROAD, D_ASPHALT); b.kind = 'lot'; continue; }

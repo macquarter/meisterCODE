@@ -36,14 +36,17 @@ const STORY = {
     // 2부 — 새벽호의 항해
     5: { from: 'singapore', to: 'varanasi', how: ['새벽호로 벵골만을 건너, 강배로 갠지스를 거슬러 · 아흐레', 'The Dawn across the Bay of Bengal, then a riverboat up the Ganges · nine days'] },
     6: { from: 'varanasi', to: 'cairo', how: ['아라비아해 · 홍해 · 수에즈 · 열이틀', 'Arabian Sea · Red Sea · Suez · twelve days'] },
-    7: { from: 'cairo', to: 'venice', how: ['지중해를 건너 북쪽으로 · 엿새', 'North across the Mediterranean · six days'] },
-    8: { from: 'venice', to: 'reykjavik', how: ['지브롤터를 지나 북대서양 · 열하루', 'Past Gibraltar into the North Atlantic · eleven days'] },
-    9: { from: 'reykjavik', to: 'antarctic', how: ['붉은 쇄빙선으로 대서양을 끝까지 남하 · 스무날', 'South down the whole Atlantic on a red icebreaker · twenty days'] }
+    7: { from: 'cairo', to: 'istanbul', how: ['지중해 동쪽 · 다르다넬스 · 나흘', 'The eastern Mediterranean · the Dardanelles · four days'] },
+    8: { from: 'istanbul', to: 'venice', how: ['에게해를 돌아 아드리아해로 · 엿새', 'Around the Aegean into the Adriatic · six days'] },
+    9: { from: 'venice', to: 'reykjavik', how: ['지브롤터를 지나 북대서양 · 열하루', 'Past Gibraltar into the North Atlantic · eleven days'] },
+    10: { from: 'reykjavik', to: 'rio', how: ['붉은 쇄빙선으로 대서양을 남하 · 열나흘', 'South down the Atlantic on a red icebreaker · fourteen days'] },
+    11: { from: 'rio', to: 'antarctic', how: ['남대서양 끝까지, 얼음 바다로 · 여드레', 'To the end of the South Atlantic, into the ice · eight days'] }
   },
 
   /** 지도 위 도시 (경도, 위도) */
   cities: { seoul: [127.0, 37.55], tokyo: [139.7, 35.68], bangkok: [100.5, 13.75], singapore: [103.82, 1.35],
-    varanasi: [83.0, 25.32], cairo: [31.24, 30.04], venice: [12.34, 45.44], reykjavik: [-21.9, 64.15], antarctic: [-64.05, -64.77] },
+    varanasi: [83.0, 25.32], cairo: [31.24, 30.04], venice: [12.34, 45.44], reykjavik: [-21.9, 64.15], antarctic: [-64.05, -64.77],
+    istanbul: [28.98, 41.01], rio: [-43.2, -22.9] },
 
   /** 챕터별 무전과 마무리 한 줄. 무전 열쇠: start · mid · mid2 · done · hold · boss */
   chapters: [
@@ -109,6 +112,14 @@ const STORY = {
       },
       outro: ['피라미드는 사천오백 년을 버텼다. 하룻밤쯤은 아무것도 아니라는 듯이.', 'The pyramids had stood for four and a half thousand years. One more night was nothing to them.']
     },
+    { // 13+ 두 대륙 사이 — 이스탄불
+      radio: {
+        start: [['may', '기관이 숨을 몰아쉬어요. 갈라타 정비창에 부품이 있대요 — 세 개면 돼요.', 'The engine is wheezing. There are parts at the Galata yard — three will do.']],
+        mid: [['nok', '하나 남았어요! 돌길이 미끄러워요, 진흙 쪽은 피해요.', 'One left! The cobbles are slick — keep off the mud.']],
+        done: [['may', '사이렌이에요 — 해협 경보가 저것들을 깨워요. 앞마당으로 뛰어요!', 'That\'s the strait siren — it\'s waking them. Run for the courtyard!']]
+      },
+      outro: ['기관이 다시 숨을 쉬었다. 돔 너머로 해협의 등대가 한 번 깜빡였다 — 두 대륙이 한꺼번에 어두워졌다.', 'The engine breathed again. Past the domes the strait lighthouse blinked once — and two continents went dark together.']
+    },
     { // 14 잠긴 도시 — 베네치아
       radio: {
         start: [['haru', '종탑 중계기 셋이 살아 있으면 북대서양까지 닿아. 켜질 때까지 곁에 있어.', 'If those three bell-tower relays still work, we reach the North Atlantic. Stay with each one until it\'s up.']],
@@ -125,6 +136,14 @@ const STORY = {
         done: [['may', '보여요! 교회 앞으로!', 'I see you! To the church!']]
       },
       outro: ['간헐천이 다시 솟았다. 김이 걷히자 쇄빙선의 붉은 뱃머리가 보였다.', 'The geyser went up again. As the steam cleared, the icebreaker\'s red bow came into view.']
+    },
+    { // 15+ 열대의 폭우 — 리우데자네이루
+      radio: {
+        start: [['may', '급유선이 오는 중이에요. 90초. 케이블카로 언덕에 올라가서 구세주상 아래에서 버텨요.', 'The tanker is on its way. Ninety seconds. Take the cable car up and hold under the statue.']],
+        mid: [['haru', '도하, 들려? 비 소리 때문에 네 목소리가 반밖에 안 들려. 그래도 말할게.', 'Doha, hear me? The rain eats half your voice. I\'ll keep talking anyway.']],
+        done: [['nok', '급유 끝! 언덕을 내려와요 — 남쪽으로 가요!', 'Fueled! Come down the hill — we\'re heading south!']]
+      },
+      outro: ['비가 그치자 해변의 파도 무늬가 다시 보였다. 두 팔을 벌린 조각 아래로, 쇄빙선이 마지막 바다로 뱃머리를 돌렸다.', 'When the rain stopped, the wave pattern on the promenade showed again. Under the open arms of the statue, the icebreaker turned toward the last sea.']
     },
     { // 16 마지막 기지 — 남극
       radio: {
@@ -240,17 +259,25 @@ const STORY = {
       text: ['"입장 마감 17:00" 위에 누가 고쳐 적었다 — "영업 끝."', 'Over "Last entry 17:00" someone has written: "Closed for good."'] },
     { id: 'c13b', ch: 6, title: ['연료 저장고 일지', 'Fuel depot log'],
       text: ['마지막 출고: 남쪽으로 가는 배 여섯 척. 모두 같은 말을 했다 — 남극에는 아직 없다고.', 'Last fuel out: six ships heading south. They all said the same thing — it hasn\'t reached Antarctica yet.'] },
-    { id: 'c14a', ch: 7, title: ['곤돌라 사공의 쪽지', 'Gondolier\'s note'],
+    { id: 'c17a', ch: 7, title: ['정비창 작업표', 'Shipyard work order'],
+      text: ['선박: 미상. 부품: 연료 분사기 3. 비고 — 다 고치면 문 잠그지 말 것. 누가 또 올지 모르니까.', 'Vessel: unknown. Parts: 3 fuel injectors. Note — when you\'re done, don\'t lock the door. Someone else might come.'] },
+    { id: 'c17b', ch: 7, title: ['찻집 칠판', 'Teahouse chalkboard'],
+      text: ['차 공짜. 설탕은 없음. 해협 건너편 가족에게 — 우리는 위스퀴다르로 감. 거기서 만나.', 'Tea is free. No sugar. To family across the strait — we went to Üsküdar. Meet us there.'] },
+    { id: 'c14a', ch: 8, title: ['곤돌라 사공의 쪽지', 'Gondolier\'s note'],
       text: ['손님 없음. 물만 오름. 노는 문 옆에 두고 간다.', 'No passengers. Only the water rising. Left the oar by the door.'] },
-    { id: 'c14b', ch: 7, title: ['종탑 관리 기록', 'Bell tower log'],
+    { id: 'c14b', ch: 8, title: ['종탑 관리 기록', 'Bell tower log'],
       text: ['중계기 점검 완료. 배터리 72시간. 그 뒤로는 종을 칠 것.', 'Relay checked. Battery: 72 hours. After that, ring the bell.'] },
-    { id: 'c15a', ch: 8, title: ['온천 수영장 명부', 'Hot-pool sign-in sheet'],
+    { id: 'c15a', ch: 9, title: ['온천 수영장 명부', 'Hot-pool sign-in sheet'],
       text: ['오늘 입장 0명. 물은 여전히 따뜻함.', 'Visitors today: 0. The water is still warm.'] },
-    { id: 'c15b', ch: 8, title: ['쇄빙선 화물 목록', 'Icebreaker manifest'],
+    { id: 'c15b', ch: 9, title: ['쇄빙선 화물 목록', 'Icebreaker manifest'],
       text: ['연료 · 식량 · 연구 장비 · 승객 40명. 행선지: 남극 반도 연구 기지.', 'Fuel · food · research gear · 40 passengers. Destination: Antarctic Peninsula research station.'] },
-    { id: 'c16a', ch: 9, title: ['기지 격리 수칙', 'Station quarantine rules'],
+    { id: 'c18a', ch: 10, title: ['해변 구조대 일지', 'Lifeguard log'],
+      text: ['04:10 파도 높음. 04:30 사람들이 언덕으로 감. 05:00 나도 감. 구조대 깃발은 내리지 않았다.', '04:10 high surf. 04:30 people heading up the hill. 05:00 me too. Left the lifeguard flag up.'] },
+    { id: 'c18b', ch: 10, title: ['케이블카 표', 'Cable car ticket'],
+      text: ['편도. 날짜가 지워졌다. 뒷면에 아이 글씨 — "위에서는 다 보여."', 'One way. The date is smudged. On the back, in a child\'s hand — "You can see everything from up there."'] },
+    { id: 'c16a', ch: 11, title: ['기지 격리 수칙', 'Station quarantine rules'],
       text: ['외부인은 헬기장에서 48시간 대기. 증상이 없으면 입실. 예외 없음.', 'Visitors wait 48 hours at the helipad. No symptoms, then you may enter. No exceptions.'] },
-    { id: 'c16b', ch: 9, title: ['연구원의 메모', 'Researcher\'s note'],
+    { id: 'c16b', ch: 11, title: ['연구원의 메모', 'Researcher\'s note'],
       text: ['샘플 17번 반응 있음. 더 필요하다. 누가 와 줄까.', 'Sample 17 is responding. We need more. Will anyone come?'] }
   ]
 };

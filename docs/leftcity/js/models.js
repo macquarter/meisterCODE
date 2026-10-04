@@ -196,6 +196,9 @@ const MODELS = (() => {
     varanasi: { top: ['#c9822a', '#d8cfb8', '#8a3a4a', '#e2dccb', '#3a6a8a', '#b8402a', '#d9b040'], pants: ['#d0c8b4', '#6a5a48', '#e0dccb'], long: 0.35 },
     cairo: { top: ['#c8bca0', '#8a8070', '#3a4a5a', '#d8d0bc', '#5a4a3a', '#e4e0d4'], pants: ['#4a4234', '#6a6050'], long: 0.6, hood: 0.3 },
     venice: { top: ['#2a2a34', '#5a2a2a', '#3a3a2a', '#6a6050', '#1e2a3a'], pants: ['#1e2024', '#2f2a26', '#3a3a40'], long: 0.1 },
+    istanbul: { top: ['#5a4a3a', '#3a4a5a', '#8a2a2a', '#c8c0b0', '#2a2e34', '#6a5a4a'], pants: ['#2a2a2e', '#3a3a40'], long: 0.4, hood: 0.2 },
+    mars: { top: ['#e8e4dc', '#e8641a', '#c9ccd1', '#d8d4cc', '#5a6a7a'], pants: ['#c9ccd1', '#8a9098'], long: 0, hood: 0.6 },
+    rio: { top: ['#f2d24a', '#2e7d32', '#e0e0e0', '#1a5a9a', '#e86a4a', '#f0e0c0'], pants: ['#3a4a6a', '#5a5040'], long: 0, hood: 0 },
     reykjavik: { top: ['#c8c0b0', '#4a5a6a', '#6a4a3a', '#2a3a4a', '#8a3a2a'], pants: ['#24282e', '#2d3440'], long: 0, hood: 0.4 },
     antarctic: { top: ['#c83a2a', '#d8642a', '#e0b030', '#2a4a8a', '#c8402e'], pants: ['#2a2e34', '#1e2226'], long: 0.2, hood: 0.8 }
   };

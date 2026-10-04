@@ -459,6 +459,12 @@ const SFX = (() => {
     snap(d)   { const n = Math.max(0.3, near(d));
                 burst(0.12, 2400, 1.2, 0.18 * n, 'bandpass', 0.1);
                 voiceAt(n, { f0: 150, f1: 90, dur: 0.35, gain: 0.2, vowel: 'o', to: 'u', rasp: 1.0, fryAmt: 0.6 }); },
+    /** 늘어난 무기 — 매그넘 · 석궁 · 화염방사기 · 유탄 · 레일건 */
+    magnum()  { burst(0.32, 1400, 0.7, 0.42, 'lowpass', 0.3); tone(80, 0.25, 0.22, 'sine', 40); burst(0.6, 600, 0.8, 0.1, 'lowpass', 0.55); },
+    bow()     { burst(0.08, 2600, 1.8, 0.12, 'bandpass', 0.07); tone(190, 0.16, 0.05, 'triangle', 120); },
+    flame()   { burst(0.12, 700, 0.6, 0.07, 'lowpass', 0.12); },
+    launch()  { burst(0.22, 400, 0.8, 0.3, 'lowpass', 0.2); tone(120, 0.18, 0.12, 'sine', 70); },
+    rail()    { tone(240, 0.5, 0.12, 'sine', 3200); tone(3600, 0.35, 0.05, 'sine', 200); burst(0.4, 3000, 1.1, 0.2, 'bandpass', 0.35); },
     /** 방패에 총알이 튕기는 소리 */
     ric(d)    { const n = near(d); if (n <= 0.02) return;
                 tone(2400 + Math.random() * 900, 0.12, 0.05 * n, 'sine', 1300 + Math.random() * 400);
@@ -478,7 +484,10 @@ const SFX = (() => {
     alarm(d) {
       if (!enabled || !ctx) return;
       const n = Math.max(0.35, near(d));
-      for (let i = 0; i < 24; i++) setTimeout(() => tone(i % 2 ? 740 : 980, 0.24, 0.07 * n, 'square'), i * 250);
+      // 진짜 차 경보처럼 세 마디가 돈다 — 올라가는 사이렌 · 경적 · 빠른 떨림
+      for (let i = 0; i < 4; i++) setTimeout(() => { tone(620, 0.46, 0.09 * n, 'triangle', 1500); tone(1240, 0.46, 0.025 * n, 'sine', 3000); }, i * 500);
+      for (let i = 0; i < 8; i++) setTimeout(() => { tone(415, 0.2, 0.06 * n, 'sawtooth'); tone(523, 0.2, 0.05 * n, 'sawtooth'); burst(0.2, 900, 0.7, 0.03 * n, 'lowpass', 0.18); }, 2000 + i * 260);
+      for (let i = 0; i < 28; i++) setTimeout(() => tone(i % 2 ? 880 : 1180, 0.1, 0.07 * n, 'triangle'), 4100 + i * 100);
     },
     /** 크게 다쳤을 때의 거친 숨 */
     breath() {

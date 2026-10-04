@@ -1,6 +1,6 @@
 /* ═══════════════════════════════════════════
    LEFT CITY — 남겨진 도시 : 캠페인 데이터
-   11개 스토리 챕터 + 무한 서바이벌 (이야기 글 · 무전은 story.js)
+   12개 스토리 챕터 + 무한 서바이벌 (이야기 글 · 무전은 story.js)
    서울(1‒3) → 대피 기지(4) → 도쿄(5‒7) → 방콕(8‒9) → 싱가포르(10‒11). 같은 시드 = 같은 도시.
    군용차 · 컨테이너 · 철망 같은 군 시설은 4장(대피 기지)에만 둔다 — 나머지는 도시답게
    지도는 가장자리 너머로 이어 붙으므로(원환) 가장 먼 곳이 반 지도 거리다 — 그만큼 도시를 크게 잡는다
@@ -30,7 +30,7 @@ const LEVELS = [
     twist: { type: 'gauntlet', when: 'exit', msg: '기지 경보 — 헬기장까지 뛰어라', brief: '변수: 마지막 카드를 꽂는 순간 기지 경보가 울린다. 헬기장까지 쉬지 말고 뛸 것' },
     spawn: { initial: 14, rate: 0.52, max: 26 },
     mix: { walker: 0.48, runner: 0.32, brute: 0.07, crawler: 0.16, bloater: 0.07, riot: 0.08, leaper: 0.04 },
-    own: ['pistol', 'shotgun'], drops: ['smg', 'rifle'],
+    own: ['pistol', 'shotgun'], drops: ['smg', 'rifle', 'magnum'],
     startAmmo: { smg: 100, shell: 8, rifle: 0 }, startNades: 3,
     supplies: { ammo: 4, shells: 3, rounds: 1, medkit: 2, battery: 3, nade: 3 }
   },
@@ -44,7 +44,7 @@ const LEVELS = [
     twist: { type: 'airdrop', at: 40, brief: '변수: 보급 투하 — 붉은 섬광이 떨어진 곳을 60초 안에 열면 장비를 얻는다(선택)' },
     spawn: { initial: 13, rate: 0.52, max: 22 },
     mix: { walker: 0.35, runner: 0.3, brute: 0.13, crawler: 0.12, spitter: 0.1, bloater: 0.08, screamer: 0.05, leaper: 0.05, riot: 0.04 },
-    own: ['pistol', 'rifle'], drops: ['smg', 'shotgun'],
+    own: ['pistol', 'rifle'], drops: ['smg', 'shotgun', 'crossbow'],
     startAmmo: { smg: 140, shell: 16, rifle: 15 }, startNades: 4,
     supplies: { ammo: 8, shells: 4, rounds: 2, medkit: 4, battery: 3, nade: 3 }
   },
@@ -59,7 +59,7 @@ const LEVELS = [
     twist: { type: 'crescendo', name: '수문 제어반', at: 0.22, time: 22, every: 7, blocked: '다리가 들려 있다 — 수문 제어반을 가동하라', brief: '변수: 다리를 내리려면 수문 제어반을 가동해 경보를 버텨야 한다' },
     spawn: { initial: 12, rate: 0.62, max: 26 },
     mix: { walker: 0.26, runner: 0.32, brute: 0.18, crawler: 0.1, spitter: 0.14, bloater: 0.08, screamer: 0.05, leaper: 0.05, charger: 0.03 },
-    own: ['pistol', 'shotgun'], drops: ['smg', 'rifle'],
+    own: ['pistol', 'shotgun'], drops: ['smg', 'rifle', 'magnum', 'auto'],
     startAmmo: { smg: 150, shell: 18, rifle: 20 }, startNades: 5,
     supplies: { ammo: 9, shells: 5, rounds: 3, medkit: 4, battery: 4, nade: 4 }
   },
@@ -74,7 +74,7 @@ const LEVELS = [
     twist: { type: 'scavenge', count: 3, tank: '배', brief: '변수: 배에 연료가 없다 — 연료통 3개를 하나씩 날라 와야 접안이 시작된다' },
     spawn: { initial: 12, rate: 0.62, max: 26 },
     mix: { walker: 0.28, runner: 0.32, brute: 0.16, crawler: 0.1, spitter: 0.14, bloater: 0.08, screamer: 0.06, leaper: 0.05, puller: 0.04, charger: 0.03 },
-    own: ['pistol', 'smg', 'shotgun'], drops: ['rifle'],
+    own: ['pistol', 'smg', 'shotgun'], drops: ['rifle', 'lmg', 'auto'],
     startAmmo: { smg: 150, shell: 18, rifle: 20 }, startNades: 5,
     supplies: { ammo: 9, shells: 5, rounds: 3, medkit: 4, battery: 4, nade: 4 }
   },
@@ -90,7 +90,7 @@ const LEVELS = [
     twist: { type: 'airdrop', at: 50, brief: '변수: 보급 투하 — 붉은 섬광이 떨어진 곳을 60초 안에 열면 장비를 얻는다(선택)' },
     spawn: { initial: 12, rate: 0.58, max: 26 },
     mix: { walker: 0.36, runner: 0.3, brute: 0.1, crawler: 0.12, spitter: 0.1, bloater: 0.08, screamer: 0.05, leaper: 0.05, puller: 0.04, charger: 0.03, riot: 0.04 },
-    own: ['pistol', 'smg'], drops: ['shotgun', 'rifle'],
+    own: ['pistol', 'smg'], drops: ['shotgun', 'rifle', 'magnum', 'crossbow'],
     startAmmo: { smg: 130, shell: 10, rifle: 10 }, startNades: 4,
     supplies: { ammo: 8, shells: 4, rounds: 2, medkit: 4, battery: 3, nade: 3 }
   },
@@ -105,9 +105,24 @@ const LEVELS = [
     twist: { type: 'airdrop', at: 35, brief: '변수: 모래 폭풍 속 보급 투하 — 60초 안에 열면 장비를 얻는다(선택)' },
     spawn: { initial: 9, rate: 0.52, max: 23 },
     mix: { walker: 0.36, runner: 0.32, brute: 0.1, crawler: 0.12, spitter: 0.1, bloater: 0.08, screamer: 0.05, leaper: 0.05, puller: 0.04, charger: 0.03, riot: 0.04 },
-    own: ['pistol', 'shotgun'], drops: ['smg', 'rifle'],
+    own: ['pistol', 'shotgun'], drops: ['smg', 'rifle', 'auto', 'lmg'],
     startAmmo: { smg: 140, shell: 18, rifle: 12 }, startNades: 4,
     supplies: { ammo: 9, shells: 5, rounds: 2, medkit: 4, battery: 4, nade: 3 }
+  },
+  {
+    name: '두 대륙 사이',
+    part: 2,
+    brief: '이스탄불. 새벽호의 기관이 수에즈를 지나며 망가졌다. 갈라타 부두 정비창에 부품이 남아 있다는 교신 — 보스포루스를 건너기 전에 챙겨야 한다. ' +
+           '비 온 뒤 언덕의 돌길에는 진흙이 고였다. 발이 빠지면 느려지고, 저것들도 느려진다.',
+    goals: ['기관 부품 3개 확보', '아야 소피아 앞마당으로 이동'],
+    seed: 16903, weepers: 1, blocks: 9, city: 'istanbul', river: true, landmarks: ['hagia', 'galata', 'gasstation'], goal: 'hagia',
+    objective: { type: 'collect', count: 3, item: '기관 부품' },
+    twist: { type: 'gauntlet', when: 'exit', msg: '사이렌 — 앞마당까지 뛰어라', brief: '변수: 마지막 부품을 드는 순간 해협의 사이렌이 울린다. 앞마당까지 쉬지 말고 뛸 것' },
+    spawn: { initial: 12, rate: 0.58, max: 26 },
+    mix: { walker: 0.34, runner: 0.32, brute: 0.12, crawler: 0.1, spitter: 0.1, bloater: 0.08, screamer: 0.05, leaper: 0.05, puller: 0.04, charger: 0.03, riot: 0.05 },
+    own: ['pistol', 'smg'], drops: ['shotgun', 'rifle', 'magnum', 'crossbow', 'auto'],
+    startAmmo: { smg: 150, shell: 12, rifle: 12 }, startNades: 4,
+    supplies: { ammo: 9, shells: 4, rounds: 2, medkit: 4, battery: 3, nade: 3 }
   },
   {
     name: '잠긴 도시',
@@ -120,7 +135,7 @@ const LEVELS = [
     twist: { type: 'crescendo', name: '홍수 방벽', at: 0.2, time: 24, every: 7, blocked: '물이 차오른다 — 홍수 방벽을 올려야 광장으로 갈 수 있다', brief: '변수: 광장 앞 홍수 방벽 — 올라갈 때까지 경보 속에서 버틸 것' },
     spawn: { initial: 12, rate: 0.6, max: 26 },
     mix: { walker: 0.34, runner: 0.3, brute: 0.12, crawler: 0.1, spitter: 0.12, bloater: 0.08, screamer: 0.06, leaper: 0.05, puller: 0.04, charger: 0.03, riot: 0.04 },
-    own: ['pistol', 'smg'], drops: ['shotgun', 'rifle'],
+    own: ['pistol', 'smg'], drops: ['shotgun', 'rifle', 'lmg', 'crossbow'],
     startAmmo: { smg: 150, shell: 12, rifle: 12 }, startNades: 4,
     supplies: { ammo: 9, shells: 4, rounds: 2, medkit: 4, battery: 3, nade: 3 }
   },
@@ -135,9 +150,24 @@ const LEVELS = [
     twist: { type: 'gauntlet', when: 'half', at: 0.5, msg: '분화 — 교회까지 뛰어라', brief: '변수: 길의 절반에서 화산이 터진다. 그때부터 교회까지 쉼 없이 몰려온다' },
     spawn: { initial: 16, rate: 0.68, max: 28 },
     mix: { walker: 0.32, runner: 0.3, brute: 0.14, crawler: 0.1, spitter: 0.12, bloater: 0.08, screamer: 0.06, leaper: 0.05, puller: 0.04, charger: 0.03, riot: 0.04 },
-    own: ['pistol', 'shotgun'], drops: ['smg', 'rifle'],
+    own: ['pistol', 'shotgun'], drops: ['smg', 'rifle', 'magnum', 'auto', 'lmg'],
     startAmmo: { smg: 150, shell: 20, rifle: 16 }, startNades: 5,
     supplies: { ammo: 9, shells: 5, rounds: 3, medkit: 4, battery: 4, nade: 4 }
+  },
+  {
+    name: '열대의 폭우',
+    part: 2,
+    brief: '리우데자네이루. 쇄빙선이 남극으로 가기 전 마지막 연료를 넣는 항구다. 급유선이 오기까지 90초 — 언덕 위 구세주상 아래에서 버텨야 한다. ' +
+           '폭우가 해변의 모래를 길까지 밀어 올렸다. 모래 더미를 밟으면 발이 묶인다.',
+    goals: ['90초 생존', '구세주상 아래 집결지로 이동'],
+    seed: 17929, weepers: 1, blocks: 9, city: 'rio', landmarks: ['redeemer', 'copacabana', 'gasstation'], goal: 'redeemer',
+    objective: { type: 'survive', time: 90 },
+    twist: { type: 'crescendo', name: '케이블카 제어반', at: 0.28, time: 24, every: 7, blocked: '케이블카가 멈춰 있다 — 제어반을 가동해야 언덕에 오른다', brief: '변수: 언덕으로 가는 케이블카 — 제어반을 켜면 경보가 울린다. 다 올라올 때까지 버틸 것' },
+    spawn: { initial: 12, rate: 0.62, max: 27 },
+    mix: { walker: 0.3, runner: 0.34, brute: 0.12, crawler: 0.12, spitter: 0.12, bloater: 0.08, screamer: 0.06, leaper: 0.06, puller: 0.04, charger: 0.04, riot: 0.03 },
+    own: ['pistol', 'smg', 'shotgun'], drops: ['rifle', 'crossbow', 'lmg', 'auto'],
+    startAmmo: { smg: 170, shell: 22, rifle: 16 }, startNades: 5,
+    supplies: { ammo: 10, shells: 5, rounds: 3, medkit: 5, battery: 4, nade: 4 }
   },
   {
     name: '마지막 기지',
@@ -151,7 +181,7 @@ const LEVELS = [
     twist: { type: 'scavenge', count: 3, tank: '구조 헬기', brief: '변수: 헬기에 연료가 없다 — 연료통 3개를 날라 와야 착륙이 시작된다' },
     spawn: { initial: 12, rate: 0.64, max: 28 },
     mix: { walker: 0.3, runner: 0.32, brute: 0.14, crawler: 0.1, spitter: 0.12, bloater: 0.08, screamer: 0.06, leaper: 0.06, puller: 0.04, charger: 0.04, riot: 0.04 },
-    own: ['pistol', 'smg', 'shotgun'], drops: ['rifle'],
+    own: ['pistol', 'smg', 'shotgun'], drops: ['rifle', 'magnum', 'lmg', 'auto', 'crossbow'],
     startAmmo: { smg: 230, shell: 28, rifle: 20 }, startNades: 6,
     supplies: { ammo: 12, shells: 6, rounds: 3, medkit: 6, battery: 5, nade: 5 }
   }
@@ -168,7 +198,7 @@ const SURVIVAL = {
   objective: { type: 'endless' },
   spawn: { initial: 8, rate: 0.4, max: 46 },
   mix: { walker: 0.6, runner: 0.25, brute: 0, crawler: 0.15 },
-  own: ['pistol', 'smg'], drops: ['shotgun', 'rifle', 'smg'],
+  own: ['pistol', 'smg'], drops: ['shotgun', 'rifle', 'smg', 'magnum', 'auto', 'lmg', 'crossbow'],
   startAmmo: { smg: 120, shell: 6, rifle: 0 }, startNades: 3,
   supplies: { ammo: 6, shells: 4, rounds: 2, medkit: 3, battery: 4, nade: 3 }
 };
@@ -198,6 +228,9 @@ const SURVIVAL_CITIES = {
   cairo:     { river: true,  landmarks: ['pyramids', 'mosque', 'gasstation'] },
   venice:    { river: true,  landmarks: ['piazza', 'hawker'] },
   reykjavik: { river: false, landmarks: ['hallgrim', 'geyser'] },
+  istanbul:  { river: true,  landmarks: ['hagia', 'galata', 'gasstation'] },
+  rio:       { river: false, landmarks: ['redeemer', 'copacabana', 'gasstation'] },
+  mars:      { river: false, landmarks: ['biodome', 'rocket'], bonus: true },
   antarctic: { river: false, landmarks: ['station', 'icebreaker'] }
 };
 

@@ -81,6 +81,40 @@ const THEMES = {
     roofs: ['#3a3226', '#352e24', '#40372a', '#2f2a20'],
     streetDecor: ['cart', 'parasol', 'bin']
   },
+  /* 튀르키예 이스탄불 — 보스포루스 해협, 돔과 첨탑, 언덕의 돌길. 비 온 뒤 진흙이 고인 골목과 바다 안개 */
+  istanbul: {
+    key: 'istanbul', street: 'stone', name: '이스탄불', river: '보스포루스', terrain: 'mud', weather: 'fog',
+    signs: ['ECZANE', 'LOKANTA', 'KAHVE', 'OTEL', 'BANKA', 'BAKKAL', 'FIRIN', 'KEBAP', 'ÇAY', 'BALIK', 'BERBER', 'SİMİT'],
+    signCols: ['#ffffff', '#e53935', '#ffd54f', '#4fc3f7', '#81c784', '#ffab91'],
+    carCols: ['#f2c21a', '#c9ccd1', '#3a3d42', '#8a2b2b', '#2f4a63', '#e0e0e0'],     // 노란 택시
+    busCol: '#c8201a', small: null,
+    walls: [['#8a6a5a', 0], ['#a07a5a', 0], ['#6a5a6a', 0], ['#7a8a8a', 0], ['#8a4a3a', 1], ['#9a8a6a', 0]],
+    roofs: ['#5a2e24', '#4e2a22', '#62342a', '#3e2620'],
+    streetDecor: ['cart', 'bin', 'parasol']
+  },
+  /* 브라질 리우데자네이루 — 언덕 위의 구세주상, 파도 무늬 해변 산책로, 파스텔 집과 언덕의 동네. 모래가 길까지 밀려오고 열대 폭우가 쏟아진다 */
+  rio: {
+    key: 'rio', name: '리우데자네이루', river: null, terrain: 'sand', weather: 'monsoon',
+    signs: ['FARMÁCIA', 'PADARIA', 'BAR', 'HOTEL', 'BANCO', 'AÇAÍ', 'LANCHONETE', 'CHURRASCO', 'MERCADO', 'SUCOS', 'PRAIA', 'BOTECO'],
+    signCols: ['#ffeb3b', '#4caf50', '#29b6f6', '#ff7043', '#ffffff', '#f06292'],
+    carCols: ['#f2c21a', '#e0e0e0', '#2f2f2f', '#2e7d32', '#1a5a9a', '#c9ccd1'],
+    busCol: '#2a7ac0', small: null,
+    walls: [['#c8806a', 0], ['#e0b860', 0], ['#5aa0a8', 0], ['#a8c070', 0], ['#d07050', 1], ['#e8d0a8', 0]],
+    roofs: ['#8a4a30', '#7a4028', '#9a5a3a', '#6a3a26'],
+    streetDecor: ['parasol', 'cart', 'bin']
+  },
+  /* 특전 — 테라포밍한 화성. 건물은 드문드문한 거주 모듈뿐, 붉은 흙 벌판에 크고 작은 크레이터가 패였다.
+     움푹한 바닥과 솟은 테두리 모두 발이 무겁다 — 저것들도 마찬가지 */
+  mars: {
+    key: 'mars', street: 'mars', name: '화성', river: null, terrain: 'crater', weather: 'fog', open: 0.7, noCars: false,
+    signs: ['HAB-1', 'HAB-2', 'O₂', 'GREENHOUSE', 'MED', 'LAB', 'AIRLOCK', 'H₂O', 'REACTOR', 'DEPOT', 'COMMS', 'ROVER BAY'],
+    signCols: ['#ffffff', '#ff8a50', '#80d8ff', '#b9f6ca', '#fff59d', '#ff8a80'],
+    carCols: ['#e0e0e0', '#e8641a', '#c9ccd1', '#3a3d42', '#e8641a', '#d8d4cc'],     // 탐사 차량
+    busCol: '#e8641a', small: null,
+    walls: [['#d8d4cc', 0], ['#c9ccd1', 0], ['#e8641a', 0], ['#a8aeb4', 0], ['#e0e0e0', 0], ['#8a9098', 0]],
+    roofs: ['#c8ccd0', '#b8bcc0', '#d0d4d8', '#aeb2b6'],
+    streetDecor: ['bin']
+  },
   /* 베네치아 — 대운하와 다리, 물에 잠긴 골목. 얕은 물이 모두의 발을 늦춘다 */
   venice: {
     key: 'venice', street: 'stone', canals: true, noCars: true, name: '베네치아', river: '대운하', terrain: 'flood', weather: 'fog',
@@ -387,6 +421,58 @@ const LANDMARKS = {
       lmSolid(wd, x0 + 4, y0 + 9, 1, 1); lmSolid(wd, x0 + 8, y0 + 9, 1, 1);
       return { kind: 'piazza', x: x0, y: y0, w: 13, h: 11, rally: { tx: x0 + 6, ty: y0 + 7 },
         church: { x: x0 + 1, y: y0 + 1, w: 6, h: 4 }, tower: { x: x0 + 9, y: y0 + 2 }, cols: [[x0 + 4.5, y0 + 9.5], [x0 + 8.5, y0 + 9.5]] };
+    }
+  },
+  /* 이스탄불 — 큰 돔과 반 돔, 네 귀퉁이의 가는 첨탑(아야 소피아). 앞마당이 집결지 */
+  hagia: {
+    name: '아야 소피아', w: 13, h: 11, ground: D_PLAZA,
+    stamp(wd, x0, y0) {
+      lmSolid(wd, x0 + 3, y0 + 1, 7, 5);
+      for (const [dx, dy] of [[1, 1], [11, 1], [1, 6], [11, 6]]) lmSolid(wd, x0 + dx, y0 + dy, 1, 1);
+      lmSolid(wd, x0 + 6, y0 + 9, 1, 1);                                            // 손 씻는 샘
+      return { kind: 'hagia', x: x0, y: y0, w: 13, h: 11, rally: { tx: x0 + 4, ty: y0 + 8 },
+        hall: { x: x0 + 3, y: y0 + 1, w: 7, h: 5 }, minarets: [[1, 1], [11, 1], [1, 6], [11, 6]].map(([dx, dy]) => [x0 + dx + 0.5, y0 + dy + 0.5]), fountain: [x0 + 6.5, y0 + 9.5] };
+    }
+  },
+  /* 이스탄불 — 원뿔 지붕의 둥근 돌탑(갈라타 탑) */
+  galata: {
+    name: '갈라타 탑', w: 7, h: 7, ground: D_PLAZA,
+    stamp(wd, x0, y0) {
+      lmSolid(wd, x0 + 2, y0 + 1, 3, 3);
+      return { kind: 'galata', x: x0, y: y0, w: 7, h: 7, rally: { tx: x0 + 3, ty: y0 + 5 }, tower: [x0 + 3.5, y0 + 2.5] };
+    }
+  },
+  /* 리우 — 바위 언덕 위에 두 팔을 벌린 구세주상, 오르는 계단 */
+  redeemer: {
+    name: '구세주 그리스도상', w: 11, h: 11, ground: D_PLAZA,
+    stamp(wd, x0, y0) {
+      lmSolid(wd, x0 + 3, y0 + 1, 5, 5);
+      return { kind: 'redeemer', x: x0, y: y0, w: 11, h: 11, rally: { tx: x0 + 5, ty: y0 + 8 }, hill: { x: x0 + 3, y: y0 + 1, w: 5, h: 5 }, statue: [x0 + 5.5, y0 + 3.5] };
+    }
+  },
+  /* 리우 — 검고 흰 파도 무늬 돌길의 해변 산책로와 야자수 · 매점 */
+  copacabana: {
+    name: '코파카바나 산책로', w: 13, h: 7, ground: D_PLAZA,
+    stamp(wd, x0, y0) {
+      lmSolid(wd, x0 + 2, y0 + 1, 1, 1); lmSolid(wd, x0 + 10, y0 + 1, 1, 1);        // 매점
+      return { kind: 'copacabana', x: x0, y: y0, w: 13, h: 7, rally: { tx: x0 + 6, ty: y0 + 4 }, kiosks: [[x0 + 2.5, y0 + 1.5], [x0 + 10.5, y0 + 1.5]],
+        palms: [[x0 + 1, y0 + 5], [x0 + 4.5, y0 + 5.5], [x0 + 8.5, y0 + 5.5], [x0 + 12, y0 + 5]], walk: { x: x0, y: y0 + 2, w: 13, h: 3 } };
+    }
+  },
+  /* 화성 — 유리 돔 온실(바이오돔). 안에는 테라포밍한 초록이 자란다 */
+  biodome: {
+    name: '바이오돔', w: 11, h: 11, ground: D_PLAZA,
+    stamp(wd, x0, y0) {
+      lmSolid(wd, x0 + 2, y0 + 1, 7, 6);
+      return { kind: 'biodome', x: x0, y: y0, w: 11, h: 11, rally: { tx: x0 + 5, ty: y0 + 9 }, dome: { x: x0 + 2, y: y0 + 1, w: 7, h: 6 } };
+    }
+  },
+  /* 화성 — 발사대에 선 귀환 로켓과 연료 탱크 */
+  rocket: {
+    name: '귀환 로켓', w: 9, h: 9, ground: D_ASPHALT,
+    stamp(wd, x0, y0) {
+      lmSolid(wd, x0 + 3, y0 + 2, 3, 3); lmSolid(wd, x0 + 7, y0 + 1, 1, 1);
+      return { kind: 'rocket', x: x0, y: y0, w: 9, h: 9, rally: { tx: x0 + 4, ty: y0 + 7 }, pad: [x0 + 4.5, y0 + 3.5], tank: [x0 + 7.5, y0 + 1.5] };
     }
   },
   /* 레이캬비크 — 현무암 기둥을 닮은 계단식 콘크리트 교회와 그 앞 동상 */

@@ -15,9 +15,38 @@ const WEAPONS = {
   // 소총 — 원작의 네 번째 무기. 느리지만 한 발이 줄 선 감염체 여럿을 꿰뚫는다
   rifle:   { key: 'rifle',   name: '소총', slot: 4, rate: 0.82, dmg: 92, spread: 0.004,
              range: 900, speed: 2300, pellets: 1, ammoKey: 'rifle', kick: 5.5, sfx: 'rifle', knock: 22,
-             mag: 5,  reload: 2.35, pierce: 3 }
+             mag: 5,  reload: 2.35, pierce: 3 },
+  // ── 늘어난 무기 칸 — 감염체가 떨어뜨리거나 보급 상자에서 나온다. 탄은 기존 탄을 나눠 쓴다(석궁만 화살) ──
+  magnum:  { key: 'magnum',  name: '매그넘', slot: 5, rate: 0.55, dmg: 74, spread: 0.012,
+             range: 720, speed: 1900, pellets: 1, ammoKey: 'rifle', kick: 4.6, sfx: 'magnum', knock: 16,
+             mag: 6,  reload: 1.9, pierce: 1, pick: 12 },
+  auto:    { key: 'auto',    name: '자동 샷건', slot: 6, rate: 0.27, dmg: 13, spread: 0.22,
+             range: 400, speed: 1200, pellets: 7, ammoKey: 'shell', kick: 6.5, sfx: 'shotgun', knock: 9,
+             mag: 10, reload: 2.8, pick: 16 },
+  lmg:     { key: 'lmg',     name: '경기관총', slot: 7, rate: 0.07, dmg: 19, spread: 0.09,
+             range: 680, speed: 1600, pellets: 1, ammoKey: 'smg', kick: 2.6, sfx: 'shot', knock: 6,
+             mag: 75, reload: 3.6, pierce: 1, heavy: 0.86, pick: 110 },
+  // 석궁 — 소리가 거의 없어 무리를 깨우지 않는다. 한 발에 여럿을 꿰뚫는다
+  crossbow:{ key: 'crossbow', name: '석궁', slot: 8, rate: 0.9, dmg: 130, spread: 0.003,
+             range: 820, speed: 1350, pellets: 1, ammoKey: 'bolt', kick: 1.4, sfx: 'bow', knock: 14,
+             mag: 1, reload: 0.95, pierce: 4, silent: true, pick: 8 },
+  // ── 특전 무기 — 화성 서바이벌에서만, 3 · 5 · 10 · 20분에 하나씩 열린다. 예비탄이 끝없다(탄창 · 재장전은 있다) ──
+  flamer:  { key: 'flamer',  name: '화염방사기', slot: 9, rate: 0.045, dmg: 7, spread: 0.2,
+             range: 240, speed: 560, pellets: 2, ammoKey: null, kick: 0.5, sfx: 'flame', knock: 2,
+             mag: 140, reload: 2.4, burn: 2.6, flame: true, special: true },
+  launcher:{ key: 'launcher', name: '유탄 발사기', slot: 10, rate: 0.72, dmg: 0, spread: 0.02,
+             range: 600, speed: 620, pellets: 1, ammoKey: null, kick: 5, sfx: 'launch', knock: 0,
+             mag: 6, reload: 2.6, launcher: true, special: true },
+  rail:    { key: 'rail',    name: '레일건', slot: 11, rate: 1.1, dmg: 420, spread: 0,
+             range: 1500, speed: 5200, pellets: 1, ammoKey: null, kick: 9, sfx: 'rail', knock: 30,
+             mag: 4, reload: 2.2, pierce: 99, rail: true, special: true },
+  minigun: { key: 'minigun', name: '미니건', slot: 12, rate: 0.03, dmg: 16, spread: 0.11,
+             range: 700, speed: 1700, pellets: 1, ammoKey: null, kick: 1.6, sfx: 'shot', knock: 5,
+             mag: 300, reload: 4.4, spin: true, heavy: 0.74, special: true }
 };
-const SLOT_ORDER = ['pistol', 'smg', 'shotgun', 'rifle'];
+const SLOT_ORDER = ['pistol', 'smg', 'shotgun', 'rifle', 'magnum', 'auto', 'lmg', 'crossbow', 'flamer', 'launcher', 'rail', 'minigun'];
+/** 특전 무기 — 화성에서 열리는 차례와 시각(초) */
+const SPECIAL_UNLOCKS = [['flamer', 180], ['launcher', 300], ['rail', 600], ['minigun', 1200]];
 
 const ZTYPES = {
   walker: { hp: 62,  speed: 47,  dmg: 17, r: 13, size: 12, hear: 330, score: 10,
@@ -77,7 +106,7 @@ class Player {
     this.angle = -Math.PI / 2;
     this.hp = this.hpMax = 100;
     this.owned = new Set(level.own);
-    this.ammo = { smg: level.startAmmo.smg | 0, shell: level.startAmmo.shell | 0, rifle: level.startAmmo.rifle | 0 };
+    this.ammo = { smg: level.startAmmo.smg | 0, shell: level.startAmmo.shell | 0, rifle: level.startAmmo.rifle | 0, bolt: level.startAmmo.bolt | 0 };
     // 무기별 약실. 시작 시 예비탄에서 한 탄창씩 채워 둔다.
     this.mag = {};
     for (const k of SLOT_ORDER) {
@@ -256,22 +285,30 @@ class Player {
       this.reload(g, true);
       return false;
     }
-    this.cool = w.rate;
+    // 미니건은 총열이 돌아야 빨라진다 — 처음 몇 발은 느리다
+    if (w.spin) { this.spinUp = Math.min(1, (this.spinUp || 0) + 0.06); this.cool = w.rate / (0.22 + 0.78 * this.spinUp); }
+    else this.cool = w.rate;
     this.mag[w.key] = this.magOf(w) - 1;
     g.shots += w.pellets;
     if (w.key !== 'pistol') g.nonPistol = true;
-    for (let i = 0; i < w.pellets; i++) {
+    const mx = this.x + Math.cos(base) * 14, my = this.y + Math.sin(base) * 14;
+    if (w.launcher) {
+      // 유탄 — 닿는 순간 터진다
+      g.grenades.push(new Grenade(mx, my, base + (Math.random() - 0.5) * w.spread * 2, { impact: true, speed: w.speed }));
+    } else for (let i = 0; i < w.pellets; i++) {
       const a = base + (Math.random() - 0.5) * w.spread * 2;
-      g.bullets.push(new Bullet(
-        this.x + Math.cos(base) * 14,
-        this.y + Math.sin(base) * 14,
-        a, w.dmg, w.range * (0.85 + Math.random() * 0.3), w.speed, w.pierce | 0, w.knock));
+      const b = new Bullet(mx, my, a, w.dmg, w.range * (0.85 + Math.random() * 0.3), w.speed, w.pierce | 0, w.knock);
+      if (w.burn) { b.burn = w.burn; b.flame = true; }
+      if (w.rail) b.rail = true;
+      if (w.key === 'crossbow') b.bolt = true;
+      g.bullets.push(b);
     }
-    this.muzzle = w.pellets > 1 ? 0.1 : 0.06;
-    this.noise = 1;
+    if (w.rail && g.beam) g.beam(mx, my, base, w.range);
+    this.muzzle = w.pellets > 1 ? 0.1 : w.flame ? 0.03 : 0.06;
+    this.noise = w.silent ? 0.12 : 1;
     g.shake = Math.min(14, g.shake + w.kick);
     g.recoil(base, w.kick);                                   // 카메라가 반동 방향으로 튄다
-    g.ejectCasing(this.x, this.y, base, w.key);               // 탄피는 바닥에 남는다
+    if (!w.flame && !w.launcher && !w.silent) g.ejectCasing(this.x, this.y, base, w.key);   // 탄피는 바닥에 남는다
     if (w.pellets > 1) g.world.slide(this, -Math.cos(base) * 6, -Math.sin(base) * 6);   // 산탄의 밀림
     SFX[w.sfx]();
     return true;
@@ -296,6 +333,7 @@ class Player {
   }
 
   update(dt, g) {
+    if (this.cool <= 0 && this.spinUp > 0) this.spinUp = Math.max(0, this.spinUp - dt * 1.4);
     this.cool = Math.max(0, this.cool - dt);
     this.nadeCool = Math.max(0, this.nadeCool - dt);
     this.muzzle = Math.max(0, this.muzzle - dt);
@@ -311,8 +349,14 @@ class Player {
     this.bile = Math.max(0, (this.bile || 0) - dt);
     if (this.lightOn && this.battery > 0) {
       this.battery = Math.max(0, this.battery - (g.level.batteryDrain || 1.25) * SETTINGS.mod.battery * dt);
-      if (this.battery === 0) g.toast('배터리 방전 — 시야를 잃었다');
+      this.offT = 0;
+      if (this.battery === 0) { this.lightOn = false; g.toast(T('배터리 방전 — 꺼 두면 다시 충전된다')); }
+    } else if (!this.lightOn && this.battery < 100) {
+      // 꺼 두면 손잡이 발전기가 천천히 채운다 — 어둠 속에서 버티는 시간과 맞바꾼다(0.8초 뒤부터 초당 3.2)
+      this.offT = (this.offT || 0) + dt;
+      if (this.offT > 0.8) this.battery = Math.min(100, this.battery + 3.2 * dt);
     }
+    this.charging = !this.lightOn && this.battery < 100 && (this.offT || 0) > 0.8;
   }
 }
 
@@ -381,7 +425,13 @@ class Zombie {
     g.spawnBlood(this.x, this.y, ang, this.type === 'brute' ? 10 : 6);
     if (this.hp <= 0 && !this.dead) {
       this.dead = true;
-      g.corpses.push({ x: this.x, y: this.y, a: ang, type: this.type, age: 0, hazmat: !!(this.look && this.look.hazmat), top: this.look && this.look.top, pants: this.look && this.look.pants });   // 맞은 방향으로 쓰러진다
+      // 쓰러지는 모습 일곱 — 무엇에 어떻게 맞았는지로 고른다
+      //   blast 폭발에 날아감 · spin 밀치기에 돌며 쓰러짐 · crumple 불에 타 주저앉음 · back 큰 반동에 뒤로 날아감
+      //   head 강한 한 발에 뻣뻣이 넘어감 · knees 무릎 꿇었다 엎어짐 · face 그대로 앞으로 엎어짐
+      const how = src === 'blast' ? 'blast' : src === 'melee' ? 'spin' : src === 'fire' || this.burn > 0 ? 'crumple'
+        : knock >= 12 ? 'back' : dmg >= 60 ? 'head' : (Math.random() < 0.5 ? 'knees' : 'face');
+      const push = how === 'blast' ? 52 : how === 'back' ? 28 : how === 'spin' ? 14 : 0;
+      g.corpses.push({ x: this.x, y: this.y, a: ang, type: this.type, age: 0, how, push, hazmat: !!(this.look && this.look.hazmat), top: this.look && this.look.top, pants: this.look && this.look.pants });   // 맞은 방향으로 쓰러진다
       g.spawnBlood(this.x, this.y, ang, 16);
       if (g.splat) g.splat(this.x, this.y, ang, this.t.size || 12);   // 원작처럼 큰 핏자국이 남는다
       g.onKill(this);
@@ -558,6 +608,12 @@ class Zombie {
     const d = Math.hypot(dx, dy) || 1;
     if (this.flash > 0) this.flash -= dt;
     if (this.recoil > 0) this.recoil -= dt;
+    // 불붙은 것 — 초당 14씩 타들어 가며 불티를 흩뿌린다
+    if (this.burn > 0) {
+      this.burn -= dt; this.hp -= 14 * dt; this.aggro = true;
+      if (Math.random() < dt * 14) g.particles.push({ x: this.x + (Math.random() - 0.5) * 10, y: this.y + (Math.random() - 0.5) * 10, vx: (Math.random() - 0.5) * 20, vy: -20 - Math.random() * 30, life: 0.5, max: 0.5, size: 2 + Math.random() * 2, col: Math.random() < 0.5 ? '#ffa030' : '#ff5a1a', kind: 'spark' });
+      if (this.hp <= 0 && !this.dead) { this.hp = 0.5; this.hurt(1, this.face, g, 0, 'fire'); if (this.dead) return; }
+    }
     if (this.t.weeper) { this.updateWeeper(dt, g, p, d, dx, dy); return; }
 
     // 감지: 소리 · 불빛 · 근접
@@ -772,15 +828,18 @@ class Bullet {
       if (g.world.solid(this.x, this.y)) {
         this.dead = true;
         g.hitProp(this.x, this.y);                            // 경보기 달린 차를 쏘면 울린다
+        if (this.flame) return;                               // 불길은 벽에 닿으면 사그라든다
         g.spawnSparks(this.x, this.y, this.ang);
         SFX.hitWall(Math.hypot(this.x - g.player.x, this.y - g.player.y));
         return;
       }
+      if (this.flame && Math.random() < 0.5) g.particles.push({ x: this.x, y: this.y, vx: this.vx * 0.1 + (Math.random() - 0.5) * 40, vy: this.vy * 0.1 + (Math.random() - 0.5) * 40, life: 0.32, max: 0.32, size: 3 + Math.random() * 3, col: Math.random() < 0.5 ? '#ffb040' : '#ff6a20', kind: 'spark' });
       for (const z of g.zombies) {
         if (z.dead) continue;
         if (this.struck && this.struck.has(z)) continue;
-        if (Math.hypot(z.x - this.x, z.y - this.y) < z.r + 3) {
-          z.hurt(this.dmg, this.ang, g, this.knock);
+        if (Math.hypot(z.x - this.x, z.y - this.y) < z.r + (this.flame ? 9 : 3)) {
+          if (this.burn) { z.burn = Math.max(z.burn || 0, this.burn); }
+          z.hurt(this.dmg, this.ang, g, this.knock, this.flame ? 'fire' : '');
           if (!this.struck || this.struck.size === 0) g.hits++;   // 명중률은 탄 하나당 한 번
           g.onHit(z.dead);
           SFX.hitFlesh(Math.hypot(this.x - g.player.x, this.y - g.player.y));
@@ -798,14 +857,23 @@ class Bullet {
 
 /* ── 수류탄 ────────────────────────────────── */
 class Grenade {
-  constructor(x, y, ang) {
-    const sp = 400;
+  constructor(x, y, ang, o) {
+    const sp = (o && o.speed) || 400;
     this.x = x; this.y = y; this.r = 5;
     this.vx = Math.cos(ang) * sp; this.vy = Math.sin(ang) * sp;
     this.fuse = 1.35; this.dead = false; this.spin = 0;
+    this.impact = !!(o && o.impact);                // 유탄 — 벽이나 감염체에 닿으면 바로 터진다
+    if (this.impact) this.fuse = 1.6;
   }
   update(dt, g) {
     this.fuse -= dt; this.spin += dt * 14;
+    if (this.impact) {
+      const nx = this.x + this.vx * dt, ny = this.y + this.vy * dt;
+      const hitZ = g.zombies.some(z => !z.dead && Math.hypot(z.x - nx, z.y - ny) < z.r + 6);
+      if (hitZ || g.world.hits(nx, ny, this.r) || this.fuse <= 0) { this.x = nx; this.y = ny; this.explode(g); this.dead = true; return; }
+      this.x = nx; this.y = ny;
+      return;
+    }
     const drag = Math.pow(0.16, dt);
     this.vx *= drag; this.vy *= drag;
     if (!g.world.hits(this.x + this.vx * dt, this.y, this.r)) this.x += this.vx * dt;
@@ -907,6 +975,11 @@ const PICKUPS = {
   wpn_shotgun: { label: '샷건 획득',     col: '#c8a878', icon: 'gun' },
   rounds:      { label: '소총탄 +10',    col: '#b9b08a', icon: 'round' },
   wpn_rifle:   { label: '소총 획득',     col: '#a8b89a', icon: 'gun' },
+  wpn_magnum:  { label: '매그넘 획득',   col: '#c8c8d0', icon: 'gun' },
+  wpn_auto:    { label: '자동 샷건 획득', col: '#c89868', icon: 'gun' },
+  wpn_lmg:     { label: '경기관총 획득', col: '#9aa890', icon: 'gun' },
+  wpn_crossbow:{ label: '석궁 획득',     col: '#b89a6a', icon: 'gun' },
+  bolts:       { label: '화살 +6',       col: '#c8a878', icon: 'round' },
   goal:        { label: '보급 상자 확보', col: '#59b7d8', icon: 'goal' },
   note:        { label: '기록', col: '#e8e2d0', icon: 'note' },
   fuel:        { label: '연료통을 들었다', col: '#d0402e', icon: 'fuel' }   // 미션 변주 '연료 모으기' — 하나씩 날라 탈것에 넣는다
@@ -937,7 +1010,13 @@ class Pickup {
       case 'wpn_smg':     p.owned.add('smg');     p.ammo.smg += 60;  p.equip('smg'); break;
       case 'wpn_shotgun': p.owned.add('shotgun'); p.ammo.shell += 12; p.equip('shotgun'); break;
       case 'rounds':  p.ammo.rifle += 10; break;
+      case 'bolts':   p.ammo.bolt += 6; break;
       case 'wpn_rifle':   p.owned.add('rifle');   p.ammo.rifle += 15; p.equip('rifle'); break;
+      default:
+        if (this.type.startsWith('wpn_')) {                  // 늘어난 칸의 무기 — 저마다의 탄을 조금 들고 온다
+          const k = this.type.slice(4), w = WEAPONS[k];
+          if (w) { p.owned.add(k); if (w.ammoKey) p.ammo[w.ammoKey] += w.pick || 0; p.equip(k); g.toast(T('{w} 획득', { w: T(w.name) })); return; }
+        }
       case 'goal':    g.onGoalItem(); return;
       case 'note':    g.onRecord(this); return;
     }

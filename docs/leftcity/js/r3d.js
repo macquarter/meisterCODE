@@ -344,6 +344,10 @@ function makeMaterials() {
     MAT.st_dirt = std({ map: dirt, normalMap: dirtN, roughness: 0.55, envMapIntensity: 1.3 });       // 몬순에 젖은 흙
     MAT.st_stone = std({ map: stone, normalMap: stoneN, roughness: 0.4, envMapIntensity: 1.5 });    // 늘 젖어 있는 돌길
     MAT.st_snow = std({ map: snow, normalMap: snowN, roughness: 0.82, envMapIntensity: 0.3 });
+    const [mars, marsN] = street(75, '#7a3420', (x, W, H, r) => {
+      for (let i = 0; i < 60; i++) blob(x, r() * W, r() * H, 20 + r() * 60, 12 + r() * 30, r() * 3, r() < 0.5 ? 'rgba(60,20,10,.4)' : 'rgba(170,80,48,.3)', 'rgba(0,0,0,0)');
+      for (let i = 0; i < 1400; i++) { x.fillStyle = r() < 0.5 ? 'rgba(200,110,70,.3)' : 'rgba(30,10,6,.4)'; const s2 = 1 + r() * 4; x.fillRect(r() * W, r() * H, s2, s2); } }, 2.0);
+    MAT.st_mars = std({ map: mars, normalMap: marsN, roughness: 0.95, envMapIntensity: 0.15 });
   }
   MAT.sidewalk = std(set(TEX.sidewalkSet, { normalScale: new THREE.Vector2(0.8, 0.8), envMapIntensity: 1.1 }));
   MAT.curb = std({ color: 0x8a8a84, roughness: 0.8 });
@@ -379,6 +383,14 @@ function makeMaterials() {
       for (let i = 0; i < 50; i++) blob(x, r() * W, r() * H, 26 + r() * 40, 18 + r() * 26, r() * 3, 'rgba(58,40,24,.9)', 'rgba(58,40,24,0)');
       for (let i = 0; i < 30; i++) blob(x, r() * W, r() * H, 8 + r() * 14, 4 + r() * 6, r() * 3, 'rgba(120,100,80,.35)', 'rgba(120,100,80,0)'); });
     MAT.tMud = std({ map: mudT, alphaMap: TEX.blobA, transparent: true, roughness: 0.18, envMapIntensity: 1.8, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 });
+    // 화성 — 크레이터 바닥(어두운 붉은 흙) · 둘레(밝게 솟은 흙)
+    const craterT = canvasTex(256, 256, (x, W, H) => { const r = rng(97); x.fillStyle = '#3a160c'; x.fillRect(0, 0, W, H);
+      for (let i = 0; i < 400; i++) { x.fillStyle = r() < 0.5 ? 'rgba(120,50,30,.35)' : 'rgba(10,4,2,.35)'; x.fillRect(r() * W, r() * H, 2 + r() * 6, 2 + r() * 6); } });
+    MAT.tCrater = std({ map: craterT, alphaMap: TEX.blobA, transparent: true, roughness: 0.95, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 });
+    MAT.tRim = std({ color: 0x9a4a2a, alphaMap: TEX.blobA, transparent: true, roughness: 0.95, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 });
+    MAT.rim = std({ color: 0x8a3e22, roughness: 0.95 });
+    const bowlA = canvasTex(128, 128, (x, W, H) => { const g = x.createRadialGradient(64, 64, 4, 64, 64, 63); g.addColorStop(0, '#fff'); g.addColorStop(0.75, '#bbb'); g.addColorStop(1, '#000'); x.fillStyle = g; x.fillRect(0, 0, W, H); }, false);
+    MAT.bowl = new THREE.MeshBasicMaterial({ color: 0x0a0302, alphaMap: bowlA, transparent: true, opacity: 0.75, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -3 });
   }
   MAT.paint = std({ color: 0xd8d6cc, roughness: 0.5 });
   MAT.yellow = std({ color: 0xc9a83a, roughness: 0.5 });
@@ -517,6 +529,9 @@ const ROOFS_BY = {
   varanasi: ['#9a8a76', '#a89070', '#8a7e70', '#b09a80', '#7a7e84', '#a07a68'],
   cairo: ['#b8a07c', '#a8946e', '#c0aa86', '#9c8a6c', '#b0a288', '#a89878'],
   venice: ['#a8583a', '#b86848', '#9a4a30', '#a86a4a', '#8a4a34', '#b07050'],
+  istanbul: ['#8a4a36', '#7a4230', '#9a5a40', '#6a3a2c', '#8a5040', '#a06048'],
+  rio: ['#9a5a3a', '#b06a48', '#8a4a30', '#c07850', '#a0603e', '#7a7e84'],
+  mars: ['#c8ccd0', '#b8bcc0', '#d0d4d8', '#e8641a', '#aeb2b6', '#c8ccd0'],
   reykjavik: ['#d8dee4', '#a83a2a', '#d0d8de', '#3a5a7a', '#e0e4e8', '#5a6a5a'],
   antarctic: ['#e0e6ec', '#d8dee4', '#e8ecf0', '#d0d8e0', '#e4e8ec', '#dce2e8'],
 };
@@ -662,7 +677,7 @@ function buildChunk(w, cx, cy) {
       if (wet(-1, 0)) { roofBox(P, X0, Z0, 3, T, 0, 9); }
       continue;
     }
-    if (d === D_GRASS) { floorQuad(get('grass'), X0, Z0, X1, Z1, 1, 200); continue; }
+    if (d === D_GRASS) { floorQuad(get(w.theme.key === 'mars' ? 'st_mars' : 'grass'), X0, Z0, X1, Z1, 1, w.theme.key === 'mars' ? 240 : 200); continue; }
     if (d === D_PLAZA || d === D_LANDMARK) {
       floorQuad(get('plaza'), X0, Z0, X1, Z1, 0, 160);
       if (gr === T_WALL) lmBlock(get('stone'), w, x, y, X0, Z0, X1, Z1);
@@ -728,6 +743,15 @@ function buildChunk(w, cx, cy) {
     if (k === 'fence') m.receiveShadow = false;
     g.add(m);
   }
+  // 화성의 크레이터 — 솟은 흙 테(납작한 고리)와 그늘진 바닥. 중심이 이 덩어리에 든 것만
+  if (w.craters) for (const c of w.craters) {
+    const ccx = c.x + Math.ceil((x0 - c.x) / w.w) * w.w, ccy = c.y + Math.ceil((y0 - c.y) / w.h) * w.h;
+    if (ccx >= x0 + CH || ccy >= y0 + CH) continue;
+    if (!RIM_GEO) { RIM_GEO = new THREE.TorusGeometry(1, 0.12, 6, 40).rotateX(-Math.PI / 2); BOWL_GEO = new THREE.CircleGeometry(1, 32).rotateX(-Math.PI / 2); }
+    const R = c.r * T + T * 0.3;
+    const rim = new THREE.Mesh(RIM_GEO, MAT.rim); rim.position.set(ccx * T, 0, ccy * T); rim.scale.set(R, 60 + c.r * 8, R); rim.receiveShadow = true; g.add(rim);
+    const bowl = new THREE.Mesh(BOWL_GEO, MAT.bowl); bowl.position.set(ccx * T, 0.8, ccy * T); bowl.scale.set(R * 0.95, 1, R * 0.95); bowl.renderOrder = 2; g.add(bowl);
+  }
   g.userData.lamps = lamps;
   g.userData.fires = fires;
   g.userData.marks = marks;
@@ -735,8 +759,8 @@ function buildChunk(w, cx, cy) {
   addWires(g, lamps, kitOf(w).wires);
   return g;
 }
-const TERR_MAT = [null, 'tSand', 'tIce', 'tFlood', 'tLava', 'tMud'];
-const STREET_MAT = { sand: 'st_sand', dirt: 'st_dirt', stone: 'st_stone', snow: 'st_snow' };
+const TERR_MAT = [null, 'tSand', 'tIce', 'tFlood', 'tLava', 'tMud', 'tCrater', 'tRim'];
+const STREET_MAT = { sand: 'st_sand', dirt: 'st_dirt', stone: 'st_stone', snow: 'st_snow', mars: 'st_mars' };
 /* ═══════════ 거리 잡동사니 · 전선 ═══════════ */
 let CLUT = null;
 function clutterKit() {
@@ -929,6 +953,13 @@ const KIT = {
   reykjavik: { styles: [['nordic', 7], ['stucco', 2]], lamp: [0.9, 0.95, 1.0], fog: 0x0a0e14, fogD: 0.0008, sh: [0.84, 0.96, 1.14], hi: [1.0, 1.0, 1.0], wires: 1, trees: 0,
     side: [1.8, 1.9, 2.05], plaza: [2.6, 2.75, 3.0], wet: 0.6,
     words: ['KAFFI', 'APÓTEK', 'BAKARÍ', 'HÓTEL', 'BÓKABÚÐ', 'SUNDLAUG', 'PYLSUR', 'BÍÓ', 'BÚÐ', 'KRÁ', 'LYFJA', 'BANKI'] },
+  istanbul: { styles: [['stucco', 4], ['palazzo', 2], ['brick', 2]], lamp: [1.0, 0.78, 0.5], fog: 0x0e0c10, fogD: 0.00098, sh: [0.9, 0.94, 1.06], hi: [1.06, 0.98, 0.9], wires: 3, trees: 1,
+    words: ['ECZANE', 'LOKANTA', 'KAHVE', 'ÇAY', 'KEBAP', 'BAKLAVA', 'OTEL', 'BANKA', 'SİMİT', 'BALIK', 'BERBER', 'BAKKAL'] },
+  rio: { styles: [['stucco', 5], ['shophouse', 2], ['brick', 1]], lamp: [1.0, 0.7, 0.4], fog: 0x0c0e0c, fogD: 0.0008, sh: [0.94, 0.94, 0.98], hi: [1.1, 1.0, 0.86], wires: 6, trees: 2,
+    words: ['FARMÁCIA', 'PADARIA', 'BOTECO', 'AÇAÍ', 'LANCHONETE', 'CHURRASCO', 'SUCOS', 'HOTEL', 'BANCO', 'MERCADO', 'PRAIA', 'PASTEL'] },
+  mars: { styles: [['module', 1]], lamp: [1.0, 0.66, 0.42], fog: 0x1c0b06, fogD: 0.00072, sh: [1.12, 0.86, 0.8], hi: [1.14, 0.96, 0.86], wires: 0, trees: 0,
+    side: [1.5, 0.9, 0.7], plaza: [1.7, 1.0, 0.8], wet: 0.15,
+    words: ['HAB-1', 'HAB-2', 'O₂', 'GREENHOUSE', 'MED', 'LAB', 'AIRLOCK', 'H₂O', 'REACTOR', 'DEPOT', 'COMMS', 'ROVER BAY'] },
   antarctic: { styles: [['module', 1]], lamp: [0.85, 0.92, 1.0], fog: 0x0c1218, fogD: 0.00095, sh: [0.86, 0.98, 1.16], hi: [1.0, 1.02, 1.06], wires: 0, trees: 0,
     side: [3.0, 3.2, 3.5], plaza: [3.0, 3.2, 3.5], wet: 0.25,
     words: ['LAB', 'MESS', 'MEDICAL', 'POWER', 'COMMS', 'STORE', 'GARAGE', 'FUEL', 'BUNK A', 'BUNK B', 'GYM', 'WORKSHOP'] },
@@ -938,6 +969,8 @@ const PASTEL = {
   singapore: ['#9fc3d6', '#e0b4b8', '#e8dcb8', '#a8cfae', '#d8c0e0', '#f0e2c8', '#c8d8e8'],
   varanasi: ['#d9a84a', '#5e9ac2', '#c97a9a', '#e8c070', '#8fb38a', '#d07050', '#e8d8b0', '#7ab0a8'],
   reykjavik: ['#c8402a', '#2a5a8a', '#e8c040', '#3a7a5a', '#f0ece0', '#6a5a8a', '#d8d4cc', '#2a2e34'],
+  istanbul: ['#c88a6a', '#e0c890', '#8aa0b0', '#b07a8a', '#d8d0c0', '#a0886a', '#7a8a6a'],
+  rio: ['#f0a070', '#f2d060', '#60b8c0', '#a8d070', '#e88aa0', '#f0e0c0', '#8ab0e0', '#d07050'],
 };
 const STYLE_COLS = {
   sandstone: ['#c8a878', '#b89868', '#d4b88a', '#a88a62', '#c0a080', '#b8a490'],
@@ -1099,6 +1132,9 @@ const SIGN_COLS = {
   venice: [['#1a1a1a', '#e8d8a0'], ['#6a1a1a', '#f0e8d0'], ['#f0e8d0', '#3a2a1a'], ['#1a3a2a', '#f0e8d0']],
   reykjavik: [['#ffffff', '#1a3a6a'], ['#1a3a6a', '#ffffff'], ['#c81a1a', '#ffffff'], ['#1a1a1a', '#f2d24a']],
   antarctic: [['#e8c020', '#1a1a1a'], ['#ffffff', '#c81a1a'], ['#1a3a6a', '#ffffff']],
+  mars: [['#e8641a', '#ffffff'], ['#ffffff', '#1a1a1a'], ['#1a3a6a', '#ffffff']],
+  istanbul: [['#c81a1a', '#ffffff'], ['#ffffff', '#c81a1a'], ['#1a3a6a', '#f2d24a'], ['#f2d24a', '#1a1a1a']],
+  rio: [['#1a8a3a', '#f2d24a'], ['#f2d24a', '#1a3a8a'], ['#ffffff', '#1a8a3a'], ['#e8641a', '#ffffff']],
 };
 function ensureSignMats(w) {
   const key = w.theme.key;
@@ -1281,7 +1317,7 @@ function lmTileH(lm, w, x, y) {
     case 'prang': case 'tower': case 'lattice': case 'monument': case 'grove': case 'port': case 'gas': return 0;
     case 'checkpoint': case 'base': return 0;
     case 'railyard': return 0;
-    case 'pyramids': case 'mosque': case 'kund': case 'mandir': case 'piazza': case 'hallgrim': case 'geyser': case 'station': return 0;
+    case 'pyramids': case 'mosque': case 'kund': case 'mandir': case 'piazza': case 'hallgrim': case 'geyser': case 'station': case 'hagia': case 'galata': case 'redeemer': case 'copacabana': case 'biodome': case 'rocket': return 0;
     case 'hawker': return ly === 0 ? 20 : 0;
     case 'market': return 18;
     default: return LM_H[lm.kind] || 30;
@@ -1488,6 +1524,7 @@ function carBody(g, L, Wd, colr) {
 function wheelsOn(g, xs, hz, r) { const m = mat('#0d0e10', { roughness: 0.9 }); for (const x of xs) for (const sd of [-1, 1]) g.add(part(GEO.wheel, m, x, r, sd * hz, r, r, 3)); }
 let propSeq = 0, HEAD_M = null, BLINK_M = null, HEAD_BEAM_M = null;
 const HEAD_C = new THREE.Color(1, 0.93, 0.8), BLINK_C = new THREE.Color(1, 0.55, 0.1);
+const ALARM_C = new THREE.Color(1, 0.62, 0.18), ALARM_LED_M = new THREE.MeshBasicMaterial({ color: 0xff2010 });
 function makeProp(pr) {
   const g = new THREE.Group(), L = pr.w, Wd = pr.h, k = pr.kind;
   // 다섯 대 중 하나 꼴로 불타는 잔해 — 그을린 차체, 유리 없음, 위에 불
@@ -1865,6 +1902,9 @@ function makeHazards() {
     transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, polygonOffset: true, polygonOffsetFactor: -4
   }), 6);
   // 휘감는 것의 혀 — 입에서 끝까지 늘어나는 붉은 끈
+  // 물결 — 물에 들어선 발 둘레로 퍼지는 흰 고리
+  HZ.wade = new THREE.InstancedMesh(GEO.ring, new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide }), 60);
+  HZ.wade.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(60 * 3), 3);
   HZ.tongue = new THREE.InstancedMesh(new THREE.CylinderGeometry(1, 1, 1, 6, 1, true).rotateZ(Math.PI / 2).translate(0.5, 0, 0), enhanceNew(new THREE.MeshStandardMaterial({ color: 0x8a3038, roughness: 0.35, emissive: 0x2a0808 })), 4);
   for (const k of ['acid', 'gas', 'tele']) HZ[k].instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(HZ[k].count * 3), 3);
   for (const k in HZ) { HZ[k].count = 0; HZ[k].frustumCulled = false; }
@@ -1926,6 +1966,14 @@ function updateHazards(g, near) {
     HZ.tongue.setMatrixAt(ntg++, dm);
   }
   HZ.tele.count = nt; HZ.tongue.count = ntg;
+  let nw = 0;
+  for (const r of g.ripples || []) {
+    if (nw >= 60) break;
+    const k = r.t / r.max, R = r.r * (0.6 + k * 1.4);
+    dm.compose(dpos.set(r.x, 3.2, r.y), dq.identity(), dsc.set(R, 1, R)); HZ.wade.setMatrixAt(nw, dm);
+    const c = 0.5 * (1 - k); HZ.wade.instanceColor.setXYZ(nw, c * 0.8, c * 0.9, c); nw++;
+  }
+  HZ.wade.count = nw;
   for (const k in HZ) { HZ[k].instanceMatrix.needsUpdate = true; if (HZ[k].instanceColor) HZ[k].instanceColor.needsUpdate = true; }
   updateRelays(g, near);
   updateTwist(g, near);
@@ -2028,7 +2076,9 @@ function updateTwist(g, near) {
   for (const [ob, o] of dyn.tw) if (!seen.has(ob)) { scene.remove(o); dyn.tw.delete(ob); }
 }
 /* 값싼 빛 모으기 — 매 프레임 후보(가로등 · 간판 · 불 · 출구)를 카메라 둘레 가까운 순으로 골라 시점 좌표로 넣는다 */
-let carry3 = null;
+let carry3 = null, RIM_GEO = null, BOWL_GEO = null;
+/** 땅마다 발이 잠기는 깊이 — 물은 정강이, 진흙은 발목, 모래는 발등 */
+const SINK = [0, 1.6, 0, 6, 0, 3.2, 1.5, -7];      // 7 = 크레이터 테 위 — 솟은 흙에 올라선다
 const clCand = [], clTmp = new THREE.Vector3(), tmpC = new THREE.Color();
 const SODIUM = new THREE.Color(1.0, 0.62, 0.3);
 function lampFlick(l, t) {
@@ -2488,6 +2538,7 @@ function draw3(g) {
   TEX.waterN.offset.set(g.time * 0.012, g.time * 0.02);
   const blinkOn = (g.time % 1.1) < 0.55;
   BLINK_M.color.setRGB(blinkOn ? 3 : 0.15, blinkOn ? 1.6 : 0.08, blinkOn ? 0.3 : 0.02);
+  { const led = (g.time % 1.6) < 0.14; ALARM_LED_M.color.setRGB(led ? 4 : 0.25, led ? 0.3 : 0.02, led ? 0.2 : 0.01); }
   // 탈것 · 장식 · 간판 — 게임이 플레이어 곁의 사본으로 옮겨 둔 자리
   for (const pr of w.props) {
     let o = dyn.props.get(pr);
@@ -2496,6 +2547,16 @@ function draw3(g) {
     o.visible = true; o.position.set(pr.x, 0, pr.y); o.rotation.y = -pr.a;
     if (o.userData.head) { const ca = Math.cos(pr.a), sa = Math.sin(pr.a), hd = o.userData.head; pushLight(pr.x + ca * (hd + 70), 14, pr.y + sa * (hd + 70), 190, HEAD_C, 1.3); if (blinkOn) pushLight(pr.x, 14, pr.y, 90, BLINK_C, 0.9); }
     if (o.userData.fire) addFire(pr.x + Math.cos(pr.a) * pr.w * 0.18, 12, pr.y + Math.sin(pr.a) * pr.w * 0.18, 1, o.userData.fire);
+    // 경보기 달린 차 — 평소엔 계기판의 붉은 점이 깜빡인다(쏘지 말라는 신호). 울리면 비상등이 번갈아 번쩍이고 차가 들썩인다
+    if (pr.alarm) {
+      if (!o.userData.led) { o.userData.led = new THREE.Mesh(GEO.eye, ALARM_LED_M); o.userData.led.scale.setScalar(1.6); o.userData.led.position.set(4, 15, 0); o.add(o.userData.led); }
+      o.userData.led.visible = !pr.spent;
+      if (pr.ringing) {
+        const on = ((g.time * 4) | 0) % 2, ca = Math.cos(pr.a), sa = Math.sin(pr.a);
+        for (const sg of [-1, 1]) pushLight(pr.x + ca * pr.w * 0.55 * sg, 14, pr.y + sa * pr.w * 0.55 * sg, 170, ALARM_C, (on ? 2.4 : 0.25));
+        o.position.y = Math.abs(Math.sin(g.time * 18)) * 0.8;
+      }
+    }
   }
   // 드럼통 불 — 덩어리가 들고 있는 자리
   for (const [, ch] of chunks) for (const f of ch.userData.fires) addFire(f.x, f.y, f.z, f.s, f.seed);
@@ -2953,6 +3014,15 @@ function makePlayerRig() {
   mk('smg', 15, [[blk, 5, 1, 0, 12, 3, 2], [dark, 3.5, -2.5, 0, 1.8, 4.5, 1.4], [dark, -0.5, -1.5, 0, 1.6, 3.4, 1.4], [blk, 12.5, 1.3, 0, 5, 1.2, 1.2], [dark, -4, 1, 0, 6, 1.6, 1]]);
   mk('shotgun', 22, [[blk, 9, 1.6, 0, 20, 1.6, 1.6], [wood, 10, 0, 0, 7, 2, 2], [wood, -4.5, 0.6, 0, 8, 2.6, 1.8], [dark, 0, -1, 0, 1.6, 3, 1.4]]);
   mk('rifle', 24, [[blk, 8, 1, 0, 18, 2.6, 1.8], [blk, 19, 1.3, 0, 8, 1, 1], [dark, 6, 3.6, 0, 7, 1.8, 1.8], [dark, 4.5, -2.6, 0, 2, 4, 1.4], [wood, -5, 0.5, 0, 9, 3, 1.8], [dark, 0, -1.4, 0, 1.6, 3.2, 1.4]]);
+  const chrome = mat('#9aa0a8', { roughness: 0.25, metalness: 0.9 }), red = mat('#8a2a1a', { roughness: 0.5 }), cyan = mat('#60d8ff', { emissive: col('#40c0ff'), emissiveIntensity: 2 });
+  mk('magnum', 12, [[chrome, 5, 1.4, 0, 10, 2, 1.6], [chrome, 1.8, 0.6, 0, 3.2, 2.8, 2.4], [wood, -0.6, -1.6, 0, 2, 3.8, 1.4]]);
+  mk('auto', 22, [[blk, 8, 1.4, 0, 18, 2.6, 2], [dark, 6, -1.6, 0, 3, 4, 2.2], [blk, 17, 1.8, 0, 6, 1.4, 1.4], [dark, -4, 1, 0, 8, 2.4, 1.6]]);
+  mk('lmg', 26, [[blk, 9, 1.4, 0, 20, 3.2, 2.4], [blk, 21, 1.6, 0, 9, 1.4, 1.4], [dark, 6, -2.6, 0, 6, 4, 3.6], [dark, -5, 0.8, 0, 9, 2.6, 1.8], [blk, 22, -1.2, 0, 1, 3, 4]]);
+  mk('crossbow', 18, [[wood, 6, 1, 0, 16, 2, 1.8], [dark, 14, 1.2, 0, 1.4, 1.4, 18], [chrome, 9, 2.4, 0, 12, 0.6, 0.6], [wood, -2, 0, 0, 5, 3, 1.6]]);
+  mk('flamer', 20, [[blk, 8, 1.2, 0, 16, 2.4, 2.2], [red, 0, -0.5, 4, 7, 7, 4], [chrome, 17, 1.4, 0, 6, 1.8, 1.8], [dark, 2, -2.6, 0, 2, 4, 1.4]]);
+  mk('launcher', 18, [[blk, 8, 1.6, 0, 14, 4.6, 4.6], [dark, 3, -2.6, 0, 2, 4, 1.6], [dark, -3, 1, 0, 6, 2.4, 1.8]]);
+  mk('rail', 26, [[blk, 10, 1.4, 0, 22, 3, 2.4], [cyan, 11, 3.2, 0, 18, 0.6, 0.8], [chrome, 23, 1.4, 0, 6, 1.6, 3.4], [dark, -4, 1, 0, 8, 2.6, 1.8], [dark, 3, -2.6, 0, 2, 4, 1.4]]);
+  mk('minigun', 24, [[chrome, 13, 1.6, 1.2, 22, 0.9, 0.9], [chrome, 13, 1.6, -1.2, 22, 0.9, 0.9], [chrome, 13, 3, 0, 22, 0.9, 0.9], [chrome, 13, 0.2, 0, 22, 0.9, 0.9], [blk, 0, 1.6, 0, 8, 5, 5], [dark, -1, -3.4, 0, 3, 4, 2]]);
   scene.add(pGun);
   // 가슴 손전등 — 멜빵에 단 등. 빛줄기 · 스포트라이트가 여기서 나간다
   chestLamp = new THREE.Group();
@@ -3058,7 +3128,8 @@ function makeCorpseRig(c) {
   for (const k in u.acts) u.acts[k].paused = true;
   h.updateMatrixWorld(true);
   // 자세는 시체마다 해시로 — 같은 자리 시체는 늘 같은 자세
-  const hs = (Math.imul(Math.floor(c.x * 7 + c.y * 13), 2654435761) >>> 0), P = DEATH_POSES[hs % DEATH_POSES.length], jit = ((hs >>> 8) % 100) / 100 - 0.5;
+  const hs = (Math.imul(Math.floor(c.x * 7 + c.y * 13), 2654435761) >>> 0), jit = ((hs >>> 8) % 100) / 100 - 0.5;
+  const list = DEATH_STYLE_POSE[c.how] || [0, 1, 2, 3, 4], P = DEATH_POSES[list[hs % list.length]];
   for (const [bn, d] of Object.entries(P.b)) {
     const flip = c.mirror ? -1 : 1;
     aimBone(u.bones[bn], tdir.set(d[0] + jit * 0.2, d[1], d[2] * flip + jit * 0.15), 1);
@@ -3067,17 +3138,41 @@ function makeCorpseRig(c) {
   tiltBone(u.bones.Neck, YAX, (jit) * 1.4);                        // 고개가 한쪽으로 돌아간다
   // stopAllAction 은 쓰지 않는다 — 동작을 끄는 순간 three.js 가 뼈를 묶음 자세(T)로 되돌려 시체가 모두 T 자로 누웠다.
   // 동작은 멈춘(paused) 채 두고 섞개를 다시 돌리지 않으면 위에서 잡은 자세가 그대로 남는다
-  u.fall = { rz: P.rz, rx: P.rx * ((hs >>> 3) % 2 ? 1 : -1), y: P.y, yaw: (P.yaw || 0) + jit * 0.5 };
+  u.fall = { style: c.how || 'face', rz: P.rz, rx: P.rx * ((hs >>> 3) % 2 ? 1 : -1), y: P.y, yaw: (P.yaw || 0) + jit * 0.5 };
   return h;
 }
-/** 쓰러지는 동작 — 처음 0.45초는 무릎이 꺾이며 넘어지고, 바닥에 닿으면 한 번 튄다 */
+/** 쓰러지는 모습 일곱 — 끝 자세(DEATH_POSES 중 어울리는 것)와 넘어지는 동작이 저마다 다르다 */
+const DEATH_STYLE_POSE = { face: [0, 3], back: [1, 4], knees: [0, 3], spin: [3, 2], crumple: [2], head: [1], blast: [4, 1] };
+const DEATH_DUR = { face: 0.65, back: 0.5, knees: 1.05, spin: 0.8, crumple: 1.0, head: 0.5, blast: 0.95 };
 function fallPose(o, age) {
-  const f = o.userData.fall; if (!f) return;
-  const k = Math.min(1, age / 0.45), e = k * k, bounce = k >= 1 ? Math.max(0, Math.sin(Math.min(1, (age - 0.45) / 0.18) * Math.PI)) * 0.06 : 0;
-  const b = o.userData.body;
-  b.rotation.z = f.rz * (e - bounce); b.rotation.x = f.rx * (e - bounce);
-  b.position.y = f.y * e;
-  b.rotation.y = f.yaw * e;
+  const f = o.userData.fall; if (!f) return 0;
+  const b = o.userData.body, st = f.style;
+  const bnc = (t0, amp) => age > t0 ? Math.max(0, Math.sin(Math.min(1, (age - t0) / 0.18) * Math.PI)) * amp : 0;
+  let rz = 0, rx = 0, y = 0, yaw = f.yaw, lift = 0;
+  if (st === 'back') {                                   // 큰 반동 — 뒤로 날아가 등부터 떨어진다
+    const k = Math.min(1, age / 0.3), e = 1 - (1 - k) * (1 - k);
+    rz = f.rz * (e - bnc(0.3, 0.08)); rx = f.rx * e; y = f.y * e; lift = Math.sin(k * Math.PI) * 6;
+  } else if (st === 'knees') {                           // 무릎이 꺾여 잠깐 꿇었다가 앞으로 엎어진다
+    const k1 = Math.min(1, age / 0.28), k2 = Math.max(0, Math.min(1, (age - 0.5) / 0.35));
+    rz = -0.3 * k1 + (f.rz + 0.3) * k2 * k2 - f.rz * bnc(0.85, 0.06); rx = f.rx * k2; y = -13 * k1 * (1 - k2) + f.y * k2;
+  } else if (st === 'spin') {                            // 밀쳐져 휘청 돌며 옆으로
+    const k = Math.min(1, age / 0.6), e = k * k;
+    rz = f.rz * e; rx = f.rx * e; yaw = f.yaw + 2.8 * (1 - (1 - k) * (1 - k)); y = f.y * e;
+  } else if (st === 'crumple') {                         // 불에 타 다리가 풀리며 주저앉아 웅크린다
+    const k1 = Math.min(1, age / 0.45), k2 = Math.max(0, Math.min(1, (age - 0.4) / 0.5));
+    rz = f.rz * k2; rx = f.rx * k2 * k2; y = -12 * k1 * (1 - k2) + f.y * k2; yaw = f.yaw + Math.sin(age * 18) * 0.12 * (1 - k2);
+  } else if (st === 'head') {                            // 강한 한 발 — 막대처럼 뻣뻣하게 뒤로 넘어간다
+    const k = Math.min(1, age / 0.32), e = k * k * k;
+    rz = f.rz * (e - bnc(0.32, 0.12)); rx = f.rx * e; y = f.y * e;
+  } else if (st === 'blast') {                           // 폭발 — 떠올라 한 바퀴 돌고 떨어진다
+    const k = Math.min(1, age / 0.75);
+    rz = f.rz * k + Math.sin(k * Math.PI) * 1.4; rx = f.rx * k; y = f.y * k; yaw = f.yaw + 3 * k; lift = Math.sin(k * Math.PI) * 42;
+  } else {                                               // 그대로 앞으로 엎어진다
+    const k = Math.min(1, age / 0.45), e = k * k;
+    rz = f.rz * (e - bnc(0.45, 0.06)); rx = f.rx * e; y = f.y * e;
+  }
+  b.rotation.z = rz; b.rotation.x = rx; b.position.y = y; b.rotation.y = yaw;
+  return lift;
 }
 
 /* 움직임 재기 — 몸체가 실제로 얼마나 빨리 움직이는지(위치 차이)와, 바라보는 쪽을 부드럽게.
@@ -3129,7 +3224,7 @@ function updateHumans(g, p) {
     const vis = Math.max(z.lit, Math.min(1, Math.max(0, (180 - d) / 60)), g.lightning * 1.4, z.t.boss ? 0.5 : 0);
     h.visible = d < 1300;
     trackMotion(h.userData, z.x, z.y, -z.face, dt, z.t.boss ? 5 : 8);
-    h.position.set(z.x, 0, z.y); h.rotation.y = h.userData.yaw;
+    h.position.set(z.x, -(SINK[z.terr] || 0), z.y); h.rotation.y = h.userData.yaw;
     const t = z.t, ph = z.phase, aggro = !!z.aggro;
     if (h.userData.rig) {
       // 멀리 있는 것은 동작을 덜 자주 갱신한다
@@ -3179,7 +3274,7 @@ function updateHumans(g, p) {
   if (!player3 && rigs) { player3 = makePlayerRig(); player3.scale.setScalar(1.06 * CHAR_S); scene.add(player3); }
   if (player3 && player3.userData.rig) {
     player3.visible = !p.dead; if (pGun) pGun.visible = !p.dead;
-    player3.position.set(p.x, 0, p.y);
+    player3.position.set(p.x, -(SINK[p.terr] || 0), p.y);
     posePlayerRig(player3, p, g, dt);
     return;
   }
@@ -3233,8 +3328,9 @@ function updateCorpses(g, near) {
       }
     }
     o.position.set(c.x, 0, c.y);
-    if (o.userData.fall && (c.age || 0) < 1) fallPose(o, c.age || 0);
-    else if (o.userData.fall && !o.userData.settled) { fallPose(o, 1); o.userData.settled = true; }
+    const fd = o.userData.fall ? DEATH_DUR[o.userData.fall.style] || 0.65 : 0;
+    if (o.userData.fall && (c.age || 0) < fd) o.position.y = fallPose(o, c.age || 0);
+    else if (o.userData.fall && !o.userData.settled) { fallPose(o, 2); o.userData.settled = true; }
   }
   for (const [c, o] of dyn.corpses) if (!seen.has(c)) { scene.remove(o); dyn.corpses.delete(c); }
 }
@@ -3274,7 +3370,7 @@ function updateParticles(g) {
     }
     if (n >= MAXP) break;
     const k = Math.max(0, Math.min(1, q.life / q.max));
-    const hgt = q.kind === 'smoke' ? 20 + (1 - k) * 40 : q.kind === 'mist' ? 22 : 14 + k * 10;
+    const hgt = q.z !== undefined ? q.z + 2 : q.kind === 'smoke' ? 20 + (1 - k) * 40 : q.kind === 'mist' ? 22 : 14 + k * 10;
     pos[n * 3] = q.x; pos[n * 3 + 1] = hgt; pos[n * 3 + 2] = q.y;
     pcol.set(q.col); const a = q.kind === 'smoke' ? 0.35 * k : q.kind === 'mist' ? 0.5 * k : k;
     cl[n * 3] = pcol.r * a; cl[n * 3 + 1] = pcol.g * a; cl[n * 3 + 2] = pcol.b * a;
@@ -3290,7 +3386,15 @@ function updateParticles(g) {
   let m = 0;
   for (const b of g.bullets || []) {
     if (m >= 200) break;
+    if (b.flame) continue;                                   // 불길은 불티로만
     tp.set([b.px, 24, b.py, b.x, 24, b.y], m * 6); m++;
+  }
+  // 레일건 빛줄기 — 겹친 선 몇 가닥으로 굵게
+  for (const bm of g.beams || []) for (const o of [-1.2, 0, 1.2]) {
+    if (m >= 200) break;
+    const nx = -(bm.y1 - bm.y), ny = bm.x1 - bm.x, nl = Math.hypot(nx, ny) || 1;
+    tp.set([bm.x + nx / nl * o, 24 + o, bm.y + ny / nl * o, bm.x1 + nx / nl * o, 24 + o, bm.y1 + ny / nl * o], m * 6); m++;
+    if (o === 0) pushLight((bm.x + bm.x1) / 2, 30, (bm.y + bm.y1) / 2, 260, tmpC.set(0x60d8ff), 2 * (1 - bm.t / bm.max));
   }
   tracerGeo.setDrawRange(0, m * 2); tracerGeo.attributes.position.needsUpdate = true;
   // 수류탄
@@ -3298,7 +3402,7 @@ function updateParticles(g) {
 }
 
 const LT_PICK = [];
-const PICK_COL = { fuel: '#d0402e', ammo: '#e8c04a', shells: '#d0503a', rounds: '#c08a3a', medkit: '#e8e8e0', battery: '#5ab0e8', nade: '#6a8a3a', goal: '#59b7d8', note: '#f0ece0' };
+const PICK_COL = { bolts: '#c8a878', fuel: '#d0402e', ammo: '#e8c04a', shells: '#d0503a', rounds: '#c08a3a', medkit: '#e8e8e0', battery: '#5ab0e8', nade: '#6a8a3a', goal: '#59b7d8', note: '#f0ece0' };
 function updatePickups(g, near) {
   const seen = new Set();
   for (const pk of g.pickups) {
@@ -3766,6 +3870,85 @@ function buildLandmarks(w) {
       g.userData.beacon = new THREE.Mesh(GEO.eye, new THREE.MeshBasicMaterial({ color: 0xff3020 })); g.userData.beacon.scale.setScalar(4); g.userData.beacon.position.set(X(t.x + 1), 378, X(t.y + 1)); g.add(g.userData.beacon);
       for (const [x, y] of lm.cols) { g.add(part(GEO.cyl, mat('#c8c0b0', { roughness: 0.5 }), X(x), 70, X(y), 7, 140, 7)); boxAt(g, gold, X(x), 146, X(y), 16, 12, 22); }
       LT.push([X(c.x + c.w / 2), 30, X(c.y + c.h) + 30, 260, 0xffc070, 1.2]);
+    } else if (k === 'biodome') {
+      // 바이오돔 — 유리 반구 안의 초록 언덕과 나무, 바닥 불빛
+      const d = lm.dome, cx = X(d.x + d.w / 2), cz = X(d.y + d.h / 2), R = X(d.w / 2);
+      g.add(part(GEO.cyl, mat('#8a9098', { roughness: 0.5, metalness: 0.5 }), cx, 4, cz, R, 8, R * d.h / d.w));
+      g.add(part(GEO.cyl, mat('#3a7a44', { roughness: 0.9 }), cx, 8.5, cz, R * 0.96, 1, R * 0.96 * d.h / d.w));
+      for (let i = 0; i < 14; i++) { const a = i * 2.4, rr = R * 0.7 * ((i * 37) % 10) / 10, tx = cx + Math.cos(a) * rr, tz = cz + Math.sin(a) * rr * d.h / d.w;
+        g.add(part(GEO.cyl, mat('#5a4030'), tx, 24, tz, 2, 30, 2)); g.add(part(GEO.head, mat(i % 2 ? '#2f7a44' : '#4a9a5a', { roughness: 0.9 }), tx, 44, tz, 3.2, 2.6, 3.2)); }
+      const glass = new THREE.MeshStandardMaterial({ color: 0xbfe8ff, roughness: 0.05, metalness: 0.3, transparent: true, opacity: 0.22, depthWrite: false, side: THREE.DoubleSide, envMapIntensity: 2.5 });
+      const dm3 = domeAt3(g, glass, cx, 8, cz, R, 0.75); dm3.scale.z = R * d.h / d.w; dm3.castShadow = false;
+      LT.push([cx, 30, cz, R * 1.6, 0x90ffb0, 1.2]);
+      g.userData.beacon = new THREE.Mesh(GEO.eye, new THREE.MeshBasicMaterial({ color: 0xff3020 })); g.userData.beacon.scale.setScalar(4); g.userData.beacon.position.set(cx, 8 + R * 0.75 + 6, cz); g.add(g.userData.beacon);
+    } else if (k === 'rocket') {
+      // 귀환 로켓 — 발사대 · 흰 몸통 · 주황 띠 · 날개 넷, 옆의 연료 탱크
+      const [x, y] = lm.pad, wh = mat('#e8e8e4', { roughness: 0.4, metalness: 0.2 }), og = mat('#e8641a', { roughness: 0.5 });
+      boxAt(g, mat('#4a4e54', { roughness: 0.7 }), X(x), 4, X(y), X(3), 8, X(3));
+      g.add(part(GEO.cyl, wh, X(x), 8 + 130, X(y), 20, 260, 20));
+      g.add(part(GEO.cyl, og, X(x), 8 + 150, X(y), 20.5, 24, 20.5));
+      g.add(part(GEO.cone, wh, X(x), 8 + 260 + 40, X(y), 20, 80, 20));
+      for (let i = 0; i < 4; i++) { const a = i * Math.PI / 2, f = boxAt(g, og, X(x) + Math.cos(a) * 24, 40, X(y) + Math.sin(a) * 24, 4, 60, 22); f.rotation.y = -a; }
+      g.add(part(GEO.cyl, mat('#c8ccd0', { metalness: 0.6, roughness: 0.3 }), X(lm.tank[0]), 50, X(lm.tank[1]), 18, 100, 18));
+      g.userData.beacon = new THREE.Mesh(GEO.eye, new THREE.MeshBasicMaterial({ color: 0xff3020 })); g.userData.beacon.scale.setScalar(5); g.userData.beacon.position.set(X(x), 350, X(y)); g.add(g.userData.beacon);
+      LT.push([X(x), 30, X(y) + 40, 260, 0xffc890, 1.2]);
+    } else if (k === 'hagia') {
+      // 아야 소피아 — 붉은빛 벽, 큰 납빛 돔과 양옆 반 돔, 네 귀의 연필 첨탑
+      const wall = mat('#c48a70', { roughness: 0.85 }), lead = mat('#7c8088', { roughness: 0.4, metalness: 0.5 }), H = lm.hall;
+      const cx = X(H.x + H.w / 2), cz = X(H.y + H.h / 2);
+      boxAt(g, wall, cx, 34, cz, X(H.w), 68, X(H.h));
+      boxAt(g, wall, cx, 80, cz, X(3.8), 24, X(3.8));
+      domeAt3(g, lead, cx, 92, cz, X(2.0), 0.85);
+      for (const dx of [-1, 1]) domeAt3(g, lead, cx + dx * X(2.2), 68, cz, X(1.3), 0.7);
+      for (let i = 0; i < 7; i++) boxAt(g, glowM(0xffb868, i % 2 ? 1.5 : 2.2), X(H.x) + 20 + i * (X(H.w) - 40) / 6, 26, X(H.y + H.h) + 0.6, 10, 22, 1);
+      g.add(part(GEO.cyl, mat('#c9a440', { metalness: 0.8, roughness: 0.3 }), cx, 92 + X(2.0) * 0.85 + 8, cz, 1.5, 18, 1.5));
+      const stone = mat('#d6cec2', { roughness: 0.8 });
+      for (const [x, y] of lm.minarets) {
+        g.add(part(GEO.cyl, stone, X(x), 120, X(y), 9, 240, 9));
+        g.add(part(GEO.cyl, mat('#8a8478'), X(x), 170, X(y), 14, 5, 14));
+        g.add(part(GEO.cone, lead, X(x), 262, X(y), 9, 44, 9));
+        boxAt(g, glowM(0xfff0c0, 1.6), X(x), 172, X(y), 15, 2, 15);
+        LT.push([X(x), 172, X(y) + 8, 130, 0xffe0a0, 0.7]);
+      }
+      g.add(part(GEO.cyl, mat('#8a8478'), X(lm.fountain[0]), 4, X(lm.fountain[1]), 22, 8, 22));
+      g.add(part(GEO.cyl, mat('#1c3a44', { roughness: 0.1 }), X(lm.fountain[0]), 8.2, X(lm.fountain[1]), 18, 0.5, 18));
+      g.userData.beacon = new THREE.Mesh(GEO.eye, new THREE.MeshBasicMaterial({ color: 0xff3020 })); g.userData.beacon.scale.setScalar(4); g.userData.beacon.position.set(cx, 92 + X(2.0) * 0.85 + 20, cz); g.add(g.userData.beacon);
+      LT.push([cx, 40, X(H.y + H.h) + 30, 260, 0xffc890, 1.0]);
+    } else if (k === 'galata') {
+      // 갈라타 탑 — 둥근 돌 몸통, 꼭대기 전망 고리, 원뿔 지붕
+      const [x, y] = lm.tower, st = mat('#b0a28a', { roughness: 0.9 });
+      g.add(part(GEO.cyl, st, X(x), 110, X(y), X(1.3), 220, X(1.3)));
+      g.add(part(GEO.cyl, mat('#e0d4b8', { roughness: 0.7 }), X(x), 232, X(y), X(1.42), 24, X(1.42)));
+      for (let i = 0; i < 12; i++) { const a = i / 12 * Math.PI * 2; boxAt(g, glowM(0xffd090, 1.8), X(x) + Math.cos(a) * X(1.44), 232, X(y) + Math.sin(a) * X(1.44), 6, 12, 6); }
+      g.add(part(GEO.cone, mat('#3e4e5e', { roughness: 0.5, metalness: 0.3 }), X(x), 290, X(y), X(1.5), 92, X(1.5)));
+      g.userData.beacon = new THREE.Mesh(GEO.eye, new THREE.MeshBasicMaterial({ color: 0xff3020 })); g.userData.beacon.scale.setScalar(4); g.userData.beacon.position.set(X(x), 340, X(y)); g.add(g.userData.beacon);
+      LT.push([X(x), 230, X(y), 220, 0xffd090, 1.1]);
+    } else if (k === 'redeemer') {
+      // 구세주상 — 바위 언덕 위 흰 조각, 아래에서 비추는 조명
+      const rock = mat('#56604a', { roughness: 0.95 }), hl = lm.hill, cx = X(hl.x + hl.w / 2), cz = X(hl.y + hl.h / 2);
+      for (let i = 0; i < 4; i++) g.add(part(GEO.cyl, rock, cx, 15 + i * 30, cz, X(hl.w / 2 - i * 0.55), 30, X(hl.h / 2 - i * 0.55)));
+      const [sx, sy] = lm.statue, stn = mat('#ece8e0', { roughness: 0.6, emissive: col('#605c54'), emissiveIntensity: 0.6 });
+      boxAt(g, mat('#a8a49a'), X(sx), 140, X(sy), 26, 40, 26);
+      boxAt(g, stn, X(sx), 200, X(sy), 18, 80, 14);
+      boxAt(g, stn, X(sx), 228, X(sy), 120, 10, 10);                                      // 두 팔
+      g.add(part(GEO.head, stn, X(sx), 252, X(sy), 1.6, 1.6, 1.6));
+      g.userData.beacon = new THREE.Mesh(GEO.eye, new THREE.MeshBasicMaterial({ color: 0xff3020 })); g.userData.beacon.scale.setScalar(4); g.userData.beacon.position.set(X(sx), 272, X(sy)); g.add(g.userData.beacon);
+      LT.push([X(sx), 150, X(sy) + 40, 280, 0xe8f0ff, 1.4]);
+    } else if (k === 'copacabana') {
+      // 코파카바나 — 파도 무늬 돌길(바닥 무늬 판), 야자수, 해변 매점
+      const wk = lm.walk;
+      const cv = document.createElement('canvas'); cv.width = 256; cv.height = 64; const c2 = cv.getContext('2d');
+      c2.fillStyle = '#dcd8cc'; c2.fillRect(0, 0, 256, 64); c2.strokeStyle = '#202224'; c2.lineWidth = 6;
+      for (let yy = 8; yy < 64; yy += 16) { c2.beginPath(); for (let xx = 0; xx <= 256; xx += 4) { const v = yy + Math.sin(xx / 20) * 5; xx ? c2.lineTo(xx, v) : c2.moveTo(xx, v); } c2.stroke(); }
+      const tx = new THREE.CanvasTexture(cv); tx.colorSpace = THREE.SRGBColorSpace; tx.wrapS = tx.wrapT = THREE.RepeatWrapping; tx.repeat.set(wk.w / 4, wk.h / 3);
+      const fl = new THREE.Mesh(new THREE.PlaneGeometry(X(wk.w), X(wk.h)).rotateX(-Math.PI / 2), new THREE.MeshStandardMaterial({ map: tx, roughness: 0.7 }));
+      fl.position.set(X(wk.x + wk.w / 2), 0.7, X(wk.y + wk.h / 2)); fl.receiveShadow = true; g.add(fl);
+      for (const [x, y] of lm.kiosks) { boxAt(g, mat('#e0b860'), X(x), 14, X(y), 30, 28, 30); domeAt3(g, mat('#2a8a6a'), X(x), 28, X(y), 22, 0.5); LT.push([X(x), 20, X(y) + 20, 120, 0xffd890, 0.8]); }
+      const trunk = mat('#7a5a3a'), leaf = mat('#2f6a3a', { side: THREE.DoubleSide });
+      for (const [x, y] of lm.palms) {
+        g.add(part(GEO.cyl, trunk, X(x), 50, X(y), 3, 100, 3));
+        for (let i = 0; i < 6; i++) { const a = i / 6 * Math.PI * 2, f = boxAt(g, leaf, X(x) + Math.cos(a) * 18, 96, X(y) + Math.sin(a) * 18, 38, 1, 9); f.rotation.y = -a; f.rotation.z = 0.35; }
+      }
     } else if (k === 'hallgrim') {
       // 할그림스키르캬 — 현무암 기둥처럼 양옆으로 계단 지며 높아지는 흰 콘크리트, 가운데 뾰족탑
       const conc = mat('#c8cacb', { roughness: 0.75 }), b = lm.body;

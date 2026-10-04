@@ -173,6 +173,7 @@
     <section class="screen screen--list hidden" id="scrChapters">
       <div class="screen__inner">
         <h2>챕터 선택</h2>
+        <canvas class="chapmap" id="chapterMap" width="960" height="520" aria-label="챕터 지도"></canvas>
         <div class="chapters" id="chapterList"></div>
         <button class="btn btn--ghost" data-act="back">돌아가기</button>
       </div>
@@ -416,6 +417,7 @@
               <button type="button" data-set="difficulty" data-val="easy">생존자</button>
               <button type="button" data-set="difficulty" data-val="normal">잔존</button>
               <button type="button" data-set="difficulty" data-val="hard">절멸</button>
+              <button type="button" data-set="difficulty" data-val="rush">돌파</button>
             </div>
           </div>
           <p class="set__note" id="setDiffNote"></p>

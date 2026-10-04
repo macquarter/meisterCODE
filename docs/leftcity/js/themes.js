@@ -106,7 +106,7 @@ const THEMES = {
   /* 특전 — 테라포밍한 화성. 건물은 드문드문한 거주 모듈뿐, 붉은 흙 벌판에 크고 작은 크레이터가 패였다.
      움푹한 바닥과 솟은 테두리 모두 발이 무겁다 — 저것들도 마찬가지 */
   mars: {
-    key: 'mars', street: 'mars', name: '화성', river: null, terrain: 'crater', weather: 'fog', open: 0.7, noCars: false,
+    key: 'mars', street: 'mars', name: '화성', river: null, terrain: 'crater', weather: 'fog', open: 0.85, noCars: false,
     signs: ['HAB-1', 'HAB-2', 'O₂', 'GREENHOUSE', 'MED', 'LAB', 'AIRLOCK', 'H₂O', 'REACTOR', 'DEPOT', 'COMMS', 'ROVER BAY'],
     signCols: ['#ffffff', '#ff8a50', '#80d8ff', '#b9f6ca', '#fff59d', '#ff8a80'],
     carCols: ['#e0e0e0', '#e8641a', '#c9ccd1', '#3a3d42', '#e8641a', '#d8d4cc'],     // 탐사 차량

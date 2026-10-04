@@ -22,7 +22,7 @@
 })();
 
 /** 제품 정보 — 이름 · 판. 출시 이름이 정해지면 여기와 index.html · manifest 를 함께 바꾼다 */
-const APP = { name: 'LEFT CITY', subtitle: '남겨진 도시', version: '1.0.0-rc.25' };
+const APP = { name: 'LEFT CITY', subtitle: '남겨진 도시', version: '1.0.0-rc.26' };
 const APP_VERSION = APP.version;
 
 /** 난이도 배수. 1 = 기준값(잔존) */
@@ -32,7 +32,10 @@ const DIFFICULTY = {
   normal: { key: 'normal', name: '잔존',   note: '설계된 그대로의 난이도',
             hp: 1,    dmg: 1,    spawn: 1,    max: 1,   battery: 1,   loot: 1,    score: 1 },
   hard:   { key: 'hard',   name: '절멸',   note: '탄도 배터리도 모자란다',
-            hp: 1.32, dmg: 1.45, spawn: 1.34, max: 1.3, battery: 1.25, loot: 0.68, score: 1.35 }
+            hp: 1.32, dmg: 1.45, spawn: 1.34, max: 1.3, battery: 1.25, loot: 0.68, score: 1.35 },
+  // 돌파 — 가장 높은 단계. 하나하나는 약하지만 끝없이 몰려온다. 숨 고를 틈 없이 총을 쥐고 뚫고 나간다(탄 · 보급은 넉넉하다)
+  rush:   { key: 'rush',   name: '돌파',   note: '쉴 틈 없이 몰려오는 무리를 뚫고 간다 — 탄은 넉넉하다',
+            hp: 0.6,  dmg: 1.2,  spawn: 3.2,  max: 2.5, battery: 1,    loot: 2.4,  score: 2.2, rush: true, cap: 90 }
 };
 
 const AIM_MODES = ['auto', 'stick', 'turn', 'drag'];

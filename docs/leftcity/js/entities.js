@@ -862,6 +862,13 @@ class Bullet {
           this.dead = true; return;
         }
       }
+      // 개미지옥의 입 — 입이나 치켜든 촉수에 맞으면 움츠린다
+      if (g.maws && g.maws.length && window.LC_PITS && LC_PITS.shot(g, this.x, this.y, this.dmg)) {
+        g.spawnBlood && g.spawnBlood(this.x, this.y, this.ang, 5);
+        SFX.hitFlesh(Math.hypot(this.x - g.player.x, this.y - g.player.y));
+        if (this.flame) continue;
+        this.dead = true; return;
+      }
     }
   }
 }
@@ -917,6 +924,10 @@ class Grenade {
       const d = Math.hypot(z.x - this.x, z.y - this.y);
       if (d > R || !g.world.los(this.x, this.y, z.x, z.y)) continue;
       z.hurt(200 * (1 - d / R) + 40, Math.atan2(z.y - this.y, z.x - this.x), g, 30 * (1 - d / R), 'blast');
+    }
+    if (g.maws && window.LC_PITS) for (const m of g.maws) {
+      const d = Math.hypot(m.nx - this.x, m.ny - this.y);
+      if (m.near && !(m.dormant > 0) && d < R + 20) LC_PITS.hurt(g, m, 220 * (1 - d / (R + 20)) + 60);
     }
     const pd = Math.hypot(g.player.x - this.x, g.player.y - this.y);
     if (pd < R * 0.75 && !g.player.dead) g.player.hurt(34 * (1 - pd / (R * 0.75)));

@@ -565,6 +565,59 @@ function hipQuads(B, x0, z0, x1, z1, y, hgt, color) {
   else { face(a, d, r1, r0); face(c, b, r0, r1); face(b, a, r0, r0); face(d, c, r1, r1); }
 }
 /** 바닥 사각형 (y 높이) — UV 는 세계 좌표를 무늬 크기로 나눈 것이라 이웃 칸과 이어진다 */
+/** 개미지옥 둘레의 흙둔덕 — 깔때기 가장자리에서 솟았다가 바깥으로 완만히 내려앉는 낮은 고리. 바닥과 같은 흙 무늬(세계 좌표 UV) */
+function rimMesh(cx, cz, R, H) {
+  const pts = [[R - 8, -3], [R, H * 0.55], [R + 14, H], [R + 34, H * 0.62], [R + 58, H * 0.15], [R + 74, -1.5]].map(([r, y]) => new THREE.Vector2(r, y));
+  const geo = new THREE.LatheGeometry(pts, 56), P = geo.attributes.position, n = P.count;
+  const uv = new Float32Array(n * 2), cl = new Float32Array(n * 3);
+  for (let i = 0; i < n; i++) {
+    uv[i * 2] = (P.getX(i) + cx) / 640; uv[i * 2 + 1] = -(P.getZ(i) + cz) / 640;
+    const k = 0.95 + Math.max(0, P.getY(i)) / H * 0.18; cl[i * 3] = k; cl[i * 3 + 1] = k * 0.93; cl[i * 3 + 2] = k * 0.9;
+  }
+  geo.setAttribute('uv', new THREE.BufferAttribute(uv, 2)); geo.setAttribute('color', new THREE.BufferAttribute(cl, 3));
+  if (!MAT.pit) { MAT.pit = MAT.st_mars ? MAT.st_mars.clone() : new THREE.MeshStandardMaterial({ color: 0x6e3020, roughness: 0.95 }); MAT.pit.vertexColors = true; }
+  const m = new THREE.Mesh(geo, MAT.pit); m.position.set(cx, 0, cz); m.receiveShadow = true; m.castShadow = true;
+  return m;
+}
+/** 개미지옥 비탈 — 칸 하나를 5×5 로 나눠 깊이만큼 내린다. 이웃 칸이 구덩이가 아니면 그 모서리는 0 이라 바닥과 이어진다.
+    법선은 깊이의 기울기로 — 칸 이음매에서 빛이 끊기지 않는다. 깊을수록 정점 색을 어둡게 */
+function pitMesh(w, tl) {
+  const T = TILE, S = 5, n = tl.length / 2, V = (S + 1) * (S + 1);
+  const pos = new Float32Array(n * V * 3), nor = new Float32Array(n * V * 3), uv = new Float32Array(n * V * 2), cl = new Float32Array(n * V * 3), idx = [];
+  const isPit = (x, y) => w.pitIdx[w.idx(x, y)] >= 0, e = 1e-3, hd = T / S / 2;
+  const dep = (X, Z) => {
+    const fx = X / T, fz = Z / T;
+    if (!isPit(Math.floor(fx - e), Math.floor(fz - e)) || !isPit(Math.floor(fx + e), Math.floor(fz - e)) || !isPit(Math.floor(fx - e), Math.floor(fz + e)) || !isPit(Math.floor(fx + e), Math.floor(fz + e))) return 0;
+    const q = w.pitAt(X, Z); return q ? q.depth : 0;
+  };
+  let v = 0;
+  for (let t = 0; t < n; t++) {
+    const X0 = tl[t * 2] * T, Z0 = tl[t * 2 + 1] * T, base = v;
+    for (let j = 0; j <= S; j++) for (let i = 0; i <= S; i++, v++) {
+      const X = X0 + i * T / S, Z = Z0 + j * T / S, d = dep(X, Z);
+      const gx = (dep(X + hd, Z) - dep(X - hd, Z)) / (2 * hd), gz = (dep(X, Z + hd) - dep(X, Z - hd)) / (2 * hd), nl = Math.hypot(gx, 1, gz);
+      pos[v * 3] = X; pos[v * 3 + 1] = -d + 0.6; pos[v * 3 + 2] = Z;
+      nor[v * 3] = gx / nl; nor[v * 3 + 1] = 1 / nl; nor[v * 3 + 2] = gz / nl;
+      uv[v * 2] = X / 640; uv[v * 2 + 1] = -Z / 640;
+      const k = Math.min(1, d / 130), sh = 1 - 0.72 * Math.pow(k, 0.8);
+      cl[v * 3] = sh; cl[v * 3 + 1] = sh * 0.9; cl[v * 3 + 2] = sh * 0.86;
+    }
+    for (let j = 0; j < S; j++) for (let i = 0; i < S; i++) {
+      const a = base + j * (S + 1) + i, b = a + 1, c = a + S + 1, d2 = c + 1;
+      idx.push(a, c, b, b, c, d2);
+    }
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  geo.setAttribute('normal', new THREE.BufferAttribute(nor, 3));
+  geo.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+  geo.setAttribute('color', new THREE.BufferAttribute(cl, 3));
+  geo.setIndex(idx);
+  geo.computeBoundingSphere();
+  if (!MAT.pit) { MAT.pit = MAT.st_mars ? MAT.st_mars.clone() : new THREE.MeshStandardMaterial({ color: 0x6e3020, roughness: 0.95 }); MAT.pit.vertexColors = true; }
+  const m = new THREE.Mesh(geo, MAT.pit); m.receiveShadow = true;
+  return m;
+}
 function floorQuad(B, x0, z0, x1, z1, y, S, color) {
   B.quad([x0, y, z0], [x0, y, z1], [x1, y, z1], [x1, y, z0], [0, 1, 0], [[x0 / S, -z0 / S], [x0 / S, -z1 / S], [x1 / S, -z1 / S], [x1 / S, -z0 / S]], color);
 }
@@ -590,10 +643,11 @@ function buildChunk(w, cx, cy) {
   const deco = (x, y) => w.deco[w.idx(x, y)];
   const isB = (x, y) => deco(x, y) === D_BUILDING;
   const isRoadish = (x, y) => { const d = deco(x, y), gr = w.grid[w.idx(x, y)]; return gr === T_ROAD && (d === D_ASPHALT || d === D_PROP || d === D_RUBBLE); };
-  const SW_H = 3, lamps = [], fires = [], clutter = [], marks = [];
+  const SW_H = 3, lamps = [], fires = [], clutter = [], marks = [], pits = [];
   for (let y = y0; y < y0 + CH; y++) for (let x = x0; x < x0 + CH; x++) {
     const i = w.idx(x, y), d = w.deco[i], gr = w.grid[i];
     const X0 = x * T, Z0 = y * T, X1 = X0 + T, Z1 = Z0 + T;
+    if (w.pitIdx && w.pitIdx[i] >= 0) { pits.push(x, y); continue; }     // 개미지옥 — 바닥 대신 깔때기 비탈(아래에서 한 번에)
     const tr = w.terr ? w.terr[i] : 0;
     if (tr && TERR_MAT[tr] && d !== D_BUILDING && d !== D_WATER && d !== D_BRIDGE) {
       const fy = (d === D_SIDEWALK ? SW_H : d === D_GRASS ? 1 : 0) + (tr === 3 ? 1.6 : 0.5) + (x & 1) * 0.05;
@@ -747,14 +801,12 @@ function buildChunk(w, cx, cy) {
     if (k === 'fence') m.receiveShadow = false;
     g.add(m);
   }
-  // 화성의 크레이터 — 솟은 흙 테(납작한 고리)와 그늘진 바닥. 중심이 이 덩어리에 든 것만
+  // 화성의 개미지옥 — 칸마다 잘게 나눈 비탈(깊이는 world.pitAt), 둘레엔 솟은 흙 테. 테는 중심이 이 덩어리에 든 것만
+  if (pits.length) g.add(pitMesh(w, pits));
   if (w.craters) for (const c of w.craters) {
     const ccx = c.x + Math.ceil((x0 - c.x) / w.w) * w.w, ccy = c.y + Math.ceil((y0 - c.y) / w.h) * w.h;
     if (ccx >= x0 + CH || ccy >= y0 + CH) continue;
-    if (!RIM_GEO) { RIM_GEO = new THREE.TorusGeometry(1, 0.12, 6, 40).rotateX(-Math.PI / 2); BOWL_GEO = new THREE.CircleGeometry(1, 32).rotateX(-Math.PI / 2); }
-    const R = c.r * T + T * 0.3;
-    const rim = new THREE.Mesh(RIM_GEO, MAT.rim); rim.position.set(ccx * T, 0, ccy * T); rim.scale.set(R, 60 + c.r * 8, R); rim.receiveShadow = true; g.add(rim);
-    const bowl = new THREE.Mesh(BOWL_GEO, MAT.bowl); bowl.position.set(ccx * T, 0.8, ccy * T); bowl.scale.set(R * 0.95, 1, R * 0.95); bowl.renderOrder = 2; g.add(bowl);
+    g.add(rimMesh(ccx * T, ccy * T, (c.rf || c.r) * T, 5 + c.r * 1.6));
   }
   g.userData.lamps = lamps;
   g.userData.fires = fires;
@@ -2092,9 +2144,14 @@ function updateTwist(g, near) {
   for (const [ob, o] of dyn.tw) if (!seen.has(ob)) { scene.remove(o); dyn.tw.delete(ob); }
 }
 /* 값싼 빛 모으기 — 매 프레임 후보(가로등 · 간판 · 불 · 출구)를 카메라 둘레 가까운 순으로 골라 시점 좌표로 넣는다 */
-let carry3 = null, RIM_GEO = null, BOWL_GEO = null, SHOVE3 = null;
+let carry3 = null, SHOVE3 = null;
 /** 땅마다 발이 잠기는 깊이 — 물은 정강이, 진흙은 발목, 모래는 발등 */
 const SINK = [0, 1.6, 0, 6, 0, 3.2, 1.5, -7];      // 7 = 크레이터 테 위 — 솟은 흙에 올라선다
+/** 발 딛는 높이 — 개미지옥 안이면 깔때기 비탈의 깊이, 아니면 지형에 빠지는 만큼 */
+function groundY(w, x, z, terr) {
+  if (w.pitIdx) { const q = w.pitAt(x, z); return q ? -q.depth : w.bermAt(x, z); }
+  return -(SINK[terr] || 0);
+}
 const clCand = [], clTmp = new THREE.Vector3(), tmpC = new THREE.Color();
 const SODIUM = new THREE.Color(1.0, 0.62, 0.3);
 function lampFlick(l, t) {
@@ -2592,6 +2649,7 @@ function draw3(g) {
   updateParticles(g);
   updatePickups(g, near);
   updateHazards(g, near);
+  if ((g.maws && g.maws.length) || MAW3) updateMaws(g, near);
   updateMisc(g, p, w);
   updateLights(g, p, w);
   updateRain(g, p);
@@ -2879,14 +2937,32 @@ function tiltBone(b, axis, ang) {
 }
 const fwd = new THREE.Vector3(), lat = new THREE.Vector3(), tdir = new THREE.Vector3();
 /** 좀비 자세 — 앞으로 뻗은 팔 · 구부정한 등 · 꺾인 고개 · 종류별 변형 */
+/** 무거운 땅의 걸음 — 앞으로 내딛는 다리(넓적다리가 앞으로 도는 중)를 무릎 높이 들어 올리고, 상체를 숙이며 팔을 벌린다.
+    걷기 동작 위에 덧입히는 뼈 보정 몇 개뿐이라 가볍다 */
+const WADE_T = [0, 1, 0, 1, 0, 1, 1, 1];
+function wadeGait(u, B, fwdV, latV, dt, k, deep) {
+  for (const [ul, ll, key] of [[B.LeftUpLeg, B.LeftLeg, 'wdL'], [B.RightUpLeg, B.RightLeg, 'wdR']]) {
+    if (!ul || !ll) continue;
+    ul.updateWorldMatrix(true, false); ul.getWorldQuaternion(bq);
+    const f = bv.copy(boneAxis(ul)).applyQuaternion(bq).dot(fwdV), prev = u[key] ?? f; u[key] = f;
+    const swing = Math.max(0, Math.min(1, (f - prev) / Math.max(dt, 1e-3) * 0.35));
+    u[key + 's'] = (u[key + 's'] || 0) + (swing - (u[key + 's'] || 0)) * Math.min(1, dt * 14);    // 부드럽게
+    const lift = u[key + 's'] * k * (deep ? 1.25 : 1);
+    if (lift > 0.01) { tiltBone(ul, latV, -0.5 * lift); tiltBone(ll, latV, 0.85 * lift); }
+  }
+  tiltBone(B.Spine, latV, 0.12 * k); tiltBone(B.Spine1, latV, 0.08 * k);
+}
 function poseZombieRig(h, z, g, dt) {
   const u = h.userData, t = z.t, B = u.bones;
   const sp = u.spd || 0;
   const runner = t.speed > 100 || z.rage;
   // 쫓을 때 걷는 것도 원작처럼 세 배 가까이 빨라진다(초당 140 남짓) — 그 빠르기면 걷기 동작으로는 발이 70% 미끄러져 뛴다
-  const [clip, ts] = (t.weeper && !z.rage) ? ['idle', 1] : gaitFor(u, sp, h.scale.x, z.aggro && !t.crawl);
+  let [clip, ts] = (t.weeper && !z.rage) ? ['idle', 1] : gaitFor(u, sp, h.scale.x, z.aggro && !t.crawl);
+  // 밀쳐진 것 — 걷기 동작을 거꾸로 빠르게 돌려 뒷걸음질로 비틀대며 물러난다
+  const shv = z.shoved > 0 && !t.boss && !t.crawl ? 0.6 - z.shoved : -1;
+  if (shv > 0.08) { clip = 'walk'; ts = -1.9 * Math.max(0.4, 1 - shv / 0.6); }
   const moving = clip !== 'idle';
-  blendRig(h, clip, 11, dt, ts);
+  blendRig(h, clip, shv > 0 ? 16 : 11, dt, ts);
   h.updateMatrixWorld(true);
   const face = u.yaw !== undefined ? -u.yaw : z.face;                // 화면에 보이는(부드럽게 돈) 방향 기준
   fwd.set(Math.cos(face), 0, Math.sin(face)); lat.set(fwd.z, 0, -fwd.x);
@@ -2921,18 +2997,28 @@ function poseZombieRig(h, z, g, dt) {
     bv2.set(Math.sin(z.hitAng || 0), 0, -Math.cos(z.hitAng || 0));         // 맞은 방향에 수직인 축
     tiltBone(B.Spine1, bv2, k); tiltBone(B.Head, bv2, k * 0.6);                // 총알이 나아가는 쪽으로 밀린다
   }
-  // 밀쳐진 것 — 밀린 쪽으로 상체가 크게 젖혀지고 두 팔이 위로 허우적댄다, 발이 살짝 뜬다
+  // 밀쳐진 것 — ① 맞는 순간(0.14초) 고개와 상체가 밀린 쪽으로 채찍처럼 꺾이고 두 팔이 위로 튄다
+  //           ② 뒷걸음질 — 상체가 젖혀진 채 좌우로 휘청이고, 두 팔을 옆으로 벌려 균형을 잡으며 허우적댄다 ③ 서서히 바로 선다
   if (z.shoved > 0 && B.Spine1) {
-    const k = Math.min(1, z.shoved / 0.35);
-    bv2.set(Math.sin(z.shoveA || 0), 0, -Math.cos(z.shoveA || 0));
-    tiltBone(B.Spine, bv2, k * 0.55); tiltBone(B.Spine1, bv2, k * 0.45); tiltBone(B.Head, bv2, k * 0.5);
+    const A = z.shoveA || 0, s = 0.6 - z.shoved, k = Math.min(1, z.shoved / 0.16);
+    const whip = s < 0.14 ? Math.sin(s / 0.14 * Math.PI * 0.5) : Math.max(0, 1 - (s - 0.14) / 0.28);
+    const wob = Math.sin(s * 21 + (u.seed || 0) * 6) * Math.max(0, 1 - s / 0.55);
+    bv2.set(Math.sin(A), 0, -Math.cos(A));                                   // 밀린 방향에 수직인 축 — 이 축으로 뒤로 젖힌다
+    tiltBone(B.Spine, bv2, (0.22 + 0.38 * whip) * k); tiltBone(B.Spine1, bv2, (0.16 + 0.34 * whip) * k);
+    tiltBone(B.Neck, bv2, 0.55 * whip * k); tiltBone(B.Head, bv2, (0.15 + 0.4 * whip) * k);
+    tdir.set(Math.cos(A), 0, Math.sin(A));                                   // 밀린 방향 — 이 축으로 좌우로 휘청인다
+    tiltBone(B.Spine1, tdir, wob * 0.28 * k); tiltBone(B.Head, tdir, -wob * 0.2 * k);
     for (const [up, lo, sd] of [[B.LeftArm, B.LeftForeArm, 1], [B.RightArm, B.RightForeArm, -1]]) {
       if (!up) continue;
-      tdir.set(-Math.cos(z.shoveA || 0) * 0.4, 1, -Math.sin(z.shoveA || 0) * 0.4).addScaledVector(lat, sd * (0.6 + Math.sin(g.time * 24 + sd) * 0.3));
-      aimBone(up, tdir, 0.9 * k); aimBone(lo, tdir.addScaledVector(YAX, 0.3), 0.9 * k);
+      const flap = Math.sin(s * 26 + sd * 1.7) * 0.35;
+      if (whip > 0.5) tdir.set(-Math.cos(A) * 0.35, 1, -Math.sin(A) * 0.35).addScaledVector(lat, sd * 0.55);            // 위로 튄 팔
+      else tdir.copy(lat).multiplyScalar(sd).addScaledVector(YAX, 0.1 + flap + sd * wob * 0.3).addScaledVector(fwd, 0.25);  // 옆으로 벌린 팔
+      aimBone(up, tdir, 0.92 * k); aimBone(lo, tdir.addScaledVector(YAX, 0.35 + flap * 0.5), 0.85 * k);
     }
-    u.body.position.y = Math.sin(Math.min(1, (0.6 - z.shoved) / 0.25) * Math.PI) * 3 * k;
+    u.body.position.y = (s < 0.2 ? Math.sin(s / 0.2 * Math.PI) * 4 : 0) * k;
   }
+  // 무거운 땅 — 진흙 · 물 · 모래 · 크레이터 비탈에선 무릎을 높이 들고 앞으로 숙여 헤쳐 나간다
+  if (moving && !(z.shoved > 0) && !t.crawl && (WADE_T[z.terr] || (z.pitK || 0) > 0.05)) wadeGait(u, B, fwd, lat, dt, 1, (z.pitK || 0) > 0.05 || z.terr === 3);
   // 엎드려 기는 것 — 몸을 앞으로 눕힌다
   if (t.crawl) { u.body.rotation.z = -1.25; u.body.position.y = 7; }
   // 우는 것 — 웅크려 앉아 얼굴을 묻는다
@@ -3105,16 +3191,38 @@ function posePlayerRig(h, p, g, dt) {
   const twist = wrapA(aim - u.root);
   if (Math.abs(twist) > 0.002) { for (const b of [B.Spine, B.Spine1, B.Spine2]) tiltBone(b, YAX, -twist / 3); h.updateMatrixWorld(true); }
   fwd.set(Math.cos(p.angle), 0, Math.sin(p.angle)); lat.set(fwd.z, 0, -fwd.x);
-  const melee = p.meleeAnim > 0 ? Math.sin((1 - p.meleeAnim / 0.32) * Math.PI) : 0;
   const key = (p.weapon && p.weapon.key) || 'pistol', long = key !== 'pistol', S = h.scale.x;
-  // 밀치기 — 상체를 앞으로 실어 내지른다(어깨가 앞으로, 앞발에 체중)
-  if (melee > 0.01) { tiltBone(B.Spine, lat, melee * 0.42); tiltBone(B.Spine1, lat, melee * 0.25); h.updateMatrixWorld(true); }
+  /* 밀치기 세 박자 — ① 웅크림(0‒22%): 오른 어깨를 뒤로 감고 무게를 뒷발에 ② 내지름(22‒50%): 허리를 풀며 앞발을 내딛고
+     상체를 실어 두 손바닥으로 민다(몸이 앞으로 7, 아래로 2.5 쏠린다) ③ 거둠: 천천히 자세를 되찾는다 */
+  const ma = p.meleeAnim > 0 ? 1 - p.meleeAnim / 0.32 : -1, ez = x => x * x * (3 - 2 * x);
+  let wind = 0, thrust = 0;
+  if (ma >= 0) {
+    if (ma < 0.22) wind = ez(ma / 0.22);
+    else if (ma < 0.5) { const q = ez((ma - 0.22) / 0.28); wind = 1 - q; thrust = q; }
+    else thrust = 1 - ez((ma - 0.5) / 0.5);
+  }
+  if (wind + thrust > 0.01) {
+    for (const b of [B.Spine, B.Spine1, B.Spine2]) tiltBone(b, YAX, (wind * 0.32 - thrust * 0.22) / 3);     // 허리 감기 · 풀기
+    tiltBone(B.Spine, lat, thrust * 0.5 - wind * 0.1); tiltBone(B.Spine1, lat, thrust * 0.28);
+    tiltBone(B.Head, lat, -thrust * 0.25);                                          // 고개는 앞을 본 채
+    h.position.addScaledVector(fwd, thrust * 7 * S); h.position.y -= (thrust * 2.5 + wind * 1.2) * S;
+    if (sp < 30) {                                                                  // 서서 밀 때만 — 앞발 내딛기 · 뒷발 버티기
+      aimBone(B.LeftUpLeg, tdir.copy(fwd).multiplyScalar(0.55).addScaledVector(YAX, -1), thrust * 0.8);
+      aimBone(B.LeftLeg, tdir.copy(fwd).multiplyScalar(0.1).addScaledVector(YAX, -1), thrust * 0.8);
+      aimBone(B.RightUpLeg, tdir.copy(fwd).multiplyScalar(-0.45).addScaledVector(YAX, -1), (thrust + wind * 0.5) * 0.7);
+    }
+    h.updateMatrixWorld(true);
+  }
+  // 무거운 땅 — 무릎을 높이 들어 헤쳐 나간다
+  if (sp > 12 && !back && (WADE_T[p.terr] || (p.pitK || 0) > 0.05)) { wadeGait(u, B, tv1.set(Math.cos(u.root), 0, Math.sin(u.root)), tdir.set(Math.sin(u.root), 0, -Math.cos(u.root)).clone(), dt, 0.85, (p.pitK || 0) > 0.05 || p.terr === 3); h.updateMatrixWorld(true); }
   // 몸의 기준점 — 가슴(Spine2). 오른쪽은 -lat
   if (B.Spine2) B.Spine2.getWorldPosition(chestP); else chestP.set(p.x, 36 * S, p.y);
   const right = gO.copy(lat).multiplyScalar(-1);
   // 손 목표 — 권총은 두 손을 모아 앞으로 쭉, 긴 총은 오른손이 개머리 쪽 손잡이 · 왼손이 총열 밑
-  const grip = new THREE.Vector3().copy(chestP).addScaledVector(fwd, (long ? 7 : 15) * S + melee * 15 * S).addScaledVector(right, (long ? 3.5 : 0.6) * S).addScaledVector(YAX, (long ? -4.5 : -2.5) * S);
+  const grip = new THREE.Vector3().copy(chestP).addScaledVector(fwd, (long ? 7 : 15) * S + thrust * 13 * S - wind * 6 * S).addScaledVector(right, (long ? 3.5 : 0.6) * S + wind * 3 * S).addScaledVector(YAX, (long ? -4.5 : -2.5) * S + thrust * 2 * S);
   const fore = new THREE.Vector3().copy(grip).addScaledVector(fwd, (long ? 11 : 0.5) * S).addScaledVector(right, (long ? -2 : -1.4) * S).addScaledVector(YAX, (long ? 0.5 : 0) * S);
+  // 왼손은 총에서 떼어 손바닥으로 민다 — 가슴 앞 왼쪽 어깨 높이
+  if (thrust + wind > 0.01) fore.lerp(gTmp.copy(chestP).addScaledVector(fwd, 6 * S + thrust * 20 * S).addScaledVector(lat, 5 * S).addScaledVector(YAX, 1.5 * S), Math.min(1, thrust * 1.3 + wind * 0.6));
   reachArm(B.RightArm, B.RightForeArm, grip, right, 0.97);
   reachArm(B.LeftArm, B.LeftForeArm, fore, lat, 0.97);
   if (u.pack && B.Spine2) { gTmp.copy(chestP); h.worldToLocal(gTmp); u.pack.position.copy(gTmp); }
@@ -3254,7 +3362,7 @@ function updateHumans(g, p) {
     const vis = Math.max(z.lit, Math.min(1, Math.max(0, (180 - d) / 60)), g.lightning * 1.4, z.t.boss ? 0.5 : 0);
     h.visible = d < 1300;
     trackMotion(h.userData, z.x, z.y, -z.face, dt, z.t.boss ? 5 : 8);
-    h.position.set(z.x, -(SINK[z.terr] || 0), z.y); h.rotation.y = h.userData.yaw;
+    h.position.set(z.x, groundY(g.world, z.x, z.y, z.terr), z.y); h.rotation.y = h.userData.yaw;
     const t = z.t, ph = z.phase, aggro = !!z.aggro;
     if (h.userData.rig) {
       // 멀리 있는 것은 동작을 덜 자주 갱신한다
@@ -3304,7 +3412,7 @@ function updateHumans(g, p) {
   if (!player3 && rigs) { player3 = makePlayerRig(); player3.scale.setScalar(1.06 * CHAR_S); scene.add(player3); }
   if (player3 && player3.userData.rig) {
     player3.visible = !p.dead; if (pGun) pGun.visible = !p.dead;
-    player3.position.set(p.x, -(SINK[p.terr] || 0), p.y);
+    player3.position.set(p.x, groundY(g.world, p.x, p.y, p.terr), p.y);
     posePlayerRig(player3, p, g, dt);
     return;
   }
@@ -3328,6 +3436,77 @@ function updateHumans(g, p) {
   poseHuman(player3, { ph: p.walkPhase, amp: p.stride || 0, lean: 1.2, arms: 'gun', melee });
 }
 
+/* 개미지옥의 입 — 깔때기 바닥의 이빨 고리 · 검은 목구멍 · 촉수(마디마다 길쭉한 살덩이 공). 모두 인스턴스 한 벌씩 */
+let MAW3 = null;
+const mawC = new THREE.Color(), mawT0 = new THREE.Vector3(), mawT1 = new THREE.Vector3();
+function updateMaws(g, near) {
+  const P = window.LC_PITS, w = g.world;
+  if (!P) return;
+  if (!MAW3) {
+    const flesh = enhanceNew(new THREE.MeshStandardMaterial({ color: 0x5a2034, roughness: 0.32, metalness: 0.05, emissive: 0x1c0409 }));
+    MAW3 = {
+      seg: new THREE.InstancedMesh(new THREE.IcosahedronGeometry(1, 1), flesh, 420),
+      lip: new THREE.InstancedMesh(new THREE.TorusGeometry(1, 0.3, 8, 20).rotateX(-Math.PI / 2), flesh, 16),
+      hole: new THREE.InstancedMesh(new THREE.CircleGeometry(1, 20).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0x050102 }), 16),
+      tooth: new THREE.InstancedMesh(new THREE.ConeGeometry(1, 1, 5).translate(0, 0.5, 0), enhanceNew(new THREE.MeshStandardMaterial({ color: 0xd8cdb4, roughness: 0.45 })), 220),
+      ring: new THREE.InstancedMesh(new THREE.RingGeometry(0.82, 1, 36).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide }), 24)
+    };
+    for (const k of ['seg', 'ring']) MAW3[k].instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(MAW3[k].instanceMatrix.count * 3), 3);
+    for (const k in MAW3) { MAW3[k].frustumCulled = false; MAW3[k].count = 0; if (k !== 'ring' && k !== 'hole') MAW3[k].castShadow = true; scene.add(MAW3[k]); }
+  }
+  const M = MAW3, N = 16;
+  let ns = 0, nl = 0, nt = 0, nr = 0;
+  for (const m of g.maws || []) {
+    if (!m.near || !near(m.nx, m.ny, 1200)) continue;
+    const sleep = m.dormant > 0, fl = m.flash > 0, D = m.D, by = -D;
+    const open = sleep ? 0.4 : 1 + Math.sin(g.time * 3) * 0.08, mr = 30 * open;
+    // 목구멍과 입술
+    if (nl < 16) {
+      dm.compose(dpos.set(m.nx, by + 1.6, m.ny), dq.identity(), dsc.set(mr, 1, mr)); M.hole.setMatrixAt(nl, dm);
+      dm.compose(dpos.set(m.nx, by + 2.5, m.ny), dq.setFromAxisAngle(UPY, g.time * 0.2), dsc.set(mr + 3, 22, mr + 3)); M.lip.setMatrixAt(nl, dm); nl++;
+    }
+    // 이빨 — 안쪽으로 휘어 든 고리. 잠들면 오므라든다
+    for (let i = 0; i < 12 && nt < 220; i++) {
+      const a = i / 12 * 6.283 + g.time * 0.2, ca = Math.cos(a), sa = Math.sin(a);
+      tv1.set(-sa, 0, ca);                                                       // 접선 — 이 축으로 안쪽으로 눕힌다
+      dq.setFromAxisAngle(tv1, -(sleep ? 1.1 : 0.55 + Math.sin(g.time * 6 + i) * 0.08));
+      dm.compose(dpos.set(m.nx + ca * mr, by + 3, m.ny + sa * mr), dq, dsc.set(3.2, 13 * (sleep ? 0.6 : 1), 3.2)); M.tooth.setMatrixAt(nt++, dm);
+    }
+    // 촉수 — 입에서 끝까지 이차 곡선. 끝으로 갈수록 가늘다. 치켜들수록 높이 휜다
+    for (const tn of m.tents) {
+      if (tn.out < 0.03 && tn.phase === 'idle') continue;
+      const tp = P.tip(m, tn, g.time);
+      const ty = groundY(w, tp.x, tp.y, 0) + tp.h;
+      const dx = tp.x - m.nx, dz = tp.y - m.ny, L = Math.hypot(dx, dz) || 1, sw = Math.sin(tn.sway * 1.3) * 14;
+      const cx = m.nx + dx * 0.5 - dz / L * sw, cz = m.ny + dz * 0.5 + dx / L * sw, cy = Math.max(by, ty) + 30 + (tp.rear || 0) * 70;
+      let px = m.nx, py = by, pz = m.ny;
+      for (let i = 1; i <= N && ns < 420; i++) {
+        const t = i / N, u = 1 - t;
+        const x = u * u * m.nx + 2 * u * t * cx + t * t * tp.x, y = u * u * by + 2 * u * t * cy + t * t * ty, z = u * u * m.ny + 2 * u * t * cz + t * t * tp.y;
+        mawT0.set(x - px, y - py, z - pz); const sl = mawT0.length() || 1;
+        dq.setFromUnitVectors(UPY, mawT0.multiplyScalar(1 / sl));
+        const r = (16 - t * 11.5) * (0.45 + 0.55 * tp.k);
+        dm.compose(dpos.set((x + px) / 2, (y + py) / 2, (z + pz) / 2), dq, dsc.set(r, sl * 0.62 + r * 0.6, r));
+        M.seg.setMatrixAt(ns, dm);
+        if (fl) mawC.setRGB(2.2, 2.0, 1.9); else { const v = i % 2 ? 1 : 0.8; mawC.setRGB(v, v, v); }
+        M.seg.setColorAt(ns, mawC); ns++;
+        px = x; py = y; pz = z;
+      }
+      // 내려칠 자리 — 좁혀 드는 붉은 고리, 방향이 굳으면 진해진다
+      if (tn.phase === 'wind' && nr < 24) {
+        const k = Math.min(1, tn.t / 0.5), R = 30 + (1 - k) * 22, c = tn.lock ? 1.8 : 0.7 + Math.sin(g.time * 22) * 0.3;
+        dm.compose(dpos.set(tn.tx, groundY(w, tn.tx, tn.ty, 0) + 3, tn.ty), dq.identity(), dsc.set(R, 1, R)); M.ring.setMatrixAt(nr, dm);
+        M.ring.setColorAt(nr, mawC.setRGB(c, c * 0.18, c * 0.1)); nr++;
+      }
+    }
+    // 목구멍 안의 붉은 기운 — 어둠 속에서도 구덩이가 어디인지 알 수 있게
+    pushLight(m.nx, by + 30, m.ny, 150, mawC.setRGB(1, 0.18, 0.22), sleep ? 0.3 : 0.9 + Math.sin(g.time * 2) * 0.2);
+  }
+  M.seg.count = ns; M.lip.count = nl; M.hole.count = nl; M.tooth.count = nt; M.ring.count = nr;
+  for (const k of ['seg', 'lip', 'hole', 'tooth', 'ring']) M[k].instanceMatrix.needsUpdate = true;
+  if (M.seg.instanceColor) M.seg.instanceColor.needsUpdate = true;
+  if (M.ring.instanceColor) M.ring.instanceColor.needsUpdate = true;
+}
 function updateCorpses(g, near) {
   const seen = new Set();
   for (const c of g.corpses) {
@@ -3357,9 +3536,10 @@ function updateCorpses(g, near) {
       dyn.corpses.set(c, o); scene.add(o);
       }
     }
-    o.position.set(c.x, 0, c.y);
+    const gy = g.world.pitIdx ? groundY(g.world, c.x, c.y, 0) : 0;
+    o.position.set(c.x, gy, c.y);
     const fd = o.userData.fall ? DEATH_DUR[o.userData.fall.style] || 0.65 : 0;
-    if (o.userData.fall && (c.age || 0) < fd) o.position.y = fallPose(o, c.age || 0);
+    if (o.userData.fall && (c.age || 0) < fd) o.position.y = gy + fallPose(o, c.age || 0);
     else if (o.userData.fall && !o.userData.settled) { fallPose(o, 2); o.userData.settled = true; }
   }
   for (const [c, o] of dyn.corpses) if (!seen.has(c)) { scene.remove(o); dyn.corpses.delete(c); }
@@ -3465,7 +3645,7 @@ function updatePickups(g, near) {
       halo.position.y = 0.8; halo.scale.set(46, 1, 46); o.add(halo);
       dyn.pickups.set(pk, o); scene.add(o);
     }
-    o.position.set(pk.x, Math.sin(g.time * 3 + pk.x) * 1.5, pk.y);
+    o.position.set(pk.x, Math.sin(g.time * 3 + pk.x) * 1.5 + (g.world.pitIdx ? groundY(g.world, pk.x, pk.y, 0) : 0), pk.y);
     o.children[0].rotation.y = g.time * 1.2;
   }
   for (const [pk, o] of dyn.pickups) if (!seen.has(pk)) { scene.remove(o); dyn.pickups.delete(pk); }

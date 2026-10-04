@@ -935,11 +935,12 @@ const Hints = (() => {
     terr3:    () => [T('얕은 물'), T('모두가 느려진다 — 물가에서 싸우면 시간을 번다')],
     terr4:    () => [T('용암 균열'), T('밟고 있으면 데인다 — 감염체를 그 위로 끌어들여라')],
     terr5:    () => [T('진흙'), T('발이 빠져 느려진다 — 감염체도 마찬가지')],
-    terr6:    () => [T('크레이터 바닥'), T('움푹한 바닥은 발이 무겁다 — 감염체도 마찬가지')],
-    terr7:    () => [T('크레이터 둘레'), T('솟은 흙 테를 넘으면 느려진다 — 감염체도 마찬가지')]
+    terr6:    () => [T('개미지옥'), T('비탈 모래가 가운데로 끌어내린다 — 감염체도 마찬가지')],
+    terr7:    () => [T('크레이터 둘레'), T('솟은 흙 테를 넘으면 느려진다 — 감염체도 마찬가지')],
+    maw:      () => [T('구덩이 입'), T('깔때기 안의 것은 무엇이든 후려친다 — 감염체도. 무리를 둘레로 끌고 돌아라')]
   };
   // 지금 당장 알아야 하는 것은 줄 앞으로 끼워 넣는다
-  const URGENT = new Set(['terr2', 'terr4', 'bile', 'weeper', 'horde', 'melee', 'reload', 'nade', 'runner', 'brute', 'crawler', 'spitter', 'behemoth', 'screamer', 'leaper', 'charger', 'puller', 'riot']);
+  const URGENT = new Set(['terr2', 'terr4', 'maw', 'bile', 'weeper', 'horde', 'melee', 'reload', 'nade', 'runner', 'brute', 'crawler', 'spitter', 'behemoth', 'screamer', 'leaper', 'charger', 'puller', 'riot']);
 
   const queue = [];
   let cur = null, t = 0, gap = 0;
@@ -983,6 +984,7 @@ const Hints = (() => {
       if (g.time > 24) push('sprint');
       const tr = g.world.terrAt ? g.world.terrAt(p.x, p.y) : 0;
       if (tr) push('terr' + tr);
+      if (g.maws) for (const m of g.maws) if (m.near && !(m.dormant > 0) && Math.hypot(p.x - m.nx, p.y - m.ny) < m.R + 160) push('maw');
       const w = p.weapon;
       if (!p.reloading && p.magOf(w) <= Math.ceil(w.mag * 0.34)) push('reload');
       if (p.battery < 30 && p.lightOn) push('battery');
@@ -1018,6 +1020,203 @@ const Hints = (() => {
 /* ═══════════ 무전 ═══════════
    이야기는 무전으로 들어온다 — 왼쪽 위 미션 줄 아래에 말하는 사람과 자막이 한 줄씩 뜬다.
    같은 열쇠(start · mid · done …)는 한 판에 한 번만. 길에서 주운 기록도 같은 자리에 잠깐 펼친다. */
+/* ── 개미지옥과 구덩이 입 ──
+   화성의 크레이터는 깊은 깔때기다. 안에 든 것은 무엇이든 모래에 끌려 가운데로 미끄러지고,
+   큰 구덩이 바닥엔 촉수 달린 "입"이 산다. 깔때기 안이면 사람이든 감염체든 가리지 않고 후려친다 —
+   그러니 무리를 그 둘레로 끌고 돌면 입이 대신 싸워 준다. 입은 쏘면 움츠러들어 한동안 잠든다 */
+const Pits = {
+  MIN_R: 3,
+  setup(g) {
+    g.maws = []; g.mawKills = 0;
+    const w = g.world;
+    if (!w.craters) return;
+    const rr = makeRng((g.level.seed || 7) ^ 0x3a7);
+    for (const c of w.craters) {
+      if (c.r < this.MIN_R) continue;
+      const n = c.r >= 4 ? 4 : 3, hp = Math.round(360 + c.r * 50);
+      const m = { c, x: c.x * TILE, y: c.y * TILE, nx: c.x * TILE, ny: c.y * TILE, R: c.rf * TILE, D: c.D, hp, max: hp, dormant: 0, flash: 0, rage: 0, chompT: 0, tents: [] };
+      for (let i = 0; i < n; i++) {
+        const a = i / n * 6.283 + rr() * 0.8;
+        m.tents.push({ a, phase: 'idle', t: 0, cd: 0.8 + rr() * 1.6, tx: 0, ty: 0, lock: false, tgt: null, reach: 0.22, lift: 30, sway: rr() * 6.283, out: 0 });
+      }
+      g.maws.push(m);
+    }
+  },
+  /** 깔때기 모래 — 안에 든 것은 깊을수록 세게 가운데로 끌린다 */
+  pull(g, e, dt, mul = 1) {
+    const q = g.world.pitAt(e.x, e.y);
+    e.pitK = q ? q.k : 0;
+    if (!q || q.d < 4) return;
+    const v = (26 + 44 * q.k) * mul * dt;
+    g.world.slide(e, -q.dx / q.d * v, -q.dy / q.d * v);
+  },
+  inPit(m, x, y, pad = 0) { return Math.hypot(x - m.nx, y - m.ny) < m.R * 0.97 + pad; },
+  update(g, dt) {
+    const p = g.player, w = g.world;
+    if (!g.maws) return;
+    if (!p.dead) this.pull(g, p, dt, p.sprinting ? 0.8 : 1);
+    for (const z of g.zombies) if (!z.dead && !z.t.boss && Math.abs(z.x - p.x) < 1400 && Math.abs(z.y - p.y) < 1100) this.pull(g, z, dt, z.t.size > 16 ? 0.6 : 1);
+    for (const m of g.maws) {
+      const [dx, dy] = w.wrapDelta(p.x, p.y, m.x, m.y);
+      m.nx = p.x + dx; m.ny = p.y + dy;
+      m.near = Math.abs(dx) < 1300 && Math.abs(dy) < 1000;
+      m.flash = Math.max(0, m.flash - dt);
+      if (!m.near) continue;
+      if (m.dormant > 0) {
+        m.dormant -= dt;
+        for (const tn of m.tents) { tn.out = Math.max(0, tn.out - dt * 2.5); tn.phase = 'idle'; tn.tgt = null; }
+        if (m.dormant <= 0) { m.hp = m.max; SFX.mawRoar && SFX.mawRoar(Math.hypot(dx, dy)); }
+        continue;
+      }
+      // 입 — 바닥까지 끌려 내려온 것은 씹힌다
+      m.chompT -= dt;
+      if (!p.dead && Math.hypot(p.x - m.nx, p.y - m.ny) < 30) {
+        g.lastHurt = 'maw'; p.hurt(22 * SETTINGS.mod.dmg * dt);
+        if (m.chompT <= 0) { m.chompT = 0.5; g.hitFrom(m.nx, m.ny, 'maw'); SFX.mawBite && SFX.mawBite(0); g.shake = Math.min(18, g.shake + 3); }
+      }
+      for (const z of g.zombies) if (!z.dead && !z.t.boss && Math.hypot(z.x - m.nx, z.y - m.ny) < 30) {
+        z.hp -= 90 * dt; z.stagger = Math.max(z.stagger || 0, 0.2);
+        if (z.hp <= 0) { z.hp = 1; z.hurt(5, Math.atan2(z.y - m.ny, z.x - m.nx), g, 0, 'maw'); this.ate(g, m, z); }
+      }
+      for (const tn of m.tents) this.tentacle(g, m, tn, dt);
+    }
+    // 시체도 모래에 쓸려 내려가 입에 삼켜진다
+    if ((g.pitCorpseT = (g.pitCorpseT || 0) - dt) <= 0) {
+      g.pitCorpseT = 0.1;
+      for (let i = g.corpses.length - 1; i >= 0; i--) {
+        const c = g.corpses[i];
+        if ((c.age || 0) < 1.2 || Math.abs(c.x - p.x) > 1200 || Math.abs(c.y - p.y) > 900) continue;
+        const q = w.pitAt(c.x, c.y);
+        if (!q) continue;
+        if (q.d < 24) { g.corpses.splice(i, 1); continue; }
+        const v = (14 + 30 * q.k) * 0.1;
+        c.x -= q.dx / q.d * v; c.y -= q.dy / q.d * v;
+      }
+    }
+  },
+  ate(g, m, z) {
+    g.mawKills++;
+    if (g.mawKills === 1) g.toast(T('구덩이 입이 감염체를 삼켰다 — 저것들을 끌어들여라'));
+    if (g.mawKills >= 15) Ach.unlock && Ach.unlock('antlion');
+  },
+  /** 촉수 하나 — 쉼 → 치켜듦(0.5초, 처음 0.28초는 표적을 따라가다 굳는다) → 내려침 → 붙듦 → 거둠 */
+  tentacle(g, m, tn, dt) {
+    const p = g.player;
+    tn.t += dt; tn.sway += dt * (tn.phase === 'idle' ? 1.6 : 3);
+    const live = e => e && !e.dead && this.inPit(m, e.x, e.y, 6);
+    if (tn.phase === 'idle') {
+      tn.out = Math.min(1, tn.out + dt * 1.5);
+      tn.cd -= dt;
+      if (tn.cd > 0) return;
+      // 표적 — 깔때기 안에서 가장 가까운 것. 다른 촉수가 노리는 것은 되도록 피한다
+      let best = null, bd = Infinity;
+      const taken = new Set(m.tents.map(o => o !== tn && o.tgt).filter(Boolean));
+      const cand = [];
+      if (!p.dead && this.inPit(m, p.x, p.y)) cand.push(p);
+      for (const z of g.zombies) if (!z.dead && !z.t.boss && Math.abs(z.x - m.nx) < m.R && Math.abs(z.y - m.ny) < m.R && this.inPit(m, z.x, z.y)) cand.push(z);
+      for (const e of cand) {
+        const d = Math.hypot(e.x - m.nx, e.y - m.ny) + (taken.has(e) ? 400 : 0) - (e === p ? 30 : 0);
+        if (d < bd) { bd = d; best = e; }
+      }
+      if (!best) { tn.cd = 0.3; return; }
+      tn.tgt = best; tn.phase = 'wind'; tn.t = 0; tn.lock = false;
+      tn.tx = best.x; tn.ty = best.y;
+      if (best === p || Math.hypot(best.x - p.x, best.y - p.y) < 500) SFX.mawWind && SFX.mawWind(Math.hypot(m.nx - p.x, m.ny - p.y));
+    } else if (tn.phase === 'wind') {
+      const e = tn.tgt;
+      if (!tn.lock && live(e)) { tn.tx += (e.x - tn.tx) * Math.min(1, dt * 14); tn.ty += (e.y - tn.ty) * Math.min(1, dt * 14); }
+      if (tn.t > 0.28) tn.lock = true;
+      if (tn.t >= 0.5) { tn.phase = 'strike'; tn.t = 0; }
+    } else if (tn.phase === 'strike') {
+      if (tn.t >= 0.1) {
+        tn.phase = 'hold'; tn.t = 0;
+        this.slam(g, m, tn);
+      }
+    } else if (tn.phase === 'hold') {
+      // 붙든 감염체는 입 쪽으로 끌고 내려간다
+      const e = tn.grab;
+      if (e && !e.dead) {
+        const d = Math.hypot(e.x - m.nx, e.y - m.ny) || 1, v = 120 * dt;
+        g.world.slide(e, (m.nx - e.x) / d * v, (m.ny - e.y) / d * v);
+        tn.tx = e.x; tn.ty = e.y; e.stagger = Math.max(e.stagger || 0, 0.25);
+      }
+      if (tn.t >= (e ? 0.9 : 0.35)) { tn.phase = 'back'; tn.t = 0; tn.grab = null; }
+    } else if (tn.phase === 'back') {
+      if (tn.t >= 0.45) { tn.phase = 'idle'; tn.t = 0; tn.tgt = null; tn.cd = 0.7 + Math.random() * 1.1; }
+    }
+  },
+  slam(g, m, tn) {
+    const p = g.player, R = 30, toC = (x, y) => Math.atan2(m.ny - y, m.nx - x);
+    const dp = Math.hypot(m.nx - p.x, m.ny - p.y);
+    SFX.mawSlam && SFX.mawSlam(Math.hypot(tn.tx - p.x, tn.ty - p.y));
+    g.shake = Math.min(18, g.shake + (dp < m.R + 200 ? 6 : 2));
+    for (let i = 0; i < 10; i++) {
+      const a = Math.random() * 6.283, sp = 30 + Math.random() * 90;
+      g.particles.push({ x: tn.tx, y: tn.ty, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, life: 0.8, max: 0.8, size: 6 + Math.random() * 6, col: i % 2 ? '#a0583a' : '#7a3a24', kind: 'smoke' });
+    }
+    (g.ripples || (g.ripples = [])).push({ x: tn.tx, y: tn.ty, t: 0, max: 0.5, r: 30, shove: true });
+    if (!p.dead && Math.hypot(p.x - tn.tx, p.y - tn.ty) < R + p.r) {
+      g.lastHurt = 'maw';
+      p.hurt(16 * SETTINGS.mod.dmg);
+      g.hitFrom(m.nx, m.ny, 'maw');
+      p.slowT = Math.max(p.slowT || 0, 0.8);
+      const a = toC(p.x, p.y); g.world.slide(p, Math.cos(a) * 34, Math.sin(a) * 34);
+      g.shake = Math.min(18, g.shake + 6);
+    }
+    for (const z of g.zombies) {
+      if (z.dead || z.t.boss || Math.hypot(z.x - tn.tx, z.y - tn.ty) > R + z.r) continue;
+      z.hurt(55, toC(z.x, z.y) + Math.PI, g, 0, 'maw');
+      if (z.dead) this.ate(g, m, z);
+      else if (!tn.grab) { tn.grab = z; z.aggro = true; }
+    }
+  },
+  /** 총알 · 폭발 — 입이나 뻗은 촉수 끝에 맞으면 입이 다친다. 맞았으면 true */
+  shot(g, x, y, dmg) {
+    if (!g.maws) return false;
+    for (const m of g.maws) {
+      if (!m.near || m.dormant > 0) continue;
+      let hit = Math.hypot(x - m.nx, y - m.ny) < 26;
+      if (!hit) for (const tn of m.tents) if (tn.phase !== 'idle' && tn.phase !== 'back' && Math.hypot(x - tn.tx, y - tn.ty) < 16) { hit = true; break; }
+      if (!hit) continue;
+      this.hurt(g, m, dmg);
+      return true;
+    }
+    return false;
+  },
+  hurt(g, m, dmg) {
+    m.hp -= dmg; m.flash = 0.08;
+    for (const tn of m.tents) if (tn.phase === 'wind' && Math.random() < 0.35) { tn.phase = 'back'; tn.t = 0; tn.tgt = null; }   // 아파서 움츠린다
+    if (m.hp > 0) return;
+    m.dormant = 12;
+    g.score += 300 * SETTINGS.mod.score;
+    g.toast(T('구덩이 입이 움츠러들었다 — 12초 뒤 다시 깨어난다'));
+    SFX.mawRoar && SFX.mawRoar(Math.hypot(m.nx - g.player.x, m.ny - g.player.y));
+    for (let i = 0; i < 16; i++) {
+      const a = Math.random() * 6.283, sp = 40 + Math.random() * 120;
+      g.particles.push({ x: m.nx, y: m.ny, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, life: 1.2, max: 1.2, size: 8 + Math.random() * 8, col: '#5a2a40', kind: 'smoke' });
+    }
+  },
+  /** 그림용 — 촉수의 끝 위치와 높이(바닥 기준 위로 +). 2D · 3D 가 같이 쓴다 */
+  tip(m, tn, time) {
+    const idleR = m.R * 0.28, sw = Math.sin(tn.sway) * 0.5;
+    const ix = m.nx + Math.cos(tn.a + sw) * idleR, iy = m.ny + Math.sin(tn.a + sw) * idleR;
+    const ease = k => k * k * (3 - 2 * k);
+    if (tn.phase === 'idle') return { x: ix, y: iy, h: (28 + Math.sin(tn.sway * 1.7) * 10) * tn.out, k: tn.out };
+    if (tn.phase === 'wind') {
+      const k = ease(Math.min(1, tn.t / 0.5));
+      return { x: ix + (tn.tx - ix) * 0.55 * k, y: iy + (tn.ty - iy) * 0.55 * k, h: 28 + k * 110, k: 1, rear: k };
+    }
+    if (tn.phase === 'strike') {
+      const k = Math.min(1, tn.t / 0.1), sx = ix + (tn.tx - ix) * 0.55, sy = iy + (tn.ty - iy) * 0.55;
+      return { x: sx + (tn.tx - sx) * k, y: sy + (tn.ty - sy) * k, h: 138 * (1 - k) + 4, k: 1 };
+    }
+    if (tn.phase === 'hold') return { x: tn.tx, y: tn.ty, h: 6, k: 1 };
+    const k = ease(Math.min(1, tn.t / 0.45));
+    return { x: tn.tx + (ix - tn.tx) * k, y: tn.ty + (iy - tn.ty) * k, h: 6 + k * 22, k: 1 };
+  }
+};
+window.LC_PITS = Pits;
+
 const Radio = {
   q: [], cur: null, t: 0, fired: {},
   el() { return $('radio'); },
@@ -1027,7 +1226,7 @@ const Radio = {
   },
   /** 처음 불린 열쇠면 true */
   cue(key) {
-    if (this.fired[key] || G.survival || G.levelIndex < 0) return false;
+    if (this.fired[key] || G.survival || G.levelIndex < 0 || G.stage === 0) return false;   // 무전은 본편 미션에서만
     this.fired[key] = true;
     const ch = STORY.chapters[G.levelIndex], lines = ch && ch.radio[key];
     if (lines) for (const l of lines) this.q.push({ spk: l[0], text: [l[1], l[2]] });
@@ -1119,9 +1318,10 @@ const Ach = {
     }
     if (!won) return;
     const i = g.levelIndex;
+    if (g.stage === 0) { if (grade === 'S') this.unlock('gradeS'); return; }      // 장 · 1부 과제는 본편을 마칠 때
     const byCh = { 0: 'night1', 1: 'seoul', 2: 'tokyo', 3: 'bangkok', 4: 'dawn', 9: 'part2' };
     if (byCh[i]) this.unlock(byCh[i]);
-    if (i === PART1_END && g.difficulty === 'hard') this.unlock('harddawn');
+    if (i === PART1_END && (g.difficulty === 'hard' || g.difficulty === 'rush')) this.unlock('harddawn');
     if (grade === 'S') this.unlock('gradeS');
     if (g.player.dmgTaken <= 0) this.unlock('untouched');
     if (i === 0 && !g.nonPistol) this.unlock('pistol');
@@ -1251,6 +1451,16 @@ const G = {
     } catch (e) { /* 저장 불가 — 그대로 둔다 */ }
   },
   progress() { return +(localStorage.getItem('aftermath.progress') || 0); },
+  /** A 미션(진입)을 마쳤는가 — 이미 넘어선 장은 마친 것으로 친다(예전 저장) */
+  stageDone(i) {
+    if (i < this.progress()) return true;
+    try { return !!JSON.parse(localStorage.getItem('aftermath.stages') || '{}')[i]; } catch (e) { return false; }
+  },
+  markStage(i) {
+    try { const o = JSON.parse(localStorage.getItem('aftermath.stages') || '{}') || {}; o[i] = 1; localStorage.setItem('aftermath.stages', JSON.stringify(o)); } catch (e) { /* 무시 */ }
+  },
+  /** 'CHAPTER 3 · A' */
+  chTag() { return `CHAPTER ${this.levelIndex + 1} · ${this.stage === 0 ? 'A' : 'B'}`; },
   // 서바이벌은 방콕(9장)까지 마치면 열린다
   survivalOpen() { return this.progress() >= SURVIVAL_UNLOCK || this.bestSurvival() > 0; },
   saveProgress(i) {
@@ -1304,17 +1514,19 @@ const G = {
   },
 
   /* ── 레벨 시작 ── */
-  start(index, cp) {
+  start(index, cp, stage) {
     SFX.init(); SFX.resume();
     const C = typeof index === 'string' && index.startsWith('ch:') ? CHALLENGES.find(c => c.id === index.slice(3)) : null;
     this.challenge = C || null;
     this.survival = index === 'survival' || !!C;          // 도전은 서바이벌의 흐름(무한 소환 · 보급 · 이야기 없음)을 같이 쓴다
     this.levelIndex = this.survival ? -1 : index;
+    // 장마다 두 미션 — A(진입, stage 0) · B(본편, stage 1). 따로 고르지 않았으면 본편
+    this.stage = this.survival ? 1 : cp && cp.stage !== undefined ? cp.stage : stage === 0 ? 0 : 1;
     const city = this.survivalCity || 'seoul';
     const L = C ? Object.assign({}, SURVIVAL, { drops: [] }, C, { objective: { type: 'endless' }, fixedKit: true })
       : this.survival
       ? Object.assign({}, SURVIVAL, { seed: (Math.random() * 1e9) | 0, city }, SURVIVAL_CITIES[city])
-      : LEVELS[index];
+      : this.stage === 0 ? stageLevel(index) : LEVELS[index];
     this.combo = 0; this.comboMax = 0; this.lastKillT = -9; this.chHordeT = C && C.rules && C.rules.hordeEvery ? 6 : 0;
     this.level = L;
     this.world = new World(L.seed, L.blocks, cityOpts(L));
@@ -1325,7 +1537,8 @@ const G = {
 
     const w = this.world;
     // 시작 무기는 난이도에 따라 — 체크포인트에서 이어 받을 때는 그때의 장비를 되살린다(아래)
-    this.player = new Player(w.spawn.x, w.spawn.y, Object.assign({}, L, { own: startKit(L, this.difficulty || SETTINGS.difficulty) }));
+    const rushAmmo = SETTINGS.mod.rush ? { smg: (L.startAmmo.smg | 0) * 2.5 + 200, shell: (L.startAmmo.shell | 0) * 2.5 + 30, rifle: (L.startAmmo.rifle | 0) * 2 + 10, bolt: 8 } : null;
+    this.player = new Player(w.spawn.x, w.spawn.y, Object.assign({}, L, { own: startKit(L, SETTINGS.difficulty) }, rushAmmo ? { startAmmo: rushAmmo, startNades: (L.startNades | 0) + 4 } : {}));
     this.sinceGun = 0; this.lavaKills = 0;
     this.player.angle = openingAngle(w, this.player);
     this.lastHurt = null;
@@ -1392,9 +1605,10 @@ const G = {
     }
     this.holding = false; this.holdT = 0; this.bossCalled = false;
     Twist.setup(this);
+    Pits.setup(this);
     if (ob.type === 'finale') this.surviveLeft = ob.time;
     // 기록 — 이 장에 떨어진 종이 두 장. 이미 주운 것도 다시 놓인다 (보관함은 그대로)
-    if (!this.survival) {
+    if (!this.survival && this.stage !== 0) {
       const nr = makeRng(L.seed ^ 0x1ea7), got = [];
       for (const rec of STORY.records.filter(r => r.ch === index)) {
         let q = null;
@@ -1500,7 +1714,7 @@ const G = {
     // 도시 이름 카드 — 현지 글자와 함께 잠깐 떠올랐다 사라진다(전역 · 도전 모두)
     const cc = $('cityCard'), ck = this.world.theme.key;
     if (cc && CITY_LOCAL[ck]) {
-      cc.querySelector('small').textContent = this.survival ? T('서바이벌') : this.challenge ? T('도전') : `CHAPTER ${this.levelIndex + 1}`;
+      cc.querySelector('small').textContent = this.survival ? T('서바이벌') : this.challenge ? T('도전') : this.chTag();
       cc.querySelector('b').textContent = I18N.lang === 'en' ? CITY_LOCAL[ck].replace(/[가-힣·]+\s*/g, '').trim() : CITY_LOCAL[ck];
       cc.querySelector('span').textContent = this.survival || this.challenge ? T(CITY_NAME[ck] || '') : T(this.level.name);
       cc.classList.add('show'); clearTimeout(this.cityCardT); this.cityCardT = setTimeout(() => cc.classList.remove('show'), 3200);
@@ -1515,7 +1729,7 @@ const G = {
     if (this.survival || this.player.dead) return;
     const p = this.player;
     this.checkpoint = {
-      level: this.levelIndex, label: { k, v: v || null },
+      level: this.levelIndex, stage: this.stage, label: { k, v: v || null },
       time: this.time, kills: this.kills, score: this.score, shots: this.shots, hits: this.hits,
       x: p.x, y: p.y, hp: p.hp, battery: p.battery, nades: p.nades, wpn: p.wpn,
       ammo: Object.assign({}, p.ammo), mag: Object.assign({}, p.mag), owned: [...p.owned],
@@ -1824,14 +2038,14 @@ const G = {
     if (D.phase === 'build' && !bossFight) {
       // 등 뒤의 추적자 — 조용한 시간에도 완전히 안전하지는 않다
       D.stalkT -= dt;
-      if (D.stalkT <= 0 && this.zombies.length < 58) {
-        D.stalkT = 7 + Math.random() * 6;
+      if (D.stalkT <= 0 && this.zombies.length < (SETTINGS.mod.cap || 58)) {
+        D.stalkT = SETTINGS.mod.rush ? 1.5 + Math.random() * 1.5 : 7 + Math.random() * 6;
         const z = this.spawnZombie(430, 650);
         if (z) { z.aggro = true; z.stalker = true; }
       }
       D.mobT -= dt;
       if (D.mobT <= 0) {
-        if (this.callHorde(this.hordeSize())) D.mobT = D.every * (0.8 + Math.random() * 0.5);
+        if (this.callHorde(this.hordeSize())) D.mobT = D.every * (0.8 + Math.random() * 0.5) * (SETTINGS.mod.rush ? 0.35 : 1);
         else D.mobT = 2;
       }
       if (D.intensity >= 70) { D.phase = 'sustain'; D.t = 0; D.hold = 3 + Math.random() * 2; }
@@ -1840,8 +2054,9 @@ const G = {
     } else if (D.phase === 'fade') {
       // 새 위협은 멈추고, 지금 싸움이 끝나 긴장이 내려올 때까지 기다린다
       // 오래 끌면(25초) 강제로 넘긴다 — 추격자가 끝없이 붙는 판에서 숨 고르기를 영영 못 주지 않도록
-      if ((D.intensity < 35 && !engaged && !D.pending) || D.t > 25) {
-        D.phase = 'relax'; D.t = 0; D.relaxFor = 16 + Math.random() * 8; D.relaxFrom = { x: p.x, y: p.y };
+      if ((D.intensity < 35 && !engaged && !D.pending) || D.t > (SETTINGS.mod.rush ? 4 : 25)) {
+        // 돌파는 숨 고르기가 3초뿐 — 정신없이 몰아친다
+        D.phase = 'relax'; D.t = 0; D.relaxFor = SETTINGS.mod.rush ? 3 : 16 + Math.random() * 8; D.relaxFrom = { x: p.x, y: p.y };
       }
     } else if (D.phase === 'relax') {
       const moved = Math.hypot(p.x - D.relaxFrom.x, p.y - D.relaxFrom.y);
@@ -2047,7 +2262,7 @@ const G = {
     this.sinceGun = (this.sinceGun || 0) + 1;
     const t = z.t, big = t.boss || t.size >= 18 || t.special || t.bloat || t.scream || t.spit;
     let chance = t.boss ? 1 : big ? 0.3 : 0.055;
-    chance *= this.difficulty === 'easy' ? 1.5 : this.difficulty === 'hard' ? 0.7 : 1;
+    chance *= this.difficulty === 'easy' ? 1.5 : this.difficulty === 'hard' ? 0.7 : this.difficulty === 'rush' ? 1.6 : 1;
     if (!fresh.length) chance *= 0.35;                               // 다 가졌으면 탄약 삼아 가끔만
     const pity = fresh.length && this.sinceGun >= 14;
     if (!pity && Math.random() > chance) return;
@@ -2194,7 +2409,8 @@ const G = {
     SFX.ambience(false);
     if (won) {
       SFX.win();
-      if (!this.survival) this.saveProgress(this.levelIndex + 1);
+      if (!this.survival && this.stage === 0) this.markStage(this.levelIndex);
+      else if (!this.survival) { this.markStage(this.levelIndex); this.saveProgress(this.levelIndex + 1); }
     }
     if (this.challenge) this.chResult = this.saveChallenge(this.challenge, this.score);
     else if (this.survival) {
@@ -2433,7 +2649,7 @@ const G = {
     // 캠페인의 자잘한 소환은 연출가가 압박을 맡은 만큼 줄인다
     const rate = sp.rate * this.waveScale * SETTINGS.mod.spawn * (this.survival ? 1 : 0.6);
     const maxZ = Math.min(
-      Math.round((sp.max + (this.survival ? Math.floor(this.time / 20) : 0)) * SETTINGS.mod.max), 60);
+      Math.round((sp.max + (this.survival ? Math.floor(this.time / 20) : 0)) * SETTINGS.mod.max), SETTINGS.mod.cap || 60);
     if (this.spawnT <= 0 && this.zombies.length < maxZ) {
       this.spawnT = 1 / Math.max(0.05, rate);
       if (!this.dir || this.dir.phase === 'build' || this.dir.phase === 'sustain') this.spawnZombie(620, 1500);
@@ -2515,6 +2731,7 @@ const G = {
     if (ob.type === 'signal' && !this.exitOpen) this.updateRelays(dt, ob);
     if (ob.type === 'finale' && !this.exitOpen) this.updateFinale(dt, ob);
     Twist.update(this, dt);
+    Pits.update(this, dt);
     if (p.slowT > 0) p.slowT -= dt;
     this.storyCues(ob);
     Radio.update(dt);
@@ -2683,6 +2900,7 @@ function render() {
   for (const pk of g.pickups) drawPickup(pk, g.time, cam);
   for (const r of g.relays || []) drawRelay(r, g, cam);
   for (const o of g.twObjs || []) drawTwist(o, g, cam);
+  if (g.maws && g.maws.length) drawMaws(g);
   // 자동 조준의 표적 — 발밑에 옅은 노란 괄호. 무엇을 비추고 있는지 알 수 있게
   const at = g.aimTarget;
   if (at && !at.dead && autoAimOn() && at.lit > 0.2) {
@@ -2998,14 +3216,67 @@ function drawTerrain(tt, t) {
 function drawCraters(cam, w) {
   const cx = cam.x + W / 2, cy = cam.y + VH() / 2;
   for (const c of w.craters) {
-    const q = w.near(c.x * TILE, c.y * TILE, cx, cy), R = c.r * TILE;
+    const q = w.near(c.x * TILE, c.y * TILE, cx, cy), R = (c.rf || c.r) * TILE;
     if (q.x < cam.x - R * 1.4 || q.x > cam.x + W + R * 1.4 || q.y < cam.y - R * 1.4 || q.y > cam.y + VH() + R * 1.4) continue;
-    const bowl = ctx.createRadialGradient(q.x + R * 0.2, q.y + R * 0.2, R * 0.1, q.x, q.y, R);
-    bowl.addColorStop(0, 'rgba(40,14,8,.55)'); bowl.addColorStop(0.8, 'rgba(70,26,14,.45)'); bowl.addColorStop(1, 'rgba(90,34,18,.2)');
+    // 개미지옥 — 가장자리는 밝은 모래, 가운데로 갈수록 깊고 어둡다. 등고선처럼 겹친 고리가 깊이를 보여 준다
+    const bowl = ctx.createRadialGradient(q.x, q.y, R * 0.04, q.x, q.y, R);
+    bowl.addColorStop(0, 'rgba(6,2,2,.92)'); bowl.addColorStop(0.25, 'rgba(26,9,6,.78)'); bowl.addColorStop(0.6, 'rgba(70,26,14,.5)'); bowl.addColorStop(1, 'rgba(120,52,28,.12)');
     ctx.fillStyle = bowl; ctx.beginPath(); ctx.arc(q.x, q.y, R, 0, 6.283); ctx.fill();
-    ctx.lineWidth = TILE * 0.7;
-    ctx.strokeStyle = 'rgba(210,120,80,.32)'; ctx.beginPath(); ctx.arc(q.x, q.y, R + TILE * 0.3, Math.PI * 0.75, Math.PI * 1.9); ctx.stroke();
-    ctx.strokeStyle = 'rgba(30,10,6,.35)'; ctx.beginPath(); ctx.arc(q.x, q.y, R + TILE * 0.3, -0.1, Math.PI * 0.75); ctx.stroke();
+    ctx.lineWidth = 1.5;
+    for (let i = 1; i <= 4; i++) {
+      const rr = R * (1 - i * 0.19);
+      ctx.strokeStyle = `rgba(200,110,70,${0.2 - i * 0.03})`; ctx.beginPath(); ctx.arc(q.x, q.y - rr * 0.04, rr, Math.PI * 0.85, Math.PI * 2.05); ctx.stroke();
+    }
+    // 흘러내리는 모래 줄기
+    ctx.strokeStyle = 'rgba(160,80,50,.18)'; ctx.lineWidth = 2;
+    for (let i = 0; i < 14; i++) {
+      const a = i / 14 * 6.283 + c.x, r0 = R * 0.95, r1 = R * (0.3 + ((i * 7) % 5) * 0.05);
+      ctx.beginPath(); ctx.moveTo(q.x + Math.cos(a) * r0, q.y + Math.sin(a) * r0); ctx.lineTo(q.x + Math.cos(a + 0.12) * r1, q.y + Math.sin(a + 0.12) * r1); ctx.stroke();
+    }
+    ctx.lineWidth = TILE * 0.6;
+    ctx.strokeStyle = 'rgba(210,120,80,.34)'; ctx.beginPath(); ctx.arc(q.x, q.y, R + TILE * 0.2, Math.PI * 0.75, Math.PI * 1.9); ctx.stroke();
+    ctx.strokeStyle = 'rgba(30,10,6,.35)'; ctx.beginPath(); ctx.arc(q.x, q.y, R + TILE * 0.2, -0.1, Math.PI * 0.75); ctx.stroke();
+  }
+}
+/** 구덩이 입 — 바닥의 이빨 고리와 촉수. 치켜든 촉수 아래엔 내려칠 자리가 붉게 뜬다 */
+function drawMaws(g) {
+  for (const m of g.maws) {
+    if (!m.near) continue;
+    const sleep = m.dormant > 0, fl = m.flash > 0;
+    // 내려칠 자리
+    for (const tn of m.tents) if (tn.phase === 'wind') {
+      const k = Math.min(1, tn.t / 0.5);
+      ctx.strokeStyle = tn.lock ? 'rgba(236,72,48,.7)' : `rgba(214,60,42,${0.3 + Math.sin(g.time * 22) * 0.12})`; ctx.lineWidth = 2.5;
+      ctx.beginPath(); ctx.arc(tn.tx, tn.ty, 30 + (1 - k) * 20, 0, 6.283); ctx.stroke();
+      ctx.fillStyle = `rgba(200,40,30,${0.08 + k * 0.14})`; ctx.beginPath(); ctx.arc(tn.tx, tn.ty, 30, 0, 6.283); ctx.fill();
+    }
+    // 입 — 이빨이 안으로 휜 고리. 잠들면 오므린다
+    const open = sleep ? 0.35 : 1 + Math.sin(g.time * 3) * 0.08, mr = 22 * open;
+    ctx.fillStyle = '#080203'; ctx.beginPath(); ctx.arc(m.nx, m.ny, mr, 0, 6.283); ctx.fill();
+    ctx.strokeStyle = fl ? '#f4f1ea' : '#5a2034'; ctx.lineWidth = 5; ctx.beginPath(); ctx.arc(m.nx, m.ny, mr + 2, 0, 6.283); ctx.stroke();
+    ctx.fillStyle = fl ? '#ffffff' : '#d8cdb4';
+    for (let i = 0; i < 12; i++) {
+      const a = i / 12 * 6.283 + g.time * 0.2, ca = Math.cos(a), sa = Math.sin(a);
+      ctx.beginPath(); ctx.moveTo(m.nx + ca * (mr + 1) - sa * 3, m.ny + sa * (mr + 1) + ca * 3); ctx.lineTo(m.nx + ca * (mr + 1) + sa * 3, m.ny + sa * (mr + 1) - ca * 3); ctx.lineTo(m.nx + ca * mr * 0.55, m.ny + sa * mr * 0.55); ctx.fill();
+    }
+    // 촉수 — 입에서 끝까지 굽은 띠. 높이만큼 화면 위로 올라간다
+    for (const tn of m.tents) {
+      if (tn.out < 0.03 && tn.phase === 'idle') continue;
+      const tp = Pits.tip(m, tn, g.time), bx = m.nx, by = m.ny;
+      const dx = tp.x - bx, dy = tp.y - by, L = Math.hypot(dx, dy) || 1, nx = -dy / L, ny = dx / L, sw = Math.sin(tn.sway * 1.3) * 14;
+      const cxp = bx + dx * 0.5 + nx * sw, cyp = by + dy * 0.5 + ny * sw, ch = Math.max(tp.h, 30) * 1.15;
+      const N = 12;
+      let px = bx, py = by;
+      for (let i = 1; i <= N; i++) {
+        const t = i / N, u = 1 - t;
+        const x = u * u * bx + 2 * u * t * cxp + t * t * tp.x, y = u * u * by + 2 * u * t * cyp + t * t * tp.y, h = 2 * u * t * ch + t * t * tp.h;
+        const sy = y - h * ZK, wd = (12 - t * 9) * (0.4 + 0.6 * tp.k);
+        ctx.strokeStyle = fl ? '#f4f1ea' : i % 2 ? '#4a1a2c' : '#5c2238'; ctx.lineWidth = wd; ctx.lineCap = 'round';
+        ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(x, sy); ctx.stroke();
+        if (i % 2 === 0 && wd > 5) { ctx.fillStyle = '#b06a7c'; ctx.beginPath(); ctx.arc(x - nx * wd * 0.25, sy - ny * wd * 0.25, wd * 0.16, 0, 6.283); ctx.fill(); }
+        px = x; py = sy;
+      }
+    }
   }
 }
 function drawGround(cam, w) {
@@ -4773,6 +5044,72 @@ const LEGS2 = {
   'reykjavik>antarctic': [[-21.9, 64.15], [-27, 56], [-30, 40], [-27, 18], [-25, 2], [-31, -18], [-43, -38], [-55, -52], [-61, -58], [-63, -62.5], [-64.05, -64.77]]
 };
 const ORDER2 = ['singapore', 'varanasi', 'cairo', 'istanbul', 'venice', 'reykjavik', 'rio', 'antarctic'];
+/** 챕터 지도 — 세계 지도 위에 열두 장의 도시를 길 순서대로 잇고, 도시마다 A · B 미션 두 점을 단다.
+    가까운 도시(서울 · 대피 기지 · 도쿄)는 겹치지 않게 밀어 두고 실제 자리까지 가는 실을 긋는다. 점을 누르면 그 미션 브리핑 */
+function drawChapterMap(cv, unlocked) {
+  if (!cv) return;
+  const c = cv.getContext('2d'), Wd = cv.width, Hd = cv.height;
+  const [L0, L1, A0, A1] = [-80, 152, -70, 72];
+  const P = ([lo, la]) => [(lo - L0) / (L1 - L0) * Wd, (A1 - la) / (A1 - A0) * Hd];
+  const geo = id => id === 'base' ? [126.5, 37.75] : STORY.cities[id] || [0, 0];
+  c.fillStyle = '#04070b'; c.fillRect(0, 0, Wd, Hd);
+  c.strokeStyle = 'rgba(120,150,180,.07)'; c.lineWidth = 1;
+  for (let lo = -80; lo <= L1; lo += 20) { const [x] = P([lo, 0]); c.beginPath(); c.moveTo(x, 0); c.lineTo(x, Hd); c.stroke(); }
+  for (let la = -60; la <= A1; la += 20) { const [, y] = P([0, la]); c.beginPath(); c.moveTo(0, y); c.lineTo(Wd, y); c.stroke(); }
+  for (const poly of COAST2.concat(COAST.filter(q => Math.min(...q.map(v => v[0])) >= 119))) { c.beginPath(); poly.forEach((q, i) => { const [x, y] = P(q); i ? c.lineTo(x, y) : c.moveTo(x, y); }); c.closePath(); c.fillStyle = '#121a20'; c.fill(); c.strokeStyle = 'rgba(150,170,180,.3)'; c.lineWidth = 1; c.stroke(); }
+  // 노드 — 실제 자리에서 시작해 서로 34px 안쪽이면 밀어낸다
+  const N = LEVELS.map((L, i) => { const [x, y] = P(geo(L.city)); return { i, gx: x, gy: y, x, y }; });
+  for (let it = 0; it < 120; it++) for (const a of N) for (const b of N) {
+    if (a === b) continue;
+    const dx = b.x - a.x, dy = b.y - a.y, d = Math.hypot(dx, dy) || 0.01, need = 64;
+    if (d < need) { const k = (need - d) / 2 / d; a.x -= dx * k; a.y -= dy * k; b.x += dx * k; b.y += dy * k; }
+  }
+  for (const n of N) { n.x = Math.max(40, Math.min(Wd - 40, n.x)); n.y = Math.max(44, Math.min(Hd - 44, n.y)); }
+  // 길 — 지나온 곳은 실선, 남은 곳은 점선
+  for (let i = 1; i < N.length; i++) {
+    const a = N[i - 1], b = N[i], done = i <= unlocked;
+    c.strokeStyle = done ? 'rgba(232,226,208,.55)' : 'rgba(150,160,170,.28)'; c.lineWidth = done ? 2 : 1.5; c.setLineDash(done ? [] : [5, 5]);
+    c.beginPath(); c.moveTo(a.x, a.y); c.quadraticCurveTo((a.x + b.x) / 2 + (b.y - a.y) * 0.15, (a.y + b.y) / 2 - (b.x - a.x) * 0.15, b.x, b.y); c.stroke();
+  }
+  c.setLineDash([]);
+  const hits = [];
+  c.textAlign = 'center';
+  for (const n of N) {
+    const i = n.i, locked = i > unlocked, aDone = G.stageDone(i), bDone = i < unlocked;
+    if (Math.hypot(n.x - n.gx, n.y - n.gy) > 3) { c.strokeStyle = 'rgba(200,200,190,.25)'; c.lineWidth = 1; c.beginPath(); c.moveTo(n.gx, n.gy); c.lineTo(n.x, n.y); c.stroke(); c.fillStyle = 'rgba(200,200,190,.4)'; c.beginPath(); c.arc(n.gx, n.gy, 2, 0, 6.283); c.fill(); }
+    // 장 번호 원
+    c.fillStyle = locked ? '#1b2128' : bDone ? '#2f4a3a' : '#3a2f14';
+    c.strokeStyle = locked ? 'rgba(150,160,170,.35)' : bDone ? '#7fe08a' : '#f0b429'; c.lineWidth = 2;
+    c.beginPath(); c.arc(n.x, n.y, 17, 0, 6.283); c.fill(); c.stroke();
+    c.font = `700 17px ${CANVAS_FONT}`; c.fillStyle = locked ? 'rgba(170,175,180,.6)' : '#f2ede0'; c.textBaseline = 'middle';
+    c.fillText(String(i + 1), n.x, n.y + 0.5);
+    // A · B 미션 점
+    for (const st of [0, 1]) {
+      const px = n.x - 11 + st * 22, py = n.y + 28, open = !locked && (st === 0 || aDone), done = st === 0 ? aDone : bDone;
+      c.fillStyle = done ? '#7fe08a' : open ? '#f0b429' : 'rgba(110,118,126,.6)';
+      c.beginPath(); c.arc(px, py, 9, 0, 6.283); c.fill();
+      c.font = `800 11px ${CANVAS_FONT}`; c.fillStyle = '#0a0d10'; c.fillText(st ? 'B' : 'A', px, py + 0.5);
+      if (open) hits.push({ x: px, y: py, i, st });
+    }
+    // 도시 이름 — 위가 막혔으면(다른 노드가 바로 위) 점들 아래에
+    const up = !N.some(o => o !== n && Math.abs(o.x - n.x) < 70 && o.y < n.y && n.y - o.y < 70);
+    c.font = `600 15px ${CANVAS_FONT}`; c.textBaseline = up ? 'bottom' : 'top'; c.fillStyle = locked ? 'rgba(170,175,180,.55)' : '#e8e2d0';
+    const label = T(CITY_NAME[LEVELS[i].city] || ''), ly = up ? n.y - 21 : n.y + 40, tw = c.measureText(label).width;
+    c.fillStyle = 'rgba(4,7,11,.6)'; c.fillRect(n.x - tw / 2 - 3, up ? ly - 17 : ly - 1, tw + 6, 18);
+    c.fillStyle = locked ? 'rgba(170,175,180,.55)' : '#e8e2d0'; c.fillText(label, n.x, ly);
+    if (!locked) hits.push({ x: n.x, y: n.y, i, st: undefined, r: 19 });
+  }
+  cv._hits = hits;
+  if (!cv._bound) {
+    cv._bound = true;
+    cv.addEventListener('click', e => {
+      const r = cv.getBoundingClientRect(), x = (e.clientX - r.left) / r.width * cv.width, y = (e.clientY - r.top) / r.height * cv.height;
+      let best = null, bd = 1e9;
+      for (const h of cv._hits || []) { const d = Math.hypot(h.x - x, h.y - y); if (d < (h.r || 15) && d < bd) { bd = d; best = h; } }
+      if (best) { SFX.click(); UI.brief(best.i, best.st); }
+    });
+  }
+}
 let journeyRaf = 0;
 function drawJourney(cv, j) {
   cancelAnimationFrame(journeyRaf);
@@ -5363,7 +5700,7 @@ function mapImage(w) {
     let r, gg, b;
     if (d === D_WATER) [r, gg, b] = [24, 52, 78];
     else if (d === D_LANDMARK) [r, gg, b] = [150, 92, 60];
-    else if (d === D_GRASS) [r, gg, b] = G.world && G.world.theme.key === 'mars' ? [96, 44, 26] : solid ? [30, 60, 34] : [46, 78, 48];
+    else if (d === D_GRASS) [r, gg, b] = w.theme && w.theme.key === 'mars' ? [96, 44, 26] : solid ? [30, 60, 34] : [46, 78, 48];
     else if (d === D_BUILDING) [r, gg, b] = [22, 26, 32];
     else if (solid) [r, gg, b] = [52, 56, 62];
     else if (d === D_PLAZA || d === D_BRIDGE) [r, gg, b] = [104, 104, 100];
@@ -5372,6 +5709,40 @@ function mapImage(w) {
     img.data[i * 4] = r; img.data[i * 4 + 1] = gg; img.data[i * 4 + 2] = b; img.data[i * 4 + 3] = 255;
   }
   m.putImageData(img, 0, 0);
+  c.tw = w.w; c.th = w.h;
+  if (w.craters) return marsMapImage(w, c);
+  return c;
+}
+/** 화성 지도 — 길 · 보도의 격자는 그리지 않는다. 붉은 벌판 위에 드문 건물과 개미지옥(어두운 깔때기 · 밝은 둔덕)을 그린다 */
+function marsMapImage(w, base) {
+  const S = 4, c = document.createElement('canvas');
+  c.width = w.w * S; c.height = w.h * S; c.tw = w.w; c.th = w.h;
+  const m = c.getContext('2d');
+  m.fillStyle = '#5e2a18'; m.fillRect(0, 0, c.width, c.height);
+  // 바람에 쓸린 얼룩 — 칸 격자가 드러나지 않게 큰 덩어리로
+  const rr = makeRng(w.w * 131 + w.h);
+  for (let i = 0; i < w.w * w.h / 40; i++) {
+    const x = rr() * c.width, y = rr() * c.height, R = 10 + rr() * 30;
+    m.fillStyle = rr() < 0.5 ? 'rgba(140,66,38,.25)' : 'rgba(40,14,8,.22)'; m.beginPath(); m.ellipse(x, y, R, R * (0.5 + rr() * 0.5), rr() * 3, 0, 6.283); m.fill();
+  }
+  for (const cr of w.craters) for (const ox of [-w.w, 0, w.w]) for (const oy of [-w.h, 0, w.h]) {
+    const x = (cr.x + ox) * S, y = (cr.y + oy) * S, R = cr.rf * S;
+    if (x < -R * 2 || y < -R * 2 || x > c.width + R * 2 || y > c.height + R * 2) continue;
+    m.strokeStyle = 'rgba(190,104,66,.75)'; m.lineWidth = S * 1.1; m.beginPath(); m.arc(x, y, R + S * 0.6, 0, 6.283); m.stroke();
+    const gr = m.createRadialGradient(x, y, 0, x, y, R);
+    gr.addColorStop(0, '#060102'); gr.addColorStop(0.35, '#1e0905'); gr.addColorStop(1, '#4a1e10');
+    m.fillStyle = gr; m.beginPath(); m.arc(x, y, R, 0, 6.283); m.fill();
+    if (cr.r >= Pits.MIN_R) { m.fillStyle = '#b0304a'; m.beginPath(); m.arc(x, y, S * 0.7, 0, 6.283); m.fill(); }
+  }
+  // 건물 · 랜드마크 · 물은 칸 그대로
+  for (let y = 0; y < w.h; y++) for (let x = 0; x < w.w; x++) {
+    const d = w.deco[y * w.w + x];
+    if (d === D_BUILDING) m.fillStyle = '#16191f';
+    else if (d === D_LANDMARK) m.fillStyle = '#96603c';
+    else if (d === D_WATER) m.fillStyle = '#18344e';
+    else continue;
+    m.fillRect(x * S, y * S, S, S);
+  }
   return c;
 }
 
@@ -5390,7 +5761,8 @@ const Minimap = {
     c.imageSmoothingEnabled = false;
     c.globalAlpha = 0.9;
     // 지도가 이어 붙으므로 원본 그림을 이웃 칸까지 깔아 둔다
-    const W0 = this.img.width, H0 = this.img.height;
+    const W0 = this.img.tw || this.img.width, H0 = this.img.th || this.img.height;
+    c.imageSmoothingEnabled = this.img.width !== W0;
     const bx = ((px % W0) + W0) % W0, by = ((py % H0) + H0) % H0;
     for (const ox of [-W0, 0, W0]) for (const oy of [-H0, 0, H0])
       c.drawImage(this.img, (ox - (bx - span / 2)) * k, (oy - (by - span / 2)) * k, W0 * k, H0 * k);
@@ -5478,7 +5850,7 @@ function drawBriefMap(L) {
 let hudT = 0;
 G.refreshHud = function (force) {
   const p = this.player, ob = this.level.objective;
-  $('hudChapter').textContent = this.challenge ? `CHALLENGE · ${T(this.challenge.name)}` : this.survival ? 'SURVIVAL' : `CHAPTER ${this.levelIndex + 1}`;
+  $('hudChapter').textContent = this.challenge ? `CHALLENGE · ${T(this.challenge.name)}` : this.survival ? 'SURVIVAL' : this.chTag();
 
   let obj;
   if (this.challenge) obj = T('남은 {s}초 · 점수 {score}', { s: Math.max(0, Math.ceil(this.challenge.time - this.time)), score: this.score.toLocaleString() })
@@ -5692,7 +6064,7 @@ const UI = {
     const prog = G.progress(), next = Math.min(prog, LEVELS.length - 1), L = LEVELS[next];
     const ck = L && L.city, city = ck && CITY_LOCAL[ck] ? (I18N.lang === 'en' ? CITY_LOCAL[ck].replace(/[가-힣·]+\s*/g, '').trim() : CITY_LOCAL[ck]) : '';
     $('playLabel').textContent = prog > 0 ? T('이어하기') : T('시작');
-    $('playSub').textContent = `CH ${next + 1}${city ? ' · ' + city : ''}`;
+    $('playSub').textContent = `CH ${next + 1}-${G.stageDone(next) ? 'B' : 'A'}${city ? ' · ' + city : ''}`;
     $('btnPlay').setAttribute('aria-label', `${$('playLabel').textContent} — CHAPTER ${next + 1}`);
     const lock = (btn, chip, open, n, t, why) => {
       btn.disabled = !open; chip.hidden = open;
@@ -5714,6 +6086,7 @@ const UI = {
     const unlocked = G.progress();
     const grades = G.grades();
     list.innerHTML = '';
+    drawChapterMap($('chapterMap'), unlocked);
     LEVELS.forEach((L, i) => {
       const locked = i > unlocked;
       if (i === 0 || i === PART1_END + 1) {
@@ -5730,12 +6103,20 @@ const UI = {
         : best ? `<b class="chapter__grade" data-g="${UI.letter(best)}">${UI.letter(best)}</b>` +
                  `<span class="chapter__score">${best}</span>`
         : i < unlocked ? T('클리어') : '▶';
+      // 두 미션 — A 진입 · B 본편. 끝낸 것은 초록, 지금 할 것은 노랑, 아직은 회색
+      const aDone = G.stageDone(i), gA = grades[i + 'a'] | 0;
+      const chip = (st, nm, done, open, gr) => `<button class="stg${done ? ' stg--done' : open ? ' stg--open' : ''}" data-st="${st}"${open ? '' : ' disabled'}>` +
+        `<b>${st ? 'B' : 'A'}</b>${T(nm)}${gr ? ` <i data-g="${UI.letter(gr)}">${UI.letter(gr)}</i>` : ''}</button>`;
       el.innerHTML =
         `<span class="chapter__no">${String(i + 1).padStart(2, '0')}</span>` +
         `<span class="chapter__name">${T(L.name)}<span class="chapter__city">${T(CITY_NAME[L.city] || '')}</span><br><span class="chapter__goal">${T(L.goals[0])}</span>` +
-        (locked ? '' : `<span class="chapter__recs">${T('기록 {n}/{t}', { n: Records.countFor(i), t: STORY.records.filter(r => r.ch === i).length })}</span>`) + `</span>` +
+        (locked ? '' : `<span class="chapter__recs">${T('기록 {n}/{t}', { n: Records.countFor(i), t: STORY.records.filter(r => r.ch === i).length })}</span>`) +
+        (locked ? '' : `<span class="chapter__stages">${chip(0, STAGE_A[i].name, aDone, true, gA)}${chip(1, L.name, i < unlocked, aDone, best)}</span>`) + `</span>` +
         `<span class="chapter__mark">${mark}</span>`;
-      if (!locked) el.addEventListener('click', () => { SFX.click(); UI.brief(i); });
+      if (!locked) {
+        el.addEventListener('click', () => { SFX.click(); UI.brief(i); });
+        el.querySelectorAll('.stg').forEach(b => b.addEventListener('click', e => { e.stopPropagation(); if (b.disabled) return; SFX.click(); UI.brief(i, +b.dataset.st); }));
+      }
       list.appendChild(el);
     });
   },
@@ -5826,10 +6207,12 @@ const UI = {
     }
     this.show('scrCity');
   },
-  brief(i) {
-    G.pendingLevel = i;
-    const L = LEVELS[i];
-    $('briefNo').textContent = `CHAPTER ${i + 1}`;
+  brief(i, st) {
+    if (st === undefined) st = G.stageDone(i) ? 1 : 0;      // 따로 고르지 않으면 아직 못 끝낸 쪽
+    if (st === 1 && !G.stageDone(i)) st = 0;
+    G.pendingLevel = i; G.pendingStage = st;
+    const L = st === 0 ? stageLevel(i) : LEVELS[i];
+    $('briefNo').textContent = `CHAPTER ${i + 1} · ${st === 0 ? 'A ' + T('진입') : 'B ' + T('본편')}`;
     $('briefTitle').textContent = T(L.name);
     $('briefText').textContent = T(L.brief);
     const kit = startKit(L, SETTINGS.difficulty).map(k => T(WEAPONS[k].name)).join(' · ');
@@ -5847,7 +6230,7 @@ const UI = {
     const acc = G.shots ? Math.round(G.hits / G.shots * 100) : null;
     $('pauseWhere').textContent = G.challenge ? T('도전 · {name}', { name: T(G.challenge.name) }) : G.survival
       ? T('서바이벌 · {d}', { d: T(DIFFICULTY[G.difficulty].name) })
-      : `CHAPTER ${G.levelIndex + 1} — ${T(G.level.name)} · ${T(DIFFICULTY[G.difficulty].name)}`;
+      : `${G.chTag()} — ${T(G.level.name)} · ${T(DIFFICULTY[G.difficulty].name)}`;
 
     const wp = p.weapon;
     const rows = [
@@ -5955,7 +6338,10 @@ const UI = {
     s.classList.toggle('fail', !won);
     $('resultTitle').textContent = G.challenge ? T('도전 종료') : won ? (G.survival ? T('기록 종료') : T('생존')) : T('사망');
     const nextBtn = s.querySelector('[data-act="next"]');
-    if (won && !G.survival && G.levelIndex === PART1_END) {
+    if (won && !G.survival && G.stage === 0) {
+      nextBtn.classList.remove('hidden');
+      nextBtn.textContent = T('다음 미션 — {name}', { name: T(LEVELS[G.levelIndex].name) });
+    } else if (won && !G.survival && G.levelIndex === PART1_END) {
       nextBtn.classList.remove('hidden');
       nextBtn.textContent = T('1부 엔딩 보기');
     } else if (won && !G.survival && G.levelIndex + 1 < LEVELS.length) {
@@ -5966,7 +6352,7 @@ const UI = {
       nextBtn.textContent = T('엔딩 보기');
     } else nextBtn.classList.add('hidden');
 
-    const story = !G.survival && STORY.chapters[G.levelIndex];
+    const story = !G.survival && G.stage !== 0 && STORY.chapters[G.levelIndex];
     $('resultSub').textContent = G.challenge ? UI.medalLine()
       : won
       ? (G.survival ? T('도시는 여전히 그대로다.') : story ? LT(story.outro) : T('숨을 고를 시간은 짧다.'))
@@ -5976,15 +6362,15 @@ const UI = {
     if (!won && !G.survival) G.deaths[G.levelIndex] = (G.deaths[G.levelIndex] || 0) + 1;
     const easier = !won && !G.survival && (G.deaths[G.levelIndex] || 0) >= 2 && G.difficulty !== 'easy';
     const cb = s.querySelector('[data-act="checkpoint"]');
-    const hasCp = !won && !G.survival && G.checkpoint && G.checkpoint.level === G.levelIndex;
+    const hasCp = !won && !G.survival && G.checkpoint && G.checkpoint.level === G.levelIndex && (G.checkpoint.stage ?? 1) === G.stage;
     cb.classList.toggle('hidden', !hasCp);
     if (hasCp) cb.textContent = T('체크포인트부터 — {name}', { name: G.checkpointName() });
     const eb = s.querySelector('[data-act="retryeasy"]');
     eb.classList.toggle('hidden', !easier);
-    if (easier) eb.textContent = T('{d} 난이도로 다시', { d: T(DIFFICULTY[G.difficulty === 'hard' ? 'normal' : 'easy'].name) });
+    if (easier) eb.textContent = T('{d} 난이도로 다시', { d: T(DIFFICULTY[G.difficulty === 'rush' ? 'hard' : G.difficulty === 'hard' ? 'normal' : 'easy'].name) });
 
     const r = this.rate(won);
-    const best = won && !G.survival ? G.saveGrade(G.levelIndex, r.value) : false;
+    const best = won && !G.survival ? G.saveGrade(G.stage === 0 ? G.levelIndex + 'a' : G.levelIndex, r.value) : false;
     Ach.fresh = [];
     Ach.onFinish(G, won, r.grade);
     const gradeEl = $('resultGrade');
@@ -6028,6 +6414,7 @@ const DEATH_TIP = {
   spit:   '초록 고리가 보이면 옆으로 — 산은 서 있던 자리로 떨어진다.',
   acid:   '초록 웅덩이는 오래 서 있을수록 아프다. 지나가되 멈추지 말 것.',
   lava:   '붉게 빛나는 균열은 밟지 말 것. 대신 저것들을 그 위로 끌어들여라.',
+  maw:    '깔때기 안에서는 촉수가 치켜들면 옆으로 — 비탈을 내려가지 말고 둘레를 돌아라. 저것들을 그 안으로 끌어들여라.',
   charge: '붉은 선이 진해지면 방향이 굳은 것 — 그때 옆으로 비켜라. 벽에 박으면 비틀거린다.',
   behemoth: '그것에게 붙지 말 것. 거리를 두고 돌진을 벽으로 유도하라.',
   brute:  '덩치는 붙기 전에 — 샷건이나 수류탄으로.',
@@ -6105,24 +6492,25 @@ document.addEventListener('click', e => {
         $('aboutMsg').textContent = T('진행 기록을 지웠습니다');
       }
       break;
-    case 'start':    G.start(G.pendingLevel); break;
+    case 'start':    G.start(G.pendingLevel, null, G.pendingStage); break;
     case 'resume':   G.togglePause(); break;
     case 'homeno':   Modal.homeAnswer(false); break;
     case 'homeyes':  Modal.homeAnswer(true); break;
     case 'layout':   TLayout.open(); break;
     case 'layoutdone': TLayout.close(); break;
     case 'layoutreset': TLayout.reset(); break;
-    case 'restart':  G.start(G.challenge ? 'ch:' + G.challenge.id : G.survival ? 'survival' : G.levelIndex); break;
+    case 'restart':  G.start(G.challenge ? 'ch:' + G.challenge.id : G.survival ? 'survival' : G.levelIndex, null, G.stage); break;
     case 'challenges': if (G.challengeOpen()) UI.showChallenges(); break;
     case 'chstart': G.start('ch:' + btn.dataset.id); break;
     case 'checkpoint': if (G.checkpoint) G.start(G.levelIndex, G.checkpoint); break;
     case 'retryeasy':
-      SETTINGS.set('difficulty', G.difficulty === 'hard' ? 'normal' : 'easy');
+      SETTINGS.set('difficulty', G.difficulty === 'rush' ? 'hard' : G.difficulty === 'hard' ? 'normal' : 'easy');
       G.deaths[G.levelIndex] = 0;
-      G.start(G.levelIndex); break;
+      G.start(G.levelIndex, null, G.stage); break;
     case 'quit':     G.state = 'title'; SFX.ambience(false); UI.enterMenu(); break;
     case 'next':
-      if (G.levelIndex === PART1_END) UI.showEnding(1);
+      if (G.stage === 0) UI.brief(G.levelIndex, 1);
+      else if (G.levelIndex === PART1_END) UI.showEnding(1);
       else if (G.levelIndex + 1 < LEVELS.length) { const n = G.levelIndex + 1; UI.journeyThen(n, () => UI.brief(n)); }
       else UI.showEnding(2);
       break;

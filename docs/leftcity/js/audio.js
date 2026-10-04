@@ -459,6 +459,16 @@ const SFX = (() => {
     snap(d)   { const n = Math.max(0.3, near(d));
                 burst(0.12, 2400, 1.2, 0.18 * n, 'bandpass', 0.1);
                 voiceAt(n, { f0: 150, f1: 90, dur: 0.35, gain: 0.2, vowel: 'o', to: 'u', rasp: 1.0, fryAmt: 0.6 }); },
+    /** 개미지옥의 입 — 모래 속에서 촉수가 치켜드는 젖은 소리 · 내려치는 둔탁한 소리 · 씹는 소리 · 깨어나는 울음 */
+    mawWind(d)  { const n = Math.max(0.2, near(d));
+                  burst(0.45, 380, 0.7, 0.12 * n, 'bandpass', 0.4); tone(70, 0.45, 0.1 * n, 'sine', 110); },
+    mawSlam(d)  { const n = Math.max(0.15, near(d));
+                  burst(0.35, 260, 0.6, 0.34 * n, 'lowpass', 0.3); tone(58, 0.3, 0.22 * n, 'sine', 34); burst(0.5, 900, 0.9, 0.06 * n, 'bandpass', 0.45); },
+    mawBite(d)  { const n = Math.max(0.3, near(d));
+                  burst(0.1, 1300, 1.0, 0.18 * n, 'bandpass', 0.08); tone(90, 0.16, 0.12 * n, 'sawtooth', 50); },
+    mawRoar(d)  { const n = Math.max(0.2, near(d));
+                  voiceAt(n, { f0: 62, f1: 44, dur: 1.2, gain: 0.34, vowel: 'o', to: 'u', size: 1.9, rasp: 1.5, fryAmt: 0.9, attack: 0.08 });
+                  burst(1.0, 300, 0.7, 0.12 * n, 'lowpass', 0.9); },
     /** 늘어난 무기 — 매그넘 · 석궁 · 화염방사기 · 유탄 · 레일건 */
     magnum()  { burst(0.32, 1400, 0.7, 0.42, 'lowpass', 0.3); tone(80, 0.25, 0.22, 'sine', 40); burst(0.6, 600, 0.8, 0.1, 'lowpass', 0.55); },
     bow()     { burst(0.08, 2600, 1.8, 0.12, 'bandpass', 0.07); tone(190, 0.16, 0.05, 'triangle', 120); },

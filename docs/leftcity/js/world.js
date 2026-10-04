@@ -113,14 +113,41 @@ class World {
   paintCraters(rng) {
     const W = this.w, H = this.h;
     this.craters = [];
+    // 화성엔 길이 없다 — 차도 · 보도 · 광장을 모두 같은 흙 벌판으로. 차선 · 횡단보도도 지운다(격자가 드러나지 않게)
+    for (let i = 0; i < W * H; i++) {
+      const d = this.deco[i];
+      if (d === D_ASPHALT || d === D_SIDEWALK || d === D_PLAZA) this.deco[i] = D_GRASS;
+      this.mark[i] = 0; this.cross[i] = 0; this.dirm[i] = 0;
+    }
+    // 건물 · 랜드마크와 겹치는 자리는 피한다
+    const blocked = (cx, cy, r) => {
+      for (let y = Math.floor(cy - r - 1); y <= Math.ceil(cy + r + 1); y++) for (let x = Math.floor(cx - r - 1); x <= Math.ceil(cx + r + 1); x++) {
+        if (!this.inside(x, y) || Math.hypot(x + 0.5 - cx, y + 0.5 - cy) > r + 1.6) continue;
+        const d = this.deco[y * W + x];
+        if (d === D_BUILDING || d === D_LANDMARK || d === D_WATER || d === D_BRIDGE || this.grid[y * W + x] !== T_ROAD) return true;
+      }
+      return false;
+    };
     const keep = [this.spawn, this.exit].filter(Boolean).map(p => [p.x / TILE, p.y / TILE]);
     for (const lm of this.landmarks) if (lm.rally) keep.push([lm.rally.tx + 0.5, lm.rally.ty + 0.5]);
     const n = Math.round(W * H / 150);
-    for (let i = 0, tries = 0; i < n && tries < n * 6; tries++) {
+    for (let i = 0, tries = 0; i < n && tries < n * 14; tries++) {
       const r = 1.6 + Math.pow(rng(), 1.8) * 4.4, cx = 2 + rng() * (W - 4), cy = 2 + rng() * (H - 4);
       if (keep.some(([kx, ky]) => Math.hypot(kx - cx, ky - cy) < r + 3)) continue;
+      if (blocked(cx, cy, r)) continue;
       this.craters.push({ x: cx, y: cy, r }); i++;
     }
+    // 개미지옥 — 깔때기 반지름(rf, 칸)과 깊이(D, 화소). 칸마다 어느 구덩이에 속하는지 적어 둔다
+    this.pitIdx = new Int16Array(W * H).fill(-1);
+    this.craters.forEach((c, ci) => {
+      c.rf = c.r + 0.6; c.D = c.r * TILE * 0.55;
+      const R = Math.ceil(c.rf + 1);
+      for (let y = Math.floor(c.y - R); y <= Math.ceil(c.y + R); y++) for (let x = Math.floor(c.x - R); x <= Math.ceil(c.x + R); x++)
+        if (this.inside(x, y) && Math.hypot(x + 0.5 - c.x, y + 0.5 - c.y) < c.rf + 0.8) {
+          const i = y * W + x, d = this.deco[i];
+          if (this.grid[i] === T_ROAD && d !== D_BRIDGE && d !== D_BUILDING && d !== D_WATER && d !== D_LANDMARK) this.pitIdx[i] = ci;
+        }
+    });
     for (const c of this.craters) {
       const R = Math.ceil(c.r + 1.2);
       for (let y = Math.floor(c.y - R); y <= Math.ceil(c.y + R); y++) for (let x = Math.floor(c.x - R); x <= Math.ceil(c.x + R); x++) {
@@ -134,6 +161,34 @@ class World {
         else if (dd < c.r + 0.9 && this.terr[i] !== 6) this.terr[i] = 7;
       }
     }
+  }
+  /** 개미지옥 — 그 자리가 구덩이 안이면 { c 구덩이, dx dy 중심으로부터(화소), d 거리, k 깊이 비율 0‒1, depth 깊이(화소) } */
+  pitAt(px, py) {
+    if (!this.pitIdx || this.pitIdx[this.idx(Math.floor(px / TILE), Math.floor(py / TILE))] < 0) return null;
+    let best = null;
+    for (const c of this.craters) {                                   // 겹친 구덩이는 더 깊은 쪽 — 이음매가 벌어지지 않는다
+      const Rf = c.rf * TILE, [dx, dy] = this.wrapDelta(c.x * TILE, c.y * TILE, px, py);
+      if (Math.abs(dx) >= Rf || Math.abs(dy) >= Rf) continue;
+      const d = Math.hypot(dx, dy);
+      if (d >= Rf) continue;
+      const k = Math.pow(1 - d / Rf, 1.35), depth = c.D * k;
+      if (!best || depth > best.depth) best = { c, dx, dy, d, Rf, k, depth };
+    }
+    return best;
+  }
+  /** 개미지옥 둘레 흙둔덕의 높이(화소) — 3D 의 둔덕 모양과 같은 꺾은선 */
+  bermAt(px, py) {
+    if (!this.craters) return 0;
+    let h = 0;
+    for (const c of this.craters) {
+      const R = c.rf * TILE, [dx, dy] = this.wrapDelta(c.x * TILE, c.y * TILE, px, py);
+      if (Math.abs(dx) > R + 74 || Math.abs(dy) > R + 74) continue;
+      const e = Math.hypot(dx, dy) - R, H = 5 + c.r * 1.6;
+      if (e < 0 || e > 74) continue;
+      const v = e < 14 ? H * (0.55 + 0.45 * e / 14) : e < 34 ? H * (1 - 0.38 * (e - 14) / 20) : e < 58 ? H * (0.62 - 0.47 * (e - 34) / 24) : H * 0.15 * (1 - (e - 58) / 16);
+      if (v > h) h = v;
+    }
+    return h;
   }
   /** 그 자리의 지형 (0 = 없음) */
   terrAt(px, py) { return this.terr ? this.terr[this.idx(Math.floor(px / TILE), Math.floor(py / TILE))] : 0; }
@@ -348,6 +403,7 @@ class World {
       const r = b.used === 'edge' ? 1 : rng();
       // 트인 땅(화성) — 건물은 드문드문, 나머지는 붉은 흙 벌판
       if (this.theme.open && b.used !== 'edge' && rng() < this.theme.open) { this.fill(b.x, b.y, b.w, b.h, T_ROAD, D_GRASS); b.kind = 'open'; continue; }
+      if (this.theme.open) { b.kind = 'build'; lotId = this.subdivide(b.x, b.y, b.w, b.h, rng, lotId, 0); continue; }   // 화성엔 공원 · 광장 · 주차장이 없다
       if (r < 0.1 && b.w >= 6 && b.h >= 6) { this.park(b, rng); b.kind = 'park'; continue; }
       if (r < 0.16) { this.fill(b.x, b.y, b.w, b.h, T_ROAD, D_PLAZA); b.kind = 'plaza'; continue; }
       if (r < 0.24) { this.fill(b.x, b.y, b.w, b.h, T_ROAD, D_ASPHALT); b.kind = 'lot'; continue; }

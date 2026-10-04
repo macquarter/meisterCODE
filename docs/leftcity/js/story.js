@@ -199,6 +199,7 @@ const STORY = {
     { id: 'cities',   t: ['네 도시의 밤', 'Four Cities, Four Nights'], d: ['네 도시 모두 서바이벌에서 3분을 버틴다', 'Last 3 minutes in Survival in all four cities'] },
     { id: 'world',    t: ['아홉 도시의 밤', 'Nine Cities, Nine Nights'], d: ['아홉 도시 모두 서바이벌에서 3분을 버틴다', 'Last 3 minutes in Survival in all nine cities'] },
     { id: 'lava',     t: ['불의 심판', 'Trial by Fire'], d: ['한 판에서 감염체 10기를 용암 균열 위로 끌어들여 쓰러뜨린다', 'Lure 10 infected to their end on lava cracks in one run'] },
+    { id: 'antlion',  t: ['개미지옥', 'Antlion'], d: ['한 판에서 감염체 15기를 화성의 구덩이 입에 먹인다', 'Feed 15 infected to the Mars pit maws in one run'] },
     { id: 'gold1',    t: ['첫 금메달', 'First Gold'], d: ['도전에서 금메달을 딴다', 'Earn a gold medal in a challenge'] },
     { id: 'goldAll',  t: ['다섯 개의 금', 'Five Golds'], d: ['도전 다섯 개 모두 금메달', 'Earn gold in all five challenges'] },
     { id: 'k1000',    t: ['천 번의 밤', 'A Thousand Nights'], d: ['감염체를 모두 합쳐 1,000기 처치한다', 'Kill 1,000 infected in total'] }

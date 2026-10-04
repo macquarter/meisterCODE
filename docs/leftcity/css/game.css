@@ -854,3 +854,13 @@ body.tl-edit #touch .tbtn.dragging{cursor:grabbing;background:rgba(240,180,41,.2
 /* 이동 스틱 바깥의 점선 고리 — 엄지를 여기까지 끌어내면 질주 */
 #padMove::after{content:"";position:absolute;inset:-30%;border:1.5px dashed rgba(255,170,80,.32);border-radius:50%;pointer-events:none}
 #padMove.sprint::after{border-style:solid;border-color:rgba(255,160,60,.8)}
+/* 챕터 지도 · 장마다 두 미션(A 진입 · B 본편) */
+.chapmap{display:block;width:100%;height:auto;aspect-ratio:960/520;border-radius:10px;border:1px solid rgba(255,255,255,.08);margin:0 0 12px;cursor:pointer;background:#04070b}
+.chapter__stages{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.stg{display:inline-flex;align-items:center;gap:6px;padding:4px 9px;border-radius:999px;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.04);color:#cfc9b8;font:inherit;font-size:12px;cursor:pointer;min-height:28px}
+.stg b{display:inline-grid;place-items:center;width:17px;height:17px;border-radius:50%;background:#6e767e;color:#0a0d10;font-size:10px}
+.stg--open{border-color:rgba(240,180,41,.55);color:#f2ede0}.stg--open b{background:#f0b429}
+.stg--done{border-color:rgba(127,224,138,.45)}.stg--done b{background:#7fe08a}
+.stg i{font-style:normal;font-weight:700;color:#f0b429}
+.stg:disabled{opacity:.45;cursor:not-allowed}
+.stg:focus-visible{outline:2px solid #f0b429;outline-offset:2px}

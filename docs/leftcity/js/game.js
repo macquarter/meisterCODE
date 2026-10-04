@@ -25,13 +25,24 @@ const gctx = glowCv.getContext('2d');
    잡고 그보다 크면 확대한다(최대 2배). 그래서 1080p·1440p 에서도 보이는 도시의 넓이가 비슷하다.
    W · H 는 '논리 화면'(세계를 그리는 단위)이고, DEV 는 기기 배율, DPR = DEV × ZOOM 이 캔버스 배율이다. */
 let W = 0, H = 0, DPR = 1, MDPR = 0.5, DEV = 1, ZOOM = 1, HUDZ = 1;
+/* 와이드 화면 — 게임 화면(#stage)은 늘 16:9 이상. 창이 그보다 좁거나 세로면 16:9 띠로 두고(레터박스),
+   세로 화면에서는 띠를 위쪽에 두어 아래 빈 곳이 조작 버튼 자리가 된다(휴대용 게임기처럼). 3D 판도 이 크기를 쓴다 */
+const STAGE = window.STAGE = { x: 0, y: 0, w: 1, h: 1 };
+function stageFit() {
+  const w = window.innerWidth, h = window.innerHeight;
+  if (SETTINGS.wide === false || w / Math.max(1, h) >= 16 / 9 - 0.02) Object.assign(STAGE, { x: 0, y: 0, w, h });
+  else { const sh = Math.round(w * 9 / 16); Object.assign(STAGE, { x: 0, y: Math.round((h - sh) * (h > w ? 0.28 : 0.5)), w, h: sh }); }
+  const st = document.getElementById('stage');
+  if (st) Object.assign(st.style, { left: STAGE.x + 'px', top: STAGE.y + 'px', width: STAGE.w + 'px', height: STAGE.h + 'px', right: 'auto', bottom: 'auto' });
+  document.documentElement.classList.toggle('letterbox', STAGE.h < h - 1);
+}
 /** 카메라 거리별로 보이는 '논리 화면'의 높이 · 너비 목표 (세계 단위) */
 const CAM_VIEW = { near: [470, 780], mid: [600, 980], far: [800, 1280] };
 const BUDGET = { high: 3.6e6, auto: 2.2e6, low: 0.85e6 };
 const RES = { max: 1, ema: 16.7, holdT: 0, okT: 0, ceil: 9 };
 function maxDPR() {
   const dev = Math.min(window.devicePixelRatio || 1, 2);
-  const cap = Math.sqrt(BUDGET[SETTINGS.quality] / Math.max(1, innerWidth * innerHeight));
+  const cap = Math.sqrt(BUDGET[SETTINGS.quality] / Math.max(1, STAGE.w * STAGE.h));
   return Math.max(0.5, Math.min(dev, cap));
 }
 function applyScale(s) {
@@ -40,18 +51,19 @@ function applyScale(s) {
   view.width = Math.max(1, Math.floor(W * DPR)); view.height = Math.max(1, Math.floor(H * DPR));
   mask.width = Math.max(1, Math.ceil(W * MDPR)); mask.height = Math.max(1, Math.ceil(H * MDPR));
   glowCv.width = mask.width; glowCv.height = mask.height;
-  view.style.width = innerWidth + 'px'; view.style.height = innerHeight + 'px';
+  view.style.width = STAGE.w + 'px'; view.style.height = STAGE.h + 'px';
   ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
   mctx.setTransform(MDPR, 0, 0, MDPR, 0, 0);
 }
 function resize() {
   // 카메라 거리 — 원작 예고편처럼 사람이 크게 보이도록 '가까이'가 기본. 보이는 세계의 높이 · 너비 목표를
   // 정하고 둘 중 더 좁게 잡히는 쪽에 맞춘다(세로 휴대폰이 너무 좁아지지 않게). 1배 밑으로는 줄이지 않는다
+  stageFit();
   const [th, tw] = CAM_VIEW[SETTINGS.cam] || CAM_VIEW.near;
-  ZOOM = Math.max(1, Math.min(3.2, window.innerHeight / th, window.innerWidth / tw));
-  W = window.innerWidth / ZOOM; H = window.innerHeight / ZOOM;
+  ZOOM = Math.max(1, Math.min(3.2, STAGE.h / th, STAGE.w / tw));
+  W = STAGE.w / ZOOM; H = STAGE.h / ZOOM;
   // 글자 · HUD 도 큰 화면에서는 함께 키운다(데스크톱만 — 터치는 손가락 크기가 기준). 카메라 거리와는 따로
-  const sz = Math.max(1, Math.min(2, window.innerHeight / 800));
+  const sz = Math.max(1, Math.min(2, STAGE.h / 800));
   HUDZ = matchMedia('(hover:none) and (pointer:coarse)').matches ? 1 : Math.max(1, Math.min(1.5, 1 + (sz - 1) * 0.8));
   document.documentElement.style.setProperty('--hudz', HUDZ);
   RES.max = maxDPR(); RES.ceil = 9; RES.holdT = 1;
@@ -183,7 +195,7 @@ addEventListener('keydown', e => {
 addEventListener('keyup', e => { keys[e.code] = false; });
 addEventListener('blur', () => { for (const k in keys) keys[k] = false; input.firing = false; });
 
-view.addEventListener('mousemove', e => { input.mx = e.clientX / ZOOM; input.my = e.clientY / ZOOM; input.hasMouse = true; PAD.aim = null; });
+view.addEventListener('mousemove', e => { input.mx = (e.clientX - STAGE.x) / ZOOM; input.my = (e.clientY - STAGE.y) / ZOOM; input.hasMouse = true; PAD.aim = null; });
 view.addEventListener('mousedown', e => {
   SFX.resume();
   if (e.button === 0) { input.firing = true; return; }
@@ -689,14 +701,14 @@ const Ach = {
     }
     if (!won) return;
     const i = g.levelIndex;
-    const byCh = { 0: 'night1', 2: 'seoul', 3: 'camp', 6: 'tokyo', 8: 'bangkok', 10: 'dawn', 15: 'part2' };
+    const byCh = { 0: 'night1', 1: 'seoul', 2: 'tokyo', 3: 'bangkok', 4: 'dawn', 9: 'part2' };
     if (byCh[i]) this.unlock(byCh[i]);
-    if (i === 10 && g.difficulty === 'hard') this.unlock('harddawn');
+    if (i === PART1_END && g.difficulty === 'hard') this.unlock('harddawn');
     if (grade === 'S') this.unlock('gradeS');
     if (g.player.dmgTaken <= 0) this.unlock('untouched');
     if (i === 0 && !g.nonPistol) this.unlock('pistol');
-    if (i === 7 && !g.weeperWoke) this.unlock('hush');
-    if ((i === 9 || i === 10) && !g.fromCheckpoint) this.unlock('clean');
+    if (i === 3 && !g.weeperWoke) this.unlock('hush');
+    if ((i === PART1_END || i === LEVELS.length - 1) && !g.fromCheckpoint) this.unlock('clean');
   },
   onRecord() {
     const n = Records.all().length;
@@ -740,7 +752,10 @@ function worldTransform(c, cam, s = DPR) { c.setTransform(s, 0, 0, s * TILT, -ca
 function screenTransform(c, cam) { c.setTransform(DPR, 0, 0, DPR, -cam.x * DPR, -cam.y * DPR * TILT); }
 
 const SPITTER_CAP = 2;
-const SURVIVAL_UNLOCK = 9;
+const SURVIVAL_UNLOCK = PART1_END + 1;
+/** 도시 이름 카드에 쓰는 현지 표기 */
+const CITY_LOCAL = { seoul: '서울 SEOUL', base: '대피 기지 EVAC BASE', tokyo: '東京 TOKYO', bangkok: 'กรุงเทพฯ BANGKOK', singapore: '新加坡 SINGAPORE',
+  varanasi: 'वाराणसी VARANASI', cairo: 'القاهرة CAIRO', venice: 'VENEZIA', reykjavik: 'REYKJAVÍK', antarctic: 'ANTARCTICA' };
 const CITY_NAME = { seoul: '서울', tokyo: '도쿄', bangkok: '방콕', singapore: '싱가포르', base: '대피 기지',
   varanasi: '바라나시', cairo: '카이로', venice: '베네치아', reykjavik: '레이캬비크', antarctic: '남극 기지' };
 /** 처음 손전등이 벽이 아니라 갈 길을 비추도록 — 출구 쪽으로 몇 칸 따라간 곳과 트인 거리를 함께 본다 */
@@ -1048,6 +1063,14 @@ const G = {
     SFX.ambience(true);
     this.state = 'play';
     UI.enterPlay();
+    // 도시 이름 카드 — 현지 글자와 함께 잠깐 떠올랐다 사라진다(전역 · 도전 모두)
+    const cc = $('cityCard'), ck = this.world.theme.key;
+    if (cc && CITY_LOCAL[ck]) {
+      cc.querySelector('small').textContent = this.survival ? T('서바이벌') : this.challenge ? T('도전') : `CHAPTER ${this.levelIndex + 1}`;
+      cc.querySelector('b').textContent = I18N.lang === 'en' ? CITY_LOCAL[ck].replace(/[가-힣·]+\s*/g, '').trim() : CITY_LOCAL[ck];
+      cc.querySelector('span').textContent = this.survival || this.challenge ? T(CITY_NAME[ck] || '') : T(this.level.name);
+      cc.classList.add('show'); clearTimeout(this.cityCardT); this.cityCardT = setTimeout(() => cc.classList.remove('show'), 3200);
+    }
     this.refreshHud(true);
   },
 
@@ -1438,8 +1461,8 @@ const G = {
     if (!this.holding) {
       if (p.dead || Math.hypot(p.x - w.exit.x, p.y - w.exit.y) > 340) return;
       this.holding = true; this.holdT = 0;
-      this.toast(T('배가 들어온다 — {s}초 버텨라', { s: ob.time }));
-      this.makeCheckpoint('3번 부두');
+      this.toast(T(ob.holdMsg || '배가 들어온다 — {s}초 버텨라', { s: ob.time }));
+      this.makeCheckpoint(ob.place || '3번 부두');
       SFX.horn(); Radio.cue('hold');
       this.callHorde(this.hordeSize() + 2);
       if (this.dir) { this.dir.every = 20; this.dir.mobT = Math.min(this.dir.mobT, 10); }
@@ -1458,7 +1481,7 @@ const G = {
       if (this.dropBoss(560, 1000)) { this.bossCalled = true; this.toast(T('무언가 큰 것이 온다')); Radio.cue('boss'); }
       else this.holdT -= 2;
     }
-    if (this.surviveLeft <= 0) { SFX.horn(); this.openExit(T('현문이 내려왔다 — 배에 올라라')); }
+    if (this.surviveLeft <= 0) { SFX.horn(); this.openExit(T(ob.open || '현문이 내려왔다 — 배에 올라라')); }
   },
   /** 무전이 끼어들 때 — 목표가 반쯤 됐을 때('mid'), 탈출로 가까이('done') 등 */
   storyCues(ob) {
@@ -2279,8 +2302,8 @@ function placeCompass(sx, sy) {
   if (sx === compassX && sy === compassY) return;
   compassX = sx; compassY = sy;
   const el = $('hudCompass');
-  el.style.left = sx * ZOOM / HUDZ + 'px';
-  el.style.top = sy * ZOOM / HUDZ + 'px';
+  el.style.left = (sx * ZOOM + STAGE.x) / HUDZ + 'px';            // HUD 는 레터박스에서 창 전체 기준
+  el.style.top = (sy * ZOOM + STAGE.y) / HUDZ + 'px';
 }
 
 /**
@@ -4714,10 +4737,10 @@ G.refreshHud = function (force) {
   if (this.challenge) obj = T('남은 {s}초 · 점수 {score}', { s: Math.max(0, Math.ceil(this.challenge.time - this.time)), score: this.score.toLocaleString() })
     + (this.combo > 1 ? `  ×${this.comboMul().toFixed(2).replace(/0$/, '')}` : '');
   else if (ob.type === 'endless') obj = T('생존 {s}초 · 점수 {score}', { s: Math.floor(this.time), score: this.score });
-  else if (this.exitOpen) obj = ob.type === 'finale' ? T('현문으로 승선하라') : T('집결지로 이동하라');
+  else if (this.exitOpen) obj = ob.type === 'finale' ? T(ob.board || '현문으로 승선하라') : T('집결지로 이동하라');
   else if (ob.type === 'signal') obj = this.relayOn ? T('중계기 가동 중 {p}% — 곁을 지켜라', { p: Math.floor(this.relayOn.prog * 100) })
     : T('중계기 {n}/{t} 가동', { n: this.goalsTotal - this.goalsLeft, t: this.goalsTotal });
-  else if (ob.type === 'finale') obj = this.holding ? T('접안까지 {s}초 — 버텨라', { s: Math.ceil(this.surviveLeft) }) : T('3번 부두로 가라');
+  else if (ob.type === 'finale') obj = this.holding ? T(ob.hud || '접안까지 {s}초 — 버텨라', { s: Math.ceil(this.surviveLeft) }) : T(ob.go || '3번 부두로 가라');
   else if (ob.type === 'collect') obj = T('{item} {n}/{t} 확보', { item: T(ob.item || '보급 상자'), n: this.goalsTotal - this.goalsLeft, t: this.goalsTotal });
   else if (ob.type === 'survive') obj = T('{s}초 버텨라', { s: Math.ceil(this.surviveLeft) });
   else if (ob.type === 'purge') obj = T('감염체 {n}/{t} 소탕', { n: this.kills, t: this.goalsTotal });
@@ -4904,7 +4927,7 @@ const UI = {
     // 원작처럼 서바이벌은 이야기를 끝까지 본 뒤에 열린다
     const open = G.survivalOpen();
     $('btnSurvival').disabled = !open;
-    $('btnSurvival').textContent = open ? T('서바이벌') : T('서바이벌 — 9장 완수 시 개방 ({n}/{t})', { n: Math.min(G.progress(), SURVIVAL_UNLOCK), t: SURVIVAL_UNLOCK });
+    $('btnSurvival').textContent = open ? T('서바이벌') : T('서바이벌 — 1부(5장) 완수 시 개방 ({n}/{t})', { n: Math.min(G.progress(), SURVIVAL_UNLOCK), t: SURVIVAL_UNLOCK });
     const cOpen = G.challengeOpen();
     $('btnChallenge').disabled = !cOpen;
     $('btnChallenge').textContent = cOpen ? T('도전') : T('도전 — 2장 완수 시 개방');
@@ -5064,7 +5087,7 @@ const UI = {
     if (ob.type === 'survive') rows.push([T('남은 시간'), T('{s}초', { s: Math.ceil(G.surviveLeft) })]);
     if (ob.type === 'purge') rows.push([T('소탕'), `${G.kills}/${G.goalsTotal}`]);
     if (ob.type === 'signal') rows.push([T('중계기'), `${G.goalsTotal - G.goalsLeft}/${G.goalsTotal}`]);
-    if (ob.type === 'finale') rows.push([T('접안'), G.exitOpen ? T('현문 개방') : G.holding ? T('{s}초', { s: Math.ceil(G.surviveLeft) }) : T('부두로 이동 중')]);
+    if (ob.type === 'finale') rows.push([T(ob.row || '접안'), G.exitOpen ? T(ob.rowOpen || '현문 개방') : G.holding ? T('{s}초', { s: Math.ceil(G.surviveLeft) }) : T(ob.rowGo || '부두로 이동 중')]);
     if (ob.type === 'boss') rows.push([T('그것'), G.boss && !G.boss.dead
       ? `${Math.max(0, Math.round(G.boss.hp / G.boss.hpMax * 100))}%` : T('처치')]);
     $('pauseStats').innerHTML = rows.map(r =>

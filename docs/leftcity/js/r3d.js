@@ -2195,9 +2195,10 @@ function perfStep(now) {
 function size() {
   if (!renderer) return;
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, SETTINGS.quality === 'low' ? 0.75 : PR_CAP[PERF.level]));
-  renderer.setSize(window.innerWidth, window.innerHeight, false);
-  if (composer) { composer.setPixelRatio(renderer.getPixelRatio()); composer.setSize(window.innerWidth, window.innerHeight); grade.uniforms.uRes.value.set(window.innerWidth * renderer.getPixelRatio(), window.innerHeight * renderer.getPixelRatio()); }
-  camera.aspect = window.innerWidth / Math.max(1, window.innerHeight);
+  const SW = (window.STAGE && window.STAGE.w) || window.innerWidth, SH = (window.STAGE && window.STAGE.h) || window.innerHeight;
+  renderer.setSize(SW, SH, false);
+  if (composer) { composer.setPixelRatio(renderer.getPixelRatio()); composer.setSize(SW, SH); grade.uniforms.uRes.value.set(SW * renderer.getPixelRatio(), SH * renderer.getPixelRatio()); }
+  camera.aspect = SW / Math.max(1, SH);
   camera.updateProjectionMatrix();
 }
 
@@ -2316,7 +2317,7 @@ function draw3(g) {
   const bw = renderer.domElement.width, bh2 = renderer.domElement.height;
   SEE.pos.value.set((tmpV.x + 1) / 2 * bw, (tmpV.y + 1) / 2 * bh2);
   SEE.depth.value = (tmpV.z + 1) / 2 - 0.0004;
-  SEE.rad.value = 95 * bh2 / Math.max(1, window.innerHeight) * Math.max(1, window.innerHeight / 800);
+  SEE.rad.value = 95 * bh2 / Math.max(1, (window.STAGE && window.STAGE.h) || window.innerHeight) * Math.max(1, ((window.STAGE && window.STAGE.h) || window.innerHeight) / 800);
   // 후처리 — '가볍게' 설정이나 가장 낮은 화질 단계에서는 끈다
   const fx = composer && SETTINGS.quality !== 'low' && PERF.level < 3;
   if (fx) {
@@ -2379,6 +2380,8 @@ function setFlash(h, on) {
    모형을 불러오기 전 · 실패하면 예전의 단순 인형으로 그린다 */
 const CHAR = { ready: false, loading: false, body: {} };
 const MODEL_H = 50;
+/** 사람 · 감염체의 보이는 크기 — 건물 · 차와 비율을 맞춰 0.6 (판정 반지름은 그대로) */
+const CHAR_S = 0.6;
 function modelSrc(k) { return (window.LC_MODELS && window.LC_MODELS[k]) || ('vendor/models/' + k + '.glb'); }
 /** 모형 하나 — 단일 파일 판(아티팩트)은 모형을 data: 로 품고 있다. 그곳의 보안 정책(CSP)은 fetch 를 막으므로
     (connect-src) 네트워크를 쓰지 않고 base64 를 직접 풀어 파싱한다. 안의 그림도 fetch 를 쓰는 ImageBitmapLoader 대신
@@ -2594,19 +2597,30 @@ function poseZombieRig(h, z, g, dt) {
   // 등 · 고개
   const hunch = t.boss ? 0.25 : runner ? 0.45 : 0.32 + seed * 0.15;
   tiltBone(B.Spine, lat, hunch * 0.5); tiltBone(B.Spine1, lat, hunch * 0.5);
-  const roll = Math.sin(g.time * 0.9 + seed * 9) * 0.25 + (seed - 0.5) * 0.5;
-  tiltBone(B.Neck, fwd, roll * 0.6); tiltBone(B.Head, lat, -0.15 + Math.sin(g.time * 1.7 + seed * 5) * 0.08);
-  // 팔
-  const reach = !t.boss && !t.bloat && !t.spit && !runner && !(t.weeper && !z.rage);
+  // 고개 — 한쪽으로 기운 채 천천히 흔들린다(예전보다 덜 꺾이게)
+  const roll = Math.sin(g.time * 0.9 + seed * 9) * 0.12 + (seed - 0.5) * 0.3;
+  tiltBone(B.Neck, fwd, roll * 0.5); tiltBone(B.Head, lat, -0.1 + Math.sin(g.time * 1.7 + seed * 5) * 0.05);
+  // 팔 — 개체마다 다르게: 0 두 팔을 앞으로(나란히) · 1 한 팔만 뻗고 한 팔은 늘어뜨림 · 2 두 팔을 늘어뜨림 · 3 팔꿈치를 굽혀 낮게 쥠
+  const style = ((z.x * 7 + z.y * 3) | 0) & 3;
+  const reach = !t.boss && !t.bloat && !t.spit && !runner && !(t.weeper && !z.rage) && style !== 2;
   const claw = (t.scream && z.screamPhase === 'wind') || (t.weeper && !z.rage);
   if (reach || claw) {
-    const sw = Math.sin(g.time * 2.2 + seed * 6) * 0.12;
+    const sw = Math.sin(g.time * 2.2 + seed * 6) * 0.08, W0 = z.aggro ? 0.85 : 0.5;
     for (const [up, lo, sd] of [[B.LeftArm, B.LeftForeArm, 1], [B.RightArm, B.RightForeArm, -1]]) {
       if (claw) { tdir.copy(fwd).multiplyScalar(0.3).addScaledVector(YAX, 0.95).addScaledVector(lat, -sd * 0.3); aimBone(up, tdir, 0.85); aimBone(lo, tdir.addScaledVector(YAX, 0.4), 0.85); continue; }
-      tdir.copy(fwd).addScaledVector(lat, -sd * (0.18 + sw)).addScaledVector(YAX, -0.12 + sd * sw * 0.5);
-      aimBone(up, tdir, z.aggro ? 0.9 : 0.6);
-      aimBone(lo, tdir.addScaledVector(YAX, -0.15), z.aggro ? 0.9 : 0.6);
+      if (style === 1 && sd < 0) continue;                         // 오른팔은 걷기 동작대로 늘어뜨린다
+      if (style === 3) { tdir.copy(fwd).multiplyScalar(0.6).addScaledVector(YAX, -0.75).addScaledVector(lat, sd * 0.25); aimBone(up, tdir, W0); aimBone(lo, tdir.copy(fwd).addScaledVector(YAX, 0.1).addScaledVector(lat, -sd * 0.15), W0); continue; }
+      // 앞으로 나란히 — 어깨너비만큼 벌려 몸 앞에서 엇갈리지 않게, 팔꿈치는 조금 처진다
+      tdir.copy(fwd).addScaledVector(lat, sd * (0.1 + sw)).addScaledVector(YAX, -0.22 + sd * sw * 0.4);
+      aimBone(up, tdir, W0);
+      aimBone(lo, tdir.addScaledVector(YAX, -0.12), W0);
     }
+  }
+  // 맞으면 맞은 쪽 반대로 상체가 젖혀졌다 돌아온다
+  if (z.recoil > 0 && B.Spine1) {
+    const k = Math.sin(Math.min(1, z.recoil / 0.28) * Math.PI) * 0.55;
+    bv2.set(Math.sin(z.hitAng || 0), 0, -Math.cos(z.hitAng || 0));         // 맞은 방향에 수직인 축
+    tiltBone(B.Spine1, bv2, k); tiltBone(B.Head, bv2, k * 0.6);                // 총알이 나아가는 쪽으로 밀린다
   }
   // 엎드려 기는 것 — 몸을 앞으로 눕힌다
   if (t.crawl) { u.body.rotation.z = -1.25; u.body.position.y = 7; }
@@ -2615,7 +2629,11 @@ function poseZombieRig(h, z, g, dt) {
     u.body.position.y = -14;
     for (const [ul, ll] of [[B.LeftUpLeg, B.LeftLeg], [B.RightUpLeg, B.RightLeg]]) { aimBone(ul, tdir.copy(fwd).addScaledVector(YAX, 0.15), 1); aimBone(ll, tdir.copy(fwd).multiplyScalar(-0.3).addScaledVector(YAX, -1), 1); }
     tiltBone(B.Spine1, lat, 0.5); tiltBone(B.Head, lat, 0.5);
-  } else if (!t.crawl) { u.body.position.y = 0; u.body.rotation.z = 0; }
+  } else if (!t.crawl) {
+    // 절뚝이는 것 — 넷 중 하나는 한쪽 다리를 끌며 좌우로 휘청인다
+    u.body.position.y = 0; u.body.rotation.z = 0;
+    u.body.rotation.x = moving && seed > 0.72 ? Math.sin(g.time * (runner ? 7 : 4.2) + seed * 9) * 0.09 : 0;
+  }
   // 부푼 것 — 배가 부풀었다
   if (t.bloat && B.Spine1) { B.Spine1.scale.set(1.55, 1.15, 1.55); B.Spine2.scale.set(1 / 1.3, 1 / 1.05, 1 / 1.3); }
   // 눈 — 머리뼈 앞에 붉은 점 둘
@@ -2632,8 +2650,7 @@ function zombieRig(z) {
   const hs = (Math.imul(Math.floor(z.x * 13 + z.y * 7), 2654435761) >>> 0);
   if (k.helmet) h = makeRig('soldier', { tex: hs % 2 ? 'zombie' : 'zombie2' });
   else if (k.hazmat) h = makeRig('soldier', { tex: 'hazmat' });
-  else if (!t.boss && !t.bloat && t.size < 18 && hs % 3 === 0) h = makeRig('michelle', { tex: ['zombie', 'zombie2', 'zombie3'][(hs >>> 4) % 3] });
-  else {
+    else {
     const look = { skin: deadSkin(t.boss || t.bloat || t.scream || t.weeper ? t.head : k.skin), top: t.boss || t.weeper || t.scream ? t.body : k.top, pants: t.weeper ? t.body : k.pants, shoes: '#141618' };
     for (const q of ['skin', 'top', 'pants']) look[q] = '#' + new THREE.Color(look[q]).multiplyScalar(0.8).getHexString(THREE.SRGBColorSpace);
     look.sleeve = hs % 2 ? look.top : look.skin;                    // 반소매면 팔뚝이 드러난다
@@ -2740,26 +2757,50 @@ function posePlayerRig(h, p, g, dt) {
   }
 }
 /** 시체 — 서 있는 자세 하나를 멈춰 두고 뒤로 눕힌다, 팔다리를 벌린다 */
+/** 시체 자세 다섯 — 선 자세(앞 +x · 위 +y · 왼쪽 -z)에서 팔다리를 놓은 뒤 몸째 넘어뜨린다.
+    fall: rz(앞뒤로 넘어짐 −π/2 엎어짐 · +π/2 누움) · rx(옆으로) · 각 뼈의 목표 방향 */
+const DEATH_POSES = [
+  { name: 'faceDown', rz: -Math.PI / 2, rx: 0, y: 3.2,
+    b: { LeftArm: [0.15, 1, -0.35], LeftForeArm: [0.3, 1, -0.2], RightArm: [0.05, 0.9, 0.45], RightForeArm: [-0.2, 1, 0.5], LeftUpLeg: [0, -1, -0.16], LeftLeg: [0, -1, -0.12], RightUpLeg: [0.05, -1, 0.2], RightLeg: [-0.7, -0.7, 0.2] } },
+  { name: 'onBack', rz: Math.PI / 2, rx: 0, y: 3.4,
+    b: { LeftArm: [0.25, -0.15, -1], LeftForeArm: [0.4, 0.2, -1], RightArm: [0.1, 0.25, 1], RightForeArm: [0.5, 0.6, 0.7], LeftUpLeg: [0, -1, -0.22], LeftLeg: [0, -1, -0.25], RightUpLeg: [0.6, -0.8, 0.15], RightLeg: [-0.1, -1, 0.15] } },
+  { name: 'curled', rz: 0, rx: Math.PI / 2, y: 4.5, spine: 0.55,
+    b: { LeftArm: [0.8, -0.3, -0.15], LeftForeArm: [0.2, 0.9, 0.2], RightArm: [0.85, -0.2, 0.2], RightForeArm: [0.3, 0.8, -0.2], LeftUpLeg: [1, -0.35, -0.05], LeftLeg: [-0.25, -1, 0], RightUpLeg: [0.9, -0.5, 0.1], RightLeg: [-0.4, -1, 0.05] } },
+  { name: 'twisted', rz: -Math.PI / 2, rx: 0, y: 3.2, yaw: 0.5,
+    b: { LeftArm: [0.25, -1, -0.15], LeftForeArm: [0.3, -1, 0.1], RightArm: [-0.6, 0.35, 0.9], RightForeArm: [-0.4, 0.8, 0.6], LeftUpLeg: [0.1, -1, 0.28], LeftLeg: [0.05, -1, 0.3], RightUpLeg: [0.05, -1, -0.12], RightLeg: [-0.5, -0.85, -0.1] } },
+  { name: 'sprawl', rz: Math.PI / 2, rx: 0, y: 3.4,
+    b: { LeftArm: [-0.05, 1, -0.45], LeftForeArm: [-0.2, 1, -0.6], RightArm: [-0.2, 0.9, 0.55], RightForeArm: [0.1, 1, 0.4], LeftUpLeg: [0, -1, -0.48], LeftLeg: [0, -1, -0.5], RightUpLeg: [0, -1, 0.42], RightLeg: [0.3, -1, 0.45] } }
+];
 function makeCorpseRig(c) {
   let h;
   if (c.type === 'player') h = makeRig('xbot', { look: { skin: '#9a7a64', top: '#23303c', sleeve: '#23303c', pants: '#2a3442', hair: '#141210' } });
   else if (c.hazmat) h = makeRig('soldier', { tex: 'hazmat' });
-  else {
-    const hs = (Math.imul(Math.floor(c.x * 13 + c.y * 7), 2654435761) >>> 0);
-    if (hs % 3 === 0) h = makeRig('michelle', { tex: ['zombie', 'zombie2', 'zombie3'][(hs >>> 4) % 3] });
-    else h = makeRig('xbot', { look: { skin: '#6a7262', top: c.top || '#5a5a50', pants: c.pants || '#2d3440', sleeve: c.top || '#5a5a50' } });
-  }
+  else h = makeRig('xbot', { look: { skin: '#6a7262', top: c.top || '#5a5a50', pants: c.pants || '#2d3440', sleeve: c.top || '#5a5a50' } });
   const u = h.userData;
   blendRig(h, 'idle', 100, 0.01, 1);
   for (const k in u.acts) u.acts[k].paused = true;
   h.updateMatrixWorld(true);
-  const r = () => Math.random();
-  fwd.set(1, 0, 0); lat.set(0, 0, -1);
-  aimBone(u.bones.LeftArm, tdir.set(0.2 + r() * 0.5, 0.2, 1), 1); aimBone(u.bones.RightArm, tdir.set(0.1 + r() * 0.6, 0.3, -1), 1);
-  aimBone(u.bones.LeftUpLeg, tdir.set(0.15, -1, 0.25 + r() * 0.2), 0.8); aimBone(u.bones.RightUpLeg, tdir.set(-0.1, -1, -0.2 - r() * 0.2), 0.8);
-  u.body.rotation.z = Math.PI / 2 * (r() < 0.5 ? 1 : -1); u.body.position.y = 4;
-  u.mixer.stopAllAction();
+  // 자세는 시체마다 해시로 — 같은 자리 시체는 늘 같은 자세
+  const hs = (Math.imul(Math.floor(c.x * 7 + c.y * 13), 2654435761) >>> 0), P = DEATH_POSES[hs % DEATH_POSES.length], jit = ((hs >>> 8) % 100) / 100 - 0.5;
+  for (const [bn, d] of Object.entries(P.b)) {
+    const flip = c.mirror ? -1 : 1;
+    aimBone(u.bones[bn], tdir.set(d[0] + jit * 0.2, d[1], d[2] * flip + jit * 0.15), 1);
+  }
+  if (P.spine) { lat.set(0, 0, -1); tiltBone(u.bones.Spine1, lat, -P.spine); tiltBone(u.bones.Neck, lat, -P.spine * 0.6); }
+  tiltBone(u.bones.Neck, YAX, (jit) * 1.4);                        // 고개가 한쪽으로 돌아간다
+  // stopAllAction 은 쓰지 않는다 — 동작을 끄는 순간 three.js 가 뼈를 묶음 자세(T)로 되돌려 시체가 모두 T 자로 누웠다.
+  // 동작은 멈춘(paused) 채 두고 섞개를 다시 돌리지 않으면 위에서 잡은 자세가 그대로 남는다
+  u.fall = { rz: P.rz, rx: P.rx * ((hs >>> 3) % 2 ? 1 : -1), y: P.y, yaw: (P.yaw || 0) + jit * 0.5 };
   return h;
+}
+/** 쓰러지는 동작 — 처음 0.45초는 무릎이 꺾이며 넘어지고, 바닥에 닿으면 한 번 튄다 */
+function fallPose(o, age) {
+  const f = o.userData.fall; if (!f) return;
+  const k = Math.min(1, age / 0.45), e = k * k, bounce = k >= 1 ? Math.max(0, Math.sin(Math.min(1, (age - 0.45) / 0.18) * Math.PI)) * 0.06 : 0;
+  const b = o.userData.body;
+  b.rotation.z = f.rz * (e - bounce); b.rotation.x = f.rx * (e - bounce);
+  b.position.y = f.y * e;
+  b.rotation.y = f.yaw * e;
 }
 
 let lastHT = -1;
@@ -2773,8 +2814,8 @@ function updateHumans(g, p) {
     let h = dyn.humans.get(z);
     if (!h) {
       const t = z.t, S = t.boss ? 2.3 : t.size >= 18 ? 1.55 : t.bloat ? 1.18 : t.scream ? 1.08 : t.speed > 100 ? 1 : 1.05;
-      if (rigs) { h = zombieRig(z); h.scale.setScalar(S); }
-      else { h = makeHuman(zombieLook(z)); h.scale.setScalar(S * 1.25); }
+      if (rigs) { h = zombieRig(z); h.scale.setScalar(S * CHAR_S); }
+      else { h = makeHuman(zombieLook(z)); h.scale.setScalar(S * 1.25 * CHAR_S); }
       dyn.humans.set(z, h); scene.add(h);
     }
     const d = Math.hypot(z.x - p.x, z.y - p.y);
@@ -2813,7 +2854,7 @@ function updateHumans(g, p) {
   }
   for (const [z, h] of dyn.humans) if (!seen.has(z)) { removeHuman(h); dyn.humans.delete(z); }
   // 플레이어
-  if (!player3 && rigs) { player3 = makePlayerRig(); player3.scale.setScalar(1.06); scene.add(player3); }
+  if (!player3 && rigs) { player3 = makePlayerRig(); player3.scale.setScalar(1.06 * CHAR_S); scene.add(player3); }
   if (player3 && player3.userData.rig) {
     player3.visible = !p.dead; if (pGun) pGun.visible = !p.dead;
     player3.position.set(p.x, 0, p.y); player3.rotation.y = -p.angle;
@@ -2828,7 +2869,7 @@ function updateHumans(g, p) {
     gun.children[1].rotation.z = Math.PI / 2;
     player3.userData.spine.add(gun);
     player3.add(part(GEO.box, mat('#3b3428'), -6.5, 30, 0, 5, 12, 10));   // 배낭
-    player3.scale.setScalar(1.3);
+    player3.scale.setScalar(1.3 * CHAR_S);
     // 플레이어만 옅은 윤곽광 — 어둠 속에서도 내가 어디 있는지 보인다(감염체는 어둠에 숨는다)
     const rimmed = new Map();
     player3.traverse(o => { if (o.isMesh && o.material.isMeshStandardMaterial) { if (!rimmed.has(o.material)) rimmed.set(o.material, enhance(o.material.clone(), false, '0.05, 0.08, 0.12')); o.material = rimmed.get(o.material); } });
@@ -2851,11 +2892,10 @@ function updateCorpses(g, near) {
         { top: c.hazmat ? '#d9d7cc' : c.top || '#5a5a50', pants: c.hazmat ? '#cfcdc2' : c.pants || '#2d3440', skin: '#8a8f7c', gore: true };
       if (CHAR.ready) {
         o = makeCorpseRig(c);
-        o.scale.setScalar(c.type === 'brute' ? 1.5 : c.type === 'behemoth' ? 2.2 : c.type === 'bloater' ? 1.2 : 1);
+        o.scale.setScalar(CHAR_S * (c.type === 'brute' ? 1.5 : c.type === 'behemoth' ? 2.2 : c.type === 'bloater' ? 1.2 : 1));
         o.rotation.y = -(c.a || 0) + Math.PI;
         dyn.corpses.set(c, o); scene.add(o);
         o.position.set(c.x, 0, c.y);
-        continue;
       }
       const h = makeHuman(look);
       const r = () => Math.random();
@@ -2864,11 +2904,13 @@ function updateCorpses(g, near) {
       h.userData.legL.a.rotation.x = 0.2 + r() * 0.3; h.userData.legR.a.rotation.x = -0.2 - r() * 0.3;
       o = new THREE.Group(); h.rotation.z = Math.PI / 2; h.position.set(-12, 4, 0); o.add(h);
       const S = c.type === 'brute' ? 1.5 : c.type === 'behemoth' ? 2.2 : c.type === 'bloater' ? 1.2 : 1;
-      o.scale.setScalar(S * 1.25);
+      o.scale.setScalar(S * 1.25 * CHAR_S);
       o.rotation.y = -(c.a || 0) + Math.PI;
       dyn.corpses.set(c, o); scene.add(o);
     }
     o.position.set(c.x, 0, c.y);
+    if (o.userData.fall && (c.age || 0) < 1) fallPose(o, c.age || 0);
+    else if (o.userData.fall && !o.userData.settled) { fallPose(o, 1); o.userData.settled = true; }
   }
   for (const [c, o] of dyn.corpses) if (!seen.has(c)) { scene.remove(o); dyn.corpses.delete(c); }
 }
@@ -2945,7 +2987,7 @@ function updatePickups(g, near) {
       if (pk.type && pk.type.startsWith('wpn_')) {
         // 떨어진 총 — 손에 드는 것과 같은 모형을 크게, 천천히 돌며 떠 있다
         const src = pGun && pGun.userData.guns[pk.type.slice(4)];
-        if (src) { const gm = src.clone(); gm.visible = true; gm.position.set(0, 9, 0); gm.scale.setScalar(1.7); const w = new THREE.Group(); w.add(gm); gm.position.x = -(src.userData.len || 20) * 0.6; o.add(w); }
+        if (src) { const gm = src.clone(); gm.visible = true; gm.position.set(0, 9, 0); gm.scale.setScalar(1.25); const w = new THREE.Group(); w.add(gm); gm.position.x = -(src.userData.len || 20) * 0.6; o.add(w); }
         else { o.add(part(GEO.box, mat('#20242a', { emissive: col('#f0b429'), emissiveIntensity: 0.6 }), 0, 6, 0, 22, 3, 4)); o.userData.fb = true; }
         if (!LT_PICK.includes(pk)) LT_PICK.push(pk);
       }

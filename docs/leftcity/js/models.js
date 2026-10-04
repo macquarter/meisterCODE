@@ -13,7 +13,7 @@ const MODELS = (() => {
   const TL = Math.sin(Math.PI / 3), UP = Math.cos(Math.PI / 3);
   /* 사람 크기 — 원작 예고편처럼 사람이 화면에서 또렷하게 서 보이도록 인형만 키우고(CS) 키를 조금 더 세운다(UPR).
      부딪힘 크기는 그대로다. 눈 · 총구 높이(headZ · HK)도 같은 배수를 쓴다 */
-  const CS = 1.3, UPR = UP * 1.22, HK = CS * 1.22;
+  const CS = 0.82, UPR = UP * 1.22, HK = CS * 1.22;
 
   /* ── 색 ── */
   const rgbC = new Map(), toneC = new Map();

@@ -334,6 +334,7 @@ class Zombie {
     if (this.t.weeper && !this.rage && this.hp > 0) this.enrage(g);
     if (this.screamPhase === 'wind') this.windT = Math.min(this.t.scream.wind, this.windT + this.t.scream.delay);
     this.flash = 0.07;                                        // 맞은 순간 하얗게
+    this.recoil = 0.28; this.hitAng = ang || 0;                // 맞은 쪽으로 몸이 젖혀진다(3D)
     if (this.type !== 'brute' && !this.t.boss) this.stagger = 0.09;
     // 넉백 — 맞은 방향으로 밀린다. 덩치는 덜 밀린다
     if (knock) {
@@ -425,6 +426,7 @@ class Zombie {
     const dx = p.x - this.x, dy = p.y - this.y;
     const d = Math.hypot(dx, dy) || 1;
     if (this.flash > 0) this.flash -= dt;
+    if (this.recoil > 0) this.recoil -= dt;
     if (this.t.weeper) { this.updateWeeper(dt, g, p, d, dx, dy); return; }
 
     // 감지: 소리 · 불빛 · 근접

@@ -20,32 +20,6 @@ const LEVELS = [
     supplies: { ammo: 3, shells: 0, medkit: 2, battery: 2, nade: 1 }
   },
   {
-    name: '젖은 골목',
-    brief: '광화문은 비어 있었다. 대신 무전기 9번 채널에서 낯선 목소리가 들려온다. ' +
-           '남산 아래로 가는 길에 군 보급 상자가 흩어져 있다 — 지금 챙기지 않으면 다음은 없다.',
-    goals: ['보급 상자 3개 확보', '확보 후 집결지로 이동'],
-    seed: 2207, blocks: 8, city: 'seoul', landmarks: ['namsan', 'gasstation'],
-    objective: { type: 'collect', count: 3, item: '보급 상자' },
-    spawn: { initial: 8, rate: 0.3, max: 18 },
-    mix: { walker: 0.85, runner: 0.15, brute: 0 },
-    own: ['pistol'], drops: ['smg', 'shotgun'],
-    startAmmo: { smg: 80, shell: 0 }, startNades: 2,
-    supplies: { ammo: 3, shells: 2, medkit: 2, battery: 2, nade: 2 }
-  },
-  {
-    name: '달리는 것들',
-    brief: '배는 한강 건너 선착장에 있다. 다리 위에는 버려진 차들뿐. 하루가 경고했다 — 느린 것들만 있는 게 아니라고. ' +
-           '어떤 것은 뛰고, 어떤 것은 바닥을 기어 불빛 아래로 들어오기 전까지 보이지 않는다.',
-    goals: ['한강을 건너 집결지까지 돌파'],
-    seed: 3319, weepers: 1, blocks: 10, city: 'seoul', river: true, landmarks: ['namsan', 'gwanghwamun'],
-    objective: { type: 'escape' },
-    spawn: { initial: 10, rate: 0.4, max: 22 },
-    mix: { walker: 0.55, runner: 0.3, brute: 0, crawler: 0.15, bloater: 0.06 },
-    own: ['pistol', 'smg'], drops: ['shotgun'],
-    startAmmo: { smg: 100, shell: 4 }, startNades: 3,
-    supplies: { ammo: 4, shells: 2, medkit: 2, battery: 3, nade: 2 }
-  },
-  {
     name: '마지막 수송',
     brief: '김 선장의 어선이 한강 하구의 대피 기지에 닿았다. 바다를 건너기엔 기름이 모자라고, 기지의 연료고는 잠겨 있다. ' +
            '출입 카드 세 장이 막사와 창고에 흩어져 있다. 대피를 지휘하던 곳이다 — 무엇이 이곳을 끝냈는지는 곧 보게 된다.',
@@ -57,32 +31,6 @@ const LEVELS = [
     own: ['pistol', 'shotgun'], drops: ['smg', 'rifle'],
     startAmmo: { smg: 100, shell: 8, rifle: 0 }, startNades: 3,
     supplies: { ammo: 4, shells: 3, rounds: 1, medkit: 2, battery: 3, nade: 3 }
-  },
-  {
-    name: '발전소 구역',
-    brief: '도쿄. 배는 스미다강 하구에 닿았다. 하루의 무선국은 아사쿠사의 셔터 내린 전파상 안에 있다. ' +
-           '발전기 연료가 떨어져 송신이 곧 끊긴다. 연료통 네 개. 발전기 소음은 저들을 부를 것이다.',
-    goals: ['연료통 4개 회수', '차단문으로 이동'],
-    seed: 4523, weepers: 1, blocks: 9, city: 'tokyo', river: true, landmarks: ['sensoji', 'tokyotower', 'railyard'],
-    objective: { type: 'collect', count: 4, item: '연료통' },
-    spawn: { initial: 12, rate: 0.5, max: 26 },
-    mix: { walker: 0.45, runner: 0.33, brute: 0.05, crawler: 0.17, bloater: 0.07, screamer: 0.04 },
-    own: ['pistol', 'smg'], drops: ['shotgun', 'rifle'],
-    startAmmo: { smg: 110, shell: 10, rifle: 6 }, startNades: 3,
-    supplies: { ammo: 4, shells: 3, rounds: 1, medkit: 2, battery: 3, nade: 2 }
-  },
-  {
-    name: '버텨라',
-    brief: '하루가 남쪽 선단의 교신을 잡았다. 마지막 배는 싱가포르에서 떠난다. 그곳으로 가는 화물선의 차단문은 ' +
-           '시부야 교차로에서 원격으로만 열린다. 90초. 사방이 트여 있다 — 그만큼 사방에서 온다.',
-    goals: ['90초 생존', '개방된 차단문으로 이동'],
-    seed: 5631, weepers: 1, blocks: 8, city: 'tokyo', landmarks: ['scramble', 'gasstation'], goal: 'scramble',
-    objective: { type: 'survive', time: 90 },
-    spawn: { initial: 9, rate: 0.55, max: 24 },
-    mix: { walker: 0.4, runner: 0.33, brute: 0.05, crawler: 0.14, spitter: 0.08, bloater: 0.08, screamer: 0.03 },
-    own: ['pistol', 'shotgun'], drops: ['smg', 'rifle'],
-    startAmmo: { smg: 130, shell: 14, rifle: 10 }, startNades: 3,
-    supplies: { ammo: 8, shells: 4, rounds: 2, medkit: 3, battery: 3, nade: 3 }
   },
   {
     name: '거대한 것',
@@ -98,20 +46,6 @@ const LEVELS = [
     supplies: { ammo: 8, shells: 4, rounds: 2, medkit: 4, battery: 3, nade: 3 }
   },
   {
-    name: '정전',
-    brief: '방콕. 하루의 중계가 새 목소리를 이어 주었다 — 강 건너 진료소의 간호사 녹. 진료소에는 배터리가 필요하다. ' +
-           '예비 배터리는 야시장 노점 사이에 흩어져 있다. 불빛이 꺼지면 방향도, 사격선도 사라진다.',
-    goals: ['예비 배터리 5개 회수', '집결지로 이동'],
-    seed: 7854, weepers: 2, blocks: 9, city: 'bangkok', landmarks: ['nightmarket', 'democracy', 'gasstation'],
-    objective: { type: 'collect', count: 5, item: '예비 배터리' },
-    spawn: { initial: 12, rate: 0.6, max: 28 },
-    mix: { walker: 0.3, runner: 0.33, brute: 0.13, crawler: 0.12, spitter: 0.12, bloater: 0.1, screamer: 0.06 },
-    own: ['pistol', 'smg'], drops: ['shotgun'],
-    startAmmo: { smg: 120, shell: 12, rifle: 10 }, startNades: 4,
-    supplies: { ammo: 6, shells: 3, rounds: 2, medkit: 3, battery: 2, nade: 3 },
-    batteryDrain: 1.9
-  },
-  {
     name: '기다리는 것',
     brief: '짜오프라야강 건너 왓 아룬 쪽에 진료소의 불빛이 보인다. 진짜 사람의 불빛이다. ' +
            '그런데 다리 앞에 무언가가 서 있다. 저것은 걷지 않는다 — 기다리고 있다.',
@@ -124,19 +58,6 @@ const LEVELS = [
     own: ['pistol', 'shotgun'], drops: ['smg', 'rifle'],
     startAmmo: { smg: 150, shell: 18, rifle: 20 }, startNades: 5,
     supplies: { ammo: 9, shells: 5, rounds: 3, medkit: 4, battery: 4, nade: 4 }
-  },
-  {
-    name: '남쪽의 신호',
-    brief: '싱가포르. 육로로 사흘. 새벽호는 응답이 없다 — 항구까지 전파가 닿지 않는다. 시내의 비상 중계기 세 대를 ' +
-           '다시 켜면 하루의 중계와 이어진다. 중계기는 켜지는 동안 소리를 낸다. 그 곁을 지켜야 한다.',
-    goals: ['중계기 3대 가동 — 켜질 때까지 곁에 머물 것', '가동 후 집결지로 이동'],
-    seed: 9173, weepers: 1, blocks: 8, city: 'singapore', river: true, landmarks: ['supertree', 'hawker', 'railyard'],
-    objective: { type: 'signal', count: 3, hold: 6 },
-    spawn: { initial: 11, rate: 0.55, max: 24 },
-    mix: { walker: 0.3, runner: 0.32, brute: 0.13, crawler: 0.11, spitter: 0.12, bloater: 0.1, screamer: 0.07 },
-    own: ['pistol', 'smg'], drops: ['shotgun', 'rifle'],
-    startAmmo: { smg: 130, shell: 14, rifle: 14 }, startNades: 4,
-    supplies: { ammo: 9, shells: 4, rounds: 2, medkit: 4, battery: 3, nade: 3 }
   },
   {
     name: '새벽호',
@@ -198,12 +119,12 @@ const LEVELS = [
   {
     name: '불의 땅',
     part: 2,
-    brief: '레이캬비크. 남쪽으로 가는 쇄빙선이 연료를 넣는 동안 항구를 비워야 한다. 땅이 갈라져 용암이 비친다 — ' +
-           '붉게 빛나는 금은 밟지 말 것. 저것들은 모른다. 그 위로 몰아넣어라.',
-    goals: ['감염체 35기 소탕', '교회 앞 집결지로 이동'],
-    seed: 14713, weepers: 1, blocks: 9, city: 'reykjavik', landmarks: ['hallgrim', 'geyser', 'gasstation'],
-    objective: { type: 'purge', count: 35 },
-    spawn: { initial: 12, rate: 0.57, max: 25 },
+    brief: '레이캬비크. 남쪽으로 가는 쇄빙선이 교회 아래 부두에서 기다린다. 도시는 갈라진 땅 위에 있다 — ' +
+           '붉게 빛나는 금은 밟지 말 것. 저것들은 모른다. 쫓아오는 것들을 그 위로 끌어들이며 건너라.',
+    goals: ['용암 지대를 지나 교회 앞 집결지까지'],
+    seed: 14713, weepers: 1, blocks: 9, city: 'reykjavik', landmarks: ['hallgrim', 'geyser', 'gasstation'], goal: 'hallgrim',
+    objective: { type: 'escape' },
+    spawn: { initial: 16, rate: 0.68, max: 28 },
     mix: { walker: 0.32, runner: 0.3, brute: 0.14, crawler: 0.1, spitter: 0.12, bloater: 0.08, screamer: 0.06 },
     own: ['pistol', 'shotgun'], drops: ['smg', 'rifle'],
     startAmmo: { smg: 150, shell: 20, rifle: 16 }, startNades: 5,
@@ -212,20 +133,21 @@ const LEVELS = [
   {
     name: '마지막 기지',
     part: 2,
-    brief: '남극. 감염이 닿지 않은 마지막 곳이라던 연구 기지는 조용했다. 헬기는 120초 뒤에 내린다. ' +
-           '얼음판 위에서는 멈추려 해도 미끄러진다 — 눈보라가 오면 불빛도 삼켜진다. 헬기장을 지켜라.',
-    goals: ['120초 생존', '헬기장으로 이동'],
+    brief: '남극. 감염이 닿지 않은 마지막 곳이라던 연구 기지는 조용했다. 헬기장까지 가서, 헬기가 내릴 때까지 버텨라. ' +
+           '얼음판 위에서는 멈추려 해도 미끄러진다 — 눈보라가 오면 불빛도 삼켜진다. 그리고 얼음 밑에서 무언가 올라온다.',
+    goals: ['헬기장으로 이동', '헬기가 내릴 때까지 헬기장을 지킬 것', '헬기에 탑승'],
     seed: 15821, weepers: 1, blocks: 9, city: 'antarctic', landmarks: ['station', 'icebreaker'], goal: 'station',
-    objective: { type: 'survive', time: 120 },
+    approach: 60,
+    objective: { type: 'finale', time: 70, bossAt: 38, place: '헬기장', holdMsg: '헬기가 온다 — {s}초 버텨라', hud: '헬기 착륙까지 {s}초 — 버텨라', go: '헬기장으로 가라', open: '헬기가 내렸다 — 올라타라', board: '헬기에 올라타라', row: '헬기', rowOpen: '착륙', rowGo: '헬기장으로 이동 중' },
     spawn: { initial: 12, rate: 0.64, max: 28 },
     mix: { walker: 0.3, runner: 0.32, brute: 0.14, crawler: 0.1, spitter: 0.12, bloater: 0.08, screamer: 0.06 },
     own: ['pistol', 'smg', 'shotgun'], drops: ['rifle'],
-    startAmmo: { smg: 170, shell: 20, rifle: 20 }, startNades: 5,
-    supplies: { ammo: 10, shells: 5, rounds: 3, medkit: 5, battery: 5, nade: 4 }
+    startAmmo: { smg: 230, shell: 28, rifle: 20 }, startNades: 6,
+    supplies: { ammo: 12, shells: 6, rounds: 3, medkit: 6, battery: 5, nade: 5 }
   }
 ];
 /** 1부(서울 → 싱가포르)의 마지막 장 — 여기를 마치면 1부 엔딩, 다음 장부터 2부 */
-const PART1_END = 10;
+const PART1_END = 4;
 
 /* 서바이벌: 웨이브가 끝없이 상승한다 */
 const SURVIVAL = {

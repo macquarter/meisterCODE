@@ -42,6 +42,16 @@ const I18N = (() => {
     '광화문': 'Gwanghwamun', '남산타워': 'Namsan Tower', '시부야 스크램블': 'Shibuya Scramble', '도쿄 타워': 'Tokyo Tower',
     '센소지': 'Senso-ji', '왓 아룬': 'Wat Arun', '민주기념탑': 'Democracy Monument', '야시장': 'Night Market',
     /* ── 2부: 새벽호의 항해 ── */
+    '용암 지대를 지나 교회 앞 집결지까지': 'Cross the lava field to the rally point by the church',
+    '헬기장으로 이동': 'Reach the helipad', '헬기가 내릴 때까지 헬기장을 지킬 것': 'Hold the helipad until the helicopter lands', '헬기에 탑승': 'Board the helicopter',
+    '헬기장': 'Helipad', '헬기가 온다 — {s}초 버텨라': 'The helicopter is coming — hold out {s}s', '헬기 착륙까지 {s}초 — 버텨라': '{s}s until the helicopter lands — hold out',
+    '헬기장으로 가라': 'Get to the helipad', '헬기가 내렸다 — 올라타라': 'The helicopter is down — get on', '헬기에 올라타라': 'Board the helicopter',
+    '헬기': 'Helicopter', '착륙': 'Landed', '헬기장으로 이동 중': 'Heading to the helipad',
+    '서바이벌 — 1부(5장) 완수 시 개방 ({n}/{t})': 'Survival — unlocks after Part 1, chapter 5 ({n}/{t})',
+    '레이캬비크. 남쪽으로 가는 쇄빙선이 교회 아래 부두에서 기다린다. 도시는 갈라진 땅 위에 있다 — 붉게 빛나는 금은 밟지 말 것. 저것들은 모른다. 쫓아오는 것들을 그 위로 끌어들이며 건너라.':
+      'Reykjavik. A southbound icebreaker waits at the pier below the church. The city sits on split ground — don\'t step on the glowing red cracks. They don\'t know better. Lead whatever follows you over them as you cross.',
+    '남극. 감염이 닿지 않은 마지막 곳이라던 연구 기지는 조용했다. 헬기장까지 가서, 헬기가 내릴 때까지 버텨라. 얼음판 위에서는 멈추려 해도 미끄러진다 — 눈보라가 오면 불빛도 삼켜진다. 그리고 얼음 밑에서 무언가 올라온다.':
+      'Antarctica. The research station, said to be the last place the infection hadn\'t reached, was silent. Get to the helipad and hold it until the helicopter lands. On the ice you slide even when you try to stop — the blizzard swallows your light. And something is coming up from under the ice.',
     '모래 더미': 'Sand drift', '얼음판': 'Ice sheet', '얕은 물': 'Shallow water', '용암 균열': 'Lava crack', '진흙': 'Mud',
     '발이 빠져 느려진다 — 감염체도 마찬가지': 'Your feet sink and you slow down — so do the infected',
     '멈추려 해도 미끄러진다 — 일찍 방향을 틀어라': 'You keep sliding when you try to stop — turn early',

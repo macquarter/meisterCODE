@@ -504,10 +504,16 @@ const Hints = (() => {
     crawler:  () => [T('기어다니는 것'), T('웅크렸다 튄다. 일정하게 다가오지 않는다')],
     spitter:  () => [T('뱉는 것'), T('거리를 두고 산을 뱉는다. 초록 웅덩이는 밟지 말 것')],
     behemoth: () => [T('그것'), T('붉은 선이 뜨면 옆으로 비켜라. 벽에 박으면 비틀거린다')],
-    screamer: () => [T('비명 지르는 것'), T('숨을 들이켜는 소리가 들리면 먼저 쏴라 — 비명을 지르면 무리가 온다')]
+    screamer: () => [T('비명 지르는 것'), T('숨을 들이켜는 소리가 들리면 먼저 쏴라 — 비명을 지르면 무리가 온다')],
+    // 2부의 땅 — 처음 밟는 순간
+    terr1:    () => [T('모래 더미'), T('발이 빠져 느려진다 — 감염체도 마찬가지')],
+    terr2:    () => [T('얼음판'), T('멈추려 해도 미끄러진다 — 일찍 방향을 틀어라')],
+    terr3:    () => [T('얕은 물'), T('모두가 느려진다 — 물가에서 싸우면 시간을 번다')],
+    terr4:    () => [T('용암 균열'), T('밟고 있으면 데인다 — 감염체를 그 위로 끌어들여라')],
+    terr5:    () => [T('진흙'), T('발이 빠져 느려진다 — 감염체도 마찬가지')]
   };
   // 지금 당장 알아야 하는 것은 줄 앞으로 끼워 넣는다
-  const URGENT = new Set(['bile', 'weeper', 'horde', 'melee', 'reload', 'nade', 'runner', 'brute', 'crawler', 'spitter', 'behemoth', 'screamer']);
+  const URGENT = new Set(['terr2', 'terr4', 'bile', 'weeper', 'horde', 'melee', 'reload', 'nade', 'runner', 'brute', 'crawler', 'spitter', 'behemoth', 'screamer']);
 
   const queue = [];
   let cur = null, t = 0, gap = 0;
@@ -547,6 +553,8 @@ const Hints = (() => {
       if (g.time > 0.6) push('move');
       if (g.time > 6) push('autofire');
       if (g.time > 24) push('sprint');
+      const tr = g.world.terrAt ? g.world.terrAt(p.x, p.y) : 0;
+      if (tr) push('terr' + tr);
       const w = p.weapon;
       if (!p.reloading && p.magOf(w) <= Math.ceil(w.mag * 0.34)) push('reload');
       if (p.battery < 30 && p.lightOn) push('battery');
@@ -676,6 +684,7 @@ const Ach = {
       if (g.time >= 600) this.unlock('surv10');
       const b = g.cityBests();
       if (['seoul', 'tokyo', 'bangkok', 'singapore'].every(c => b[c] && b[c].t >= 180)) this.unlock('cities');
+      if (Object.keys(SURVIVAL_CITIES).every(c => b[c] && b[c].t >= 180)) this.unlock('world');
       return;
     }
     if (!won) return;
@@ -863,13 +872,15 @@ const G = {
     this.combo = 0; this.comboMax = 0; this.lastKillT = -9; this.chHordeT = C && C.rules && C.rules.hordeEvery ? 6 : 0;
     this.level = L;
     this.world = new World(L.seed, L.blocks, cityOpts(L));
-    MODELS.military = !!this.world.theme.military;          // 기지의 감염체는 전투복 · 철모 차림이 많다
+    MODELS.military = !!this.world.theme.military;
+    MODELS.region = this.world.theme.key;
+    SFX.weather(this.world.theme.weather || 'rain');          // 기지의 감염체는 전투복 · 철모 차림이 많다
     Minimap.reset(this.world);
 
     const w = this.world;
     // 시작 무기는 난이도에 따라 — 체크포인트에서 이어 받을 때는 그때의 장비를 되살린다(아래)
     this.player = new Player(w.spawn.x, w.spawn.y, Object.assign({}, L, { own: startKit(L, this.difficulty || SETTINGS.difficulty) }));
-    this.sinceGun = 0;
+    this.sinceGun = 0; this.lavaKills = 0;
     this.player.angle = openingAngle(w, this.player);
     this.lastHurt = null;
     this.hitDirs = [];
@@ -1740,7 +1751,7 @@ const G = {
       p.walkPhase += dt * (p.sprinting ? 13 : 8) * Math.min(1, ml * 1.6);
       // 보폭이 반 바퀴 돌 때마다 한 걸음
       if (Math.floor(p.walkPhase / Math.PI) !== Math.floor(before / Math.PI))
-        SFX.step(p.sprinting, this.onPuddle(p.x, p.y));
+        SFX.step(p.sprinting, this.onPuddle(p.x, p.y), this.world.terrAt(p.x, p.y), this.world.theme.weather);
     }
     // 걸음 폭 — 멈추면 다리가 천천히 모인다
     const strideTo = !p.dead && (mx || my) ? Math.min(1, ml * 1.6) * (p.sprinting ? 1.25 : 1) : 0;
@@ -1812,6 +1823,7 @@ const G = {
     if (wx === 'sandstorm' || wx === 'blizzard') {
       const c = (this.time - 18) % 45, prev = this.storm || 0;
       this.storm = this.time < 18 ? 0 : c < 4 ? c / 4 : c < 16 ? 1 : c < 20 ? 1 - (c - 16) / 4 : 0;
+      SFX.storm(this.storm);
       if (prev === 0 && this.storm > 0) this.toast(wx === 'sandstorm' ? T('모래 폭풍이 온다 — 불빛이 반밖에 닿지 않는다') : T('눈보라가 온다 — 불빛이 반밖에 닿지 않는다'));
     } else this.storm = 0;
     // 용암 균열 — 밟고 있으면 데인다. 감염체도 데어 쓰러진다
@@ -1819,7 +1831,7 @@ const G = {
     if (onLava) acidDps = Math.max(acidDps, 6);
     if (w.terrain === 'lava') for (const z of this.zombies) if (!z.dead && !z.t.boss && w.terrAt(z.x, z.y) === 4) {
       z.hp -= 16 * dt; z.burnT = 0.3;
-      if (z.hp <= 0) z.hurt(1, Math.random() * 6.28, this, 0);
+      if (z.hp <= 0) { z.hurt(1, Math.random() * 6.28, this, 0); if (++this.lavaKills >= 10) Ach.unlock('lava'); }
     }
     // L4D 스피터처럼 서 있을수록 세진다 — 스쳐 지나가면 가볍고, 버티면 아프다
     p.inAcid = acidDps > 0 ? (p.inAcid || 0) + dt : Math.max(0, (p.inAcid || 0) - dt * 2);

@@ -1499,10 +1499,10 @@ const MAXP = 600, MAXDEC = 450, RAIN_N = 1400;
    장면을 HDR(반정밀도) 버퍼에 그리고 → 밝은 곳이 번지게(블룸) → 톤 매핑 · sRGB →
    마지막에 색 보정(어두운 곳은 청록, 밝은 곳은 따뜻하게) · 비네트 · 필름 그레인 · 가장자리 색 번짐 */
 const GradeShader = {
-  uniforms: { tDiffuse: { value: null }, uTime: { value: 0 }, uRes: { value: new THREE.Vector2(1, 1) }, uVig: { value: 0.55 }, uGrain: { value: 0.045 }, uLift: { value: 0 }, uSh: { value: new THREE.Vector3(0.82, 1.0, 1.14) }, uHi: { value: new THREE.Vector3(1.08, 1.0, 0.88) }, uExp: { value: 1.75 } },
+  uniforms: { tDiffuse: { value: null }, uTime: { value: 0 }, uRes: { value: new THREE.Vector2(1, 1) }, uVig: { value: 0.55 }, uGrain: { value: 0.045 }, uLift: { value: 0 }, uSh: { value: new THREE.Vector3(0.82, 1.0, 1.14) }, uHi: { value: new THREE.Vector3(1.08, 1.0, 0.88) }, uExp: { value: 1.75 }, uHaze: { value: new THREE.Vector4(0, 0, 0, 0) } },
   vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
   // 톤 매핑(ACES) · sRGB 변환까지 이 한 번에 — 전체 화면 패스를 하나 줄인다
-  fragmentShader: `uniform sampler2D tDiffuse; uniform float uTime, uVig, uGrain, uLift, uExp; uniform vec2 uRes; uniform vec3 uSh, uHi; varying vec2 vUv;
+  fragmentShader: `uniform sampler2D tDiffuse; uniform float uTime, uVig, uGrain, uLift, uExp; uniform vec2 uRes; uniform vec3 uSh, uHi; uniform vec4 uHaze; varying vec2 vUv;
     float h(vec2 p){ return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
     vec3 rrt(vec3 v){ vec3 a = v * (v + 0.0245786) - 0.000090537; vec3 b = v * (0.983729 * v + 0.4329510) + 0.238081; return a / b; }
     vec3 aces(vec3 c){
@@ -1519,6 +1519,9 @@ const GradeShader = {
       c = mix(c, c * uSh, (1.0 - smoothstep(0.0, 0.4, l)) * 0.6);
       c = mix(c, c * uHi, smoothstep(0.45, 1.0, l) * 0.45);
       c = c + uLift * (1.0 - c) * 0.06;
+      // 폭풍의 연무 — 가장자리일수록 짙고, 흩날리는 결이 흐른다. 가운데(플레이어 둘레)는 트여 있다
+      if (uHaze.a > 0.0) { float fl = 0.75 + 0.25 * sin(vUv.x * 9.0 + vUv.y * 4.0 + uTime * 2.6) * sin(vUv.y * 13.0 - uTime * 1.7);
+        c = mix(c, uHaze.rgb, uHaze.a * fl * (0.28 + 0.72 * smoothstep(0.01, 0.2, r2))); }
       c = (c - 0.5) * 1.07 + 0.5;
       c *= 1.0 - uVig * smoothstep(0.08, 0.62, r2 * 1.6);
       float n = h(floor(vUv * uRes) + fract(uTime * 7.3) * 91.0) - 0.5;
@@ -2797,6 +2800,7 @@ function updateParticles(g) {
   nadeMeshes.forEach((o, i) => { const gr = (g.grenades || [])[i]; o.visible = !!gr; if (gr) o.position.set(gr.x, 5, gr.y); });
 }
 
+const LT_PICK = [];
 const PICK_COL = { ammo: '#e8c04a', shells: '#d0503a', rounds: '#c08a3a', medkit: '#e8e8e0', battery: '#5ab0e8', nade: '#6a8a3a', goal: '#59b7d8', note: '#f0ece0' };
 function updatePickups(g, near) {
   const seen = new Set();
@@ -2804,10 +2808,17 @@ function updatePickups(g, near) {
     if (pk.dead || !near(pk.x, pk.y, 1000)) continue;
     seen.add(pk);
     let o = dyn.pickups.get(pk);
+    if (o && o.userData.fb && pGun) { scene.remove(o); dyn.pickups.delete(pk); o = null; }     // 총 모형이 준비되면 임시 상자를 바꾼다
     if (!o) {
       const c = PICK_COL[pk.type] || '#f0b429';
       o = new THREE.Group();
-      if (pk.type && pk.type.startsWith('wpn_')) o.add(part(GEO.box, mat('#20242a', { emissive: col('#f0b429'), emissiveIntensity: 0.6 }), 0, 6, 0, 22, 3, 4));
+      if (pk.type && pk.type.startsWith('wpn_')) {
+        // 떨어진 총 — 손에 드는 것과 같은 모형을 크게, 천천히 돌며 떠 있다
+        const src = pGun && pGun.userData.guns[pk.type.slice(4)];
+        if (src) { const gm = src.clone(); gm.visible = true; gm.position.set(0, 9, 0); gm.scale.setScalar(1.7); const w = new THREE.Group(); w.add(gm); gm.position.x = -(src.userData.len || 20) * 0.6; o.add(w); }
+        else { o.add(part(GEO.box, mat('#20242a', { emissive: col('#f0b429'), emissiveIntensity: 0.6 }), 0, 6, 0, 22, 3, 4)); o.userData.fb = true; }
+        if (!LT_PICK.includes(pk)) LT_PICK.push(pk);
+      }
       else if (pk.type === 'goal') o.add(part(GEO.box, mat(c, { emissive: col(c), emissiveIntensity: 0.9 }), 0, 7, 0, 12, 10, 12));
       else if (pk.type === 'note') o.add(part(GEO.box, mat(c, { emissive: col(c), emissiveIntensity: 0.4 }), 0, 1, 0, 10, 0.6, 13));
       else o.add(part(GEO.box, mat(c, { emissive: col(c), emissiveIntensity: 0.55 }), 0, 4, 0, 9, 7, 9));
@@ -2819,6 +2830,8 @@ function updatePickups(g, near) {
     o.children[0].rotation.y = g.time * 1.2;
   }
   for (const [pk, o] of dyn.pickups) if (!seen.has(pk)) { scene.remove(o); dyn.pickups.delete(pk); }
+  // 떨어진 총은 금빛으로 바닥을 비춰 멀리서도 보인다
+  for (let i = LT_PICK.length - 1; i >= 0; i--) { const pk = LT_PICK[i]; if (pk.dead || !seen.has(pk)) { LT_PICK.splice(i, 1); continue; } pushLight(pk.x, 14, pk.y, 90, tmpC.set(0xf0b429), 1.1 + Math.sin(g.time * 4) * 0.3); }
 }
 
 function updateMisc(g, p, w) {
@@ -2916,6 +2929,7 @@ function updateRain(g, p) {
   rain.position.set(camT.x, 0, camT.z - 200);
   // 폭풍 — 안개가 짙어지고 모래빛 · 눈빛으로 물든다
   scene.fog.density = K.fogD * (1 + st * 0.55);
+  grade.uniforms.uHaze.value.set(...(RAIN_KIND === 2 ? [0.42, 0.3, 0.17] : [0.5, 0.55, 0.62]), RAIN_KIND ? st * 0.55 : 0);
   if (RAIN_KIND) { scene.fog.color.setHex(K.fog).lerp(tmpC.set(RAIN_KIND === 2 ? 0x6a4a28 : 0x5a6470), st * 0.4); scene.background.copy(scene.fog.color); }
 }
 

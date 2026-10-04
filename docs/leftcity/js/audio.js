@@ -3,7 +3,9 @@
    외부 오디오 파일 없이 WebAudio 로 전부 합성한다.
    ═══════════════════════════════════════════ */
 const SFX = (() => {
-  let ctx = null, master = null, rainGain = null, rainSrc = null;
+  let ctx = null, master = null, rainGain = null, rainSrc = null, rainNodes = null, weather = 'rain', stormK = 0;
+  /** 날씨마다 배경 소음 — [고역 통과, 저역 통과, 크기]. 바람은 낮고 둥글게, 몬순은 크고 거칠게 */
+  const WX = { rain: [620, 5200, 0.13], monsoon: [520, 6400, 0.19], fog: [700, 3600, 0.07], snow: [120, 700, 0.07], blizzard: [140, 900, 0.1], sandstorm: [180, 1300, 0.09] };
   let drone = null;                   // { oscs, filt, gain, lfo } — 낮게 깔리는 위협음
   let noiseBuf = null, enabled = true;
 
@@ -201,22 +203,40 @@ const SFX = (() => {
       if (on && !rainSrc) {
         rainSrc = ctx.createBufferSource();
         rainSrc.buffer = noiseBuf; rainSrc.loop = true;
+        const W = WX[weather] || WX.rain;
         const hp = ctx.createBiquadFilter();
-        hp.type = 'highpass'; hp.frequency.value = 620;
+        hp.type = 'highpass'; hp.frequency.value = W[0];
         const lp = ctx.createBiquadFilter();
-        lp.type = 'lowpass'; lp.frequency.value = 5200;
+        lp.type = 'lowpass'; lp.frequency.value = W[1];
         rainGain = ctx.createGain(); rainGain.gain.value = 0.0;
         rainSrc.connect(hp); hp.connect(lp); lp.connect(rainGain);
         rainGain.connect(master);
+        // 바람 — 느린 LFO 가 저역 통과 주파수를 흔들어 돌풍이 지나간다
+        let lfo = null;
+        if (weather === 'snow' || weather === 'blizzard' || weather === 'sandstorm') {
+          lfo = ctx.createOscillator(); const amt = ctx.createGain();
+          lfo.frequency.value = 0.13; amt.gain.value = W[1] * 0.45;
+          lfo.connect(amt); amt.connect(lp.frequency); lfo.start();
+        }
+        rainNodes = { lp, lfo, base: W };
         rainSrc.start();
-        rainGain.gain.linearRampToValueAtTime(0.13, ctx.currentTime + 2.5);
+        rainGain.gain.linearRampToValueAtTime(W[2], ctx.currentTime + 2.5);
       } else if (!on && rainSrc) {
         rainGain.gain.linearRampToValueAtTime(0.0001, ctx.currentTime + 0.6);
-        const s = rainSrc; setTimeout(() => { try { s.stop(); } catch (e) {} }, 800);
-        rainSrc = null;
+        const s = rainSrc, l = rainNodes && rainNodes.lfo; setTimeout(() => { try { s.stop(); if (l) l.stop(); } catch (e) {} }, 800);
+        rainSrc = null; rainNodes = null;
       }
     },
 
+    /** 이번 판의 날씨 — 다음 rain(true) 부터 그 소리로 */
+    weather(kind) { if (kind !== weather && rainSrc) { this.rain(false); weather = kind; this.rain(true); } else weather = kind; },
+    /** 폭풍의 세기 0‒1 → 바람이 커지고 밝아진다 */
+    storm(k) {
+      if (!rainNodes || !ctx || Math.abs(k - stormK) < 0.05) return;
+      stormK = k; const t = ctx.currentTime, W = rainNodes.base;
+      rainGain.gain.setTargetAtTime(W[2] * (1 + k * 1.8), t, 0.5);
+      rainNodes.lp.frequency.setTargetAtTime(W[1] * (1 + k * 1.2), t, 0.5);
+    },
     shot()      { burst(0.16, 1500, 1.1, 0.34, 'lowpass', 0.11); tone(150, 0.1, 0.16, 'square', 48); },
     shotgun()   { burst(0.42, 850, 0.8, 0.55, 'lowpass', 0.34); tone(96, 0.26, 0.26, 'square', 34);
                   setTimeout(() => burst(0.1, 3000, 2.5, 0.06, 'bandpass', 0.09), 260); },
@@ -290,9 +310,16 @@ const SFX = (() => {
     },
 
     /* 발소리 — 젖은 아스팔트와 마른 보도를 구분한다 */
-    step(sprint, wet) {
+    /* 땅마다: 1 모래(사각) · 2 얼음(뽀득) · 3 물(첨벙) · 4 용암 겉껍질(바삭) · 5 진흙(철벅). 눈 도시의 보도는 눈 밟는 소리 */
+    step(sprint, wet, terr, wx) {
       const g = (sprint ? 0.055 : 0.032) * (wet ? 1.35 : 1);
-      if (wet) burst(0.13, 2600, 1.4, g, 'bandpass', 0.1);
+      if (terr === 3) { burst(0.22, 1300, 0.9, g * 1.9, 'bandpass', 0.18); burst(0.08, 3400, 2, g * 0.7, 'bandpass', 0.06); }
+      else if (terr === 5) { burst(0.18, 380, 1.2, g * 1.8, 'lowpass', 0.14); tone(90, 0.06, g * 0.4, 'sine', 60); }
+      else if (terr === 1) burst(0.14, 1800, 0.6, g * 1.1, 'highpass', 0.12);
+      else if (terr === 2) { burst(0.05, 4200, 3, g * 1.2, 'bandpass', 0.04); burst(0.05, 2800, 3, g * 0.8, 'bandpass', 0.04); }
+      else if (terr === 4) burst(0.09, 2200, 1.6, g * 1.2, 'bandpass', 0.07);
+      else if (wx === 'snow' || wx === 'blizzard') burst(0.11, 2400, 1.3, g * 1.1, 'bandpass', 0.09);
+      else if (wet) burst(0.13, 2600, 1.4, g, 'bandpass', 0.1);
       else     burst(0.08, 900, 1.1, g, 'lowpass', 0.06);
     },
 

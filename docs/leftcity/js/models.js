@@ -192,6 +192,13 @@ const MODELS = (() => {
   const PANTS = ['#2d3440', '#3b3a33', '#4a4234', '#24282e', '#3f4a5a', '#2f2a26'];
   const SKINS = ['#7d8a73', '#8a8f7c', '#9a9484', '#6f7d6a', '#8c8a78'];
   const HAIRS = ['#1a1714', '#2e2620', '#4a4038', '#121212', null];
+  const REGION_WEAR = {
+    varanasi: { top: ['#c9822a', '#d8cfb8', '#8a3a4a', '#e2dccb', '#3a6a8a', '#b8402a', '#d9b040'], pants: ['#d0c8b4', '#6a5a48', '#e0dccb'], long: 0.35 },
+    cairo: { top: ['#c8bca0', '#8a8070', '#3a4a5a', '#d8d0bc', '#5a4a3a', '#e4e0d4'], pants: ['#4a4234', '#6a6050'], long: 0.6, hood: 0.3 },
+    venice: { top: ['#2a2a34', '#5a2a2a', '#3a3a2a', '#6a6050', '#1e2a3a'], pants: ['#1e2024', '#2f2a26', '#3a3a40'], long: 0.1 },
+    reykjavik: { top: ['#c8c0b0', '#4a5a6a', '#6a4a3a', '#2a3a4a', '#8a3a2a'], pants: ['#24282e', '#2d3440'], long: 0, hood: 0.4 },
+    antarctic: { top: ['#c83a2a', '#d8642a', '#e0b030', '#2a4a8a', '#c8402e'], pants: ['#2a2e34', '#1e2226'], long: 0.2, hood: 0.8 }
+  };
   function lookOf(z) {
     if (z.look) return z.look;
     const r = () => Math.random();
@@ -208,6 +215,12 @@ const MODELS = (() => {
     else if (api.military && (z.type === 'walker' || z.type === 'runner' || z.type === 'crawler') && r() < 0.5) {
       z.look.top = pick(['#4a5236', '#525a3c', '#43492f']); z.look.pants = pick(['#3e4430', '#454a34']);
       z.look.helmet = z.type !== 'crawler' && r() < 0.8; if (z.look.helmet) z.look.hair = null;
+    }
+    // 2부의 지역 — 그곳 사람들의 옷차림 (긴 옷은 위아래가 같은 색)
+    else if (REGION_WEAR[api.region] && !z.t.boss && !z.t.weeper && !z.t.bloat && r() < 0.75) {
+      const Rw = REGION_WEAR[api.region], long = r() < Rw.long;
+      z.look.top = pick(Rw.top); z.look.pants = long ? z.look.top : pick(Rw.pants);
+      if (Rw.hood && r() < Rw.hood) z.look.hair = null;
     }
     return z.look;
   }
@@ -675,7 +688,7 @@ const MODELS = (() => {
 
   /* 화면에서 높이 h(세계 px)는 세계 y 로 h·UP/TL 만큼 위 */
   const ZK = UP / TL;
-  const api = { zombie, player, corpse, prop, decor, STANDING, headZ, lookOf, box, tone, ZK, TL, UP, CS, HK, lod: 0, military: false, outline: true,
+  const api = { zombie, player, corpse, prop, decor, STANDING, headZ, lookOf, box, tone, ZK, TL, UP, CS, HK, lod: 0, military: false, region: null, outline: true,
                 light: { x: -0.55, y: -0.8, k: 0 } };   // 그릴 인형의 빛 방향(화면 단위) · 손전등을 받는 정도
   return api;
 })();

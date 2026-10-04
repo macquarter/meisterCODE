@@ -42,6 +42,11 @@ const I18N = (() => {
     '광화문': 'Gwanghwamun', '남산타워': 'Namsan Tower', '시부야 스크램블': 'Shibuya Scramble', '도쿄 타워': 'Tokyo Tower',
     '센소지': 'Senso-ji', '왓 아룬': 'Wat Arun', '민주기념탑': 'Democracy Monument', '야시장': 'Night Market',
     /* ── 2부: 새벽호의 항해 ── */
+    '모래 더미': 'Sand drift', '얼음판': 'Ice sheet', '얕은 물': 'Shallow water', '용암 균열': 'Lava crack', '진흙': 'Mud',
+    '발이 빠져 느려진다 — 감염체도 마찬가지': 'Your feet sink and you slow down — so do the infected',
+    '멈추려 해도 미끄러진다 — 일찍 방향을 틀어라': 'You keep sliding when you try to stop — turn early',
+    '모두가 느려진다 — 물가에서 싸우면 시간을 번다': 'Everyone slows down — fighting at the water\'s edge buys time',
+    '밟고 있으면 데인다 — 감염체를 그 위로 끌어들여라': 'Standing on it burns — lure the infected over it',
     '바라나시': 'Varanasi', '카이로': 'Cairo', '베네치아': 'Venice', '레이캬비크': 'Reykjavik', '남극 기지': 'Antarctic Station',
     '갠지스강': 'Ganges', '나일강': 'Nile', '대운하': 'Grand Canal',
     '기자의 피라미드': 'Pyramids of Giza', '사원': 'Mosque', '계단 연못': 'Stepped Pool', '시카라 사원': 'Shikhara Temple',

@@ -507,7 +507,7 @@ const Modal = {
   /** 열린 모달을 닫는다(Esc · 게임패드 B) — 닫았으면 true */
   close() {
     if (!$('homeAsk').classList.contains('hidden')) { this.homeAnswer(false); return true; }
-    if ($('viewSheet') && !$('viewSheet').classList.contains('hidden')) { ViewSheet.close(); return true; }
+    if (SetLive.on && !$('scrSettings').classList.contains('hidden')) { $('scrSettings').querySelector('[data-act="setback"]').click(); return true; }
     if (!$('layoutEd').classList.contains('hidden')) { TLayout.close(); return true; }
     return false;
   }
@@ -515,50 +515,56 @@ const Modal = {
 $('btnHudHome').addEventListener('click', e => { e.stopPropagation(); SFX.click(); Modal.askHome(); });
 $('btnHudPause').addEventListener('click', e => { e.stopPropagation(); SFX.click(); if (G.state === 'play') G.togglePause(); });
 
-/* 시점 거리 — 끄는 대로 뒤의 3D 화면이 바로 바뀐다(모달 아래가 실제 화면).
-   게임 중(일시정지)이면 그 장면을, 타이틀에서 열면 미리 보기 판을 잠깐 띄운다 */
-const ViewSheet = {
-  from: null, preview: false,
+/* 설정 — 3D 판에서는 오른쪽(세로 화면은 아래쪽) 판으로 열리고, 나머지 자리에 실제 3D 화면이 그대로 보인다.
+   시점 거리처럼 화면이 달라지는 설정을 끄는 대로 바로 확인한다. 게임 중(일시정지)이면 그 장면을, 타이틀에서 열면
+   멈춘 미리 보기 판을 띄운다(기록 · 진행에 남지 않음). 카메라는 보이는 자리의 가운데에 인물이 오도록 비켜 준다 */
+const SetLive = {
+  on: false, preview: false,
+  live: () => !!(window.R3D && window.R3D.ok && window.R3D.setFocus),
   open() {
-    if (!$('viewSheet')) return;
-    this.from = $('scrSettings').classList.contains('hidden') ? 'pause' : 'settings';
-    this.back = UI.settingsFrom;
-    if (G.state !== 'pause') {
-      this.preview = true;
-      G.start('survival');                    // 정지된 채 그리기만 한다 — 기록 · 진행에는 남지 않는다
-      G.state = 'pause';
-      clearTimeout(G.cityCardT); $('cityCard').classList.remove('show');
-    }
-    UI.hideScreens();
+    if (!this.live()) return;
+    const scr = $('scrSettings');
+    this.on = true;
+    scr.classList.add('live');
+    scr.dataset.preview = T('미리 보기');
     $('hud').classList.add('hidden'); $('touch').classList.add('hidden');
-    $('viewSheet').classList.remove('hidden');
-    this.sync();
+    this.focus();
+    if (G.state !== 'pause') {
+      // 타이틀 — 판을 하나 띄운다. 무거운 준비(도시 · 덩어리)라 설정 판이 먼저 그려지도록 한 박자 뒤에
+      scr.classList.add('loading');
+      setTimeout(() => {
+        if (!this.on || G.state === 'pause') return;
+        this.preview = true;
+        G.start('survival');
+        G.state = 'pause';
+        clearTimeout(G.cityCardT); $('cityCard').classList.remove('show');
+        $('hud').classList.add('hidden'); $('touch').classList.add('hidden');
+        UI.show('scrSettings'); scr.classList.remove('loading');
+        SFX.ambience(false); SFX.menuMusic(true);
+      }, 60);
+    }
   },
-  sync() {
-    const v = SETTINGS.get('view3d');
-    $('viewRange').value = v; $('viewVal').textContent = v;
-    for (const b of document.querySelectorAll('[data-view]')) b.classList.toggle('on', +b.dataset.view === v);
+  /** 보이는 자리(설정 판 바깥)의 가운데 — 화면 비율 좌표 */
+  focus() {
+    if (!this.on) return;
+    const port = innerHeight > innerWidth * 1.05;
+    if (port) window.R3D.setFocus(0.5, (1 - 0.58) / 2);
+    else { const pw = Math.min(440, innerWidth * 0.48) / innerWidth; window.R3D.setFocus((1 - pw) / 2, 0.5); }
   },
   close() {
-    $('viewSheet').classList.add('hidden');
-    UI.settingsFrom = this.back;
+    if (!this.on) return;
+    this.on = false;
+    $('scrSettings').classList.remove('live', 'loading');
+    if (window.R3D && window.R3D.setFocus) window.R3D.setFocus(null);
     if (this.preview) {
       this.preview = false;
-      G.state = 'title'; SFX.ambience(false); SFX.menuMusic(true);
-      UI.syncSettings(); UI.show('scrSettings');
-      return;
-    }
-    $('hud').classList.remove('hidden'); $('touch').classList.toggle('hidden', !isTouch);
-    if (this.from === 'settings') { UI.syncSettings(); UI.show('scrSettings'); } else UI.showPause();
+      G.state = 'title'; SFX.ambience(false);
+      UI.settingsFrom = 'scrTitle';
+    } else if (G.state === 'pause') { $('hud').classList.remove('hidden'); $('touch').classList.toggle('hidden', !isTouch); }
   }
 };
-if ($('viewSheet')) {
-  $('viewRange').addEventListener('input', e => { SETTINGS.set('view3d', +e.target.value); ViewSheet.sync(); });
-  $('viewSheet').addEventListener('click', e => {
-    const b = e.target.closest('[data-view]');
-    if (b) { SFX.click(); SETTINGS.set('view3d', +b.dataset.view); ViewSheet.sync(); }
-  });
-}
+window.addEventListener('resize', () => SetLive.focus());
+if ($('setView')) $('setView').addEventListener('input', e => { SETTINGS.set('view3d', +e.target.value); $('setViewVal').textContent = e.target.value; });
 
 /* 버튼 배치 — 터치 버튼을 끌어 옮긴다. 자리는 화면 비율 좌표(가운데 점)로 가로 · 세로 화면을 따로 기억하고,
    기억이 없는 버튼은 CSS 의 기본 자리에 둔다. 스틱은 엄지가 닿는 곳에 생기므로 옮길 것이 없다 */
@@ -5086,15 +5092,27 @@ const UI = {
     SFX.menuMusic(true);
     const b = G.bestSurvival();
     $('bestSurvival').textContent = b ? T('{m}분 {s}초', { m: Math.floor(b / 60), s: b % 60 }) : '—';
+    $('recordChip').title = T('서바이벌 최고 기록');
+    /* 타이틀 — 글자 대신 아이콘. 큰 버튼 하나(이어서 할 곳까지 보여 준다) · 모드 넷 · 도구 넷.
+       잠긴 모드는 자물쇠와 진행 숫자만 두고, 여는 조건은 툴팁 · 화면 낭독기로 */
+    const prog = G.progress(), next = Math.min(prog, LEVELS.length - 1), L = LEVELS[next];
+    const ck = L && L.city, city = ck && CITY_LOCAL[ck] ? (I18N.lang === 'en' ? CITY_LOCAL[ck].replace(/[가-힣·]+\s*/g, '').trim() : CITY_LOCAL[ck]) : '';
+    $('playLabel').textContent = prog > 0 ? T('이어하기') : T('시작');
+    $('playSub').textContent = `CH ${next + 1}${city ? ' · ' + city : ''}`;
+    $('btnPlay').setAttribute('aria-label', `${$('playLabel').textContent} — CHAPTER ${next + 1}`);
+    const lock = (btn, chip, open, n, t, why) => {
+      btn.disabled = !open; chip.hidden = open;
+      chip.querySelector('b').textContent = t ? `${n}/${t}` : '';
+      btn.title = open ? '' : why;
+      btn.setAttribute('aria-label', btn.querySelector('span').textContent + (open ? '' : ' — ' + why));
+    };
     // 원작처럼 서바이벌은 이야기를 끝까지 본 뒤에 열린다
-    const open = G.survivalOpen();
-    $('btnSurvival').disabled = !open;
-    $('btnSurvival').textContent = open ? T('서바이벌') : T('서바이벌 — 1부(5장) 완수 시 개방 ({n}/{t})', { n: Math.min(G.progress(), SURVIVAL_UNLOCK), t: SURVIVAL_UNLOCK });
-    const cOpen = G.challengeOpen();
-    $('btnChallenge').disabled = !cOpen;
-    $('btnChallenge').textContent = cOpen ? T('도전') : T('도전 — 2장 완수 시 개방');
+    lock($('btnSurvival'), $('lockSurvival'), G.survivalOpen(), Math.min(prog, SURVIVAL_UNLOCK), SURVIVAL_UNLOCK, T('1부(5장)를 마치면 열린다'));
+    lock($('btnChallenge'), $('lockChallenge'), G.challengeOpen(), Math.min(prog, 2), 2, T('2장을 마치면 열린다'));
     const nr = Records.all().length;
-    $('btnJournal').textContent = T('기록 · 도전 과제 {n}/{t} · ★{a}', { n: nr, t: STORY.records.length, a: Ach.count() });
+    $('journalBadge').textContent = `${nr}/${STORY.records.length}`;
+    $('btnJournal').title = T('기록 {n}/{t} · 도전 과제 ★{a}', { n: nr, t: STORY.records.length, a: Ach.count() });
+    $('btnJournal').setAttribute('aria-label', $('btnJournal').title);
     this.show('scrTitle');
   },
   buildChapters() {
@@ -5305,7 +5323,7 @@ const UI = {
     $('setBright').value = SETTINGS.brightness;
     $('setBrightVal').textContent = SETTINGS.brightness;
     $('setDiffNote').textContent = `${T(SETTINGS.mod.name)} — ${T(SETTINGS.mod.note)}`;
-    if ($('setViewVal')) $('setViewVal').textContent = SETTINGS.get('view3d');
+    if ($('setView')) { $('setView').value = SETTINGS.get('view3d'); $('setViewVal').textContent = SETTINGS.get('view3d'); }
     for (const b of document.querySelectorAll('.tog[data-set]'))
       b.setAttribute('aria-pressed', String(!!SETTINGS.get(b.dataset.set)));
     const n = Hints.seenCount;
@@ -5461,10 +5479,11 @@ document.addEventListener('click', e => {
       break;
     case 'settings':
       UI.settingsFrom = G.state === 'pause' ? 'scrPause' : 'scrTitle';
-      UI.syncSettings(); UI.show('scrSettings'); break;
+      UI.syncSettings(); UI.show('scrSettings'); SetLive.open(); break;
     case 'hintsreset':
       Hints.reset(); UI.syncSettings(); break;
     case 'setback':
+      SetLive.close();
       if (UI.settingsFrom === 'scrPause') UI.showPause();
       else UI.enterMenu();
       break;
@@ -5492,8 +5511,6 @@ document.addEventListener('click', e => {
     case 'resume':   G.togglePause(); break;
     case 'homeno':   Modal.homeAnswer(false); break;
     case 'homeyes':  Modal.homeAnswer(true); break;
-    case 'view':     ViewSheet.open(); break;
-    case 'viewdone': ViewSheet.close(); break;
     case 'layout':   TLayout.open(); break;
     case 'layoutdone': TLayout.close(); break;
     case 'layoutreset': TLayout.reset(); break;
@@ -5694,7 +5711,7 @@ G.darkLevel = () => darkLevel(G);
 /** 3D 판이 읽는 화면 정보 — 논리 화면 크기 · 확대 · 기울기 없는 원래 손전등 원뿔 반각 */
 G.view = () => ({ W, H, ZOOM, DPR });
 G.tex = TEX;
-window.G = G;
+window.G = G; window.LC_INPUT = input;   // 자동 점검(프레임 단위 동작 확인)이 입력을 넣을 때 쓴다
 window.UI = UI;
 window.Records = Records;
 window.Ach = Ach;

@@ -91,6 +91,61 @@ const SFX = (() => {
     o.start(t); o.stop(t + dur + 0.03);
   }
 
+  /* ── 목소리 합성 — 감염체 · 사람의 소리 ─────────────
+     예전엔 네모 · 톱니 파형을 그대로 내보내 오래된 게임기(패미콤) 같은 '삐' 소리가 났다.
+     이제 목청을 흉내 낸다: 떨리는(지터) 성대 소리 + 쉰 숨소리(잡음)를 목 안에서 거칠게 찌그러뜨리고(포화),
+     모음의 공명(포먼트 셋)을 지나 입 밖으로. 낮게 긁히는 떨림(보컬 프라이)은 진폭을 30Hz 언저리로 흔들어 낸다 */
+  const VOWEL = { a: [730, 1090, 2440], o: [570, 840, 2410], u: [320, 870, 2240], uh: [520, 1190, 2390], e: [530, 1840, 2480], ae: [660, 1720, 2410] };
+  let satCurve = null, voices = 0;
+  function voice(o) {
+    if (!enabled || !ctx) return;
+    const gain = o.gain || 0.1;
+    if (!(gain > SILENT) || voices >= 8) return;          // 한꺼번에 여덟 목소리까지 — 무리 속에서 소리가 뭉개지지 않게
+    voices++;
+    const t = ctx.currentTime + (o.delay || 0), dur = o.dur || 0.6, f0 = o.f0 || 110, f1 = o.f1 || f0 * 0.7;
+    const size = o.size || 1, v0 = VOWEL[o.vowel || 'uh'], v1 = VOWEL[o.to || o.vowel || 'uh'];
+    // 성대 — 톱니에 두 겹의 느린 · 빠른 흔들림
+    const src = ctx.createOscillator(); src.type = 'sawtooth';
+    src.frequency.setValueAtTime(f0, t); src.frequency.exponentialRampToValueAtTime(Math.max(25, f1), t + dur);
+    const jit = [[4 + Math.random() * 3, 0.035], [11 + Math.random() * 9, 0.02]].map(([hz, d]) => {
+      const l = ctx.createOscillator(), lg = ctx.createGain(); l.frequency.value = hz; lg.gain.value = f0 * d * (o.shake || 1);
+      l.connect(lg); lg.connect(src.frequency); return l;
+    });
+    // 숨 · 쉰 소리
+    const ns = ctx.createBufferSource(); ns.buffer = noiseBuf; ns.playbackRate.value = 0.9 + Math.random() * 0.3;
+    const nf = ctx.createBiquadFilter(); nf.type = 'bandpass'; nf.frequency.value = 1300 * size; nf.Q.value = 0.6;
+    const ng = ctx.createGain(); ng.gain.value = o.rasp === undefined ? 0.5 : o.rasp;
+    const vg = ctx.createGain(); vg.gain.value = 1 - Math.min(0.8, (o.rasp || 0) * 0.5);
+    // 목 — 부드럽게 찌그러뜨린다(배음이 늘어 거칠어진다)
+    if (!satCurve) { satCurve = new Float32Array(1024); for (let i = 0; i < 1024; i++) { const x = i / 512 - 1; satCurve[i] = Math.tanh(x * 2.6); } }
+    const sh = ctx.createWaveShaper(); sh.curve = satCurve;
+    const pre = ctx.createGain(); pre.gain.value = 0.5;
+    src.connect(vg); vg.connect(pre); ns.connect(nf); nf.connect(ng); ng.connect(pre); pre.connect(sh);
+    // 모음 공명 셋 — 몸집이 크면(size<1) 낮게
+    const sum = ctx.createGain(); sum.gain.value = 1;
+    [1, 0.55, 0.25].forEach((k, i) => {
+      const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.Q.value = 5 + i * 2;
+      bp.frequency.setValueAtTime(v0[i] * size, t); bp.frequency.linearRampToValueAtTime(v1[i] * size, t + dur * 0.8);
+      const bg = ctx.createGain(); bg.gain.value = k * 2.2; sh.connect(bp); bp.connect(bg); bg.connect(sum);
+    });
+    // 보컬 프라이 — 진폭을 거칠게 흔든다
+    const env = ctx.createGain(), fry = ctx.createGain(); fry.gain.value = 1;
+    const fl = ctx.createOscillator(), flg = ctx.createGain(); fl.frequency.value = (o.fry || 28) + Math.random() * 8; flg.gain.value = o.fryAmt === undefined ? 0.35 : o.fryAmt;
+    fl.connect(flg); flg.connect(fry.gain);
+    const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = (o.bright || 3200) * size;
+    sum.connect(fry); fry.connect(lp); lp.connect(env);
+    const att = o.attack || 0.05;
+    env.gain.setValueAtTime(0.0001, t);
+    env.gain.exponentialRampToValueAtTime(gain, t + att);
+    env.gain.setValueAtTime(gain, t + Math.max(att, dur * (o.hold || 0.45)));
+    env.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    outTo(env);
+    src.onended = () => { voices = Math.max(0, voices - 1); };
+    try { for (const n of [src, ns, fl, ...jit]) { n.start(t); n.stop(t + dur + 0.06); } } catch (e) { voices = Math.max(0, voices - 1); }
+  }
+  /** 거리 감쇠된 목소리 — n 이 너무 작으면 내지 않는다 */
+  function voiceAt(n, o) { if (n > 0.02) voice(Object.assign({}, o, { gain: (o.gain || 0.1) * n })); }
+
   /* ── 적응형 음악 ──────────────────────────
      Dead Space 의 "공포 발신기"·L4D 의 무리 음악처럼, 연출가의 긴장도에 따라 층을 쌓는다.
        숨 고르기 — 드문드문 떨어지는 피아노 음 (가라앉은 단조 분산화음)
@@ -237,13 +292,13 @@ const SFX = (() => {
       rainGain.gain.setTargetAtTime(W[2] * (1 + k * 1.8), t, 0.5);
       rainNodes.lp.frequency.setTargetAtTime(W[1] * (1 + k * 1.2), t, 0.5);
     },
-    shot()      { burst(0.16, 1500, 1.1, 0.34, 'lowpass', 0.11); tone(150, 0.1, 0.16, 'square', 48); },
-    shotgun()   { burst(0.42, 850, 0.8, 0.55, 'lowpass', 0.34); tone(96, 0.26, 0.26, 'square', 34);
+    shot()      { burst(0.16, 1500, 1.1, 0.34, 'lowpass', 0.11); tone(150, 0.1, 0.2, 'sine', 48); },
+    shotgun()   { burst(0.42, 850, 0.8, 0.55, 'lowpass', 0.34); tone(96, 0.26, 0.3, 'sine', 34);
                   setTimeout(() => burst(0.1, 3000, 2.5, 0.06, 'bandpass', 0.09), 260); },
-    rifle()     { burst(0.5, 2200, 0.9, 0.5, 'lowpass', 0.2); tone(70, 0.3, 0.3, 'square', 30);
+    rifle()     { burst(0.5, 2200, 0.9, 0.5, 'lowpass', 0.2); tone(70, 0.3, 0.34, 'sine', 30);
                   setTimeout(() => burst(0.9, 600, 0.6, 0.1, 'lowpass', 0.7), 60);      // 골목에 울리는 꼬리
                   setTimeout(() => burst(0.06, 2400, 3, 0.07, 'bandpass', 0.05), 520); },  // 노리쇠
-    pistol()    { burst(0.13, 1100, 1.0, 0.22, 'lowpass', 0.09); tone(120, 0.08, 0.1, 'square', 44); },
+    pistol()    { burst(0.13, 1100, 1.0, 0.22, 'lowpass', 0.09); tone(120, 0.08, 0.13, 'sine', 44); },
     dry()       { burst(0.05, 3200, 3, 0.1, 'bandpass', 0.04); },
     hitFlesh(d) { burst(0.1, 420, 0.9, 0.2 * near(d), 'lowpass', 0.08); },
     hitWall(d)  { burst(0.07, 2600, 2.4, 0.14 * near(d), 'bandpass', 0.06); },
@@ -254,10 +309,10 @@ const SFX = (() => {
     reload()    { burst(0.07, 1800, 2.6, 0.12, 'bandpass', 0.06);
                   setTimeout(() => burst(0.09, 1150, 2.0, 0.10, 'bandpass', 0.08), 130); },
     reloadDone(){ burst(0.06, 2700, 3.2, 0.13, 'bandpass', 0.05);
-                  setTimeout(() => tone(640, 0.05, 0.05, 'square'), 55); },
-    melee()     { burst(0.14, 520, 1.1, 0.18, 'lowpass', 0.11); tone(112, 0.09, 0.08, 'square', 52); },
+                  setTimeout(() => tone(640, 0.05, 0.05, 'triangle'), 55); },
+    melee()     { burst(0.14, 520, 1.1, 0.18, 'lowpass', 0.11); tone(112, 0.09, 0.1, 'sine', 52); },
     meleeHit(d) { burst(0.22, 300, 0.8, 0.26 * near(d), 'lowpass', 0.18);
-                  tone(84, 0.14, 0.12 * near(d), 'square', 38); },
+                  tone(84, 0.14, 0.15 * near(d), 'sine', 38); },
     /**
      * 바닥에 깔리는 저음 드론. 살짝 어긋난 두 톱니파를 저역 통과시키고,
      * 느린 LFO 로 필터를 흔들어 숨 쉬듯 움직이게 한다. 긴장도에 따라 열린다.
@@ -325,20 +380,20 @@ const SFX = (() => {
 
     /* 그것 — 포효 · 돌진 · 벽 충돌 */
     roar(d)     { const n = Math.max(0.35, near(d));
-                  tone(42, 1.5, 0.3 * n, 'sawtooth', 24);
-                  tone(63, 1.2, 0.17 * n, 'square', 31);
+                  voice({ f0: 70, f1: 42, dur: 1.6, gain: 0.5 * n, vowel: 'a', to: 'o', size: 0.62, rasp: 0.9, fry: 22, fryAmt: 0.55, attack: 0.12, hold: 0.55 });
+                  tone(46, 1.4, 0.22 * n, 'sine', 30);                     // 가슴을 울리는 저음
                   burst(1.4, 240, 0.7, 0.26 * n, 'lowpass', 1.3); },
     charge(d)   { const n = Math.max(0.3, near(d));
                   burst(0.6, 420, 0.8, 0.3 * n, 'lowpass', 0.55);
-                  tone(96, 0.5, 0.14 * n, 'sawtooth', 58); },
+                  voice({ f0: 95, f1: 60, dur: 0.6, gain: 0.3 * n, vowel: 'a', to: 'uh', size: 0.7, rasp: 0.8, fryAmt: 0.5 }); },
     slam(d)     { const n = Math.max(0.3, near(d));
                   burst(0.8, 180, 0.6, 0.46 * n, 'lowpass', 0.7);
-                  tone(54, 0.6, 0.26 * n, 'square', 22); },
+                  tone(54, 0.6, 0.3 * n, 'sine', 24); },
 
     /* 뱉는 것 — 젖은 토악질과 산이 지글거리는 소리 */
     spit(d)     { const n = near(d); if (n <= 0.02) return;
                   burst(0.2, 900, 1.6, 0.16 * n, 'bandpass', 0.16);
-                  tone(210, 0.16, 0.08 * n, 'sawtooth', 90); },
+                  voice({ f0: 170, f1: 95, dur: 0.28, gain: 0.16 * n, vowel: 'e', to: 'uh', rasp: 1.1, fryAmt: 0.6, attack: 0.02 }); },
     spitHit(d)  { const n = near(d); if (n <= 0.02) return;
                   burst(0.5, 2200, 0.9, 0.14 * n, 'highpass', 0.46); },
 
@@ -350,56 +405,42 @@ const SFX = (() => {
     horde(d, rel) {
       if (!enabled || !ctx) return;
       const n = Math.max(0.45, near(d * 0.6));
-      const pan = ctx.createStereoPanner ? ctx.createStereoPanner() : null;
-      const out = pan || master;
-      if (pan) { pan.pan.value = Math.max(-0.9, Math.min(0.9, Math.cos(rel) * 0.9)); pan.connect(master); }   // rel: 화면 기준 방향각
-      const t0 = ctx.currentTime;
-      for (let i = 0; i < 6; i++) {
-        const at = t0 + i * 0.11 + Math.random() * 0.15;
-        const o = ctx.createOscillator(), g = ctx.createGain(), f = ctx.createBiquadFilter();
-        o.type = 'sawtooth';
-        const f0 = 330 + Math.random() * 260;
-        o.frequency.setValueAtTime(f0, at);
-        o.frequency.exponentialRampToValueAtTime(f0 * 0.42, at + 0.7);
-        f.type = 'bandpass'; f.frequency.value = 900; f.Q.value = 0.8;
-        g.gain.setValueAtTime(0.0001, at);
-        g.gain.exponentialRampToValueAtTime(0.09 * n, at + 0.05);
-        g.gain.exponentialRampToValueAtTime(0.0001, at + 0.75);
-        o.connect(f); f.connect(g); g.connect(out);
-        o.start(at); o.stop(at + 0.8);
+      // 여러 목이 겹쳐 지르는 소리 — 저마다 높이 · 모음 · 시작이 다르다
+      const keep = srcPan; srcPan = Math.max(-0.9, Math.min(0.9, Math.cos(rel) * 0.9));
+      for (let i = 0; i < 5; i++) {
+        const f0 = 220 + Math.random() * 200;
+        voice({ delay: i * 0.12 + Math.random() * 0.15, f0, f1: f0 * 0.5, dur: 0.8 + Math.random() * 0.4, gain: 0.12 * n, vowel: ['a', 'ae', 'o'][i % 3], to: 'uh', rasp: 0.8, size: 0.9 + Math.random() * 0.2, fryAmt: 0.45 });
       }
+      srcPan = keep;
       burst(1.6, 140, 0.7, 0.3 * n, 'lowpass', 1.5);              // 수많은 발이 구르는 땅울림
-      tone(55, 1.2, 0.12 * n, 'sawtooth', 41);                    // 불협 저음
-      tone(58.3, 1.2, 0.1 * n, 'sawtooth', 43);
+      tone(55, 1.2, 0.14 * n, 'sine', 41);
     },
 
     /** 우는 것의 흐느낌 — 내려가는 두 음과 숨. 깨어날수록 높고 빠르다 */
     sob(d, k) {
       const n = near(d * 0.75); if (n <= 0.02) return;
-      const f = 520 + k * 260;
-      tone(f, 0.38, 0.05 * n, 'triangle', f * 0.72);
-      setTimeout(() => tone(f * 0.9, 0.5, 0.045 * n, 'triangle', f * 0.6), 330);
+      const f = 330 + k * 180;                                        // 여자 목소리 높이 — 들썩이는 흐느낌 두 번과 숨
+      voice({ f0: f, f1: f * 0.72, dur: 0.42, gain: 0.14 * n, vowel: 'uh', to: 'u', size: 1.18, rasp: 0.55, shake: 2.2, fryAmt: 0.2, attack: 0.03 });
+      voice({ delay: 0.36, f0: f * 0.92, f1: f * 0.6, dur: 0.55, gain: 0.12 * n, vowel: 'o', to: 'u', size: 1.18, rasp: 0.6, shake: 2.5, fryAmt: 0.2 });
       burst(0.3, 1400, 1.2, 0.03 * n, 'bandpass', 0.28);
     },
     /** 우는 것이 깨어날 때 — 찢어지는 비명 */
     wail(d) {
       const n = Math.max(0.5, near(d));
-      tone(600, 1.1, 0.2 * n, 'sawtooth', 1500);
-      tone(612, 1.1, 0.14 * n, 'square', 1480);
-      burst(0.9, 2400, 0.8, 0.18 * n, 'bandpass', 0.85);
+      voice({ f0: 520, f1: 980, dur: 1.2, gain: 0.32 * n, vowel: 'a', to: 'ae', size: 1.2, rasp: 0.8, shake: 1.6, fryAmt: 0.3, attack: 0.04, hold: 0.6, bright: 4200 });
+      burst(0.9, 2400, 0.8, 0.14 * n, 'bandpass', 0.85);
     },
     /** 비명 지르는 것 — 숨을 길게 들이켜는 소리 (예고) */
     inhale(d) {
       const n = Math.max(0.35, near(d));
       burst(1.5, 700, 1.2, 0.12 * n, 'bandpass', 1.5);
-      tone(180, 1.5, 0.05 * n, 'sawtooth', 420);
+      burst(1.2, 1600, 2.2, 0.06 * n, 'bandpass', 1.1);                // 좁은 목으로 빨려 드는 바람 소리
     },
     /** 비명 — 높고 길게 찢어지는 소리 */
     scream(d) {
       const n = Math.max(0.55, near(d));
-      tone(880, 1.4, 0.2 * n, 'sawtooth', 1250);
-      tone(905, 1.4, 0.14 * n, 'square', 1210);
-      burst(1.2, 3000, 0.7, 0.2 * n, 'bandpass', 1.1);
+      voice({ f0: 640, f1: 900, dur: 1.4, gain: 0.32 * n, vowel: 'ae', to: 'a', size: 1.12, rasp: 0.95, shake: 1.4, fryAmt: 0.35, attack: 0.03, hold: 0.7, bright: 4600 });
+      burst(1.2, 3000, 0.7, 0.16 * n, 'bandpass', 1.1);
     },
     /** 부푼 것 — 배 속에서 끓는 소리 */
     gurgle(d) {
@@ -410,7 +451,7 @@ const SFX = (() => {
     /** 부푼 것이 터질 때 */
     burst(d) { const n = Math.max(0.3, near(d)); burst(0.6, 380, 0.7, 0.4 * n, 'lowpass', 0.5); tone(90, 0.3, 0.16 * n, 'sine', 40); },
     /** 담즙을 뒤집어쓸 때 */
-    splat() { burst(0.5, 900, 0.8, 0.22, 'bandpass', 0.45); tone(140, 0.4, 0.1, 'sawtooth', 60); },
+    splat() { burst(0.5, 900, 0.8, 0.22, 'bandpass', 0.45); tone(140, 0.4, 0.1, 'sine', 60); },
 
     /** 차량 경보 — 두 음을 번갈아 6초. 거리에 따라 작아진다 */
     alarm(d) {
@@ -424,17 +465,21 @@ const SFX = (() => {
       setTimeout(() => burst(0.4, 480, 0.8, 0.05, 'bandpass', 0.36), 620);
     },
 
+    /* 감염체 — 목이 막힌 듯 낮게 그르렁 · 뛰는 것은 쉰 비명 · 쓰러질 때 숨이 빠지는 소리. 매번 높이 · 모음 · 길이가 다르다 */
     growl(d)  { const n = near(d); if (n <= 0.02) return;
-                tone(64 + Math.random() * 34, 0.5 + Math.random() * 0.35,
-                     0.1 * n, 'sawtooth', 34 + Math.random() * 20);
-                burst(0.42, 300, 0.8, 0.06 * n, 'lowpass', 0.4); },
+                const f0 = 85 + Math.random() * 45;
+                voiceAt(n, { f0, f1: f0 * (0.55 + Math.random() * 0.2), dur: 0.6 + Math.random() * 0.5, gain: 0.36, vowel: ['uh', 'o', 'a'][Math.random() * 3 | 0], to: 'u', size: 0.82 + Math.random() * 0.15, rasp: 0.75, fryAmt: 0.5, attack: 0.08 });
+                burst(0.42, 300, 0.8, 0.04 * n, 'lowpass', 0.4); },
     screech(d){ const n = near(d); if (n <= 0.02) return;
-                tone(420 + Math.random() * 180, 0.35, 0.12 * n, 'sawtooth', 130); },
-    zombieDie(d){ burst(0.34, 500, 0.7, 0.16 * near(d), 'lowpass', 0.3);
-                  tone(96, 0.3, 0.07 * near(d), 'sawtooth', 40); },
+                const f0 = 300 + Math.random() * 140;
+                voiceAt(n, { f0, f1: f0 * 0.55, dur: 0.4 + Math.random() * 0.2, gain: 0.3, vowel: 'a', to: 'uh', rasp: 1.0, fryAmt: 0.4, attack: 0.02, bright: 4200 }); },
+    zombieDie(d){ const n = near(d); burst(0.34, 500, 0.7, 0.14 * n, 'lowpass', 0.3);
+                  voiceAt(n, { f0: 120 + Math.random() * 30, f1: 55, dur: 0.5, gain: 0.28, vowel: 'o', to: 'u', size: 0.85, rasp: 0.85, fryAmt: 0.6, attack: 0.02, hold: 0.2 }); },
 
-    hurt()      { burst(0.3, 700, 0.8, 0.3, 'lowpass', 0.26); tone(180, 0.24, 0.14, 'sawtooth', 70); },
-    death()     { tone(220, 1.5, 0.26, 'sawtooth', 32); burst(1.3, 420, 0.6, 0.24, 'lowpass', 1.2); },
+    hurt()      { burst(0.3, 700, 0.8, 0.22, 'lowpass', 0.26);
+                  voice({ f0: 165 + Math.random() * 25, f1: 120, dur: 0.24, gain: 0.3, vowel: 'uh', to: 'u', rasp: 0.45, fryAmt: 0.25, attack: 0.015, hold: 0.25 }); },
+    death()     { voice({ f0: 190, f1: 70, dur: 1.4, gain: 0.24, vowel: 'a', to: 'u', rasp: 0.6, fryAmt: 0.45, attack: 0.03, hold: 0.3 });
+                  burst(1.3, 420, 0.6, 0.24, 'lowpass', 1.2); },
     pickup()    { tone(720, 0.11, 0.15, 'triangle'); setTimeout(() => tone(1080, 0.13, 0.13, 'triangle'), 70); },
     /** 무전 — 잡음이 치고 송신 끝 삑 소리 */
     radio(end) {
@@ -444,7 +489,7 @@ const SFX = (() => {
     /** 중계기 — 가동하는 동안 짧은 삑, 다 켜지면 높은 두 음 */
     relay(done) {
       if (done) { tone(880, 0.12, 0.12, 'triangle'); setTimeout(() => tone(1320, 0.22, 0.12, 'triangle'), 120); }
-      else tone(660, 0.05, 0.05, 'square');
+      else tone(660, 0.05, 0.05, 'triangle');
     },
     /** 뱃고동 — 낮게 길게 */
     horn() { tone(98, 2.2, 0.22, 'sawtooth', 92); tone(147, 2.2, 0.1, 'sawtooth', 140); },
@@ -453,7 +498,7 @@ const SFX = (() => {
     win()       { [523, 659, 784, 1046].forEach((f, i) => setTimeout(() => tone(f, 0.42, 0.15, 'triangle'), i * 150)); },
     thunder()   { burst(2.0, 190, 0.6, 0.34, 'lowpass', 1.9); tone(48, 1.4, 0.14, 'sine', 22); },
     click()     { burst(0.04, 2400, 2, 0.08, 'bandpass', 0.035); },
-    beep()      { tone(880, 0.08, 0.1, 'square'); },
+    beep()      { tone(880, 0.08, 0.1, 'triangle'); },
     /** 적이 가까울수록 강해지는 심장박동 — 트레일러의 마지막 장면 */
     heartbeat(intensity) {
       const v = 0.05 + 0.13 * intensity;

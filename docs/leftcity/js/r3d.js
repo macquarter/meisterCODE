@@ -2015,10 +2015,14 @@ function makeRipples() {
   const m = new THREE.ShaderMaterial({
     uniforms: dust.material.uniforms,
     vertexShader: `attribute vec3 off; uniform vec3 uApex, uDir, uOrigin; uniform float uCos, uRange, uTime; varying vec2 vUv; varying float vK, vA;
-      void main(){ vUv = uv; float ph = fract(uTime * 1.3 + off.z); vK = ph;
-        float cyc = floor(uTime * 1.3 + off.z);
-        vec2 jit = vec2(fract(sin(cyc * 12.9 + off.z * 78.2) * 437.5), fract(sin(cyc * 39.3 + off.z * 11.1) * 951.7)) - 0.5;
-        vec3 c = vec3(uOrigin.x + mod(off.x + jit.x * 160.0 + 350.0, 700.0) - 350.0, 0.7, uOrigin.z + mod(off.y + jit.y * 160.0 + 350.0, 700.0) - 350.0);
+      void main(){ vUv = uv;
+        // 물방울마다 제 박자(초당 1.0‒1.6 번)로, 한 번 튈 때마다 둘레 700 안의 새 자리에 — 같은 자리에 되풀이해 떨어지지 않게
+        float rate = 1.0 + fract(off.x * 0.0137 + off.y * 0.0071) * 0.6, tt = uTime * rate + off.z;
+        float ph = fract(tt); vK = ph;
+        float cyc = floor(tt);
+        vec2 jit = vec2(fract(sin(cyc * 12.9898 + off.z * 78.233) * 43758.5453), fract(sin(cyc * 39.346 + off.z * 11.135) * 24634.6345));
+        vec2 wp = off.xy + jit * 700.0;                       // 세계 좌표의 자리 — 걸어도 물방울 자리가 따라오지 않게
+        vec3 c = vec3(uOrigin.x + mod(wp.x - uOrigin.x + 350.0, 700.0) - 350.0, 0.7, uOrigin.z + mod(wp.y - uOrigin.z + 350.0, 700.0) - 350.0);
         vec3 v = c - uApex; float d = length(v);
         vA = (0.03 + 1.1 * smoothstep(uCos, uCos + 0.06, dot(v / max(d, 0.001), uDir)) * clamp(1.0 - d / uRange, 0.0, 1.0)) * (1.0 - ph);
         vec3 p = c + position * (2.5 + ph * 7.0);
@@ -2231,12 +2235,20 @@ function size() {
   VIEW.fov = 2 * Math.atan(Math.tan(FOV / 2 * Math.PI / 180) * Math.pow(r, 0.45)) * 180 / Math.PI;
   camera.fov = lensFov();
   VIEW.dist = Math.pow(r, 0.2);
-  // 세로 터치 화면은 사람을 조금 위(42%)에 둔다 — 아래쪽은 엄지가 가린다(2D 판과 같은 높이)
+  applyFocus(SW, SH);
+}
+/** 인물이 화면 어디에 오는가(비율 좌표). 세로 터치 화면은 조금 위(42%) — 아래쪽은 엄지가 가린다(2D 판과 같은 높이).
+    설정 판이 열려 있으면 판 바깥 자리의 가운데(R3D.setFocus) */
+function applyFocus(SW, SH) {
+  if (!camera) return;
+  SW = SW || (window.STAGE && window.STAGE.w) || innerWidth; SH = SH || (window.STAGE && window.STAGE.h) || innerHeight;
   const touch = matchMedia && matchMedia('(pointer: coarse)').matches;
-  if (touch && a < 1) camera.setViewOffset(SW, SH, 0, SH * 0.08, SW, SH); else camera.clearViewOffset();
+  const [fx, fy] = VIEW.focus || [0.5, touch && SW < SH ? 0.42 : 0.5];
+  if (fx !== 0.5 || fy !== 0.5) camera.setViewOffset(SW, SH, SW * (0.5 - fx), SH * (0.5 - fy), SW, SH); else camera.clearViewOffset();
   camera.updateProjectionMatrix();
 }
-const VIEW = { dist: 1, fov: FOV, vz: 0 };
+R3D.setFocus = (fx, fy) => { VIEW.focus = fx === null || fx === undefined ? null : [fx, fy]; applyFocus(); };
+const VIEW = { dist: 1, fov: FOV, vz: 0, focus: null };
 /* 시점 거리(설정 0‒100) → 배율. 100 = 1(가장 멀리), 0 = 0.34(인물이 약 3배).
    0.62 까지는 카메라를 당기고(입체감), 그보다 가까이는 렌즈를 좁힌다 — 더 당기면 카메라가 높은 건물
    지붕보다 낮아져 남쪽 건물이 사람을 가린다 */
@@ -2313,7 +2325,7 @@ R3D.unproject = (sx, sy) => {
   return ray.ray.intersectPlane(plane, hit) ? [hit.x, hit.z] : null;
 };
 R3D.info = () => renderer ? { chunks: chunks.size, calls: renderer.info.render.calls, tris: renderer.info.render.triangles, programs: renderer.info.programs.length, level: PERF.level, ms: Math.round(PERF.ema), failed: R3D.failed } : null;
-R3D._dbg = () => ({ CHAR, dyn, THREE, renderer, scene, camera, moon, hemi, spot, bloom, grade, MAT, CL, PERF });
+R3D._dbg = () => ({ CHAR, dyn, THREE, renderer, scene, camera, moon, hemi, spot, bloom, grade, MAT, CL, PERF, makeRig, blendRig, player: player3 });
 R3D.hide = () => { if (cv) cv.style.display = 'none'; };
 /** 판 준비 — '시작'을 누른 그 순간(브리핑 화면이 떠 있는 동안) 도시 · 둘레 덩어리 25 개 · 인물 · 첫 그림을 모두 마친다.
     예전엔 이 일이 게임 화면이 뜬 뒤의 첫 프레임들에 나뉘어 몰려 시작하자마자 여러 번 멈칫했다 */
@@ -2696,12 +2708,15 @@ const fwd = new THREE.Vector3(), lat = new THREE.Vector3(), tdir = new THREE.Vec
 /** 좀비 자세 — 앞으로 뻗은 팔 · 구부정한 등 · 꺾인 고개 · 종류별 변형 */
 function poseZombieRig(h, z, g, dt) {
   const u = h.userData, t = z.t, B = u.bones;
-  const sp = Math.hypot(z.vx || 0, z.vy || 0) || (z.aggro ? t.speed : t.speed * 0.4);
-  const moving = sp > 6 && !(t.weeper && !z.rage);
+  const sp = u.spd || 0;
   const runner = t.speed > 100 || z.rage;
-  blendRig(h, !moving ? 'idle' : runner && z.aggro ? 'run' : 'walk', 6, dt, runner && z.aggro ? Math.max(0.7, sp / 105) : Math.max(0.45, sp / 40));
+  // 쫓을 때 걷는 것도 원작처럼 세 배 가까이 빨라진다(초당 140 남짓) — 그 빠르기면 걷기 동작으로는 발이 70% 미끄러져 뛴다
+  const [clip, ts] = (t.weeper && !z.rage) ? ['idle', 1] : gaitFor(u, sp, h.scale.x, z.aggro && !t.crawl);
+  const moving = clip !== 'idle';
+  blendRig(h, clip, 11, dt, ts);
   h.updateMatrixWorld(true);
-  fwd.set(Math.cos(z.face), 0, Math.sin(z.face)); lat.set(fwd.z, 0, -fwd.x);
+  const face = u.yaw !== undefined ? -u.yaw : z.face;                // 화면에 보이는(부드럽게 돈) 방향 기준
+  fwd.set(Math.cos(face), 0, Math.sin(face)); lat.set(fwd.z, 0, -fwd.x);
   const seed = (z.x * 0.013 + z.y * 0.007) % 1;
   // 등 · 고개
   const hunch = t.boss ? 0.25 : runner ? 0.45 : 0.32 + seed * 0.15;
@@ -2749,7 +2764,7 @@ function poseZombieRig(h, z, g, dt) {
   if (u.eyes) {
     const on = z.aggro || (t.weeper && z.startle > 0.5);
     u.eyes.visible = on && !!B.Head;
-    if (on && B.Head) { B.Head.getWorldPosition(bv); u.eyes.position.copy(bv).addScaledVector(fwd, 3.4 * h.scale.x).addScaledVector(YAX, 1.2 * h.scale.x); u.eyes.rotation.y = -z.face; u.eyes.scale.setScalar(h.scale.x); }
+    if (on && B.Head) { B.Head.getWorldPosition(bv); u.eyes.position.copy(bv).addScaledVector(fwd, 3.4 * h.scale.x).addScaledVector(YAX, 1.2 * h.scale.x); u.eyes.rotation.y = -face; u.eyes.scale.setScalar(h.scale.x); }
   }
 }
 /** 좀비 생김새 → 몸체 · 무늬 */
@@ -2835,9 +2850,32 @@ function reachArm(up, lo, hand, out, w = 1) {
 }
 function posePlayerRig(h, p, g, dt) {
   const u = h.userData, B = u.bones;
-  const sp = p.stride || 0, moving = sp > 0.05;
-  blendRig(h, !moving ? 'idle' : p.sprinting ? 'run' : 'walk', 8, dt, p.sprinting ? 1.05 : 1.15);
+  /* 하체와 상체를 나눈다 — 다리는 실제로 움직이는 쪽으로 걷고(뒤로 물러서면 뒷걸음), 상체가 비틀려 손전등 쪽을 겨눈다.
+     예전엔 몸 전체가 손전등 방향으로 홱 돌고 걷기 동작은 늘 앞으로만 재생돼, 옆 · 뒤로 움직이거나 자동 조준이 적을
+     따라 돌 때 다리가 허공을 걸으며 미끄러졌다. 재생 속도도 실제 이동 속도에 맞춘다(예전엔 고정값이라 발이 80% 미끄러짐) */
+  trackMotion(u, p.x, p.y, undefined, dt);
+  const sp = p.dead ? 0 : u.spd, aim = p.angle;
+  if (u.root === undefined) u.root = aim;
+  let back = false;
+  if (sp > 12) {
+    const m = Math.atan2(u.vy, u.vx);
+    back = Math.abs(wrapA(aim - m)) > 1.95;              // 겨눈 쪽과 110° 넘게 반대로 움직이면 뒷걸음
+    const base = back ? m + Math.PI : m;
+    u.root = turnToward(u.root, base + Math.max(-0.12, Math.min(0.12, wrapA(aim - base))), 11 * dt);   // 다리는 움직이는 쪽에서 7° 이내, 나머지는 허리를 비튼다
+    u.turning = false;
+  } else {
+    // 서 있을 때 — 발은 두고 상체만 돌리다가 40° 넘게 틀어지면 발을 옮겨 몸을 돌린다
+    const off = wrapA(aim - u.root);
+    if (Math.abs(off) > 0.7 || u.turning) { u.turning = Math.abs(off) > 0.08; u.root = turnToward(u.root, aim, 7 * dt); }
+  }
+  h.rotation.y = -u.root;
+  let [clip, ts] = gaitFor(u, sp, h.scale.x, true);
+  if (clip === 'run') ts = Math.min(2.5, sp / (NAT_SPEED.xbot.run * h.scale.x));
+  if (u.turning && clip === 'idle') { clip = 'walk'; ts = 0.55; }   // 제자리에서 발을 옮겨 돈다
+  blendRig(h, clip, 12, dt, back ? -ts : ts);
   h.updateMatrixWorld(true);
+  const twist = wrapA(aim - u.root);
+  if (Math.abs(twist) > 0.002) { for (const b of [B.Spine, B.Spine1, B.Spine2]) tiltBone(b, YAX, -twist / 3); h.updateMatrixWorld(true); }
   fwd.set(Math.cos(p.angle), 0, Math.sin(p.angle)); lat.set(fwd.z, 0, -fwd.x);
   const melee = p.meleeAnim > 0 ? Math.sin((1 - p.meleeAnim / 0.2) * Math.PI) : 0;
   const key = (p.weapon && p.weapon.key) || 'pistol', long = key !== 'pistol', S = h.scale.x;
@@ -2912,6 +2950,31 @@ function fallPose(o, age) {
   b.rotation.y = f.yaw * e;
 }
 
+/* 움직임 재기 — 몸체가 실제로 얼마나 빨리 움직이는지(위치 차이)와, 바라보는 쪽을 부드럽게.
+   예전엔 감염체의 걸음 빠르기를 종류별 고정값으로 정해 막혀 서 있어도 제자리걸음을 했고, 길을 비켜 가며 방향이
+   0.55 라디안씩 끊겨 바뀌는 대로 몸이 홱홱 돌았다 */
+function trackMotion(u, x, y, yawTo, dt, turn) {
+  if (u.px === undefined) { u.px = x; u.py = y; u.spd = 0; u.vx = 0; u.vy = 0; u.yaw = yawTo; return; }
+  const dx = x - u.px, dy = y - u.py, dd = Math.hypot(dx, dy);
+  u.px = x; u.py = y;
+  if (dt > 0 && dd < 60) {                               // 이어 붙은 지도의 가장자리를 넘으면(순간 이동) 무시
+    const k = Math.min(1, dt * 10);
+    u.vx += (dx / dt - u.vx) * k; u.vy += (dy / dt - u.vy) * k;
+    u.spd = Math.hypot(u.vx, u.vy);
+  }
+  if (yawTo !== undefined) u.yaw = turnToward(u.yaw, yawTo, turn * Math.max(dt, 0.001));
+}
+function wrapA(a) { return Math.atan2(Math.sin(a), Math.cos(a)); }
+function turnToward(a, b, max) { const d = wrapA(b - a); return a + Math.max(-max, Math.min(max, d)); }
+/** 동작마다 제 빠르기(키 50 기준, 발이 바닥을 밀어내는 속도 — 클립을 재어 얻은 값). 이것으로 재생 속도를 정해 발이 미끄러지지 않게 */
+const NAT_SPEED = { xbot: { walk: 43, run: 92 }, soldier: { walk: 44, run: 100 } };
+function gaitFor(u, sp, sc, canRun) {
+  const nat = NAT_SPEED[u.kind] || NAT_SPEED.xbot;
+  if (sp < 6) return ['idle', 1];
+  const clip = canRun && sp > nat.walk * sc * 1.7 ? 'run' : 'walk';
+  return [clip, Math.max(0.35, Math.min(clip === 'run' ? 2.4 : 2.2, sp / (nat[clip] * sc)))];
+}
+
 let lastHT = -1;
 function updateHumans(g, p) {
   const seen = new Set();
@@ -2931,7 +2994,8 @@ function updateHumans(g, p) {
     const d = Math.hypot(z.x - p.x, z.y - p.y);
     const vis = Math.max(z.lit, Math.min(1, Math.max(0, (180 - d) / 60)), g.lightning * 1.4, z.t.boss ? 0.5 : 0);
     h.visible = d < 1300;
-    h.position.set(z.x, 0, z.y); h.rotation.y = -z.face;
+    trackMotion(h.userData, z.x, z.y, -z.face, dt, z.t.boss ? 5 : 8);
+    h.position.set(z.x, 0, z.y); h.rotation.y = h.userData.yaw;
     const t = z.t, ph = z.phase, aggro = !!z.aggro;
     if (h.userData.rig) {
       // 멀리 있는 것은 동작을 덜 자주 갱신한다
@@ -2967,7 +3031,7 @@ function updateHumans(g, p) {
   if (!player3 && rigs) { player3 = makePlayerRig(); player3.scale.setScalar(1.06 * CHAR_S); scene.add(player3); }
   if (player3 && player3.userData.rig) {
     player3.visible = !p.dead; if (pGun) pGun.visible = !p.dead;
-    player3.position.set(p.x, 0, p.y); player3.rotation.y = -p.angle;
+    player3.position.set(p.x, 0, p.y);
     posePlayerRig(player3, p, g, dt);
     return;
   }
@@ -3197,20 +3261,31 @@ function resetRain() {
   for (let i = 0; i < RAIN_N; i++) { const o = i * 6; a[o + 3] = a[o] + sx; a[o + 4] = a[o + 1] + sy; a[o + 5] = a[o + 2]; }
   rainGeo.attributes.position.needsUpdate = true;
 }
+let rainT = -1;
 function updateRain(g, p) {
-  const a = rainGeo.attributes.position.array, dt = 1 / 60, st = g.storm || 0, K = curWorld ? kitOf(curWorld) : KIT.seoul;
+  /* 빗줄기는 세계 좌표에 둔다 — 예전엔 카메라에 붙은 상자 안에서 떨어져, 걸으면 비가 사람을 따라왔고 땅에 닿은 자리도
+     매번 같은 둘레였다. 이제 상자는 카메라 둘레로 감싸 이어 붙이기만 하고(벗어나면 반대편으로), 땅에 닿으면 상자 안
+     아무 데서나 다시 떨어진다. 떨어지는 빠르기는 실제 지난 시간으로(예전엔 1/60 초 고정이라 느린 기기에서 비가 느렸다),
+     한 줄기마다 조금씩 다르게 */
+  const a = rainGeo.attributes.position.array, st = g.storm || 0, K = curWorld ? kitOf(curWorld) : KIT.seoul;
+  const dt = rainT < 0 ? 1 / 60 : Math.max(0, Math.min(0.1, g.time - rainT)); rainT = g.time;
   const [sx, sy] = RAIN_SEG[RAIN_KIND];
   const vy = [900, 70 + st * 60, 60][RAIN_KIND], vx = [160, 40 + st * 260, 420 + st * 600][RAIN_KIND];
+  const cx = camT.x, cz = camT.z - 200;
   for (let i = 0; i < RAIN_N; i++) {
-    const o = i * 6, wob = RAIN_KIND === 1 ? Math.sin(g.time * 1.3 + i) * 18 * dt : 0;
-    a[o + 1] -= vy * dt; a[o + 4] -= vy * dt; a[o] -= vx * dt + wob; a[o + 3] -= vx * dt + wob;
-    if (a[o + 4] < 0 || a[o] < -900) {
-      const x = RAIN_KIND && a[o] < -900 ? 800 : (Math.random() - 0.5) * 1600, z = (Math.random() - 0.5) * 1400, y = RAIN_KIND === 2 ? Math.random() * 160 : RAIN_KIND && a[o] < -900 ? Math.random() * 700 : 500 + Math.random() * 200;
+    const o = i * 6, k = 0.82 + ((i * 2654435761) >>> 0) % 1000 / 2800, wob = RAIN_KIND === 1 ? Math.sin(g.time * 1.3 + i) * 18 * dt : 0;
+    a[o + 1] -= vy * k * dt; a[o + 4] -= vy * k * dt; a[o] -= vx * k * dt + wob; a[o + 3] -= vx * k * dt + wob;
+    // 상자 둘레로 감싸기(가로 1600 · 세로 1400)
+    const ox = a[o] - cx, oz = a[o + 2] - cz;
+    if (ox < -800 || ox > 800) { const sh = Math.round(ox / 1600) * 1600; a[o] -= sh; a[o + 3] -= sh; }
+    if (oz < -700 || oz > 700) { const sh = Math.round(oz / 1400) * 1400; a[o + 2] -= sh; a[o + 5] -= sh; }
+    if (a[o + 4] < 0) {
+      const x = cx + (Math.random() - 0.5) * 1600, z = cz + (Math.random() - 0.5) * 1400, y = RAIN_KIND === 2 ? Math.random() * 160 : RAIN_KIND ? 300 + Math.random() * 400 : 500 + Math.random() * 200;
       a[o] = x; a[o + 1] = y; a[o + 2] = z; a[o + 3] = x + sx; a[o + 4] = y + sy; a[o + 5] = z;
     }
   }
   rainGeo.attributes.position.needsUpdate = true;
-  rain.position.set(camT.x, 0, camT.z - 200);
+  rain.position.set(0, 0, 0);
   // 폭풍 — 안개가 짙어지고 모래빛 · 눈빛으로 물든다
   scene.fog.density = K.fogD * (1 + st * 0.55);
   grade.uniforms.uHaze.value.set(...(RAIN_KIND === 2 ? [0.42, 0.3, 0.17] : [0.5, 0.55, 0.62]), RAIN_KIND ? st * 0.55 : 0);

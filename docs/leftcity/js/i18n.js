@@ -43,6 +43,8 @@ const I18N = (() => {
     '센소지': 'Senso-ji', '왓 아룬': 'Wat Arun', '민주기념탑': 'Democracy Monument', '야시장': 'Night Market',
     /* ── 2부: 새벽호의 항해 ── */
     '시점': 'View', '가깝게': 'Close', '시점 가깝게': 'View: close', '시점 멀리': 'View: far', '화면 비율': 'Aspect ratio', '꽉 채우기': 'Fill screen',
+    '미리 보기': 'Preview', '끄는 대로 화면이 바로 바뀝니다': 'The view changes as you drag',
+    '시작': 'Play', '이어하기': 'Continue', '챕터': 'Chapters', '조작': 'Controls', '3D 판': '3D version', '1부(5장)를 마치면 열린다': 'Unlocks after Part 1 (chapter 5)', '2장을 마치면 열린다': 'Unlocks after chapter 2', '서바이벌 최고 기록': 'Best survival time', '기록 {n}/{t} · 도전 과제 ★{a}': 'Records {n}/{t} · Achievements ★{a}', '2D': '2D', '3D': '3D',
     '홈으로': 'Home', '홈으로 나갈까요?': 'Leave to the home screen?', '이번 임무의 진행은 저장되지 않습니다. 앞서 마친 장은 그대로 남습니다.': 'Progress in this mission will not be saved. Chapters you have finished stay unlocked.',
     '이번 판의 기록은 남지 않습니다.': 'This run will not be recorded.', '완료': 'Done', '중간': 'Medium', '아주 가깝게': 'Very close',
     '시점 거리': 'View distance', '미리 보며 조절 →': 'Adjust with preview →', '버튼 배치': 'Button layout', '편집 →': 'Edit →',

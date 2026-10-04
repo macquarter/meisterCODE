@@ -145,44 +145,33 @@ html:not(.r3d-off) #view{background:transparent !important}
     </div>
   </div>
 
-  <!-- 시점 거리 — 끄는 대로 뒤의 3D 화면이 바로 바뀐다 -->
-  <div id="viewSheet" class="sheet hidden" role="dialog" aria-modal="true" aria-label="시점 거리">
-    <div class="sheet__panel">
-      <div class="sheet__head"><b>시점 거리</b><span id="viewVal">100</span></div>
-      <div class="sheet__range">
-        <span>가깝게</span>
-        <input type="range" id="viewRange" min="0" max="100" step="1" value="100" aria-label="시점 거리">
-        <span>멀리</span>
-      </div>
-      <div class="seg sheet__presets">
-        <button type="button" data-view="0">아주 가깝게</button>
-        <button type="button" data-view="40">가깝게</button>
-        <button type="button" data-view="70">중간</button>
-        <button type="button" data-view="100">멀리</button>
-      </div>
-      <button type="button" class="btn btn--primary" data-act="viewdone">완료</button>
-    </div>
   </div>
 
   <!-- ══════════ SCREENS ══════════ -->
   <div id="screens">
 
     <section class="screen screen--title" id="scrTitle">
-      <div class="screen__inner">
-        <h1 class="logo">LEFT CITY<em>남겨진 도시</em></h1>
-        <p class="tagline">도시는 사람을 두고 떠났다.<br>손전등이 닿는 곳까지만, 세상은 존재한다.</p>
-        <div class="menu screen__side">
-          <button class="btn btn--primary" data-act="campaign">전역 시작</button>
-          <button class="btn" data-act="chapters">챕터 선택</button>
-          <button class="btn" data-act="survival" id="btnSurvival">서바이벌</button>
-          <button class="btn" data-act="challenges" id="btnChallenge">도전</button>
-          <button class="btn btn--ghost" data-act="journal" id="btnJournal">기록 보관함</button>
-          <button class="btn btn--ghost" data-act="howto">조작법</button>
-          <button class="btn btn--ghost" data-act="settings">설정</button>
-          <a class="btn btn--ghost" href="index.html" id="btnTrack">2D 판</a>
+      <div class="screen__inner title">
+        <div class="title__brand">
+          <h1 class="logo">LEFT CITY<em>남겨진 도시</em></h1>
+          <p class="tagline">도시는 사람을 두고 떠났다.<br>손전등이 닿는 곳까지만, 세상은 존재한다.</p>
         </div>
-        <p class="record">최고 기록 · 서바이벌 <b id="bestSurvival">—</b></p>
-        <p class="version"><span id="appVersion"></span> · <button type="button" class="linkbtn" data-act="about">정보 · 개인정보</button></p>
+        <div class="title__menu screen__side">
+          <button type="button" class="play" data-act="campaign" id="btnPlay"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4.5v15l12.5-7.5z" fill="currentColor"/></svg><span class="play__t" id="playLabel">시작</span><small id="playSub" data-noi18n></small></button>
+          <div class="modes">
+            <button type="button" class="mode" data-act="chapters" aria-label="챕터 선택"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6.5 9 4l6 2.5L21 4v13.5L15 20l-6-2.5L3 20z"/><path d="M9 4v13.5M15 6.5V20"/></svg><span>챕터</span></button>
+            <button type="button" class="mode" data-act="survival" id="btnSurvival" aria-label="서바이벌"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="13.5" r="7.5"/><path d="M12 13.5V9.5M9.5 2.5h5M12 2.5V6M18.4 6.6l1.6-1.6"/></svg><span>서바이벌</span><i class="mode__lock" id="lockSurvival" hidden><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><rect x="5" y="11" width="14" height="10" rx="2" fill="currentColor" stroke="none"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg><b></b></i></button>
+            <button type="button" class="mode" data-act="challenges" id="btnChallenge" aria-label="도전"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 4h8v5.5a4 4 0 0 1-8 0z"/><path d="M8 6H5.2a3 3 0 0 0 3 4.2M16 6h2.8a3 3 0 0 1-3 4.2M12 13.5V17M8.5 20.5h7M10 17h4v3.5h-4z"/></svg><span>도전</span><i class="mode__lock" id="lockChallenge" hidden><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><rect x="5" y="11" width="14" height="10" rx="2" fill="currentColor" stroke="none"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg><b></b></i></button>
+            <button type="button" class="mode" data-act="journal" id="btnJournal" aria-label="기록 보관함"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4.5A1.5 1.5 0 0 1 6.5 3H19v15H6.5A1.5 1.5 0 0 0 5 19.5z"/><path d="M5 19.5A1.5 1.5 0 0 0 6.5 21H19v-3M9 7.5h6M9 10.5h4"/></svg><span>기록</span><i class="mode__badge" id="journalBadge" data-noi18n></i></button>
+          </div>
+          <div class="utils">
+            <button type="button" class="util" data-act="settings" aria-label="설정"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 2.8v2.6M12 18.6v2.6M2.8 12h2.6M18.6 12h2.6M5.5 5.5l1.8 1.8M16.7 16.7l1.8 1.8M5.5 18.5l1.8-1.8M16.7 7.3l1.8-1.8"/><circle cx="12" cy="12" r="6.6"/></svg><span>설정</span></button>
+            <button type="button" class="util" data-act="howto" aria-label="조작법"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 8h11a4 4 0 0 1 3.9 4.8l-1 4.6a2.4 2.4 0 0 1-4.2 1l-1.9-2.4h-4.6l-1.9 2.4a2.4 2.4 0 0 1-4.2-1l-1-4.6A4 4 0 0 1 6.5 8z"/><path d="M8 10.8v3.4M6.3 12.5h3.4"/><circle cx="15.6" cy="11.6" r=".6" fill="currentColor"/><circle cx="17.6" cy="13.6" r=".6" fill="currentColor"/></svg><span>조작</span></button>
+            <button type="button" class="util" data-act="about" aria-label="정보 · 개인정보"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 11v6"/><circle cx="12" cy="7.8" r=".7" fill="currentColor"/></svg><span>정보</span></button>
+            <a class="util" href="index.html" id="btnTrack" aria-label="2D 판"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5 21 8.5l-9 5-9-5z"/><path d="M3 12.5l9 5 9-5M3 16.5l9 5 9-5" opacity=".6"/></svg><span>2D</span></a>
+          </div>
+        </div>
+        <p class="title__foot"><span class="record" id="recordChip"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="13.5" r="7.5"/><path d="M12 13.5V9.5M9.5 2.5h5M12 2.5V6M18.4 6.6l1.6-1.6"/></svg><b id="bestSurvival">—</b></span><span class="version" id="appVersion"></span></p>
       </div>
     </section>
 
@@ -289,7 +278,6 @@ html:not(.r3d-off) #view{background:transparent !important}
         <p class="pause__where" id="pauseWhere"></p>
         <dl class="result__stats" id="pauseStats"></dl>
         <div class="pause__tools">
-          <button type="button" class="btn btn--ghost" data-act="view">시점 거리</button>
           <button type="button" class="btn btn--ghost touch-only" data-act="layout">버튼 배치</button>
         </div>
         <div class="screen__side screen__actions">
@@ -329,6 +317,15 @@ html:not(.r3d-off) #view{background:transparent !important}
               <button type="button" data-set="lang" data-val="en">English</button>
             </div>
           </div>
+          <div class="set__row set__row--stack set__view">
+            <div class="set__label">시점 거리 <b id="setViewVal">100</b></div>
+            <div class="viewctl">
+              <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="8" r="3.4"/><path d="M5 21c.8-4 3.6-6.4 7-6.4s6.2 2.4 7 6.4"/></svg>
+              <input type="range" id="setView" min="0" max="100" step="1" value="100" aria-label="시점 거리">
+              <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="10" r="1.6"/><path d="M10 15.5c.4-1.2 1.1-1.8 2-1.8s1.6.6 2 1.8M3 7l3-3M21 7l-3-3M3 17l3 3M21 17l-3 3"/></svg>
+            </div>
+            <p class="set__note set__viewnote" id="setViewNote">끄는 대로 화면이 바로 바뀝니다</p>
+          </div>
           <div class="set__row">
             <div class="set__label">음량 <b id="setVolVal">55</b></div>
             <input type="range" id="setVolume" min="0" max="100" step="5" value="55"
@@ -355,10 +352,6 @@ html:not(.r3d-off) #view{background:transparent !important}
             <b>조준 스틱</b>은 민 방향을 바로 비추는 트윈 스틱. <b>회전</b>은 원작처럼 좌우로 민 만큼 돈다.
             어느 방식이든 왼쪽 화면 아무 데나 누르면 그 자리에 이동 스틱이 생긴다.</p>
 
-          <div class="set__row">
-            <div class="set__label">시점 거리 <b id="setViewVal">100</b></div>
-            <button type="button" class="set__btn" data-act="view">미리 보며 조절 →</button>
-          </div>
           <div class="set__row set__row--stack">
             <div class="set__label">화면 비율</div>
             <div class="seg" id="setAspect">

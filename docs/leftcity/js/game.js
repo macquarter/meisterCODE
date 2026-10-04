@@ -25,12 +25,13 @@ const gctx = glowCv.getContext('2d');
    잡고 그보다 크면 확대한다(최대 2배). 그래서 1080p·1440p 에서도 보이는 도시의 넓이가 비슷하다.
    W · H 는 '논리 화면'(세계를 그리는 단위)이고, DEV 는 기기 배율, DPR = DEV × ZOOM 이 캔버스 배율이다. */
 let W = 0, H = 0, DPR = 1, MDPR = 0.5, DEV = 1, ZOOM = 1, HUDZ = 1;
-/* 와이드 화면 — 게임 화면(#stage)은 늘 16:9 이상. 창이 그보다 좁거나 세로면 16:9 띠로 두고(레터박스),
-   세로 화면에서는 띠를 위쪽에 두어 아래 빈 곳이 조작 버튼 자리가 된다(휴대용 게임기처럼). 3D 판도 이 크기를 쓴다 */
+/* 화면 비율 — 기본(fill)은 창을 어떤 비율이든 꽉 채운다(3D 카메라가 좁은 화면에서 시야를 넓혀 맞춘다).
+   '16:9'(wide)를 고르면 창이 그보다 좁거나 세로일 때 16:9 띠로 두고(레터박스), 세로 화면에서는 띠를 위쪽에 두어
+   아래 빈 곳이 조작 버튼 자리가 된다(휴대용 게임기처럼). 3D 판도 이 크기를 쓴다 */
 const STAGE = window.STAGE = { x: 0, y: 0, w: 1, h: 1 };
 function stageFit() {
   const w = window.innerWidth, h = window.innerHeight;
-  if (SETTINGS.wide === false || w / Math.max(1, h) >= 16 / 9 - 0.02) Object.assign(STAGE, { x: 0, y: 0, w, h });
+  if (SETTINGS.get('aspect') !== 'wide' || w / Math.max(1, h) >= 16 / 9 - 0.02) Object.assign(STAGE, { x: 0, y: 0, w, h });
   else { const sh = Math.round(w * 9 / 16); Object.assign(STAGE, { x: 0, y: Math.round((h - sh) * (h > w ? 0.28 : 0.5)), w, h: sh }); }
   const st = document.getElementById('stage');
   if (st) Object.assign(st.style, { left: STAGE.x + 'px', top: STAGE.y + 'px', width: STAGE.w + 'px', height: STAGE.h + 'px', right: 'auto', bottom: 'auto' });
@@ -104,7 +105,7 @@ resize();
 document.addEventListener('visibilitychange', () => {
   if (document.hidden && typeof G !== 'undefined' && G.state === 'play') G.togglePause();
 });
-SETTINGS.onChange(k => { if (k === 'quality' || k === 'cam' || k === null) resize(); });
+SETTINGS.onChange(k => { if (k === 'quality' || k === 'cam' || k === 'aspect' || k === null) resize(); });
 /* 언어 — 고정 문구를 바꾸고, 지금 열린 화면을 새 언어로 다시 그린다 */
 I18N.set(SETTINGS.lang);
 document.addEventListener('DOMContentLoaded', () => I18N.apply());

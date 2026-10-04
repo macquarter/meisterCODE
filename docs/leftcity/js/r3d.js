@@ -2173,7 +2173,7 @@ function init() {
   R3D._boom = addSprite(0xffe0a0, 220);
   R3D._boomCore = addSprite(0xffffff, 90);
   window.addEventListener('resize', size);
-  SETTINGS.onChange(k => { if (k === 'quality' || k === null) size(); });
+  SETTINGS.onChange(k => { if (k === 'quality' || k === 'aspect' || k === null) size(); });
   // 바닥 · 벽 무늬 — 비스듬히 내려다보므로 비등방성 거르기로 먼 쪽 결이 뭉개지지 않게
   const an = Math.min(8, renderer.capabilities.getMaxAnisotropy ? renderer.capabilities.getMaxAnisotropy() : 1);
   for (const k in MAT) for (const t of ['map', 'normalMap', 'roughnessMap', 'emissiveMap']) if (MAT[k][t] && MAT[k][t].anisotropy < an) { MAT[k][t].anisotropy = an; MAT[k][t].needsUpdate = true; }
@@ -2204,9 +2204,19 @@ function size() {
   const SW = (window.STAGE && window.STAGE.w) || window.innerWidth, SH = (window.STAGE && window.STAGE.h) || window.innerHeight;
   renderer.setSize(SW, SH, false);
   if (composer) { composer.setPixelRatio(renderer.getPixelRatio()); composer.setSize(SW, SH); grade.uniforms.uRes.value.set(SW * renderer.getPixelRatio(), SH * renderer.getPixelRatio()); }
-  camera.aspect = SW / Math.max(1, SH);
+  // 화면 비율이 가변 — 16:9 를 기준으로, 그보다 좁은 화면(4:3 태블릿 · 세로 휴대폰)은 시야각을 넓히고
+  // 카메라를 조금 물려 좌우가 너무 좁아지지 않게 한다. 둘을 나눠 쓰는 까닭: 시야각만 키우면 화면 위쪽이
+  // 멀리까지 늘어지고, 거리만 늘리면 사람이 작아진다. 더 넓은 화면(21:9)은 기준 그대로 옆이 더 보인다
+  const a = SW / Math.max(1, SH), r = Math.max(1, Math.min(3.2, (16 / 9) / a));
+  camera.aspect = a;
+  camera.fov = 2 * Math.atan(Math.tan(FOV / 2 * Math.PI / 180) * Math.pow(r, 0.45)) * 180 / Math.PI;
+  VIEW.dist = Math.pow(r, 0.2);
+  // 세로 터치 화면은 사람을 조금 위(42%)에 둔다 — 아래쪽은 엄지가 가린다(2D 판과 같은 높이)
+  const touch = matchMedia && matchMedia('(pointer: coarse)').matches;
+  if (touch && a < 1) camera.setViewOffset(SW, SH, 0, SH * 0.08, SW, SH); else camera.clearViewOffset();
   camera.updateProjectionMatrix();
 }
+const VIEW = { dist: 1 };
 
 /** 도시의 공기 — 가로등 빛깔 · 안개 · 색 보정 */
 function applyKit(w) {
@@ -2245,7 +2255,7 @@ function placeCamera(g) {
   const tx = p.x + Math.cos(p.angle) * lead, tz = p.y + Math.sin(p.angle) * lead;
   camT.set(tx, 12, tz);
   const sh = g.shake > 0.1 && SETTINGS.shake ? g.shake * 0.8 : 0;
-  const D = DIST * vz;
+  const D = DIST * vz * VIEW.dist;
   camera.position.set(tx + (Math.random() - 0.5) * sh + (g.kickX || 0), D * Math.sin(PITCH), tz + D * Math.cos(PITCH) + (Math.random() - 0.5) * sh + (g.kickY || 0));
   camera.lookAt(camT);
   camera.updateMatrixWorld();

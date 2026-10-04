@@ -318,7 +318,7 @@ function bindPad(el, onVec, axisX) {
     knob.style.transform = `translate(${dx}px,${dy}px)`;
     const m = Math.min(1, d / R), k = m < 0.12 ? 0 : Math.pow((m - 0.12) / 0.88, 1.25);
     const u = d > 0.001 ? k / m : 0;
-    onVec(dx / R * u, dy / R * u, k, false);
+    onVec(dx / R * u, dy / R * u, k, false, d / R);
   };
   /** float = 엄지가 닿은 자리로 스틱을 옮긴다 */
   const begin = (t, float) => {
@@ -354,7 +354,7 @@ function bindPad(el, onVec, axisX) {
   }
   return { begin, active: () => id !== null };
 }
-const movePad = bindPad($('padMove'), (x, y, k) => { input.moveX = x; input.moveY = y; input.moveMag = k || 0; });
+const movePad = bindPad($('padMove'), (x, y, k, rel, raw) => { input.moveX = x; input.moveY = y; input.moveMag = k || 0; input.moveRaw = raw || 0; });
 /* 오른쪽 스틱은 설정에 따라 넷 중 하나로 동작한다.
    auto  — 자동 조준(기본): 손대지 않으면 손전등이 가까운 적, 없으면 걷는 쪽을 비춘다(Archero · Survivor.io).
            끌면 그 방향을 곧바로 비추고, 짧게 톡 치면 가장 가까운 적으로 홱 돌린다(Brawl Stars 의 퀵 파이어)
@@ -395,6 +395,18 @@ view.addEventListener('touchstart', e => {
   }
   e.preventDefault(); SFX.resume();
 }, { passive: false });
+
+/* 모바일 밀치기 — 오른쪽(조준 스틱 쪽)을 두 번 빠르게 톡톡 치면 밀친다. 버튼을 찾을 필요가 없다 */
+let rightTapT = 0;
+addEventListener('touchstart', e => {
+  if (G.state !== 'play' || !SETTINGS.get('tapShove')) return;
+  for (const t of e.changedTouches) {
+    if (t.clientX < innerWidth * 0.5 || (t.target && t.target.closest && t.target.closest('.tbtn, .hud__btn, button'))) continue;
+    const now = performance.now();
+    if (now - rightTapT < 360) { G.player.melee(G); rightTapT = 0; }
+    else rightTapT = now;
+  }
+}, { capture: true, passive: true });
 
 /** 자동 조준의 표적 — 불빛을 받으면 깨는 '우는 것'은 일부러 비추지 않는다.
     가까운 순, 지금 보는 쪽이면 조금 더 우선. 벽 너머는 고르지 않는다 */
@@ -922,7 +934,9 @@ const Hints = (() => {
     terr2:    () => [T('얼음판'), T('멈추려 해도 미끄러진다 — 일찍 방향을 틀어라')],
     terr3:    () => [T('얕은 물'), T('모두가 느려진다 — 물가에서 싸우면 시간을 번다')],
     terr4:    () => [T('용암 균열'), T('밟고 있으면 데인다 — 감염체를 그 위로 끌어들여라')],
-    terr5:    () => [T('진흙'), T('발이 빠져 느려진다 — 감염체도 마찬가지')]
+    terr5:    () => [T('진흙'), T('발이 빠져 느려진다 — 감염체도 마찬가지')],
+    terr6:    () => [T('크레이터 바닥'), T('움푹한 바닥은 발이 무겁다 — 감염체도 마찬가지')],
+    terr7:    () => [T('크레이터 둘레'), T('솟은 흙 테를 넘으면 느려진다 — 감염체도 마찬가지')]
   };
   // 지금 당장 알아야 하는 것은 줄 앞으로 끼워 넣는다
   const URGENT = new Set(['terr2', 'terr4', 'bile', 'weeper', 'horde', 'melee', 'reload', 'nade', 'runner', 'brute', 'crawler', 'spitter', 'behemoth', 'screamer', 'leaper', 'charger', 'puller', 'riot']);
@@ -931,12 +945,14 @@ const Hints = (() => {
   let cur = null, t = 0, gap = 0;
 
   function push(id) {
+    if (!TEXT[id]) return;
     if (!SETTINGS.hints || seen[id] || cur === id || queue.includes(id)) return;
     if (URGENT.has(id)) queue.unshift(id); else queue.push(id);
     // 지금 알아야 하는 것은 느긋한 도움말을 끊고 바로 띄운다 (비명의 들이켜기는 1.6초뿐이다)
     if (URGENT.has(id) && cur && !URGENT.has(cur)) { hide(); gap = 0; }
   }
   function show(id) {
+    if (!TEXT[id]) { cur = null; return; }                     // 문구가 없는 도움말은 건너뛴다(화성 크레이터에서 멈추던 오류)
     const [key, msg] = TEXT[id]();
     const el = $('hint'), k = el.querySelector('b');
     k.textContent = key; k.hidden = !key;
@@ -1683,6 +1699,7 @@ const G = {
     const w = this.world, p = this.player, R = this.ripples || (this.ripples = []);
     for (let i = R.length - 1; i >= 0; i--) if ((R[i].t += dt) >= R[i].max) R.splice(i, 1);
     if (this.beams) for (let i = this.beams.length - 1; i >= 0; i--) if ((this.beams[i].t += dt) >= this.beams[i].max) this.beams.splice(i, 1);
+    if (this.shoves) for (let i = this.shoves.length - 1; i >= 0; i--) if ((this.shoves[i].t += dt) >= this.shoves[i].max) this.shoves.splice(i, 1);
     if (!w.terr) { p.terr = 0; return; }
     const fx = (e, moving, me) => {
       const tr = w.terrAt(e.x, e.y);
@@ -2121,12 +2138,17 @@ const G = {
     this.state = 'arms';
     input.firing = false;
     const p = this.player;
-    $('armsRow').innerHTML = SLOT_ORDER.filter(k => !WEAPONS[k].special || p.owned.has(k)).map(k => {
+    // 화성에서는 특전 무기 넷도 늘 칸에 보인다 — 아직이면 열리기까지 남은 시간을 적어 기대하게 한다
+    const ub = document.getElementById('unlockBanner'); if (ub) ub.classList.remove('show');   // 해금 알림이 무기 창 위에 겹치지 않게
+    const mars = this.survival && this.world.theme.key === 'mars';
+    $('armsRow').innerHTML = SLOT_ORDER.filter(k => !WEAPONS[k].special || p.owned.has(k) || mars).map(k => {
       const w = WEAPONS[k], own = p.owned.has(k);
       const mag = p.magOf(w), res = p.reserveOf(w);
       const empty = own && w.ammoKey && mag + res <= 0;
-      const ammo = !own ? T('없음') : w.ammoKey ? `${mag} / ${res}` : `${mag} / ∞`;
-      return `<button class="arm${k === p.wpn ? ' on' : ''}${empty ? ' empty' : ''}" data-k="${k}"${own ? '' : ' disabled'}>
+      const un = !own && w.special ? SPECIAL_UNLOCKS.find(q => q[0] === k) : null;
+      const left = un ? Math.max(0, Math.ceil(un[1] - this.time)) : 0;
+      const ammo = un ? `🔒 ${(left / 60) | 0}:${String(left % 60).padStart(2, '0')}` : !own ? T('없음') : w.ammoKey ? `${mag} / ${res}` : `${mag} / ∞`;
+      return `<button class="arm${k === p.wpn ? ' on' : ''}${empty ? ' empty' : ''}${w.special ? ' arm--special' : ''}${un ? ' locked' : ''}" data-k="${k}"${own ? '' : ' disabled'}>
         ${ARM_ICON[k]}<b>${T(w.name)}</b><span>${ammo}</span>${isTouch ? '' : `<kbd>${KEYBIND.labelOf('w' + w.slot)}</kbd>`}</button>`;
     }).join('');
     $('armsNote').textContent = isTouch ? T('무기를 누르면 바로 이어집니다') : T('무기 키 또는 클릭 · {k} 로 닫기', { k: KEYBIND.labelOf('arms') });
@@ -2229,9 +2251,10 @@ const G = {
     if (ml > 1) { mx /= ml; my /= ml; }
 
     const moving = ml > 0.1;
-    // 터치 — 스틱을 끝까지(94%) 0.18초 밀고 있으면 질주한다. 버튼을 따로 누르지 않아도 엄지 하나로 걷기 · 뛰기를 오간다
-    input.edgeT = isTouch && SETTINGS.get('edgeSprint') && (input.moveMag || 0) > 0.94 ? (input.edgeT || 0) + dt : 0;
-    const edge = input.edgeT > 0.18 && !p.winded;
+    // 터치 — 엄지를 스틱 테두리 밖으로 한참(반지름의 1.6배) 끌어낸 채 0.35초 버티면 질주한다.
+    // 그냥 끝까지 미는 것만으로는 걸린다(예전 94% 문턱은 너무 쉽게 걸렸다)
+    input.edgeT = isTouch && SETTINGS.get('edgeSprint') && (input.moveRaw || 0) > 1.6 ? (input.edgeT || 0) + dt : 0;
+    const edge = input.edgeT > 0.35 && !p.winded;
     if (this.edgeOn !== edge) { this.edgeOn = edge; $('padMove').classList.toggle('sprint', edge); }
     p.resolveSprint(KEYBIND.held('sprint', keys) || input.sprintLatch || PAD.sprint || edge, moving, dt);
     // 걸쇠는 숨이 차거나 0.6초 넘게 멈추면 스스로 풀린다 — 서 있는 동안 켜져 있다가
@@ -2722,11 +2745,20 @@ function render() {
     ctx.beginPath(); ctx.moveTo(b.px, b.py - GUN_LIFT); ctx.lineTo(b.x, b.y - GUN_LIFT); ctx.stroke();
   }
 
-  // 물결 — 물에 들어선 발 둘레로 퍼지는 고리
+  // 밀치기 — 앞쪽으로 휘두르는 흰 부채꼴. 맞히면 더 진하다
+  if (g.shoves) for (const sv of g.shoves) {
+    const k = sv.t / sv.max, a0 = sv.a - 1.0 + k * 0.6, a1 = sv.a + 1.0 - k * 0.6, R1 = 30 + k * 34;
+    ctx.fillStyle = `rgba(255,248,230,${(sv.hits ? 0.42 : 0.24) * (1 - k)})`;
+    ctx.beginPath(); ctx.moveTo(sv.x, sv.y); ctx.arc(sv.x, sv.y, R1, a0, a1); ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = `rgba(255,255,255,${0.7 * (1 - k)})`; ctx.lineWidth = 2.5;
+    ctx.beginPath(); ctx.arc(sv.x, sv.y, R1, a0, a1); ctx.stroke();
+  }
+  // 물결 — 물에 들어선 발 둘레로 퍼지는 고리 (밀쳐진 감염체 발밑의 충격 고리도 같은 그림)
   if (g.ripples) {
     ctx.lineWidth = 1.2;
     for (const r of g.ripples) {
       const k = r.t / r.max;
+      if (r.shove) { ctx.strokeStyle = `rgba(255,240,210,${0.8 * (1 - k)})`; ctx.lineWidth = 3; ctx.beginPath(); ctx.ellipse(r.x, r.y, r.r * (0.5 + k * 1.6), r.r * (0.5 + k * 1.6) * 0.6, 0, 0, 6.283); ctx.stroke(); ctx.lineWidth = 1.2; continue; }
       ctx.strokeStyle = `rgba(200,225,235,${0.45 * (1 - k)})`;
       ctx.beginPath(); ctx.ellipse(r.x, r.y, r.r * (0.6 + k * 1.4), r.r * (0.6 + k * 1.4) * 0.6, 0, 0, 6.283); ctx.stroke();
     }
@@ -3012,10 +3044,8 @@ function drawGround(cam, w) {
         if (w.deco[w.idx(x + 1, y)] === D_WATER) { ctx.fillStyle = '#4a5058'; ctx.fillRect(px + TILE - 5, py, 5, TILE); }
       } else if (d === D_GRASS && w.theme.key === 'mars') {
         // 화성의 벌판 — 붉은 흙과 자갈
-        ctx.fillStyle = n < 6 ? '#3a1a10' : n < 12 ? '#40200f' : '#361812';
-        ctx.fillRect(px, py, TILE, TILE);
-        ctx.fillStyle = 'rgba(200,120,80,.12)';
-        for (let k = 0; k < 5; k++) ctx.fillRect(px + ((n * 7 + k * 13) % 44), py + ((n * 11 + k * 17) % 44), 3, 2);
+        ctx.fillStyle = '#3b1b10'; ctx.fillRect(px, py, TILE, TILE);
+        if ((n & 3) === 0) { ctx.fillStyle = 'rgba(30,12,6,.35)'; ctx.beginPath(); ctx.arc(px + 10 + (n % 28), py + 12 + ((n * 7) % 24), 2.5 + (n & 1), 0, 6.283); ctx.fill(); }   // 드문드문 돌
       } else if (d === D_GRASS) {
         ctx.fillStyle = n < 6 ? '#1c271d' : n < 12 ? '#1a241b' : '#202c21';
         ctx.fillRect(px, py, TILE, TILE);
@@ -3116,7 +3146,7 @@ function drawGround(cam, w) {
   ctx.fillStyle = 'rgba(222,220,206,.24)'; ctx.fill(park);
   ctx.fillStyle = 'rgba(0,0,0,.45)'; ctx.fill(hole);
   ctx.fillStyle = '#2b2a28'; ctx.fill(holeTop);
-  ctx.fillStyle = 'rgba(200,196,182,.30)'; ctx.fill(trash);
+  ctx.fillStyle = 'rgba(110,106,94,.28)'; ctx.fill(trash);                // 칙칙한 종이 — 밝으면 보급품처럼 보였다
 
   if (terrT.length) drawTerrain(terrT, G.time);
   if (w.craters) drawCraters(cam, w);
@@ -4540,7 +4570,7 @@ function drawExit(g, w) {
 function drawPlayer(p) {
   MODELS.player(ctx, p);
   // 근접 밀치기 — 가슴 높이에서 반원으로 휘두른다
-  const sw = p.meleeAnim > 0 ? Math.sin((1 - p.meleeAnim / 0.2) * Math.PI) : 0;
+  const sw = p.meleeAnim > 0 ? Math.sin((1 - p.meleeAnim / 0.32) * Math.PI) : 0;
   if (sw > 0.02) {
     ctx.strokeStyle = `rgba(226,238,250,${0.3 * sw})`;
     ctx.lineWidth = 2.5;

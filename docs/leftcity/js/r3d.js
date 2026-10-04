@@ -300,7 +300,7 @@ function makeTextures() {
   });
   TEX.paper = canvasTex(64, 64, (x) => {
     x.clearRect(0, 0, 64, 64); const r = rng(5);
-    x.fillStyle = '#c9c4b6'; x.beginPath(); x.moveTo(6 + r() * 6, 4); x.lineTo(58, 6 + r() * 6); x.lineTo(56 - r() * 6, 60); x.lineTo(4, 54 - r() * 8); x.closePath(); x.fill();
+    x.fillStyle = '#6f6a5e'; x.beginPath(); x.moveTo(6 + r() * 6, 4); x.lineTo(58, 6 + r() * 6); x.lineTo(56 - r() * 6, 60); x.lineTo(4, 54 - r() * 8); x.closePath(); x.fill();
     x.fillStyle = 'rgba(60,60,60,.35)'; for (let i = 0; i < 9; i++) x.fillRect(12, 12 + i * 5, 30 + r() * 10, 1.5);
     x.fillStyle = 'rgba(80,70,50,.25)'; x.beginPath(); x.arc(40, 40, 12, 0, 6.28); x.fill();
   }, false);
@@ -342,16 +342,19 @@ function makeMaterials() {
       for (let i = 0; i < 40; i++) { const fx = r() * W, fy = r() * H; x.fillStyle = 'rgba(100,115,135,.35)'; x.beginPath(); x.ellipse(fx, fy, 3, 5, 0.3, 0, 6.283); x.fill(); x.beginPath(); x.ellipse(fx + 8, fy + 14, 3, 5, 0.3, 0, 6.283); x.fill(); } }, 1.4);
     MAT.st_sand = std({ map: sand, normalMap: sandN, roughness: 0.95, envMapIntensity: 0.15 });
     MAT.st_dirt = std({ map: dirt, normalMap: dirtN, roughness: 0.55, envMapIntensity: 1.3 });       // 몬순에 젖은 흙
-    MAT.st_stone = std({ map: stone, normalMap: stoneN, roughness: 0.4, envMapIntensity: 1.5 });    // 늘 젖어 있는 돌길
+    MAT.st_stone = std({ map: stone, normalMap: stoneN, roughness: 0.62, envMapIntensity: 0.7 });   // 젖은 돌길 — 판석마다 번쩍이지 않게 조금 거칠게
     MAT.st_snow = std({ map: snow, normalMap: snowN, roughness: 0.82, envMapIntensity: 0.3 });
-    const [mars, marsN] = street(75, '#7a3420', (x, W, H, r) => {
-      for (let i = 0; i < 60; i++) blob(x, r() * W, r() * H, 20 + r() * 60, 12 + r() * 30, r() * 3, r() < 0.5 ? 'rgba(60,20,10,.4)' : 'rgba(170,80,48,.3)', 'rgba(0,0,0,0)');
-      for (let i = 0; i < 1400; i++) { x.fillStyle = r() < 0.5 ? 'rgba(200,110,70,.3)' : 'rgba(30,10,6,.4)'; const s2 = 1 + r() * 4; x.fillRect(r() * W, r() * H, s2, s2); } }, 2.0);
-    MAT.st_mars = std({ map: mars, normalMap: marsN, roughness: 0.95, envMapIntensity: 0.15 });
+    // 화성 흙 — 잔무늬 대신 큰 얼룩(먼지가 쌓인 곳 · 바람에 쓸린 곳)과 바람 결, 드문드문 돌. 결은 부드럽게(노멀 약하게)
+    const [mars, marsN] = street(75, '#6e3020', (x, W, H, r) => {
+      for (let i = 0; i < 14; i++) blob(x, r() * W, r() * H, 90 + r() * 140, 60 + r() * 100, r() * 3, r() < 0.5 ? 'rgba(150,70,40,.35)' : 'rgba(60,22,12,.3)', 'rgba(0,0,0,0)');
+      x.lineWidth = 3; for (let i = 0; i < 26; i++) { const sx = r() * W, sy = r() * H, l = 80 + r() * 120; x.strokeStyle = r() < 0.5 ? 'rgba(170,85,50,.18)' : 'rgba(40,14,8,.16)'; x.beginPath(); x.moveTo(sx, sy); x.bezierCurveTo(sx + l * 0.3, sy - 10, sx + l * 0.7, sy + 10, sx + l, sy); x.stroke(); }
+      for (let i = 0; i < 70; i++) { const px = r() * W, py = r() * H, rr = 2 + r() * 5; x.fillStyle = 'rgba(30,12,6,.55)'; x.beginPath(); x.ellipse(px + 1.5, py + 1.5, rr, rr * 0.8, 0, 0, 6.283); x.fill(); x.fillStyle = 'rgba(140,80,56,.9)'; x.beginPath(); x.ellipse(px, py, rr, rr * 0.8, 0, 0, 6.283); x.fill(); } }, 0.7);
+    MAT.st_mars = std({ map: mars, normalMap: marsN, normalScale: new THREE.Vector2(0.5, 0.5), roughness: 0.92, envMapIntensity: 0.12 });
   }
-  MAT.sidewalk = std(set(TEX.sidewalkSet, { normalScale: new THREE.Vector2(0.8, 0.8), envMapIntensity: 1.1 }));
+  // 보도 판석 — 젖은 판석 한 장 한 장이 손전등에 네모로 번쩍여 보급 상자처럼 보였다. 결을 거칠게(반사를 흐리게), 비침을 줄인다
+  MAT.sidewalk = std(set(TEX.sidewalkSet, { normalScale: new THREE.Vector2(0.6, 0.6), roughness: 1.8, envMapIntensity: 0.35 }));
   MAT.curb = std({ color: 0x8a8a84, roughness: 0.8 });
-  MAT.plaza = std({ map: TEX.plaza, normalMap: normalFrom(TEX.plaza.image, 1.2), roughness: 0.68, envMapIntensity: 1.0 });
+  MAT.plaza = std({ map: TEX.plaza, normalMap: normalFrom(TEX.plaza.image, 1.2), roughness: 0.85, envMapIntensity: 0.45 });
   MAT.grass = std({ map: TEX.grass, roughness: 0.95 });
   // 강물 — 빗방울 결의 노멀맵을 흘려 보내 불빛 반사가 일렁인다
   TEX.waterN = (() => { const [c, x] = cnv(256, 256); const r = rng(61); x.fillStyle = '#808080'; x.fillRect(0, 0, 256, 256);
@@ -395,10 +398,10 @@ function makeMaterials() {
   MAT.paint = std({ color: 0xd8d6cc, roughness: 0.5 });
   MAT.yellow = std({ color: 0xc9a83a, roughness: 0.5 });
   // 벽면의 요철은 무늬의 밝기에서 — 줄눈이 들어가고 창이 안으로 꺼져 보인다
-  MAT.brick = std({ map: TEX.brick, normalMap: normalFrom(TEX.brick.image, 2.2), vertexColors: true, roughness: 0.85, emissive: 0xffffff, emissiveMap: TEX.brickLit, emissiveIntensity: 1.5, envMapIntensity: 0.4 });
-  MAT.stucco = std({ map: TEX.stucco, normalMap: normalFrom(TEX.stucco.image, 1.6), vertexColors: true, roughness: 0.85, emissive: 0xffffff, emissiveMap: TEX.stuccoLit, emissiveIntensity: 1.5, envMapIntensity: 0.4 });
+  MAT.brick = std({ map: TEX.brick, normalMap: normalFrom(TEX.brick.image, 2.2), vertexColors: true, roughness: 0.85, emissive: 0xffffff, emissiveMap: TEX.brickLit, emissiveIntensity: 0.95, envMapIntensity: 0.4 });
+  MAT.stucco = std({ map: TEX.stucco, normalMap: normalFrom(TEX.stucco.image, 1.6), vertexColors: true, roughness: 0.85, emissive: 0xffffff, emissiveMap: TEX.stuccoLit, emissiveIntensity: 0.95, envMapIntensity: 0.4 });
   MAT.shop = std({ map: TEX.shop, vertexColors: true, roughness: 0.7 });
-  MAT.shopLit = std({ map: TEX.shopLit, emissive: 0xffffff, emissiveMap: TEX.shopLit, emissiveIntensity: 1.25, roughness: 0.2 });
+  MAT.shopLit = std({ map: TEX.shopLit, emissive: 0xffffff, emissiveMap: TEX.shopLit, emissiveIntensity: 1.0, roughness: 0.55, envMapIntensity: 0.4 });
   MAT.roof = std(set(TEX.roofSet, { vertexColors: true, envMapIntensity: 0.5, normalScale: new THREE.Vector2(0.5, 0.5) }));
   MAT.parapet = std({ color: 0x6a6c70, roughness: 0.85 });
   MAT.stone = std({ color: 0x77736a, roughness: 0.85 });
@@ -592,7 +595,7 @@ function buildChunk(w, cx, cy) {
     const i = w.idx(x, y), d = w.deco[i], gr = w.grid[i];
     const X0 = x * T, Z0 = y * T, X1 = X0 + T, Z1 = Z0 + T;
     const tr = w.terr ? w.terr[i] : 0;
-    if (tr && d !== D_BUILDING && d !== D_WATER && d !== D_BRIDGE) {
+    if (tr && TERR_MAT[tr] && d !== D_BUILDING && d !== D_WATER && d !== D_BRIDGE) {
       const fy = (d === D_SIDEWALK ? SW_H : d === D_GRASS ? 1 : 0) + (tr === 3 ? 1.6 : 0.5) + (x & 1) * 0.05;
       // 칸보다 큰 둥근 얼룩을 해시로 돌리고 밀어 놓는다 — 이웃 얼룩과 겹쳐 한 덩어리가 된다
       const th = (Math.imul(x * 374761393 ^ y * 668265263, 2246822519) >>> 0), ang = (th % 628) / 100, hs = T * (0.92 + ((th >>> 9) % 30) / 100);
@@ -677,13 +680,14 @@ function buildChunk(w, cx, cy) {
       if (wet(-1, 0)) { roofBox(P, X0, Z0, 3, T, 0, 9); }
       continue;
     }
-    if (d === D_GRASS) { floorQuad(get(w.theme.key === 'mars' ? 'st_mars' : 'grass'), X0, Z0, X1, Z1, 1, w.theme.key === 'mars' ? 240 : 200); continue; }
+    if (d === D_GRASS) { floorQuad(get(w.theme.key === 'mars' ? 'st_mars' : 'grass'), X0, Z0, X1, Z1, 1, w.theme.key === 'mars' ? 640 : 200); continue; }
     if (d === D_PLAZA || d === D_LANDMARK) {
       floorQuad(get('plaza'), X0, Z0, X1, Z1, 0, 160);
       if (gr === T_WALL) lmBlock(get('stone'), w, x, y, X0, Z0, X1, Z1);
       else if (gr === T_WATER) fencePanel(get('fence'), w, x, y, X0, Z0, X1, Z1);
       continue;
     }
+    if (d === D_SIDEWALK && w.theme.key === 'mars') { floorQuad(get('st_mars'), X0, Z0, X1, Z1, 0.6, 640); continue; }   // 화성엔 보도블록이 없다
     if (d === D_SIDEWALK) {
       floorQuad(get('sidewalk'), X0, Z0, X1, Z1, SW_H, 160);
       // 가로등 — 차도와 맞닿은 보도 칸마다 네 칸 간격, 팔을 차도 쪽으로 뻗는다
@@ -718,8 +722,8 @@ function buildChunk(w, cx, cy) {
       continue;
     }
     // 차도 — 지역의 길이면 그 재질
-    floorQuad(get(STREET_MAT[w.theme.street] || 'asphalt'), X0, Z0, X1, Z1, 0, w.theme.street ? 240 : 900);
-    { const hs = (Math.imul(x * 2246822519 ^ y * 3266489917, 668265263) >>> 0); if (hs % 4 === 0) clutter.push({ k: 'paper', x: X0 + (hs >>> 4) % 44 + 2, y: 0.35, z: Z0 + (hs >>> 10) % 44 + 2, r: (hs % 628) / 100, sx: 7 + (hs >>> 16) % 6, sy: 1, sz: 9 }); }
+    floorQuad(get(STREET_MAT[w.theme.street] || 'asphalt'), X0, Z0, X1, Z1, 0, w.theme.street === 'mars' ? 640 : w.theme.street ? 240 : 900);
+    { const hs = (Math.imul(x * 2246822519 ^ y * 3266489917, 668265263) >>> 0); if (hs % 9 === 0) clutter.push({ k: 'paper', x: X0 + (hs >>> 4) % 44 + 2, y: 0.35, z: Z0 + (hs >>> 10) % 44 + 2, r: (hs % 628) / 100, sx: 7 + (hs >>> 16) % 6, sy: 1, sz: 9 }); }
     const m = w.mark[i], cw = w.cross[i];
     if (m === 1 && (y & 1) === 0) { floorQuad(get('yellow'), X0 - 3, Z0 + 6, X0 - 1, Z1 - 6, 0.4, 100); floorQuad(get('yellow'), X0 + 1, Z0 + 6, X0 + 3, Z1 - 6, 0.4, 100); }
     else if (m === 2 && (x & 1) === 0) { floorQuad(get('yellow'), X0 + 6, Z0 - 3, X1 - 6, Z0 - 1, 0.4, 100); floorQuad(get('yellow'), X0 + 6, Z0 + 1, X1 - 6, Z0 + 3, 0.4, 100); }
@@ -759,7 +763,7 @@ function buildChunk(w, cx, cy) {
   addWires(g, lamps, kitOf(w).wires);
   return g;
 }
-const TERR_MAT = [null, 'tSand', 'tIce', 'tFlood', 'tLava', 'tMud', 'tCrater', 'tRim'];
+const TERR_MAT = [null, 'tSand', 'tIce', 'tFlood', 'tLava', 'tMud', null, null];   // 크레이터는 얼룩 대신 솟은 테 · 그늘진 바닥 모형으로
 const STREET_MAT = { sand: 'st_sand', dirt: 'st_dirt', stone: 'st_stone', snow: 'st_snow', mars: 'st_mars' };
 /* ═══════════ 거리 잡동사니 · 전선 ═══════════ */
 let CLUT = null;
@@ -778,7 +782,8 @@ function clutterKit() {
     trunk: [(() => { const t = new THREE.CylinderGeometry(0.7, 1, 1, 7); t.translate(0, 0.5, 0); return t; })(), enhanceNew(new THREE.MeshStandardMaterial({ color: 0x3a3028, roughness: 0.9 }))],
     canopy: [new THREE.IcosahedronGeometry(1, 1), enhanceNew(new THREE.MeshStandardMaterial({ color: 0x1e3420, roughness: 0.85 }))],
     frond: [(() => { const f = new THREE.IcosahedronGeometry(1, 0); f.translate(0.6, -0.3, 0); return f; })(), enhanceNew(new THREE.MeshStandardMaterial({ color: 0x2a4a24, roughness: 0.8 }))],
-    paper: [GEO.plane, enhanceNew(new THREE.MeshStandardMaterial({ map: TEX.paper, transparent: true, alphaTest: 0.2, roughness: 0.5, polygonOffset: true, polygonOffsetFactor: -1 }))],
+    // 바닥의 종이 — 젖어 칙칙하고 빛을 반사하지 않는다(밝게 빛나 보급 상자로 착각하게 했다)
+    paper: [GEO.plane, enhanceNew(new THREE.MeshStandardMaterial({ map: TEX.paper, transparent: true, alphaTest: 0.2, roughness: 1, envMapIntensity: 0, polygonOffset: true, polygonOffsetFactor: -1 }))],
   };
   return CLUT;
 }
@@ -818,7 +823,7 @@ const LAMP_H = 66, LAMP_ARM = 22;
 /** 보도 잡동사니 — 벽에 붙은 쪽에 쓰레기봉투 더미 · 상자 · 타이어, 드물게 드럼통 불. 젖은 종이 */
 function sidewalkClutter(w, x, y, X0, Z0, SH, fires, clutter, isB) {
   const hs = (Math.imul(x * 1640531527 ^ y * 2654435761, 2246822519) >>> 0), T = TILE;
-  if (hs % 3 === 0) clutter.push({ k: 'paper', x: X0 + (hs >>> 3) % 40 + 4, y: SH + 0.35, z: Z0 + (hs >>> 9) % 40 + 4, r: (hs % 628) / 100, sx: 7, sy: 1, sz: 9 });
+  if (hs % 7 === 0) clutter.push({ k: 'paper', x: X0 + (hs >>> 3) % 40 + 4, y: SH + 0.35, z: Z0 + (hs >>> 9) % 40 + 4, r: (hs % 628) / 100, sx: 7, sy: 1, sz: 9 });
   let wx = 0, wz = 0;
   if (isB(x, y - 1)) wz = -1; else if (isB(x - 1, y)) wx = -1; else if (isB(x + 1, y)) wx = 1; else if (isB(x, y + 1)) wz = 1;
   if (!wx && !wz) return;
@@ -1117,7 +1122,7 @@ const FACADE_STYLES = ['villa', 'apt', 'tile', 'mansion', 'shophouse', 'hdb', 's
 function makeFacadeMats(std) {
   for (const st of FACADE_STYLES) {
     const a = facadeStyle(st, false), l = facadeStyle(st, true);
-    MAT['f_' + st] = std({ map: a, normalMap: normalFrom(a.image, 1.6), vertexColors: true, roughness: 0.85, emissive: 0xffffff, emissiveMap: l, emissiveIntensity: 1.5, envMapIntensity: 0.4 });
+    MAT['f_' + st] = std({ map: a, normalMap: normalFrom(a.image, 1.6), vertexColors: true, roughness: 0.85, emissive: 0xffffff, emissiveMap: l, emissiveIntensity: 0.95, envMapIntensity: 0.4 });   // 불 켜진 창 — 총구 불꽃보다 밝지 않게
   }
 }
 /* 간판 — 도시의 글자 · 색으로 그린 판 모음(가로 48 · 세로 16). 켜진 판은 스스로 빛난다 */
@@ -1484,7 +1489,8 @@ function poseHuman(h, o) {
 
 /* ═══════════ 탈것 · 화물 ═══════════ */
 function paint(hex) { return mat(hex, { roughness: 0.3, metalness: 0.45, envMapIntensity: 1.6 }); }
-const GLASS = () => mat('#0e141c', { roughness: 0.05, metalness: 0.7, envMapIntensity: 2.5 });
+// 차 유리 — 먼지 낀 어두운 유리. 예전엔 거울처럼 매끈해 손전등을 받으면 총구 불꽃보다 밝게 번쩍였다
+const GLASS = () => mat('#0e141c', { roughness: 0.42, metalness: 0.2, envMapIntensity: 0.55 });
 function bx(g, m, x, y, z, sx, sy, sz) { const o = part(GEO.box, m, x, y, z, sx, sy, sz); o.receiveShadow = true; g.add(o); return o; }
 /** 사다리꼴 상자 — 아래 면(L0 × W0)에서 위 면으로 앞 · 뒤 · 옆이 안쪽으로 기운다 (차의 객실 · 보닛) */
 function taperGeo(L0, W0, H, fIn, bIn, sIn) {
@@ -1969,11 +1975,21 @@ function updateHazards(g, near) {
   let nw = 0;
   for (const r of g.ripples || []) {
     if (nw >= 60) break;
-    const k = r.t / r.max, R = r.r * (0.6 + k * 1.4);
+    const k = r.t / r.max, R = r.r * (r.shove ? 0.5 + k * 1.8 : 0.6 + k * 1.4);
     dm.compose(dpos.set(r.x, 3.2, r.y), dq.identity(), dsc.set(R, 1, R)); HZ.wade.setMatrixAt(nw, dm);
-    const c = 0.5 * (1 - k); HZ.wade.instanceColor.setXYZ(nw, c * 0.8, c * 0.9, c); nw++;
+    const c = (r.shove ? 2.2 : 0.5) * (1 - k); HZ.wade.instanceColor.setXYZ(nw, c, c * 0.92, c * 0.8); nw++;
   }
   HZ.wade.count = nw;
+  // 밀치기 — 몸 앞으로 휘두르는 흰 부채꼴(맞히면 더 밝게)
+  if (!SHOVE3) { SHOVE3 = []; const geo = new THREE.RingGeometry(0.35, 1, 24, 1, -1, 2).rotateX(-Math.PI / 2); for (let i = 0; i < 3; i++) { const m = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: 0xfff4e0, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide })); m.visible = false; m.frustumCulled = false; scene.add(m); SHOVE3.push(m); } }
+  SHOVE3.forEach((m, i) => {
+    const sv = (g.shoves || [])[i];
+    m.visible = !!sv;
+    if (!sv) return;
+    const k = sv.t / sv.max, R = 26 + k * 30;
+    m.position.set(sv.x, 22, sv.y); m.rotation.set(0, -sv.a, 0); m.scale.set(R, 1, R * (1 - k * 0.35));
+    m.material.opacity = (sv.hits ? 0.9 : 0.5) * (1 - k);
+  });
   for (const k in HZ) { HZ[k].instanceMatrix.needsUpdate = true; if (HZ[k].instanceColor) HZ[k].instanceColor.needsUpdate = true; }
   updateRelays(g, near);
   updateTwist(g, near);
@@ -2076,7 +2092,7 @@ function updateTwist(g, near) {
   for (const [ob, o] of dyn.tw) if (!seen.has(ob)) { scene.remove(o); dyn.tw.delete(ob); }
 }
 /* 값싼 빛 모으기 — 매 프레임 후보(가로등 · 간판 · 불 · 출구)를 카메라 둘레 가까운 순으로 골라 시점 좌표로 넣는다 */
-let carry3 = null, RIM_GEO = null, BOWL_GEO = null;
+let carry3 = null, RIM_GEO = null, BOWL_GEO = null, SHOVE3 = null;
 /** 땅마다 발이 잠기는 깊이 — 물은 정강이, 진흙은 발목, 모래는 발등 */
 const SINK = [0, 1.6, 0, 6, 0, 3.2, 1.5, -7];      // 7 = 크레이터 테 위 — 솟은 흙에 올라선다
 const clCand = [], clTmp = new THREE.Vector3(), tmpC = new THREE.Color();
@@ -2905,6 +2921,18 @@ function poseZombieRig(h, z, g, dt) {
     bv2.set(Math.sin(z.hitAng || 0), 0, -Math.cos(z.hitAng || 0));         // 맞은 방향에 수직인 축
     tiltBone(B.Spine1, bv2, k); tiltBone(B.Head, bv2, k * 0.6);                // 총알이 나아가는 쪽으로 밀린다
   }
+  // 밀쳐진 것 — 밀린 쪽으로 상체가 크게 젖혀지고 두 팔이 위로 허우적댄다, 발이 살짝 뜬다
+  if (z.shoved > 0 && B.Spine1) {
+    const k = Math.min(1, z.shoved / 0.35);
+    bv2.set(Math.sin(z.shoveA || 0), 0, -Math.cos(z.shoveA || 0));
+    tiltBone(B.Spine, bv2, k * 0.55); tiltBone(B.Spine1, bv2, k * 0.45); tiltBone(B.Head, bv2, k * 0.5);
+    for (const [up, lo, sd] of [[B.LeftArm, B.LeftForeArm, 1], [B.RightArm, B.RightForeArm, -1]]) {
+      if (!up) continue;
+      tdir.set(-Math.cos(z.shoveA || 0) * 0.4, 1, -Math.sin(z.shoveA || 0) * 0.4).addScaledVector(lat, sd * (0.6 + Math.sin(g.time * 24 + sd) * 0.3));
+      aimBone(up, tdir, 0.9 * k); aimBone(lo, tdir.addScaledVector(YAX, 0.3), 0.9 * k);
+    }
+    u.body.position.y = Math.sin(Math.min(1, (0.6 - z.shoved) / 0.25) * Math.PI) * 3 * k;
+  }
   // 엎드려 기는 것 — 몸을 앞으로 눕힌다
   if (t.crawl) { u.body.rotation.z = -1.25; u.body.position.y = 7; }
   // 우는 것 — 웅크려 앉아 얼굴을 묻는다
@@ -3077,13 +3105,15 @@ function posePlayerRig(h, p, g, dt) {
   const twist = wrapA(aim - u.root);
   if (Math.abs(twist) > 0.002) { for (const b of [B.Spine, B.Spine1, B.Spine2]) tiltBone(b, YAX, -twist / 3); h.updateMatrixWorld(true); }
   fwd.set(Math.cos(p.angle), 0, Math.sin(p.angle)); lat.set(fwd.z, 0, -fwd.x);
-  const melee = p.meleeAnim > 0 ? Math.sin((1 - p.meleeAnim / 0.2) * Math.PI) : 0;
+  const melee = p.meleeAnim > 0 ? Math.sin((1 - p.meleeAnim / 0.32) * Math.PI) : 0;
   const key = (p.weapon && p.weapon.key) || 'pistol', long = key !== 'pistol', S = h.scale.x;
+  // 밀치기 — 상체를 앞으로 실어 내지른다(어깨가 앞으로, 앞발에 체중)
+  if (melee > 0.01) { tiltBone(B.Spine, lat, melee * 0.42); tiltBone(B.Spine1, lat, melee * 0.25); h.updateMatrixWorld(true); }
   // 몸의 기준점 — 가슴(Spine2). 오른쪽은 -lat
   if (B.Spine2) B.Spine2.getWorldPosition(chestP); else chestP.set(p.x, 36 * S, p.y);
   const right = gO.copy(lat).multiplyScalar(-1);
   // 손 목표 — 권총은 두 손을 모아 앞으로 쭉, 긴 총은 오른손이 개머리 쪽 손잡이 · 왼손이 총열 밑
-  const grip = new THREE.Vector3().copy(chestP).addScaledVector(fwd, (long ? 7 : 15) * S + melee * 6).addScaledVector(right, (long ? 3.5 : 0.6) * S).addScaledVector(YAX, (long ? -4.5 : -2.5) * S);
+  const grip = new THREE.Vector3().copy(chestP).addScaledVector(fwd, (long ? 7 : 15) * S + melee * 15 * S).addScaledVector(right, (long ? 3.5 : 0.6) * S).addScaledVector(YAX, (long ? -4.5 : -2.5) * S);
   const fore = new THREE.Vector3().copy(grip).addScaledVector(fwd, (long ? 11 : 0.5) * S).addScaledVector(right, (long ? -2 : -1.4) * S).addScaledVector(YAX, (long ? 0.5 : 0) * S);
   reachArm(B.RightArm, B.RightForeArm, grip, right, 0.97);
   reachArm(B.LeftArm, B.LeftForeArm, fore, lat, 0.97);
@@ -3294,7 +3324,7 @@ function updateHumans(g, p) {
   }
   player3.visible = !p.dead;
   player3.position.set(p.x, 0, p.y); player3.rotation.y = -p.angle;
-  const melee = p.meleeAnim > 0 ? Math.sin((1 - p.meleeAnim / 0.2) * Math.PI) : 0;
+  const melee = p.meleeAnim > 0 ? Math.sin((1 - p.meleeAnim / 0.32) * Math.PI) : 0;
   poseHuman(player3, { ph: p.walkPhase, amp: p.stride || 0, lean: 1.2, arms: 'gun', melee });
 }
 

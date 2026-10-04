@@ -22,7 +22,7 @@
 })();
 
 /** 제품 정보 — 이름 · 판. 출시 이름이 정해지면 여기와 index.html · manifest 를 함께 바꾼다 */
-const APP = { name: 'LEFT CITY', subtitle: '남겨진 도시', version: '1.0.0-rc.24' };
+const APP = { name: 'LEFT CITY', subtitle: '남겨진 도시', version: '1.0.0-rc.25' };
 const APP_VERSION = APP.version;
 
 /** 난이도 배수. 1 = 기준값(잔존) */
@@ -62,6 +62,7 @@ const SETTINGS = (() => {
     haptics: true,         // 맞거나 폭발이 가까우면 짧게 진동 (지원 기기)
     edgeSprint: true,      // 터치: 이동 스틱을 끝까지 밀면 저절로 질주(질주 버튼 없이)
     autoShove: true,       // 터치: 감염체에게 붙잡히면 저절로 밀쳐 낸다(쿨다운마다 한 번)
+    tapShove: true,        // 터치: 오른쪽 화면(조준 쪽)을 두 번 빠르게 톡톡 치면 밀치기
     aspect: 'fill',        // 화면 비율: fill = 창을 꽉 채운다(어떤 비율이든) · wide = 16:9 띠(레터박스)
     speed: 3,              // 게임 속도 1 · 2 · 3배 — 3 이 rc.21 까지의 빠르기(처음 정한 균형). 낮추면 모든 것이 그만큼 느리게
     view3d: 100,           // 3D 시점 거리 0‒100: 100 = 가장 멀리(rc.16 의 크기) · 0 = 아주 가까이(인물이 약 2.7배)

@@ -160,8 +160,8 @@ const MODELS = (() => {
       let el, hn;
       if (arms === 'gun') {
         const m = o.melee || 0;
-        el = sd > 0 ? [L + 3.5 + m * 3, 4.6, 17.4] : [L + 5 + m * 4, -4.4, 18.4];
-        hn = sd > 0 ? [L + 8 + m * 7, 1.4, 19] : [L + 11 + m * 7, -0.4, 19.5];
+        el = sd > 0 ? [L + 3.5 + m * 6, 4.6, 17.4] : [L + 5 + m * 7, -4.4, 18.4];
+        hn = sd > 0 ? [L + 8 + m * 12, 1.4 + m * 2, 19] : [L + 11 + m * 12, -0.4 - m * 2, 19.5];
       } else if (arms === 'reach') {
         const k = sd * sw;
         el = [L + 6, sd * 4.6 * B, S1 + k * 0.4];
@@ -375,6 +375,8 @@ const MODELS = (() => {
     if (!o.hood) o.faceCol = '#241513';
     if (k.hazmat && !t.boss && !t.bloat && !t.spit && !t.scream && t.size < 18) { o.hood = '#e2e0d6'; o.sleeve = k.top; o.faceCol = null; }
     if (k.helmet && o.head) { o.helmet = '#3d4330'; o.sleeve = k.top; }
+    // 밀쳐진 감염체 — 뒤로 크게 젖혀지고 팔을 허우적댄다
+    if (z.shoved > 0) { const k = Math.min(1, z.shoved / 0.35); o.lean = -7 * k; o.arms = 'claw'; o.amp = 0.2; }
     o.x = z.x; o.y = z.y; o.face = z.face; o.ph = ph; o.sway = o.sway ?? sway;
     R = humanRig(o);
     R.draw(ctx, over);
@@ -383,15 +385,15 @@ const MODELS = (() => {
   /** 생존자 — 어두운 재킷, 배낭, 두 손으로 든 총과 총열 아래 손전등 */
   function player(ctx, p, over) {
     shadow(ctx, p.x, p.y, 11);
-    const melee = p.meleeAnim > 0 ? Math.sin((1 - p.meleeAnim / 0.2) * Math.PI) : 0;
+    const melee = p.meleeAnim > 0 ? Math.sin((1 - p.meleeAnim / 0.32) * Math.PI) : 0;
     const R = humanRig({
-      x: p.x, y: p.y, face: p.angle, S: 1.12, ph: p.walkPhase, amp: p.stride || 0, lean: 1.2, arms: 'gun', melee,
+      x: p.x, y: p.y, face: p.angle, S: 1.12, ph: p.walkPhase, amp: p.stride || 0, lean: 1.2 + melee * 5, arms: 'gun', melee,
       skin: '#c9a184', top: p.hurtFlash > 0.05 ? '#7a3e3a' : '#2f3a44', pants: '#262b31', hair: '#1d1a17', shoes: '#121416',
       sleeve: '#2f3a44', fore: '#2f3a44',
       extra(R2, bob, L) {
         R2.ball(L - 3.8, 0, 19 + bob, 3.4, '#3b3428');               // 배낭
         R2.ball(L - 3.4, 0, 22.4 + bob, 2.2, '#4a4234', false);
-        const m = melee * 7;
+        const m = melee * 12;
         R2.limb([L + 6.5 + m, 0.6, 19.6], [L + 19 + m, 0.2, 20.2], 1.25, '#15181c');
         R2.ball(L + 19.5 + m, 0.2, 19.2, 1.35, '#f4e2a8', false);
       }

@@ -213,7 +213,8 @@ class Player {
   melee(g) {
     if (this.dead || this.meleeCool > 0) return false;
     this.meleeCool = 0.58;
-    this.meleeAnim = 0.2;
+    this.meleeAnim = 0.32;                                   // 밀치기 — 몸을 실어 두 팔로 내지른다(예전 0.2초는 눈에 잘 안 띄었다)
+    (g.shoves || (g.shoves = [])).push({ x: this.x, y: this.y, a: this.angle, t: 0, max: 0.3, hits: 0 });
     this.noise = Math.max(this.noise, 0.34);
     this.cancelReload();
     this.cool = Math.max(this.cool, 0.22);
@@ -232,13 +233,18 @@ class Player {
       z.hurt(24, a, g, 0, 'melee');
       if (z.dead) killed = true;
       if (!z.dead && !z.t.boss) {
+        // 밀려나는 것이 눈에 보이게 — 순간이동 대신 0.28초 동안 미끄러지며(약 80) 뒤로 젖혀지고 팔을 허우적댄다
         const brute = z.type === 'brute' || z.type === 'charger';
-        g.world.slide(z, Math.cos(a) * (brute ? 22 : 56), Math.sin(a) * (brute ? 22 : 56));
-        z.stagger = Math.max(z.stagger, brute ? 0.14 : 0.44);
+        z.kbV = brute ? 140 : 380; z.kbA = a; z.shoved = brute ? 0.3 : 0.6; z.shoveA = a;
+        z.stagger = Math.max(z.stagger, brute ? 0.2 : 0.62);
+        for (let i = 0; i < 5; i++) { const pa = a + Math.PI + (Math.random() - 0.5) * 1.6, sp = 40 + Math.random() * 60;
+          g.particles.push({ x: z.x, y: z.y, vx: Math.cos(pa) * sp, vy: Math.sin(pa) * sp, life: 0.6, max: 0.6, size: 6 + Math.random() * 5, col: '#8a8478', kind: 'smoke' }); }
+        (g.ripples || (g.ripples = [])).push({ x: z.x, y: z.y, t: 0, max: 0.35, r: 22, shove: true });
       }
       hits++;
     }
-    if (hits) { SFX.meleeHit(0); g.shake = Math.min(14, g.shake + 3.6); g.onHit(killed); }
+    const sh = g.shoves[g.shoves.length - 1]; if (sh) sh.hits = hits;
+    if (hits) { SFX.meleeHit(0); g.shake = Math.min(18, g.shake + 7); g.onHit(killed); g.freezeT = Math.max(g.freezeT || 0, 0.055); if (g.buzz) g.buzz(25); }
     return true;
   }
 
@@ -633,6 +639,11 @@ class Zombie {
     }
 
     if (this.skeet > 0) this.skeet -= dt;
+    if (this.shoved > 0) this.shoved -= dt;
+    if (this.kbV > 1) {                                   // 밀치기에 밀려 미끄러진다 — 빠르게 시작해 금세 멈춘다
+      g.world.slide(this, Math.cos(this.kbA) * this.kbV * dt, Math.sin(this.kbA) * this.kbV * dt);
+      this.kbV *= Math.pow(0.004, dt);
+    }
     if (this.stagger > 0) { this.stagger -= dt; if (this.tonguePhase === 'pull') this.cutTongue(g, true); return; }
     if (this.t.leap && this.updateLeap(dt, g, p, d, dx, dy)) return;
     if (this.t.tongue && this.updateTongue(dt, g, p, d, dx, dy)) return;

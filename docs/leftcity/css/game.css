@@ -298,6 +298,7 @@ body.touch .minimap{right:auto;left:max(14px,env(safe-area-inset-left));top:calc
 
 /* ── 서바이벌 도시 선택 ── */
 .cities{display:grid;gap:10px;margin-bottom:20px}
+@media (min-width:640px){.cities{grid-template-columns:1fr 1fr}}
 .city{display:flex;flex-direction:column;align-items:flex-start;gap:4px;padding:14px 16px;cursor:pointer;text-align:left;
   background:rgba(255,255,255,.035);border:1px solid rgba(255,255,255,.12);color:var(--bone);font-family:var(--font)}
 .city:hover{background:rgba(255,255,255,.09);border-color:rgba(255,255,255,.28)}
@@ -362,6 +363,7 @@ a.btn{display:inline-block;text-decoration:none;text-align:center}
   background:rgba(255,255,255,.035);border:1px solid rgba(255,255,255,.1);
   transition:background .18s,border-color .18s}
 .chapter:hover{background:rgba(255,255,255,.09);border-color:rgba(255,255,255,.26)}
+.chapters__part{grid-column:1/-1;margin:10px 0 2px;font-size:12px;letter-spacing:.18em;color:var(--accent,#f0b429);text-transform:uppercase;opacity:.85}
 .chapter--locked{opacity:.34;cursor:not-allowed}
 .chapter--locked:hover{background:rgba(255,255,255,.035);border-color:rgba(255,255,255,.1)}
 .chapter__no{font-size:11px;letter-spacing:.14em;color:var(--fog);min-width:26px}

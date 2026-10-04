@@ -32,10 +32,17 @@ const STORY = {
   journey: {
     4: { from: 'seoul', to: 'tokyo', how: ['김 선장의 어선 · 바다 위의 이틀', 'Captain Kim\'s fishing boat · two days at sea'] },
     7: { from: 'tokyo', to: 'bangkok', how: ['남쪽으로 가는 화물선 · 엿새', 'A freighter heading south · six days'] },
-    9: { from: 'bangkok', to: 'singapore', how: ['진료소 트럭으로 반도를 따라 · 사흘', 'The clinic\'s truck down the peninsula · three days'] }
+    9: { from: 'bangkok', to: 'singapore', how: ['진료소 트럭으로 반도를 따라 · 사흘', 'The clinic\'s truck down the peninsula · three days'] },
+    // 2부 — 새벽호의 항해
+    11: { from: 'singapore', to: 'varanasi', how: ['새벽호로 벵골만을 건너, 강배로 갠지스를 거슬러 · 아흐레', 'The Dawn across the Bay of Bengal, then a riverboat up the Ganges · nine days'] },
+    12: { from: 'varanasi', to: 'cairo', how: ['아라비아해 · 홍해 · 수에즈 · 열이틀', 'Arabian Sea · Red Sea · Suez · twelve days'] },
+    13: { from: 'cairo', to: 'venice', how: ['지중해를 건너 북쪽으로 · 엿새', 'North across the Mediterranean · six days'] },
+    14: { from: 'venice', to: 'reykjavik', how: ['지브롤터를 지나 북대서양 · 열하루', 'Past Gibraltar into the North Atlantic · eleven days'] },
+    15: { from: 'reykjavik', to: 'antarctic', how: ['붉은 쇄빙선으로 대서양을 끝까지 남하 · 스무날', 'South down the whole Atlantic on a red icebreaker · twenty days'] }
   },
   /** 지도 위 도시 (경도, 위도) */
-  cities: { seoul: [127.0, 37.55], tokyo: [139.7, 35.68], bangkok: [100.5, 13.75], singapore: [103.82, 1.35] },
+  cities: { seoul: [127.0, 37.55], tokyo: [139.7, 35.68], bangkok: [100.5, 13.75], singapore: [103.82, 1.35],
+    varanasi: [83.0, 25.32], cairo: [31.24, 30.04], venice: [12.34, 45.44], reykjavik: [-21.9, 64.15], antarctic: [-64.05, -64.77] },
 
   /** 챕터별 무전과 마무리 한 줄. 무전 열쇠: start · mid · mid2 · done · hold · boss */
   chapters: [
@@ -133,6 +140,49 @@ const STORY = {
         done: [['may', '현문 내렸습니다! 올라와요!', 'Gangway\'s down! Get aboard!']]
       },
       outro: ['현문이 올라가고, 새벽호는 해가 뜨기 전에 항구를 떠났다.', 'The gangway rose, and the Dawn left port before sunrise.']
+    },
+    /* ── 2부: 새벽호의 항해 ── */
+    { // 12 강가의 계단 — 바라나시
+      radio: {
+        start: [['nok', '항바이러스제는 파란 뚜껑 상자예요. 네 상자면 배 전체가 한 달은 버텨요.', 'The antivirals are in the blue-lidded crates. Four of them keeps the whole ship going for a month.']],
+        mid: [['may', '강물이 불고 있어요. 진흙이 깊어지기 전에 서둘러요.', 'The river\'s rising. Hurry, before the mud gets any deeper.']],
+        done: [['nok', '다 챙겼어요? 계단 연못에서 보트가 기다려요.', 'Got them all? The boat\'s waiting at the stepped pool.']]
+      },
+      outro: ['강 위로 꽃불 몇 개가 아직 떠내려가고 있었다. 누가 띄웠는지는 알 수 없었다.', 'A few flower-lamps were still drifting down the river. No one could say who had set them afloat.']
+    },
+    { // 13 모래 폭풍 — 카이로
+      radio: {
+        start: [['may', '저장고 문 원격 개방 시작. 100초. 버텨요.', 'Remote unlock on the depot door has started. A hundred seconds. Hold on.']],
+        mid: [['haru', '…도하? 모래 때문에 잡음이 심해. 반만 더!', '…Doha? The sand is chewing up the signal. Halfway there!']],
+        done: [['may', '문 열렸어요. 연료 확보. 피라미드 쪽으로 와요.', 'Door\'s open. Fuel secured. Head for the pyramids.']]
+      },
+      outro: ['피라미드는 사천오백 년을 버텼다. 하룻밤쯤은 아무것도 아니라는 듯이.', 'The pyramids had stood for four and a half thousand years. One more night was nothing to them.']
+    },
+    { // 14 잠긴 도시 — 베네치아
+      radio: {
+        start: [['haru', '종탑 중계기 셋이 살아 있으면 북대서양까지 닿아. 켜질 때까지 곁에 있어.', 'If those three bell-tower relays still work, we reach the North Atlantic. Stay with each one until it\'s up.']],
+        mid: [['haru', '하나! …누가 응답해. 아이슬란드 억양이야.', 'One! …Someone\'s answering. Icelandic accent.']],
+        mid2: [['haru', '둘! 하나만 더.', 'Two! One more.']],
+        done: [['haru', '연결됐어. 레이캬비크에 쇄빙선이 있대. 남쪽으로 간대 — 남극까지.', 'We\'re through. There\'s an icebreaker in Reykjavik. It\'s heading south — all the way to Antarctica.']]
+      },
+      outro: ['광장의 물은 무릎까지 차 있었다. 종탑의 종이 바람에 한 번 울렸다.', 'The water in the square was knee-deep. The bell in the tower rang once in the wind.']
+    },
+    { // 15 불의 땅 — 레이캬비크
+      radio: {
+        start: [['may', '쇄빙선이 연료를 넣는 동안 항구를 비워야 해요. 붉은 금은 밟지 말아요.', 'We need the harbour clear while the icebreaker refuels. Don\'t step on the red cracks.']],
+        mid: [['nok', '절반! 저것들은 열을 몰라요. 금 쪽으로 몰아요.', 'Halfway! They don\'t feel the heat. Drive them onto the cracks.']],
+        done: [['may', '항구 깨끗합니다. 쇄빙선 출항 준비. 교회 앞에서 태울게요.', 'Harbour\'s clear. Icebreaker getting ready. We\'ll pick you up at the church.']]
+      },
+      outro: ['간헐천이 다시 솟았다. 김이 걷히자 쇄빙선의 붉은 뱃머리가 보였다.', 'The geyser went up again. As the steam cleared, the icebreaker\'s red bow came into view.']
+    },
+    { // 16 마지막 기지 — 남극
+      radio: {
+        start: [['pa', '…본 기지는 격리 중입니다. 외부인은 헬기장에서 대기하십시오…', '…This station is under quarantine. Visitors wait at the helipad…'],
+                ['doha', '여기까지 따라왔구나.', 'You followed us all the way here.']],
+        mid: [['haru', '헬기 이륙 확인! 60초. 도하, 끝까지 말할게 — 이번에도.', 'Helicopter\'s up! Sixty seconds. Doha, I\'ll talk you all the way in — like last time.']],
+        done: [['may', '헬기 착륙! 올라타요!', 'Helicopter\'s down! Get on!']]
+      },
+      outro: ['헬기가 떠오르자 기지의 불빛이 하나씩 작아졌다. 아래로는 끝없는 얼음뿐이었다.', 'As the helicopter rose, the station lights shrank one by one. Below there was nothing but ice.']
     }
   ],
 
@@ -143,6 +193,18 @@ const STORY = {
       ['갑판에서 돌아보니 도시는 여전히 불이 꺼진 채였다. 서울도, 도쿄도, 방콕도 — 모두 그렇게 남겨졌다.', 'From the deck, the city was still dark. Seoul, Tokyo, Bangkok — all of them left behind like that.'],
       ['무전기에서 익숙한 잡음이 났다. "…여기는 하루. 들리면, 아무 말이라도 해."', 'The radio crackled, familiar. "…This is Haru. If you can hear me, say something."'],
       ['도하는 송신 버튼을 눌렀다. "들려. 아직 여기 있어."', 'Doha pressed the button. "I hear you. I\'m still here."']
+    ]
+  },
+
+  /** 2부 끝 */
+  epilogue2: {
+    kicker: ['2부 에필로그', 'Part 2 Epilogue'],
+    title: ['새벽', 'Dawn'],
+    text: [
+      ['쇄빙선 갑판 위로 해가 떴다. 이 계절의 남극에는 밤이 오지 않는다고 했다.', 'The sun came up over the icebreaker\'s deck. Down here, they said, this season had no night.'],
+      ['기지의 연구원들은 녹의 상자를 열어 보고 한참 말이 없었다. 그리고 실험실의 불을 켰다.', 'The station\'s researchers opened Nok\'s crates and said nothing for a long time. Then they switched on the lab lights.'],
+      ['무전기가 울렸다. "…여기는 하루. 들리면, 아무 말이라도 해."', 'The radio crackled. "…This is Haru. If you can hear me, say something."'],
+      ['도하는 송신 버튼을 눌렀다. "들려. 밤이 끝났어."', 'Doha pressed the button. "I hear you. The night is over."']
     ]
   },
 
@@ -159,9 +221,10 @@ const STORY = {
     { id: 'untouched',t: ['털끝 하나', 'Not a Scratch'], d: ['피해를 받지 않고 챕터를 마친다', 'Finish a chapter without taking damage'] },
     { id: 'pistol',   t: ['권총 한 자루', 'Just a Pistol'], d: ['1장을 권총만 쏘며 마친다', 'Finish chapter 1 firing only the pistol'] },
     { id: 'hush',     t: ['쉿', 'Hush'], d: ['우는 것을 한 번도 깨우지 않고 8장을 마친다', 'Finish chapter 8 without waking a Weeper'] },
+    { id: 'part2',    t: ['밤이 오지 않는 곳', 'Where Night Doesn\'t Come'], d: ['16장을 마치고 남극을 떠난다', 'Finish chapter 16 and leave Antarctica'] },
     { id: 'clean',    t: ['한 번에', 'In One Go'], d: ['10장이나 11장을 체크포인트 없이 마친다', 'Finish chapter 10 or 11 without using a checkpoint'] },
     { id: 'rec10',    t: ['주워 읽는 사람', 'Reader'], d: ['기록 10장을 찾는다', 'Find 10 records'] },
-    { id: 'rec20',    t: ['남겨진 기록', 'Everything Left Behind'], d: ['기록 22장을 모두 찾는다', 'Find all 22 records'] },
+    { id: 'rec20',    t: ['남겨진 기록', 'Everything Left Behind'], d: ['기록 32장을 모두 찾는다', 'Find all 32 records'] },
     { id: 'surv10',   t: ['도시의 주인', 'Owner of the City'], d: ['서바이벌에서 10분을 버틴다', 'Last 10 minutes in Survival'] },
     { id: 'cities',   t: ['네 도시의 밤', 'Four Cities, Four Nights'], d: ['네 도시 모두 서바이벌에서 3분을 버틴다', 'Last 3 minutes in Survival in all four cities'] },
     { id: 'gold1',    t: ['첫 금메달', 'First Gold'], d: ['도전에서 금메달을 딴다', 'Earn a gold medal in a challenge'] },
@@ -214,6 +277,27 @@ const STORY = {
     { id: 'c10a', ch: 10, title: ['새벽호 승선 명단', 'Dawn passenger list'],
       text: ['총 311명. 마지막 줄은 비어 있다. 누군가 연필로 적어 두었다 — "한 명 더."', '311 in total. The last line is blank. Someone wrote in pencil: "One more."'] },
     { id: 'c10b', ch: 10, title: ['메이의 항해 일지', 'May\'s logbook'],
-      text: ['출항 예정 05:00. 하루라는 무선사가 계속 기다려 달라고 한다. 5분만 더 기다리기로 한다.', 'Departure 05:00. A radio operator called Haru keeps asking us to wait. Decided to wait five more minutes.'] }
+      text: ['출항 예정 05:00. 하루라는 무선사가 계속 기다려 달라고 한다. 5분만 더 기다리기로 한다.', 'Departure 05:00. A radio operator called Haru keeps asking us to wait. Decided to wait five more minutes.'] },
+    /* 2부 */
+    { id: 'c12a', ch: 11, title: ['보트 대여 장부', 'Boat rental ledger'],
+      text: ['보트 14척 중 13척 대여 중. 반납 기한 칸에는 모두 같은 말 — "돌아오면".', 'Thirteen of fourteen boats out. Every due-back box says the same thing: "When we return."'] },
+    { id: 'c12b', ch: 11, title: ['약품 창고 메모', 'Pharmacy store note'],
+      text: ['항바이러스제 — 효과 미확인. 그래도 남겨 둔다. 누군가는 확인하겠지.', 'Antivirals — effect unconfirmed. Leaving them anyway. Someone will find out.'] },
+    { id: 'c13a', ch: 12, title: ['안내판의 낙서', 'Graffiti on a sign'],
+      text: ['"입장 마감 17:00" 위에 누가 고쳐 적었다 — "영업 끝."', 'Over "Last entry 17:00" someone has written: "Closed for good."'] },
+    { id: 'c13b', ch: 12, title: ['연료 저장고 일지', 'Fuel depot log'],
+      text: ['마지막 출고: 남쪽으로 가는 배 여섯 척. 모두 같은 말을 했다 — 남극에는 아직 없다고.', 'Last fuel out: six ships heading south. They all said the same thing — it hasn\'t reached Antarctica yet.'] },
+    { id: 'c14a', ch: 13, title: ['곤돌라 사공의 쪽지', 'Gondolier\'s note'],
+      text: ['손님 없음. 물만 오름. 노는 문 옆에 두고 간다.', 'No passengers. Only the water rising. Left the oar by the door.'] },
+    { id: 'c14b', ch: 13, title: ['종탑 관리 기록', 'Bell tower log'],
+      text: ['중계기 점검 완료. 배터리 72시간. 그 뒤로는 종을 칠 것.', 'Relay checked. Battery: 72 hours. After that, ring the bell.'] },
+    { id: 'c15a', ch: 14, title: ['온천 수영장 명부', 'Hot-pool sign-in sheet'],
+      text: ['오늘 입장 0명. 물은 여전히 따뜻함.', 'Visitors today: 0. The water is still warm.'] },
+    { id: 'c15b', ch: 14, title: ['쇄빙선 화물 목록', 'Icebreaker manifest'],
+      text: ['연료 · 식량 · 연구 장비 · 승객 40명. 행선지: 남극 반도 연구 기지.', 'Fuel · food · research gear · 40 passengers. Destination: Antarctic Peninsula research station.'] },
+    { id: 'c16a', ch: 15, title: ['기지 격리 수칙', 'Station quarantine rules'],
+      text: ['외부인은 헬기장에서 48시간 대기. 증상이 없으면 입실. 예외 없음.', 'Visitors wait 48 hours at the helipad. No symptoms, then you may enter. No exceptions.'] },
+    { id: 'c16b', ch: 15, title: ['연구원의 메모', 'Researcher\'s note'],
+      text: ['샘플 17번 반응 있음. 더 필요하다. 누가 와 줄까.', 'Sample 17 is responding. We need more. Will anyone come?'] }
   ]
 };

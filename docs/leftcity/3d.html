@@ -164,7 +164,7 @@ html:not(.r3d-off) #view{background:transparent !important}
         </div>
         <p class="note" data-i18n="howtoNote">터치 화면에서는 <b>왼쪽 아무 데나</b> 눌러 끌면 걷습니다. 손전등은 가장 가까운 적(없으면 걷는 쪽)을 <b>저절로 비추고</b>, 오른쪽을 끌면 직접 비추며, 톡 치면 가장 가까운 적으로 돌립니다. 다른 방식은 <b>설정</b>에서.<br>
         사격 버튼은 없습니다 — <b>불빛에 들어온 적은 저절로 쏘고</b>, 총알은 손전등이 비추는 쪽으로만 나갑니다.<br>
-        무기는 바닥의 <b>발광 아이콘</b>을 밟아 줍습니다.<br>
+        총은 <b>쓰러뜨린 감염체가 떨어뜨립니다</b> — 빛나는 총을 밟아 줍습니다.<br>
         <b>뱉는 것</b>은 서 있던 자리로 산을 던집니다 — 초록 고리에서 비키세요.<br>
         총은 <b>탄창 단위</b>로 작동합니다 — 큰 숫자가 장전된 탄, 작은 숫자가 예비탄입니다.</p>
         <button class="btn btn--ghost" data-act="setback">돌아가기</button>
@@ -226,6 +226,11 @@ html:not(.r3d-off) #view{background:transparent !important}
           <button class="city" data-act="survcity" data-city="tokyo"><b>도쿄</b><span>시부야 스크램블 · 도쿄 타워 · 센소지 · 스미다강</span></button>
           <button class="city" data-act="survcity" data-city="bangkok"><b>방콕</b><span>왓 아룬 · 민주기념탑 · 야시장 · 짜오프라야강</span></button>
           <button class="city" data-act="survcity" data-city="singapore"><b>싱가포르</b><span>항만 · 수직 정원 · 호커 센터 · 싱가포르강</span></button>
+          <button class="city" data-act="survcity" data-city="varanasi"><b>바라나시</b><span>계단 연못 · 시카라 사원 · 갠지스강 — 진흙 · 몬순</span></button>
+          <button class="city" data-act="survcity" data-city="cairo"><b>카이로</b><span>기자의 피라미드 · 사원 · 나일강 — 모래 · 모래 폭풍</span></button>
+          <button class="city" data-act="survcity" data-city="venice"><b>베네치아</b><span>산마르코 광장 · 운하 — 침수 · 안개</span></button>
+          <button class="city" data-act="survcity" data-city="reykjavik"><b>레이캬비크</b><span>계단 교회 · 간헐천 — 용암 균열 · 눈</span></button>
+          <button class="city" data-act="survcity" data-city="antarctic"><b>남극 기지</b><span>연구 기지 · 쇄빙선 — 얼음판 · 눈보라</span></button>
         </div>
         <button class="btn btn--ghost" data-act="back">돌아가기</button>
       </div>
@@ -254,7 +259,8 @@ html:not(.r3d-off) #view{background:transparent !important}
         <dl class="result__stats" id="endingStats"></dl>
         <p class="note" id="endingNote"></p>
         <div class="screen__side screen__actions">
-          <button class="btn btn--primary" data-act="survival">서바이벌로</button>
+          <button class="btn btn--primary hidden" data-act="part2" id="btnPart2">2부 — 새벽호의 항해</button>
+          <button class="btn" data-act="survival">서바이벌로</button>
           <button class="btn btn--ghost" data-act="quit">타이틀로</button>
         </div>
       </div>

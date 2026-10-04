@@ -10,7 +10,7 @@ const LEVELS = [
     name: '첫 번째 밤',
     brief: '서울. 대피 방송이 끝난 지 아홉 시간. 야간 배송을 마치고 지하에서 올라왔을 때 도시는 이미 떠난 뒤였다. ' +
            '광화문 안뜰이 마지막 구조 집결지라고 했다. 가진 건 권총 한 자루와 손전등뿐이다.',
-    goals: ['광화문 안뜰까지 이동', '길에 떨어진 무기를 주울 것'],
+    goals: ['광화문 안뜰까지 이동', '감염체가 떨어뜨린 무기를 주울 것'],
     seed: 1042, blocks: 9, city: 'seoul', landmarks: ['gwanghwamun'], goal: 'gwanghwamun',
     objective: { type: 'escape' },
     spawn: { initial: 6, rate: 0.22, max: 14 },
@@ -28,7 +28,7 @@ const LEVELS = [
     objective: { type: 'collect', count: 3, item: '보급 상자' },
     spawn: { initial: 8, rate: 0.3, max: 18 },
     mix: { walker: 0.85, runner: 0.15, brute: 0 },
-    own: ['pistol', 'smg'], drops: ['shotgun'],
+    own: ['pistol'], drops: ['smg', 'shotgun'],
     startAmmo: { smg: 80, shell: 0 }, startNades: 2,
     supplies: { ammo: 3, shells: 2, medkit: 2, battery: 2, nade: 2 }
   },
@@ -54,7 +54,7 @@ const LEVELS = [
     objective: { type: 'collect', count: 3, item: '출입 카드' },
     spawn: { initial: 14, rate: 0.52, max: 26 },
     mix: { walker: 0.48, runner: 0.32, brute: 0.07, crawler: 0.16, bloater: 0.07 },
-    own: ['pistol', 'smg', 'shotgun'], drops: ['rifle'],            // 군 기지 — 소총은 여기서 줍는다
+    own: ['pistol', 'shotgun'], drops: ['smg', 'rifle'],
     startAmmo: { smg: 100, shell: 8, rifle: 0 }, startNades: 3,
     supplies: { ammo: 4, shells: 3, rounds: 1, medkit: 2, battery: 3, nade: 3 }
   },
@@ -67,7 +67,7 @@ const LEVELS = [
     objective: { type: 'collect', count: 4, item: '연료통' },
     spawn: { initial: 12, rate: 0.5, max: 26 },
     mix: { walker: 0.45, runner: 0.33, brute: 0.05, crawler: 0.17, bloater: 0.07, screamer: 0.04 },
-    own: ['pistol', 'smg', 'shotgun', 'rifle'], drops: [],
+    own: ['pistol', 'smg'], drops: ['shotgun', 'rifle'],
     startAmmo: { smg: 110, shell: 10, rifle: 6 }, startNades: 3,
     supplies: { ammo: 4, shells: 3, rounds: 1, medkit: 2, battery: 3, nade: 2 }
   },
@@ -80,7 +80,7 @@ const LEVELS = [
     objective: { type: 'survive', time: 90 },
     spawn: { initial: 9, rate: 0.55, max: 24 },
     mix: { walker: 0.4, runner: 0.33, brute: 0.05, crawler: 0.14, spitter: 0.08, bloater: 0.08, screamer: 0.03 },
-    own: ['pistol', 'smg', 'shotgun', 'rifle'], drops: [],
+    own: ['pistol', 'shotgun'], drops: ['smg', 'rifle'],
     startAmmo: { smg: 130, shell: 14, rifle: 10 }, startNades: 3,
     supplies: { ammo: 8, shells: 4, rounds: 2, medkit: 3, battery: 3, nade: 3 }
   },
@@ -93,7 +93,7 @@ const LEVELS = [
     objective: { type: 'purge', count: 30 },
     spawn: { initial: 13, rate: 0.52, max: 22 },
     mix: { walker: 0.35, runner: 0.3, brute: 0.13, crawler: 0.12, spitter: 0.1, bloater: 0.08, screamer: 0.05 },
-    own: ['pistol', 'smg', 'shotgun', 'rifle'], drops: [],
+    own: ['pistol', 'rifle'], drops: ['smg', 'shotgun'],
     startAmmo: { smg: 140, shell: 16, rifle: 15 }, startNades: 4,
     supplies: { ammo: 8, shells: 4, rounds: 2, medkit: 4, battery: 3, nade: 3 }
   },
@@ -106,7 +106,7 @@ const LEVELS = [
     objective: { type: 'collect', count: 5, item: '예비 배터리' },
     spawn: { initial: 12, rate: 0.6, max: 28 },
     mix: { walker: 0.3, runner: 0.33, brute: 0.13, crawler: 0.12, spitter: 0.12, bloater: 0.1, screamer: 0.06 },
-    own: ['pistol', 'smg', 'shotgun', 'rifle'], drops: [],
+    own: ['pistol', 'smg'], drops: ['shotgun'],
     startAmmo: { smg: 120, shell: 12, rifle: 10 }, startNades: 4,
     supplies: { ammo: 6, shells: 3, rounds: 2, medkit: 3, battery: 2, nade: 3 },
     batteryDrain: 1.9
@@ -121,7 +121,7 @@ const LEVELS = [
     objective: { type: 'boss' },
     spawn: { initial: 12, rate: 0.62, max: 26 },
     mix: { walker: 0.26, runner: 0.32, brute: 0.18, crawler: 0.1, spitter: 0.14, bloater: 0.08, screamer: 0.05 },
-    own: ['pistol', 'smg', 'shotgun', 'rifle'], drops: [],
+    own: ['pistol', 'shotgun'], drops: ['smg', 'rifle'],
     startAmmo: { smg: 150, shell: 18, rifle: 20 }, startNades: 5,
     supplies: { ammo: 9, shells: 5, rounds: 3, medkit: 4, battery: 4, nade: 4 }
   },
@@ -132,9 +132,9 @@ const LEVELS = [
     goals: ['중계기 3대 가동 — 켜질 때까지 곁에 머물 것', '가동 후 집결지로 이동'],
     seed: 9173, weepers: 1, blocks: 8, city: 'singapore', river: true, landmarks: ['supertree', 'hawker', 'railyard'],
     objective: { type: 'signal', count: 3, hold: 6 },
-    spawn: { initial: 12, rate: 0.6, max: 26 },
+    spawn: { initial: 11, rate: 0.55, max: 24 },
     mix: { walker: 0.3, runner: 0.32, brute: 0.13, crawler: 0.11, spitter: 0.12, bloater: 0.1, screamer: 0.07 },
-    own: ['pistol', 'smg', 'shotgun', 'rifle'], drops: [],
+    own: ['pistol', 'smg'], drops: ['shotgun', 'rifle'],
     startAmmo: { smg: 130, shell: 14, rifle: 14 }, startNades: 4,
     supplies: { ammo: 9, shells: 4, rounds: 2, medkit: 4, battery: 3, nade: 3 }
   },
@@ -148,11 +148,84 @@ const LEVELS = [
     objective: { type: 'finale', time: 60, bossAt: 35 },
     spawn: { initial: 12, rate: 0.62, max: 26 },
     mix: { walker: 0.28, runner: 0.32, brute: 0.16, crawler: 0.1, spitter: 0.14, bloater: 0.08, screamer: 0.06 },
-    own: ['pistol', 'smg', 'shotgun', 'rifle'], drops: [],
+    own: ['pistol', 'smg', 'shotgun'], drops: ['rifle'],
     startAmmo: { smg: 150, shell: 18, rifle: 20 }, startNades: 5,
     supplies: { ammo: 9, shells: 5, rounds: 3, medkit: 4, battery: 4, nade: 4 }
+  },
+  /* ── 2부: 새벽호의 항해 — 지역마다 땅과 날씨가 다르다 ── */
+  {
+    name: '강가의 계단',
+    part: 2,
+    brief: '새벽호는 서쪽으로 뱃머리를 돌렸다. 녹의 진료소에 약이 떨어졌다. 바라나시의 병원 창고에 항바이러스제가 남아 있다는 교신. ' +
+           '우기의 골목은 진흙탕이다 — 발이 빠지면 느려지고, 저것들도 느려진다.',
+    goals: ['약품 상자 4개 확보', '강가의 계단 연못으로 이동'],
+    seed: 11471, weepers: 1, blocks: 9, city: 'varanasi', river: true, landmarks: ['kund', 'mandir', 'gasstation'], goal: 'kund',
+    objective: { type: 'collect', count: 4, item: '약품 상자' },
+    spawn: { initial: 12, rate: 0.58, max: 26 },
+    mix: { walker: 0.36, runner: 0.3, brute: 0.1, crawler: 0.12, spitter: 0.1, bloater: 0.08, screamer: 0.05 },
+    own: ['pistol', 'smg'], drops: ['shotgun', 'rifle'],
+    startAmmo: { smg: 130, shell: 10, rifle: 10 }, startNades: 4,
+    supplies: { ammo: 8, shells: 4, rounds: 2, medkit: 4, battery: 3, nade: 3 }
+  },
+  {
+    name: '모래 폭풍',
+    part: 2,
+    brief: '수에즈로 가는 연료를 채우려면 카이로의 저장고 문을 열어야 한다. 원격 개방까지 100초 — 모래 폭풍이 몰려오는 중이다. ' +
+           '폭풍이 지나가는 동안 손전등은 반밖에 닿지 않는다. 모래 더미를 밟으면 발이 묶인다.',
+    goals: ['100초 생존', '피라미드 아래 집결지로 이동'],
+    seed: 12589, weepers: 1, blocks: 9, city: 'cairo', river: true, landmarks: ['pyramids', 'mosque'], goal: 'pyramids',
+    objective: { type: 'survive', time: 100 },
+    spawn: { initial: 9, rate: 0.52, max: 23 },
+    mix: { walker: 0.36, runner: 0.32, brute: 0.1, crawler: 0.12, spitter: 0.1, bloater: 0.08, screamer: 0.05 },
+    own: ['pistol', 'shotgun'], drops: ['smg', 'rifle'],
+    startAmmo: { smg: 140, shell: 18, rifle: 12 }, startNades: 4,
+    supplies: { ammo: 9, shells: 5, rounds: 2, medkit: 4, battery: 4, nade: 3 }
+  },
+  {
+    name: '잠긴 도시',
+    part: 2,
+    brief: '지중해. 베네치아의 비상 종탑 중계기 셋이 아직 살아 있다면, 북쪽 바다의 생존자들과 이어진다. ' +
+           '조수가 골목까지 들어왔다. 얕은 물은 모두의 발을 늦춘다 — 내 발도, 저것들의 발도.',
+    goals: ['중계기 3대 가동 — 켜질 때까지 곁에 머물 것', '가동 후 광장으로 이동'],
+    seed: 13697, weepers: 1, blocks: 8, city: 'venice', river: true, landmarks: ['piazza', 'hawker'], goal: 'piazza',
+    objective: { type: 'signal', count: 3, hold: 6 },
+    spawn: { initial: 12, rate: 0.6, max: 26 },
+    mix: { walker: 0.34, runner: 0.3, brute: 0.12, crawler: 0.1, spitter: 0.12, bloater: 0.08, screamer: 0.06 },
+    own: ['pistol', 'smg'], drops: ['shotgun', 'rifle'],
+    startAmmo: { smg: 150, shell: 12, rifle: 12 }, startNades: 4,
+    supplies: { ammo: 9, shells: 4, rounds: 2, medkit: 4, battery: 3, nade: 3 }
+  },
+  {
+    name: '불의 땅',
+    part: 2,
+    brief: '레이캬비크. 남쪽으로 가는 쇄빙선이 연료를 넣는 동안 항구를 비워야 한다. 땅이 갈라져 용암이 비친다 — ' +
+           '붉게 빛나는 금은 밟지 말 것. 저것들은 모른다. 그 위로 몰아넣어라.',
+    goals: ['감염체 35기 소탕', '교회 앞 집결지로 이동'],
+    seed: 14713, weepers: 1, blocks: 9, city: 'reykjavik', landmarks: ['hallgrim', 'geyser', 'gasstation'],
+    objective: { type: 'purge', count: 35 },
+    spawn: { initial: 12, rate: 0.57, max: 25 },
+    mix: { walker: 0.32, runner: 0.3, brute: 0.14, crawler: 0.1, spitter: 0.12, bloater: 0.08, screamer: 0.06 },
+    own: ['pistol', 'shotgun'], drops: ['smg', 'rifle'],
+    startAmmo: { smg: 150, shell: 20, rifle: 16 }, startNades: 5,
+    supplies: { ammo: 9, shells: 5, rounds: 3, medkit: 4, battery: 4, nade: 4 }
+  },
+  {
+    name: '마지막 기지',
+    part: 2,
+    brief: '남극. 감염이 닿지 않은 마지막 곳이라던 연구 기지는 조용했다. 헬기는 120초 뒤에 내린다. ' +
+           '얼음판 위에서는 멈추려 해도 미끄러진다 — 눈보라가 오면 불빛도 삼켜진다. 헬기장을 지켜라.',
+    goals: ['120초 생존', '헬기장으로 이동'],
+    seed: 15821, weepers: 1, blocks: 9, city: 'antarctic', landmarks: ['station', 'icebreaker'], goal: 'station',
+    objective: { type: 'survive', time: 120 },
+    spawn: { initial: 12, rate: 0.64, max: 28 },
+    mix: { walker: 0.3, runner: 0.32, brute: 0.14, crawler: 0.1, spitter: 0.12, bloater: 0.08, screamer: 0.06 },
+    own: ['pistol', 'smg', 'shotgun'], drops: ['rifle'],
+    startAmmo: { smg: 170, shell: 20, rifle: 20 }, startNades: 5,
+    supplies: { ammo: 10, shells: 5, rounds: 3, medkit: 5, battery: 5, nade: 4 }
   }
 ];
+/** 1부(서울 → 싱가포르)의 마지막 장 — 여기를 마치면 1부 엔딩, 다음 장부터 2부 */
+const PART1_END = 10;
 
 /* 서바이벌: 웨이브가 끝없이 상승한다 */
 const SURVIVAL = {
@@ -163,17 +236,37 @@ const SURVIVAL = {
   objective: { type: 'endless' },
   spawn: { initial: 8, rate: 0.4, max: 46 },
   mix: { walker: 0.6, runner: 0.25, brute: 0, crawler: 0.15 },
-  own: ['pistol', 'smg'], drops: ['shotgun', 'rifle'],
+  own: ['pistol', 'smg'], drops: ['shotgun', 'rifle', 'smg'],
   startAmmo: { smg: 120, shell: 6, rifle: 0 }, startNades: 3,
   supplies: { ammo: 6, shells: 4, rounds: 2, medkit: 3, battery: 4, nade: 3 }
 };
+
+/** 난이도에 따른 시작 무기 — 장마다 정한 기본 장비(own)에서
+    생존자(쉬움)는 그 장에서 떨어지는 총 하나를 더 들고, 절멸(어려움)은 가장 센 총 하나를 내려놓는다(권총은 늘 남는다).
+    나머지 총은 쓰러뜨린 감염체가 떨어뜨린다(drops) */
+function startKit(L, diff) {
+  const own = (L.own || ['pistol']).slice();
+  if (!own.includes('pistol')) own.unshift('pistol');
+  if (L.fixedKit) return own;                       // 도전 — 규칙이 정한 그대로
+  if (diff === 'easy') { const extra = (L.drops || []).find(k => !own.includes(k)); if (extra) own.push(extra); }
+  else if (diff === 'hard' && own.length > 1) {
+    const order = ['rifle', 'shotgun', 'smg'];
+    const k = order.find(x => own.includes(x)); own.splice(own.indexOf(k), 1);
+  }
+  return own;
+}
 
 /** 서바이벌에서 고를 수 있는 도시와 그 랜드마크 */
 const SURVIVAL_CITIES = {
   seoul:   { river: true,  landmarks: ['gwanghwamun', 'namsan'] },
   tokyo:   { river: true,  landmarks: ['scramble', 'tokyotower', 'sensoji', 'railyard'] },
   bangkok: { river: true,  landmarks: ['watarun', 'democracy', 'nightmarket', 'gasstation'] },
-  singapore: { river: true, landmarks: ['port', 'supertree', 'hawker', 'railyard'] }
+  singapore: { river: true, landmarks: ['port', 'supertree', 'hawker', 'railyard'] },
+  varanasi:  { river: true,  landmarks: ['kund', 'mandir', 'gasstation'] },
+  cairo:     { river: true,  landmarks: ['pyramids', 'mosque', 'gasstation'] },
+  venice:    { river: true,  landmarks: ['piazza', 'hawker'] },
+  reykjavik: { river: false, landmarks: ['hallgrim', 'geyser'] },
+  antarctic: { river: false, landmarks: ['station', 'icebreaker'] }
 };
 
 /* 도전 — 원작의 '점수 도전 레벨'. 짧고 규칙이 하나씩 붙은 판에서 점수를 겨룬다.

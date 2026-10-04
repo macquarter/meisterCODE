@@ -328,6 +328,27 @@ function makeMaterials() {
     return normalFrom(c, 2.5); })();
   MAT.water = std({ color: 0x0c1c24, emissive: 0x03090c, roughness: 0.1, metalness: 0.1, normalMap: TEX.waterN, normalScale: new THREE.Vector2(0.7, 0.7), envMapIntensity: 3 });
   MAT.bridge = std({ color: 0x4a4e54, roughness: 0.6 });
+  // 지형 덮개 — 모래 · 얼음 · 얕은 물 · 용암 · 진흙. 세계 좌표 UV 라 이웃 칸과 이어진다
+  {
+    const sandT = canvasTex(256, 256, (x, W, H) => { const r = rng(91); x.clearRect(0, 0, W, H);
+      for (let i = 0; i < 70; i++) blob(x, r() * W, r() * H, 30 + r() * 50, 10 + r() * 18, -0.3, 'rgba(196,156,98,.85)', 'rgba(196,156,98,0)');
+      x.strokeStyle = 'rgba(120,88,50,.35)'; x.lineWidth = 1.5; for (let i = 0; i < 40; i++) { const sx = r() * W, sy = r() * H; x.beginPath(); x.moveTo(sx, sy); x.quadraticCurveTo(sx + 14, sy - 6, sx + 30, sy - 2); x.stroke(); } });
+    MAT.tSand = std({ map: sandT, transparent: true, roughness: 0.95, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 });
+    const iceT = canvasTex(256, 256, (x, W, H) => { const r = rng(92); x.fillStyle = 'rgba(170,205,230,.62)'; x.fillRect(0, 0, W, H);
+      x.strokeStyle = 'rgba(240,250,255,.5)'; x.lineWidth = 1; for (let i = 0; i < 26; i++) { let px = r() * W, py = r() * H; x.beginPath(); x.moveTo(px, py); for (let k = 0; k < 4; k++) { px += (r() - 0.5) * 60; py += (r() - 0.5) * 60; x.lineTo(px, py); } x.stroke(); }
+      for (let i = 0; i < 30; i++) blob(x, r() * W, r() * H, 10 + r() * 30, 6 + r() * 12, r(), 'rgba(255,255,255,.25)', 'rgba(255,255,255,0)'); });
+    MAT.tIce = std({ map: iceT, transparent: true, roughness: 0.04, metalness: 0.1, envMapIntensity: 3.2, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 });
+    MAT.tFlood = std({ color: 0x0e2028, transparent: true, opacity: 0.82, roughness: 0.06, metalness: 0.1, normalMap: TEX.waterN, normalScale: new THREE.Vector2(0.5, 0.5), envMapIntensity: 3, depthWrite: false });
+    const lavaA = canvasTex(256, 256, (x, W, H) => { const r = rng(93); x.fillStyle = '#1a120e'; x.fillRect(0, 0, W, H);
+      for (let i = 0; i < 300; i++) { x.fillStyle = r() < 0.5 ? 'rgba(60,50,46,.5)' : 'rgba(0,0,0,.4)'; x.fillRect(r() * W, r() * H, 3 + r() * 8, 3 + r() * 8); } });
+    const lavaE = canvasTex(256, 256, (x, W, H) => { const r = rng(94); x.fillStyle = '#000'; x.fillRect(0, 0, W, H); x.lineJoin = 'round';
+      for (let i = 0; i < 18; i++) { let px = r() * W, py = r() * H; x.strokeStyle = '#ff6a14'; x.lineWidth = 3 + r() * 5; x.beginPath(); x.moveTo(px, py); for (let k = 0; k < 6; k++) { px += (r() - 0.5) * 70; py += (r() - 0.5) * 70; x.lineTo(px, py); } x.stroke(); x.strokeStyle = '#ffd060'; x.lineWidth = 1.2; x.stroke(); } });
+    MAT.tLava = std({ map: lavaA, emissive: 0xffffff, emissiveMap: lavaE, emissiveIntensity: 2.6, roughness: 0.85, polygonOffset: true, polygonOffsetFactor: -2 });
+    const mudT = canvasTex(256, 256, (x, W, H) => { const r = rng(95); x.clearRect(0, 0, W, H);
+      for (let i = 0; i < 50; i++) blob(x, r() * W, r() * H, 26 + r() * 40, 18 + r() * 26, r() * 3, 'rgba(58,40,24,.9)', 'rgba(58,40,24,0)');
+      for (let i = 0; i < 30; i++) blob(x, r() * W, r() * H, 8 + r() * 14, 4 + r() * 6, r() * 3, 'rgba(120,100,80,.35)', 'rgba(120,100,80,0)'); });
+    MAT.tMud = std({ map: mudT, transparent: true, roughness: 0.18, envMapIntensity: 1.8, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 });
+  }
   MAT.paint = std({ color: 0xd8d6cc, roughness: 0.5 });
   MAT.yellow = std({ color: 0xc9a83a, roughness: 0.5 });
   // 벽면의 요철은 무늬의 밝기에서 — 줄눈이 들어가고 창이 안으로 꺼져 보인다
@@ -462,6 +483,11 @@ const ROOFS_BY = {
   bangkok: ['#8a6a58', '#9a8a76', '#7a7e84', '#a0786a', '#8c8476', '#6e7478'],
   singapore: ['#a8a69e', '#8a8c88', '#9a7a68', '#7a7e84', '#b0aca2', '#6f7a84'],
   base: ['#5e6656', '#6a6e62', '#7a7e74', '#585e52', '#6e7468', '#646a5e'],
+  varanasi: ['#9a8a76', '#a89070', '#8a7e70', '#b09a80', '#7a7e84', '#a07a68'],
+  cairo: ['#b8a07c', '#a8946e', '#c0aa86', '#9c8a6c', '#b0a288', '#a89878'],
+  venice: ['#a8583a', '#b86848', '#9a4a30', '#a86a4a', '#8a4a34', '#b07050'],
+  reykjavik: ['#d8dee4', '#a83a2a', '#d0d8de', '#3a5a7a', '#e0e4e8', '#5a6a5a'],
+  antarctic: ['#e0e6ec', '#d8dee4', '#e8ecf0', '#d0d8e0', '#e4e8ec', '#dce2e8'],
 };
 /** 바닥 사각형 (y 높이) — UV 는 세계 좌표를 무늬 크기로 나눈 것이라 이웃 칸과 이어진다 */
 function floorQuad(B, x0, z0, x1, z1, y, S, color) {
@@ -493,6 +519,12 @@ function buildChunk(w, cx, cy) {
   for (let y = y0; y < y0 + CH; y++) for (let x = x0; x < x0 + CH; x++) {
     const i = w.idx(x, y), d = w.deco[i], gr = w.grid[i];
     const X0 = x * T, Z0 = y * T, X1 = X0 + T, Z1 = Z0 + T;
+    const tr = w.terr ? w.terr[i] : 0;
+    if (tr && d !== D_BUILDING && d !== D_WATER && d !== D_BRIDGE) {
+      const fy = (d === D_SIDEWALK ? SW_H : d === D_GRASS ? 1 : 0) + (tr === 3 ? 1.6 : 0.5);
+      floorQuad(get(TERR_MAT[tr]), X0, Z0, X1, Z1, fy, tr === 4 ? 260 : 200);
+      if (tr === 4 && (Math.imul(x * 2654435761 ^ y * 40503, 2246822519) >>> 0) % 3 === 0) marks.push({ x: X0 + T / 2, y: 10, z: Z0 + T / 2, r: 110, c: [1, 0.36, 0.08], k: 1.1 });
+    }
     if (d === D_BUILDING) {
       const h = bh(w, x, y), LS = lotStyle(w, x, y), wc = col(LS.color, LS.k), brick = LS.brick;
       const wallK = LS.style === 'brick' || LS.style === 'stucco' ? LS.style : 'f_' + LS.style;
@@ -606,7 +638,7 @@ function buildChunk(w, cx, cy) {
   for (const k in B) {
     const m = B[k].mesh(MAT[k]);
     if (!m) continue;
-    if (k !== 'glow' && k !== 'asphalt' && k !== 'sidewalk' && k !== 'plaza' && k !== 'grass' && k !== 'water' && !k.startsWith('sign') && k !== 'shopLit' && k !== 'lensFlick') m.castShadow = true;
+    if (k !== 'glow' && k !== 'asphalt' && k !== 'sidewalk' && k !== 'plaza' && k !== 'grass' && k !== 'water' && !k.startsWith('sign') && !TERR_MAT.includes(k) && k !== 'shopLit' && k !== 'lensFlick') m.castShadow = true;
     if (k === 'fence') m.receiveShadow = false;
     g.add(m);
   }
@@ -617,6 +649,7 @@ function buildChunk(w, cx, cy) {
   addWires(g, lamps, kitOf(w).wires);
   return g;
 }
+const TERR_MAT = [null, 'tSand', 'tIce', 'tFlood', 'tLava', 'tMud'];
 /* ═══════════ 거리 잡동사니 · 전선 ═══════════ */
 let CLUT = null;
 function clutterKit() {
@@ -797,12 +830,35 @@ const KIT = {
   singapore: { styles: [['shophouse', 4], ['hdb', 3], ['stucco', 2]], lamp: [1.0, 0.84, 0.6], fog: 0x081010, fogD: 0.0007, sh: [0.84, 1.0, 1.04], hi: [1.04, 1.0, 0.94], wires: 0, trees: 2,
     words: ['KOPITIAM', 'CLINIC', 'MINIMART', '药房', '茶室', 'LAKSA', 'BAK KUT TEH', 'DIM SUM', 'LAUNDRY', '24 HRS', 'MONEY CHANGER', '咖啡店', 'TOTO', 'HOTEL', 'NASI LEMAK', '海南鸡饭'] },
   base: { styles: [['brick', 3], ['stucco', 3]], lamp: [0.95, 0.97, 1.0], fog: 0x080a0a, fogD: 0.0007, sh: [0.86, 0.98, 1.0], hi: [1.0, 1.0, 0.94], wires: 1, trees: 0, words: null },
+  // 2부 — 바라나시: 색칠한 흙벽 집과 숍하우스, 축 늘어진 전선, 주황 등 / 카이로: 모래빛 흙벽돌, 위성 안테나 / 베네치아: 아치 창의 팔라초와 운하 /
+  // 레이캬비크: 함석 벽의 알록달록한 집, 눈 / 남극: 기둥 위 조립식 연구동, 얼음
+  varanasi: { styles: [['sandstone', 4], ['shophouse', 3], ['stucco', 1]], lamp: [1.0, 0.6, 0.28], fog: 0x140e08, fogD: 0.00082, sh: [0.95, 0.9, 0.92], hi: [1.12, 0.98, 0.8], wires: 6, trees: 1,
+    words: ['चाय', 'दवाखाना', 'होटल', 'मिठाई', 'लस्सी', 'साड़ी', 'मेडिकल', 'पान', 'ढाबा', 'STD PCP', 'GUEST HOUSE', 'घाट', 'बैंक', 'किराना'] },
+  cairo: { styles: [['sandstone', 7], ['stucco', 2]], lamp: [1.0, 0.72, 0.42], fog: 0x18120a, fogD: 0.00074, sh: [0.98, 0.92, 0.86], hi: [1.12, 1.0, 0.82], wires: 3, trees: 0,
+    ground: [1.7, 1.38, 0.98], side: [1.45, 1.22, 0.92], wet: 0.5,
+    words: ['صيدلية', 'مطعم', 'قهوة', 'فندق', 'كشري', 'فول', 'بنك', 'سوبر ماركت', 'حلويات', 'مخبز', 'عصير', 'موبايل'] },
+  venice: { styles: [['palazzo', 7], ['brick', 1]], lamp: [1.0, 0.8, 0.55], fog: 0x0c0f12, fogD: 0.00105, sh: [0.86, 0.96, 1.08], hi: [1.06, 0.98, 0.9], wires: 0, trees: 0,
+    words: ['TRATTORIA', 'FARMACIA', 'GELATERIA', 'BACARO', 'OSTERIA', 'ALBERGO', 'TABACCHI', 'VAPORETTO', 'PIZZERIA', 'BAR', 'MASCHERE', 'VETRO'] },
+  reykjavik: { styles: [['nordic', 7], ['stucco', 2]], lamp: [0.9, 0.95, 1.0], fog: 0x0a0e14, fogD: 0.0008, sh: [0.84, 0.96, 1.14], hi: [1.0, 1.0, 1.0], wires: 1, trees: 0,
+    ground: [2.0, 2.1, 2.3], side: [1.8, 1.9, 2.05], wet: 0.6,
+    words: ['KAFFI', 'APÓTEK', 'BAKARÍ', 'HÓTEL', 'BÓKABÚÐ', 'SUNDLAUG', 'PYLSUR', 'BÍÓ', 'BÚÐ', 'KRÁ', 'LYFJA', 'BANKI'] },
+  antarctic: { styles: [['module', 1]], lamp: [0.85, 0.92, 1.0], fog: 0x0c1218, fogD: 0.00095, sh: [0.86, 0.98, 1.16], hi: [1.0, 1.02, 1.06], wires: 0, trees: 0,
+    ground: [3.4, 3.6, 3.9], side: [3.0, 3.2, 3.5], wet: 0.25,
+    words: ['LAB', 'MESS', 'MEDICAL', 'POWER', 'COMMS', 'STORE', 'GARAGE', 'FUEL', 'BUNK A', 'BUNK B', 'GYM', 'WORKSHOP'] },
 };
 const PASTEL = {
   bangkok: ['#c9a24a', '#5e9a92', '#c27a7a', '#8fb38a', '#c9b48a', '#7f8fb8', '#d0c4a0'],
   singapore: ['#9fc3d6', '#e0b4b8', '#e8dcb8', '#a8cfae', '#d8c0e0', '#f0e2c8', '#c8d8e8'],
+  varanasi: ['#d9a84a', '#5e9ac2', '#c97a9a', '#e8c070', '#8fb38a', '#d07050', '#e8d8b0', '#7ab0a8'],
+  reykjavik: ['#c8402a', '#2a5a8a', '#e8c040', '#3a7a5a', '#f0ece0', '#6a5a8a', '#d8d4cc', '#2a2e34'],
 };
-const TALL = { apt: 2.0, hdb: 2.5, tile: 1.15, mansion: 1.3, villa: 1.05, shophouse: 0.92 };
+const STYLE_COLS = {
+  sandstone: ['#c8a878', '#b89868', '#d4b88a', '#a88a62', '#c0a080', '#b8a490'],
+  palazzo: ['#c87a50', '#d4a060', '#b85a40', '#e0c090', '#c89070', '#a85040', '#d8c8b0'],
+  nordic: ['#c8402a', '#2a5a8a', '#e8c040', '#3a7a5a', '#f0ece0', '#6a5a8a'],
+  module: ['#d8642a', '#3c7a52', '#e0e2e0', '#c8a030', '#d8642a'],
+};
+const TALL = { apt: 2.0, hdb: 2.5, tile: 1.15, mansion: 1.3, villa: 1.05, shophouse: 0.92, sandstone: 0.82, palazzo: 1.0, nordic: 0.62, module: 0.5 };
 const kitOf = w => KIT[w.theme.key] || KIT.seoul;
 /** 필지의 양식 — 같은 필지는 같은 양식 · 같은 색 */
 function lotStyle(w, x, y) {
@@ -818,9 +874,10 @@ function lotStyle(w, x, y) {
   if (style === 'apt' || style === 'hdb') color = ['#d8d6ce', '#cfd2d4', '#dcd4c6'][(lh >>> 5) % 3];
   else if (style === 'shophouse' && P) color = P[(lh >>> 9) % P.length];
   else if (style === 'tile') color = ['#cfc8bc', '#b8b4ae', '#d6cfc0', '#9a9fa4'][(lh >>> 5) % 4];
+  else if (STYLE_COLS[style]) { const C = (style !== 'module' && P) || STYLE_COLS[style]; color = C[(lh >>> 9) % C.length]; }
   else color = wallMat3(w, x, y)[0];
   const brick = style === 'brick' || style === 'villa';
-  return { style, color, brick, k: style === 'apt' || style === 'hdb' || style === 'tile' || style === 'shophouse' ? 1.05 : 1.5 };
+  return { style, color, brick, k: style === 'apt' || style === 'hdb' || style === 'tile' || style === 'shophouse' || STYLE_COLS[style] ? 1.05 : 1.5 };
 }
 /* 외벽 무늬 — 양식마다 4칸 × 4층(512×384). 같은 함수가 낮(색)과 밤(불 켜진 창) 두 장을 그린다 */
 function facadeStyle(style, lit) {
@@ -878,6 +935,53 @@ function facadeStyle(style, lit) {
         if (open) win(wx, wy, 36, 62, 0.12);
         else if (!lit) { const sc = ['#3f5a4a', '#5a3a2a', '#2f4a5a', '#6a5a3a'][(t + fl) % 4]; x.fillStyle = sc; x.fillRect(wx, wy, 36, 62); x.fillStyle = 'rgba(0,0,0,.35)'; for (let q = 0; q < 62; q += 5) x.fillRect(wx, wy + q, 36, 1.6); x.fillRect(wx + 17, wy, 2, 62); }
       }
+    } else if (style === 'sandstone') {                          // 흙벽돌 · 회반죽 — 작은 창, 나무 격자 발코니(마슈라비야), 얼룩
+      if (!lit) {
+        for (let i = 0; i < 1400; i++) { x.fillStyle = r() < 0.5 ? 'rgba(255,240,210,.06)' : 'rgba(60,40,20,.07)'; x.fillRect(r() * W, r() * H, 2 + r() * 5, 2 + r() * 4); }
+        for (let i = 0; i < 26; i++) { const sx = r() * W, sy = r() * H * 0.7, len = 30 + r() * 110; const gr = x.createLinearGradient(0, sy, 0, sy + len); gr.addColorStop(0, 'rgba(70,45,20,.22)'); gr.addColorStop(1, 'rgba(70,45,20,0)'); x.fillStyle = gr; x.fillRect(sx, sy, 3 + r() * 6, len); }
+      }
+      for (let fl = 0; fl < 4; fl++) for (let t = 0; t < 4; t++) {
+        const wx = t * 128 + 20 + ((r() * 30) | 0), wy = fl * 96 + 26, bal = r() < 0.3;
+        if (bal) {
+          if (!lit) { x.fillStyle = '#5a3a22'; x.fillRect(wx - 6, wy - 6, 66, 62); x.fillStyle = 'rgba(0,0,0,.55)'; for (let a = 0; a < 66; a += 6) for (let b = 0; b < 62; b += 6) if ((a + b) % 12) x.fillRect(wx - 6 + a + 1, wy - 6 + b + 1, 4, 4); }
+          else if (r2() < 0.25) { x.fillStyle = '#c87a30'; for (let a = 0; a < 66; a += 6) for (let b = 0; b < 62; b += 6) if ((a + b) % 12) x.fillRect(wx - 6 + a + 1, wy - 6 + b + 1, 4, 4); }
+        } else {
+          if (!lit) { x.fillStyle = 'rgba(255,245,225,.35)'; x.fillRect(wx - 4, wy - 4, 38, 50); }
+          win(wx, wy, 30, 42, 0.12);
+          if (!lit) { x.fillStyle = 'rgba(30,24,18,.8)'; for (let k = 0; k < 4; k++) x.fillRect(wx + 3 + k * 8, wy, 1.6, 42); }
+        }
+      }
+    } else if (style === 'palazzo') {                            // 베네치아 팔라초 — 벗겨진 회반죽 아래 벽돌, 뾰족 아치 창, 초록 덧문
+      if (!lit) {
+        for (let i = 0; i < 40; i++) { const bx = r() * W, by = r() * H, bw = 20 + r() * 60, bh2 = 10 + r() * 30; x.fillStyle = 'rgba(140,60,40,.35)'; x.fillRect(bx, by, bw, bh2); x.fillStyle = 'rgba(0,0,0,.18)'; for (let q = 0; q < bh2; q += 6) x.fillRect(bx, by + q, bw, 1); }
+        for (let i = 0; i < 900; i++) { x.fillStyle = r() < 0.5 ? 'rgba(255,255,255,.05)' : 'rgba(0,0,0,.06)'; x.fillRect(r() * W, r() * H, 3, 3); }
+        x.fillStyle = 'rgba(30,50,40,.35)'; x.fillRect(0, H - 14, W, 14);                     // 물때
+      }
+      for (let fl = 0; fl < 4; fl++) for (let t = 0; t < 4; t++) for (let k = 0; k < 2; k++) {
+        const wx = t * 128 + 18 + k * 52, wy = fl * 96 + 24;
+        if (!lit) { x.fillStyle = 'rgba(240,232,214,.85)'; x.beginPath(); x.moveTo(wx - 4, wy + 60); x.lineTo(wx - 4, wy + 14); x.quadraticCurveTo(wx + 16, wy - 14, wx + 36, wy + 14); x.lineTo(wx + 36, wy + 60); x.fill(); }
+        if (r() < 0.55) {
+          if (!lit) { x.fillStyle = '#2f5a3a'; x.fillRect(wx, wy + 12, 32, 46); x.fillStyle = 'rgba(0,0,0,.35)'; for (let q = 12; q < 58; q += 4) x.fillRect(wx, wy + q, 32, 1.4); x.fillRect(wx + 15, wy + 12, 2, 46); }
+        } else win(wx, wy + 8, 32, 50, 0.14);
+        if (!lit && fl > 0 && k === 0 && t % 2 === 0) { x.fillStyle = 'rgba(240,232,214,.9)'; x.fillRect(wx - 8, wy + 58, 100, 5); x.fillStyle = 'rgba(200,190,170,.9)'; for (let q = 0; q < 100; q += 7) x.fillRect(wx - 8 + q, wy + 63, 3, 14); }
+      }
+    } else if (style === 'nordic') {                             // 아이슬란드 — 골함석 벽, 흰 테 창, 지붕 밑 처마
+      if (!lit) { for (let k = 0; k < W; k += 8) { const gr = x.createLinearGradient(k, 0, k + 8, 0); gr.addColorStop(0, 'rgba(0,0,0,.2)'); gr.addColorStop(0.5, 'rgba(255,255,255,.14)'); gr.addColorStop(1, 'rgba(0,0,0,.2)'); x.fillStyle = gr; x.fillRect(k, 0, 8, H); } for (let i = 0; i < 30; i++) { x.fillStyle = 'rgba(120,60,30,.18)'; x.fillRect(r() * W, r() * H, 2 + r() * 4, 10 + r() * 40); } }
+      for (let fl = 0; fl < 4; fl++) for (let t = 0; t < 4; t++) {
+        const wx = t * 128 + 34, wy = fl * 96 + 22;
+        if (!lit) { x.fillStyle = '#f0eee8'; x.fillRect(wx - 6, wy - 6, 60, 62); }
+        win(wx, wy, 48, 50, 0.16);
+        if (!lit) { x.fillStyle = '#f0eee8'; x.fillRect(wx + 22, wy, 4, 50); x.fillRect(wx, wy + 22, 48, 4); }
+      }
+    } else if (style === 'module') {                             // 남극 연구동 — 단열 패널 이음, 작은 둥근 창, 경고 띠
+      if (!lit) { x.fillStyle = 'rgba(0,0,0,.22)'; for (let k = 0; k < W; k += 64) x.fillRect(k, 0, 2, H); for (let k = 0; k < H; k += 96) x.fillRect(0, k, W, 2); for (let i = 0; i < 500; i++) { x.fillStyle = r() < 0.5 ? 'rgba(255,255,255,.05)' : 'rgba(0,0,0,.05)'; x.fillRect(r() * W, r() * H, 3, 3); } }
+      for (let fl = 0; fl < 4; fl++) for (let t = 0; t < 8; t++) {
+        const cx = t * 64 + 32, cy = fl * 96 + 44;
+        if (!lit) { x.fillStyle = '#c8ccd0'; x.beginPath(); x.arc(cx, cy, 15, 0, 6.283); x.fill(); }
+        const on = r2() < 0.2;
+        x.fillStyle = lit ? (on ? '#f4f0e0' : '#000') : '#1a2430'; x.beginPath(); x.arc(cx, cy, 11, 0, 6.283); x.fill();
+      }
+      if (!lit) for (let k = 0; k < W; k += 24) { x.fillStyle = (k / 24) % 2 ? '#1a1a1a' : '#e8c020'; x.beginPath(); x.moveTo(k, H - 10); x.lineTo(k + 12, H - 10); x.lineTo(k + 24, H); x.lineTo(k + 12, H); x.fill(); }
     } else if (style === 'hdb') {                                // 싱가포르 HDB — 층마다 복도 띠(문 · 등), 위로 창, 색 판
       if (!lit) { for (let i = 0; i < 700; i++) { x.fillStyle = r() < 0.5 ? 'rgba(255,255,255,.04)' : 'rgba(0,0,0,.05)'; x.fillRect(r() * W, r() * H, 3, 3); } x.fillStyle = '#c86a4a'; x.fillRect(250, 0, 22, H); x.fillStyle = '#5a9a7a'; x.fillRect(0, 0, 14, H); }
       for (let fl = 0; fl < 4; fl++) {
@@ -889,7 +993,7 @@ function facadeStyle(style, lit) {
     }
   });
 }
-const FACADE_STYLES = ['villa', 'apt', 'tile', 'mansion', 'shophouse', 'hdb'];
+const FACADE_STYLES = ['villa', 'apt', 'tile', 'mansion', 'shophouse', 'hdb', 'sandstone', 'palazzo', 'nordic', 'module'];
 function makeFacadeMats(std) {
   for (const st of FACADE_STYLES) {
     const a = facadeStyle(st, false), l = facadeStyle(st, true);
@@ -903,6 +1007,11 @@ const SIGN_COLS = {
   bangkok: [['#f2c21a', '#a01a1a'], ['#1a8a4a', '#ffffff'], ['#c81a1a', '#f2e21a'], ['#ffffff', '#1a4aa0'], ['#e8641a', '#ffffff'], ['#2a2a7a', '#f2c21a']],
   singapore: [['#ffffff', '#c81a1a'], ['#1a6a4a', '#ffffff'], ['#c81a1a', '#f8e8b0'], ['#f8f0d8', '#1a3a6a'], ['#1a3a6a', '#ffffff'], ['#f2c21a', '#1a1a1a']],
   base: [['#3a4a2a', '#e8e4d0'], ['#e8e4d0', '#1a1a1a']],
+  varanasi: [['#f2c21a', '#a01a1a'], ['#e8641a', '#ffffff'], ['#1a6aa0', '#ffffff'], ['#ffffff', '#c81a1a'], ['#1a8a4a', '#ffffff'], ['#c81a6a', '#ffffff']],
+  cairo: [['#ffffff', '#1a6a3a'], ['#1a6a3a', '#ffffff'], ['#c81a1a', '#ffffff'], ['#f2d24a', '#1a1a1a'], ['#1a3a8a', '#ffffff']],
+  venice: [['#1a1a1a', '#e8d8a0'], ['#6a1a1a', '#f0e8d0'], ['#f0e8d0', '#3a2a1a'], ['#1a3a2a', '#f0e8d0']],
+  reykjavik: [['#ffffff', '#1a3a6a'], ['#1a3a6a', '#ffffff'], ['#c81a1a', '#ffffff'], ['#1a1a1a', '#f2d24a']],
+  antarctic: [['#e8c020', '#1a1a1a'], ['#ffffff', '#c81a1a'], ['#1a3a6a', '#ffffff']],
 };
 function ensureSignMats(w) {
   const key = w.theme.key;
@@ -954,7 +1063,7 @@ function signBoards(get, w, x, y, ax, az, bx, bz, n, floors, outside) {
   } else if (key === 'tokyo') {
     if (street && hs % 2) signQuad(on(1), ax, az, bx, bz, n, 4, L - 4, FLOOR_PX + 1, FLOOR_PX + 9, hs % 48);
     if (floors >= 3 && hs % 3 !== 1) { const u = 3 + (hs >>> 5) % 30; signQuad(on(4), ax, az, bx, bz, n, u, u + 9, FLOOR_PX + 4, FLOOR_PX * Math.min(floors, 4) - 4, (hs >>> 3) % 16, true, 1.4); }
-  } else if (key === 'bangkok') {
+  } else if (key === 'bangkok' || key === 'varanasi') {
     if (street && hs % 3 !== 0) signQuad(on(1), ax, az, bx, bz, n, 5, L - 5, FLOOR_PX + 1, FLOOR_PX + 8, hs % 48);
     if (floors >= 3 && hs % 5 === 2) signQuad(on(3), ax, az, bx, bz, n, 6, 15, FLOOR_PX + 6, FLOOR_PX * 2 + 20, (hs >>> 3) % 16, true, 1.2);
   } else if (key === 'singapore') {
@@ -978,6 +1087,16 @@ function roofIcon(get, w, X0, Z0, h, hh, marks) {
     const P = get('sign_' + key), cell = hh % 48, U0 = (cell % 4) * 0.25, V1 = 1 - Math.floor(cell / 4) * 64 / 1024;
     P.quad([X0 + 2, h + 24, Z0 + 32], [X0 + 46, h + 24, Z0 + 32], [X0 + 46, h + 46, Z0 + 32], [X0 + 2, h + 46, Z0 + 32], [0, 0, 1], [[U0, V1 - 0.0625], [U0 + 0.25, V1 - 0.0625], [U0 + 0.25, V1], [U0, V1]]);
     marks.push({ x: X0 + 24, y: h + 30, z: Z0 + 50, r: 180, c: [1, 0.9, 0.85], k: 1.0 });
+    return true;
+  }
+  if (key === 'varanasi' && hh % 7 === 2) {                       // 검은 물탱크와 빨랫줄
+    cylB(get('fan'), X0 + 16, Z0 + 16, 7, h, h + 14, 10);
+    roofBox(get('metal'), X0 + 26, Z0 + 30, 18, 0.6, h + 14, 0.6);
+    for (let q = 0; q < 4; q++) roofBox(get('awning' + ((hh >>> q) % 6)), X0 + 27 + q * 4, Z0 + 30, 3, 0.4, h + 6, 8);
+    return true;
+  }
+  if (key === 'cairo' && hh % 5 === 1) {                          // 위성 안테나 떼
+    for (let q = 0; q < 2 + (hh >>> 4) % 3; q++) { const ax = X0 + 8 + q * 11, az = Z0 + 14 + ((hh >>> (q * 3)) % 14); roofBox(get('metal'), ax, az, 1.2, 1.2, h, 8); get('paint').quad([ax - 5, h + 6, az + 4], [ax + 6, h + 6, az + 4], [ax + 6, h + 15, az - 2], [ax - 5, h + 15, az - 2], [0, 0.55, 0.83], [[0, 0], [1, 0], [1, 1], [0, 1]]); }
     return true;
   }
   if (key === 'bangkok' && hh % 13 === 5) {
@@ -1053,6 +1172,7 @@ function lmTileH(lm, w, x, y) {
     case 'prang': case 'tower': case 'lattice': case 'monument': case 'grove': case 'port': case 'gas': return 0;
     case 'checkpoint': case 'base': return 0;
     case 'railyard': return 0;
+    case 'pyramids': case 'mosque': case 'kund': case 'mandir': case 'piazza': case 'hallgrim': case 'geyser': case 'station': return 0;
     case 'hawker': return ly === 0 ? 20 : 0;
     case 'market': return 18;
     default: return LM_H[lm.kind] || 30;
@@ -1911,13 +2031,14 @@ function init() {
   for (let i = 0; i < RAIN_N; i++) { const x = (Math.random() - 0.5) * 1600, y = Math.random() * 700, z = (Math.random() - 0.5) * 1400; rp.set([x, y, z, x - 4, y - 22, z], i * 6); }
   rainGeo.setAttribute('position', new THREE.Float32BufferAttribute(rp, 3));
   // 빗줄기는 손전등 원뿔 안에서 반짝인다(먼지와 같은 원뿔 값을 쓴다)
+  dust.material.uniforms.uRainCol = { value: new THREE.Vector3(0.62, 0.7, 0.8) };
   rain = new THREE.LineSegments(rainGeo, new THREE.ShaderMaterial({
     uniforms: dust.material.uniforms,
     vertexShader: `uniform vec3 uApex, uDir; uniform float uCos, uRange; varying float vA;
       void main(){ vec4 w = modelMatrix * vec4(position, 1.0); vec3 v = w.xyz - uApex; float d = length(v);
         float inC = smoothstep(uCos, uCos + 0.05, dot(v / max(d, 0.001), uDir)) * clamp(1.0 - d / (uRange * 1.1), 0.0, 1.0);
         vA = 0.16 + inC * 1.4; gl_Position = projectionMatrix * viewMatrix * w; }`,
-    fragmentShader: 'varying float vA; void main(){ gl_FragColor = vec4(vec3(0.62, 0.7, 0.8) * vA, vA); }',
+    fragmentShader: 'uniform vec3 uRainCol; varying float vA; void main(){ gl_FragColor = vec4(uRainCol * vA, vA); }',
     transparent: true, depthWrite: false, blending: THREE.AdditiveBlending
   }));
   rain.frustumCulled = false; scene.add(rain);
@@ -1970,6 +2091,12 @@ function applyKit(w) {
   scene.fog.color.setHex(K.fog); scene.fog.density = K.fogD;
   scene.background.setHex(K.fog);
   grade.uniforms.uSh.value.set(...K.sh); grade.uniforms.uHi.value.set(...K.hi);
+  // 땅빛 — 모래 도시 · 눈 도시는 차도와 보도에 색을 곱한다. 마른 땅은 덜 번들거린다
+  MAT.asphalt.color.setRGB(...(K.ground || [1, 1, 1])); MAT.sidewalk.color.setRGB(...(K.side || [1, 1, 1]));
+  MAT.asphalt.envMapIntensity = 1.8 * (K.wet ?? 1); MAT.sidewalk.envMapIntensity = 1.1 * (K.wet ?? 1);
+  RAIN_KIND = w.theme.weather === 'sandstorm' ? 2 : (w.theme.weather === 'snow' || w.theme.weather === 'blizzard') ? 1 : 0;
+  rain.material.uniforms.uRainCol.value.set(...[[0.62, 0.7, 0.8], [1.6, 1.65, 1.75], [1.1, 0.82, 0.5]][RAIN_KIND]);
+  resetRain();
 }
 function resetWorld(w) {
   clearChunks();
@@ -2393,7 +2520,7 @@ function resetPeople() {
   for (const [, o] of dyn.corpses) scene.remove(o); dyn.corpses.clear();
   dropPlayer();
 }
-function dropPlayer() { if (player3) scene.remove(player3); if (pGun) scene.remove(pGun); player3 = null; pGun = null; }
+function dropPlayer() { if (player3) scene.remove(player3); if (pGun) scene.remove(pGun); if (chestLamp) scene.remove(chestLamp); player3 = null; pGun = null; chestLamp = null; }
 /** 플레이어 — 군인 몸체, 두 손으로 총을 겨눈다. 총은 오른손 위치에 따로 둔다 */
 let pGun = null;
 function attachToBone(bone, obj) {
@@ -2414,12 +2541,38 @@ function makePlayerRig() {
     // 등뼈 좌표가 아니라 몸 좌표로 붙여 두고 매 프레임 등뼈를 따라가게 한다
     h.userData.pack = holder; h.add(holder);
   }
-  pGun = new THREE.Group();
-  pGun.add(part(GEO.box, mat('#15181c', { roughness: 0.5, metalness: 0.5 }), 7, 0, 0, 18, 2.8, 2.2));
-  const lampM = new THREE.MeshBasicMaterial({ color: new THREE.Color(1.4, 1.35, 1.2) });
-  const lamp = new THREE.Mesh(GEO.cyl, lampM); lamp.scale.set(1.3, 1.6, 1.3); lamp.rotation.z = Math.PI / 2; lamp.position.set(16.5, -2, 0); pGun.add(lamp);
+  // 총 — 무기마다 따로 만든 모형. 손잡이가 원점, 총구가 +x
+  pGun = new THREE.Group(); pGun.userData.guns = {};
+  const blk = mat('#15181c', { roughness: 0.45, metalness: 0.6 }), dark = mat('#0c0d0f', { roughness: 0.6 }), wood = mat('#4a3020', { roughness: 0.7 });
+  const mk = (key, len, parts) => { const gg = new THREE.Group(); for (const [m, x, y, z, sx, sy, sz] of parts) gg.add(part(GEO.box, m, x, y, z, sx, sy, sz)); gg.userData.len = len; gg.visible = false; pGun.add(gg); pGun.userData.guns[key] = gg; };
+  mk('pistol', 9, [[blk, 3.5, 1.2, 0, 8, 2.2, 1.6], [dark, 0.2, -1.2, 0, 2, 3.6, 1.4]]);
+  mk('smg', 15, [[blk, 5, 1, 0, 12, 3, 2], [dark, 3.5, -2.5, 0, 1.8, 4.5, 1.4], [dark, -0.5, -1.5, 0, 1.6, 3.4, 1.4], [blk, 12.5, 1.3, 0, 5, 1.2, 1.2], [dark, -4, 1, 0, 6, 1.6, 1]]);
+  mk('shotgun', 22, [[blk, 9, 1.6, 0, 20, 1.6, 1.6], [wood, 10, 0, 0, 7, 2, 2], [wood, -4.5, 0.6, 0, 8, 2.6, 1.8], [dark, 0, -1, 0, 1.6, 3, 1.4]]);
+  mk('rifle', 24, [[blk, 8, 1, 0, 18, 2.6, 1.8], [blk, 19, 1.3, 0, 8, 1, 1], [dark, 6, 3.6, 0, 7, 1.8, 1.8], [dark, 4.5, -2.6, 0, 2, 4, 1.4], [wood, -5, 0.5, 0, 9, 3, 1.8], [dark, 0, -1.4, 0, 1.6, 3.2, 1.4]]);
   scene.add(pGun);
+  // 가슴 손전등 — 멜빵에 단 등. 빛줄기 · 스포트라이트가 여기서 나간다
+  chestLamp = new THREE.Group();
+  chestLamp.add(part(GEO.box, mat('#1a1c1f', { roughness: 0.5, metalness: 0.5 }), 0, 0, 0, 3, 3.2, 3.6));
+  const lens = new THREE.Mesh(GEO.cyl, new THREE.MeshBasicMaterial({ color: new THREE.Color(2.2, 2.1, 1.9) }));
+  lens.scale.set(1.3, 0.6, 1.3); lens.rotation.z = Math.PI / 2; lens.position.x = 1.8; chestLamp.add(lens);
+  for (const sd of [-1, 1]) chestLamp.add(part(GEO.box, mat('#2a2620', { roughness: 0.9 }), -1, 3, sd * 2.6, 1, 8, 1));   // 멜빵
+  scene.add(chestLamp);
   return h;
+}
+let chestLamp = null;
+const chestP = new THREE.Vector3(), muzzleP = new THREE.Vector3();
+const gS = new THREE.Vector3(), gE = new THREE.Vector3(), gH = new THREE.Vector3(), gO = new THREE.Vector3(), gTmp = new THREE.Vector3();
+/** 팔 하나를 손 목표점으로 — 위팔은 팔꿈치가 아래 · 바깥으로 꺾이게, 아래팔은 손 쪽으로 */
+function reachArm(up, lo, hand, out, w = 1) {
+  if (!up || !lo) return;
+  up.getWorldPosition(gS);
+  gTmp.copy(hand).sub(gS); const L = gTmp.length();
+  gTmp.normalize().addScaledVector(YAX, -0.45).addScaledVector(out, 0.35);
+  aimBone(up, gTmp, w);
+  up.updateMatrixWorld(true);
+  lo.getWorldPosition(gE);
+  aimBone(lo, gTmp.copy(hand).sub(gE), w);
+  return L;
 }
 function posePlayerRig(h, p, g, dt) {
   const u = h.userData, B = u.bones;
@@ -2428,17 +2581,29 @@ function posePlayerRig(h, p, g, dt) {
   h.updateMatrixWorld(true);
   fwd.set(Math.cos(p.angle), 0, Math.sin(p.angle)); lat.set(fwd.z, 0, -fwd.x);
   const melee = p.meleeAnim > 0 ? Math.sin((1 - p.meleeAnim / 0.2) * Math.PI) : 0;
-  // 상체는 겨누는 쪽으로 — 두 팔을 앞으로, 왼팔은 총신을 받친다
-  aimBone(B.RightArm, tdir.copy(fwd).addScaledVector(lat, 0.35).addScaledVector(YAX, -0.25), 0.95);
-  aimBone(B.RightForeArm, tdir.copy(fwd).addScaledVector(lat, -0.1).addScaledVector(YAX, -0.05 + melee * 0.4), 0.95);
-  aimBone(B.LeftArm, tdir.copy(fwd).addScaledVector(lat, -0.45).addScaledVector(YAX, -0.3), 0.95);
-  aimBone(B.LeftForeArm, tdir.copy(fwd).addScaledVector(lat, 0.35).addScaledVector(YAX, 0.02), 0.95);
-  if (u.pack && B.Spine2) { B.Spine2.getWorldPosition(bv); h.worldToLocal(bv); u.pack.position.copy(bv); }
-  if (B.RightHand && pGun) {
-    B.RightHand.getWorldPosition(bv);
-    pGun.position.copy(bv).addScaledVector(fwd, 2); pGun.position.y -= 1;
-    pGun.rotation.set(0, -p.angle, 0);
+  const key = (p.weapon && p.weapon.key) || 'pistol', long = key !== 'pistol', S = h.scale.x;
+  // 몸의 기준점 — 가슴(Spine2). 오른쪽은 -lat
+  if (B.Spine2) B.Spine2.getWorldPosition(chestP); else chestP.set(p.x, 36 * S, p.y);
+  const right = gO.copy(lat).multiplyScalar(-1);
+  // 손 목표 — 권총은 두 손을 모아 앞으로 쭉, 긴 총은 오른손이 개머리 쪽 손잡이 · 왼손이 총열 밑
+  const grip = new THREE.Vector3().copy(chestP).addScaledVector(fwd, (long ? 7 : 15) * S + melee * 6).addScaledVector(right, (long ? 3.5 : 0.6) * S).addScaledVector(YAX, (long ? -4.5 : -2.5) * S);
+  const fore = new THREE.Vector3().copy(grip).addScaledVector(fwd, (long ? 11 : 0.5) * S).addScaledVector(right, (long ? -2 : -1.4) * S).addScaledVector(YAX, (long ? 0.5 : 0) * S);
+  reachArm(B.RightArm, B.RightForeArm, grip, right, 0.97);
+  reachArm(B.LeftArm, B.LeftForeArm, fore, lat, 0.97);
+  if (u.pack && B.Spine2) { gTmp.copy(chestP); h.worldToLocal(gTmp); u.pack.position.copy(gTmp); }
+  if (pGun) {
+    const G = pGun.userData.guns;
+    for (const k in G) G[k].visible = k === key;
+    if (B.RightHand) B.RightHand.getWorldPosition(gH); else gH.copy(grip);
+    pGun.position.copy(gH).addScaledVector(YAX, 0.6 * S);
+    pGun.rotation.set(0, -p.angle, 0); pGun.scale.setScalar(S);
     pGun.visible = h.visible;
+    muzzleP.copy(pGun.position).addScaledVector(fwd, (G[key] ? G[key].userData.len : 12) * S);
+  }
+  if (chestLamp) {
+    chestLamp.position.copy(chestP).addScaledVector(fwd, 4.2 * S).addScaledVector(lat, 1.2 * S).addScaledVector(YAX, 1.5 * S);
+    chestLamp.rotation.set(0, -p.angle, 0); chestLamp.scale.setScalar(S);
+    chestLamp.visible = h.visible;
   }
 }
 /** 시체 — 서 있는 자세 하나를 멈춰 두고 뒤로 눕힌다, 팔다리를 벌린다 */
@@ -2670,7 +2835,10 @@ function updateMisc(g, p, w) {
 function updateLights(g, p, w) {
   const range = p.dead ? 0 : p.lightRange;
   const ca = Math.cos(p.angle), sa = Math.sin(p.angle);
-  spot.position.set(p.x + ca * 8, 46, p.y + sa * 8);
+  // 손전등은 가슴에 — 인물 모형이 있으면 그 가슴 등에서, 없으면 가슴 높이 앞에서
+  const lampOn = chestLamp && player3 && player3.visible;
+  const lx = lampOn ? chestLamp.position.x + ca * 2 : p.x + ca * 8, lz = lampOn ? chestLamp.position.z + sa * 2 : p.y + sa * 8, ly = lampOn ? chestLamp.position.y : 40;
+  spot.position.set(lx, ly + 4, lz);
   spotTarget.position.set(p.x + ca * 200, 0, p.y + sa * 200);
   spot.intensity = range > 0 ? 8 * (range / 430) : 0;
   spot.distance = Math.max(10, range * 1.25);
@@ -2678,7 +2846,7 @@ function updateLights(g, p, w) {
   beam.visible = range > 0 && !p.dead;
   if (beam.visible) {
     const reach = beamReach(w, p.x, p.y, ca, sa, range * 1.05);
-    const ox = p.x + ca * 22, oz = p.y + sa * 22, oy = 38;
+    const ox = lx, oz = lz, oy = ly;
     const dir = tmpV.set(ca * reach, -oy * 0.85, sa * reach).normalize();
     beam.position.set(ox, oy, oz);
     beam.quaternion.setFromUnitVectors(XAXIS, dir);
@@ -2692,13 +2860,15 @@ function updateLights(g, p, w) {
     du.uScale.value = renderer.domElement.height * 0.9;
   }
   dust.visible = beam.visible;
-  muzzle.position.set(p.x + ca * 44, 26, p.y + sa * 44);
+  const haveGun = pGun && pGun.visible;
+  if (haveGun) muzzle.position.copy(muzzleP).addScaledVector(XAXIS.clone().set(ca, 0, sa), 4); else muzzle.position.set(p.x + ca * 44, 26, p.y + sa * 44);
   R3D._fill.position.set(p.x - ca * 20, 70, p.y - sa * 20 + 30);
   muzzle.intensity = p.muzzle > 0 ? 5 : 0;
   R3D._flash.visible = p.muzzle > 0 && !p.dead;
   R3D._flashCore.visible = R3D._flash.visible;
   if (R3D._flash.visible) {
-    R3D._flash.position.set(p.x + ca * 34, 30, p.y + sa * 34); const k = 0.7 + Math.random() * 0.5; R3D._flash.scale.set(24 * k, 24 * k, 1);
+    if (haveGun) R3D._flash.position.copy(muzzleP).add(gTmp.set(ca * 5, 0, sa * 5)); else R3D._flash.position.set(p.x + ca * 34, 30, p.y + sa * 34);
+    const k = 0.7 + Math.random() * 0.5; R3D._flash.scale.set(24 * k, 24 * k, 1);
     R3D._flash.material.rotation = Math.random() * 6.28;
     R3D._flashCore.position.copy(R3D._flash.position); R3D._flashCore.scale.set(8 * k, 8 * k, 1);
   }
@@ -2722,18 +2892,31 @@ function updateLights(g, p, w) {
   moon.position.set(sx - 900, 1250, sz + 380); moon.target.position.set(sx, 0, sz);
 }
 
+/** 0 비 · 1 눈 · 2 모래 — 같은 선분 묶음을 길이 · 속도만 바꿔 쓴다 */
+let RAIN_KIND = 0;
+const RAIN_SEG = [[-4, -22], [-1.2, -2.2], [-16, -1.2]];
+function resetRain() {
+  const a = rainGeo.attributes.position.array, [sx, sy] = RAIN_SEG[RAIN_KIND];
+  for (let i = 0; i < RAIN_N; i++) { const o = i * 6; a[o + 3] = a[o] + sx; a[o + 4] = a[o + 1] + sy; a[o + 5] = a[o + 2]; }
+  rainGeo.attributes.position.needsUpdate = true;
+}
 function updateRain(g, p) {
-  const a = rainGeo.attributes.position.array, dt = 1 / 60;
+  const a = rainGeo.attributes.position.array, dt = 1 / 60, st = g.storm || 0, K = curWorld ? kitOf(curWorld) : KIT.seoul;
+  const [sx, sy] = RAIN_SEG[RAIN_KIND];
+  const vy = [900, 70 + st * 60, 60][RAIN_KIND], vx = [160, 40 + st * 260, 420 + st * 600][RAIN_KIND];
   for (let i = 0; i < RAIN_N; i++) {
-    const o = i * 6;
-    a[o + 1] -= 900 * dt; a[o + 4] -= 900 * dt; a[o] -= 160 * dt; a[o + 3] -= 160 * dt;
-    if (a[o + 4] < 0) {
-      const x = (Math.random() - 0.5) * 1600, z = (Math.random() - 0.5) * 1400, y = 500 + Math.random() * 200;
-      a[o] = x; a[o + 1] = y; a[o + 2] = z; a[o + 3] = x - 4; a[o + 4] = y - 22; a[o + 5] = z;
+    const o = i * 6, wob = RAIN_KIND === 1 ? Math.sin(g.time * 1.3 + i) * 18 * dt : 0;
+    a[o + 1] -= vy * dt; a[o + 4] -= vy * dt; a[o] -= vx * dt + wob; a[o + 3] -= vx * dt + wob;
+    if (a[o + 4] < 0 || a[o] < -900) {
+      const x = RAIN_KIND && a[o] < -900 ? 800 : (Math.random() - 0.5) * 1600, z = (Math.random() - 0.5) * 1400, y = RAIN_KIND === 2 ? Math.random() * 160 : RAIN_KIND && a[o] < -900 ? Math.random() * 700 : 500 + Math.random() * 200;
+      a[o] = x; a[o + 1] = y; a[o + 2] = z; a[o + 3] = x + sx; a[o + 4] = y + sy; a[o + 5] = z;
     }
   }
   rainGeo.attributes.position.needsUpdate = true;
   rain.position.set(camT.x, 0, camT.z - 200);
+  // 폭풍 — 안개가 짙어지고 모래빛 · 눈빛으로 물든다
+  scene.fog.density = K.fogD * (1 + st * 0.55);
+  if (RAIN_KIND) { scene.fog.color.setHex(K.fog).lerp(tmpC.set(RAIN_KIND === 2 ? 0x6a4a28 : 0x5a6470), st * 0.4); scene.background.copy(scene.fog.color); }
 }
 
 /* ═══════════ 랜드마크 모형 ═══════════
@@ -2808,6 +2991,18 @@ function mergeStatic(g, keep = new Set()) {
     g.add(mesh);
   }
   return g;
+}
+/** 사각뿔 — 피라미드 · 지붕 끝 */
+function pyrAt(g, m, cx, cz, size, h, y = 0) {
+  const r = new THREE.Mesh(new THREE.ConeGeometry(Math.SQRT1_2, 1, 4, 1), m);
+  r.rotation.y = Math.PI / 4; r.position.set(cx, y + h / 2, cz); r.scale.set(size, h, size); r.castShadow = r.receiveShadow = true;
+  g.add(r); return r;
+}
+/** 반구 돔 */
+let HEMI = null;
+function domeAt3(g, m, cx, y, cz, r, sy = 1) {
+  if (!HEMI) HEMI = new THREE.SphereGeometry(1, 20, 10, 0, Math.PI * 2, 0, Math.PI / 2);
+  const o = part(HEMI, m, cx, y, cz, r, r * sy, r); o.receiveShadow = true; g.add(o); return o;
 }
 function boxAt(g, m, x, y, z, sx, sy, sz) { const o = part(GEO.box, m, x, y, z, sx, sy, sz); o.receiveShadow = true; g.add(o); return o; }
 function buildLandmarks(w) {
@@ -2945,7 +3140,7 @@ function buildLandmarks(w) {
       }
     } else if (k === 'port') {
       const h = lm.hull, C = ['#8a2e24', '#2e4a6a', '#b8b8b0', '#4a5a3a', '#9a6a2a'];
-      boxAt(g, mat('#2a2622', { roughness: 0.6, metalness: 0.3 }), X(h.x + h.w / 2), 16, X(h.y + h.h / 2), X(h.w), 44, X(h.h) - 4);
+      boxAt(g, mat(lm.ice ? '#a8281c' : '#2a2622', { roughness: 0.6, metalness: 0.3 }), X(h.x + h.w / 2), 16, X(h.y + h.h / 2), X(h.w), 44, X(h.h) - 4);
       boxAt(g, mat('#8a2a20'), X(h.x + h.w / 2), 2, X(h.y + h.h / 2) + X(h.h) / 2 - 2, X(h.w), 8, 1);
       boxAt(g, mat('#cfc9bd', { roughness: 0.5 }), X(h.x + h.w - 1.8), 70, X(h.y + 1.5), X(2.4), 70, X(2.4));
       for (let i = 0; i < 4; i++) boxAt(g, mat(C[i], { roughness: 0.7, metalness: 0.3 }), X(h.x + 1.7 + i * 1.6), 50, X(h.y + 1.5), X(1.4), 22, X(1.8));
@@ -2956,6 +3151,128 @@ function buildLandmarks(w) {
         boxAt(g, Y, X(cx + 1), 236, X(lm.y + 1.5), 10, 8, X(6));
       }
       g.userData.beacon = new THREE.Mesh(GEO.eye, new THREE.MeshBasicMaterial({ color: 0xff3020 })); g.userData.beacon.scale.setScalar(4); g.userData.beacon.position.set(X(h.x + h.w - 1.8), 120, X(h.y + 1.5)); g.add(g.userData.beacon);
+    } else if (k === 'pyramids') {
+      // 기자 — 모래빛 석회암 사각뿔 셋(층 띠는 무늬로), 앞에 웅크린 스핑크스
+      const lime = mat('#c4a46e', { roughness: 0.95 }), lime2 = mat('#a88a5a', { roughness: 0.95 });
+      for (const [x, y, sz] of lm.pyr) {
+        const P = pyrAt(g, lime, X(x + sz / 2), X(y + sz / 2), X(sz) * 1.06, X(sz) * 0.64);
+        if (sz >= 5) { pyrAt(g, mat('#e0d0a8', { roughness: 0.6 }), X(x + sz / 2), X(y + sz / 2), X(sz) * 0.16, X(sz) * 0.1, X(sz) * 0.54); }
+        for (let q = 1; q < 6; q++) { const f = q / 6; boxAt(g, lime2, X(x + sz / 2), X(sz) * 0.64 * f, X(y + sz / 2), X(sz) * 1.06 * (1 - f) + 0.6, 1.2, X(sz) * 1.06 * (1 - f) + 0.6); }
+      }
+      const sp = lm.sphinx;
+      boxAt(g, lime2, X(sp.x + 1.4), 12, X(sp.y + 0.5), X(2.6), 24, X(0.8));                 // 몸
+      boxAt(g, lime2, X(sp.x + 0.2), 5, X(sp.y + 0.5), X(0.8), 10, X(0.7));                   // 앞발
+      boxAt(g, lime, X(sp.x + 2.6), 34, X(sp.y + 0.5), 26, 30, 28);                          // 머리
+      boxAt(g, mat('#3a5a8a', { roughness: 0.7 }), X(sp.x + 2.6), 42, X(sp.y + 0.5), 30, 8, 32);   // 두건 줄
+      LT.push([X(lm.rally.tx + 0.5), 60, X(lm.rally.ty + 1), 260, 0xffa860, 1.0]);
+    } else if (k === 'mosque') {
+      const sand = mat('#c2a272', { roughness: 0.85 }), dome = mat('#5f8a88', { roughness: 0.35, metalness: 0.4 }), H = lm.hall;
+      boxAt(g, sand, X(H.x + H.w / 2), 30, X(H.y + H.h / 2), X(H.w), 60, X(H.h));
+      for (let i = 0; i < 6; i++) boxAt(g, glowM(0xffb060, i % 2 ? 1.6 : 2.4), X(H.x) + 22 + i * (X(H.w) - 44) / 5, 22, X(H.y + H.h) + 0.6, 12, 26, 1);  // 아치 창 불빛
+      boxAt(g, sand, X(H.x + H.w / 2), 66, X(H.y + H.h / 2), X(3.6), 14, X(3.6));
+      domeAt3(g, dome, X(H.x + H.w / 2), 72, X(H.y + H.h / 2), X(1.8), 1.15);
+      for (const dx of [1.2, H.w - 1.2]) domeAt3(g, dome, X(H.x + dx), 60, X(H.y + H.h / 2), X(0.8));
+      g.add(part(GEO.cyl, mat('#c9a440', { metalness: 0.8, roughness: 0.3 }), X(H.x + H.w / 2), 72 + X(1.8) * 1.15 + 10, X(H.y + H.h / 2), 1.5, 22, 1.5));
+      for (const [x, y] of lm.minarets) {
+        g.add(part(GEO.cyl, sand, X(x), 100, X(y), 12, 200, 12));
+        g.add(part(GEO.cyl, mat('#8a6c44'), X(x), 150, X(y), 18, 6, 18));
+        g.add(part(GEO.cyl, sand, X(x), 215, X(y), 8, 30, 8));
+        g.add(part(GEO.cone, dome, X(x), 246, X(y), 10, 34, 10));
+        boxAt(g, glowM(0x7aff9a, 2), X(x), 152, X(y), 20, 2, 20);                              // 발코니의 초록 등
+        LT.push([X(x), 152, X(y) + 10, 160, 0x60ff90, 0.8]);
+      }
+      g.add(part(GEO.cyl, mat('#7d6a4c'), X(lm.fountain[0]), 4, X(lm.fountain[1]), 26, 8, 26));
+      g.add(part(GEO.cyl, mat('#1c3a44', { roughness: 0.1 }), X(lm.fountain[0]), 8.2, X(lm.fountain[1]), 22, 0.5, 22));
+    } else if (k === 'kund') {
+      // 계단 연못 — 물 쪽으로 세 단 내려가는 돌계단, 네 귀의 붉은 사당, 물 위의 꽃불
+      const st = mat('#a48a6a', { roughness: 0.9 }), t = lm.tank;
+      for (let i = 0; i < 3; i++) {
+        const o = X(1 - i * 0.35), y = -2 - i * 2;
+        const x0 = X(t.x) - o, z0 = X(t.y) - o, x1 = X(t.x + t.w) + o, z1 = X(t.y + t.h) + o, th = X(0.35);
+        boxAt(g, st, (x0 + x1) / 2, y, z0 + th / 2, x1 - x0, 4, th); boxAt(g, st, (x0 + x1) / 2, y, z1 - th / 2, x1 - x0, 4, th);
+        boxAt(g, st, x0 + th / 2, y, (z0 + z1) / 2, th, 4, z1 - z0); boxAt(g, st, x1 - th / 2, y, (z0 + z1) / 2, th, 4, z1 - z0);
+      }
+      for (const [x, y] of lm.shrines) {
+        boxAt(g, mat('#b0603a', { roughness: 0.8 }), X(x), 16, X(y), 30, 32, 30);
+        pyrAt(g, mat('#c87040', { roughness: 0.8 }), X(x), X(y), 34, 30, 32);
+        boxAt(g, glowM(0xffa040, 2.4), X(x), 12, X(y) + 15.2, 8, 12, 0.6);
+        LT.push([X(x), 14, X(y) + 20, 110, 0xff9a40, 1.0]);
+      }
+      const diya = glowM(0xffa040, 5);
+      for (let i = 0; i < 9; i++) g.add(part(GEO.eye, diya, X(t.x + 0.7 + (i * 1.37) % (t.w - 1.4)), -6, X(t.y + 0.7 + (i * 0.83) % (t.h - 1.4)), 2, 1.4, 2));
+      LT.push([X(t.x + t.w / 2), 10, X(t.y + t.h / 2), 200, 0xffa040, 0.9]);
+    } else if (k === 'mandir') {
+      // 시카라 — 옥수수처럼 층층이 좁아지며 솟는 첨탑, 금빛 꼭대기와 주황 깃발, 앞 회랑
+      const sand = mat('#c4a47a', { roughness: 0.85 }), sand2 = mat('#a8845c', { roughness: 0.85 }), s0 = lm.sanctum, hl = lm.hall;
+      boxAt(g, sand, X(s0.x + 1.5), 24, X(s0.y + 1.5), X(3), 48, X(3));
+      for (let i = 0; i < 9; i++) { const f = 1 - i / 10; boxAt(g, i % 2 ? sand2 : sand, X(s0.x + 1.5), 52 + i * 15, X(s0.y + 1.5), X(3) * f * 0.92, 15, X(3) * f * 0.92); }
+      g.add(part(GEO.cyl, mat('#d9a640', { metalness: 0.8, roughness: 0.3 }), X(s0.x + 1.5), 200, X(s0.y + 1.5), 6, 20, 6));
+      g.add(part(GEO.cyl, mat('#6a5a4a'), X(s0.x + 1.5), 222, X(s0.y + 1.5), 1, 30, 1));
+      boxAt(g, mat('#e8742a', { emissive: col('#e8742a'), emissiveIntensity: 0.3, side: THREE.DoubleSide }), X(s0.x + 1.5) + 10, 230, X(s0.y + 1.5), 20, 12, 0.5);
+      boxAt(g, sand, X(hl.x + hl.w / 2), 18, X(hl.y + hl.h / 2), X(hl.w), 36, X(hl.h));
+      pyrAt(g, sand2, X(hl.x + hl.w / 2), X(hl.y + hl.h / 2), X(hl.w) * 1.1, 30, 36);
+      for (const [x, y] of lm.gate) { g.add(part(GEO.cyl, sand2, X(x), 30, X(y), 8, 60, 8)); boxAt(g, glowM(0xffa040, 3), X(x), 62, X(y), 10, 6, 10); LT.push([X(x), 60, X(y) + 6, 130, 0xffa040, 1.0]); }
+      boxAt(g, glowM(0xffa040, 2), X(hl.x + hl.w / 2), 16, X(hl.y + hl.h) + 0.6, 20, 28, 1);
+    } else if (k === 'piazza') {
+      // 산마르코 — 다섯 돔의 대성당(금빛 아치 정면), 붉은 벽돌 종탑과 초록 첨탑, 광장의 두 돌기둥
+      const c = lm.church, marble = mat('#d0c4ac', { roughness: 0.6 }), dome = mat('#6e7a72', { roughness: 0.4, metalness: 0.5 }), gold = mat('#c9a440', { metalness: 0.8, roughness: 0.3 });
+      boxAt(g, marble, X(c.x + c.w / 2), 36, X(c.y + c.h / 2), X(c.w), 72, X(c.h));
+      for (let i = 0; i < 5; i++) {
+        const ax = X(c.x) + X(c.w) * (i + 0.5) / 5;
+        boxAt(g, i === 2 ? glowM(0xffc060, 1.8) : mat('#2a2420'), ax, 26, X(c.y + c.h) + 0.6, 30, 44, 1);
+        boxAt(g, gold, ax, 58, X(c.y + c.h) + 0.8, 34, 14, 1);
+      }
+      for (const [dx, dy, r] of [[3, 2, 1.25], [1.1, 2, 0.85], [4.9, 2, 0.85], [3, 0.8, 0.8], [3, 3.2, 0.8]]) {
+        g.add(part(GEO.cyl, marble, X(c.x + dx), 80, X(c.y + dy), X(r) * 0.9, 16, X(r) * 0.9));
+        domeAt3(g, dome, X(c.x + dx), 88, X(c.y + dy), X(r) * 0.9, 1.15);
+        g.add(part(GEO.cyl, gold, X(c.x + dx), 88 + X(r) * 1.04 + 8, X(c.y + dy), 1.2, 16, 1.2));
+      }
+      const t = lm.tower, brick = mat('#9a3e2c', { roughness: 0.85 });
+      boxAt(g, brick, X(t.x + 1), 120, X(t.y + 1), X(2) - 8, 240, X(2) - 8);
+      boxAt(g, marble, X(t.x + 1), 262, X(t.y + 1), X(2) - 4, 44, X(2) - 4);
+      boxAt(g, glowM(0xffd090, 1.2), X(t.x + 1), 262, X(t.y + 1), X(2) - 18, 30, X(2) - 3);   // 종루 안 불빛
+      pyrAt(g, mat('#5e8a6a', { roughness: 0.4, metalness: 0.4 }), X(t.x + 1), X(t.y + 1), X(2) - 4, 90, 284);
+      g.userData.beacon = new THREE.Mesh(GEO.eye, new THREE.MeshBasicMaterial({ color: 0xff3020 })); g.userData.beacon.scale.setScalar(4); g.userData.beacon.position.set(X(t.x + 1), 378, X(t.y + 1)); g.add(g.userData.beacon);
+      for (const [x, y] of lm.cols) { g.add(part(GEO.cyl, mat('#c8c0b0', { roughness: 0.5 }), X(x), 70, X(y), 7, 140, 7)); boxAt(g, gold, X(x), 146, X(y), 16, 12, 22); }
+      LT.push([X(c.x + c.w / 2), 30, X(c.y + c.h) + 30, 260, 0xffc070, 1.2]);
+    } else if (k === 'hallgrim') {
+      // 할그림스키르캬 — 현무암 기둥처럼 양옆으로 계단 지며 높아지는 흰 콘크리트, 가운데 뾰족탑
+      const conc = mat('#c8cacb', { roughness: 0.75 }), b = lm.body;
+      for (let i = 0; i < 6; i++) {
+        const hgt = 40 + i * 30, off = (2.5 - i * 0.4);
+        for (const sgn of [-1, 1]) boxAt(g, conc, X(b.x + b.w / 2) + sgn * X(off), hgt / 2, X(b.y + 1 + (b.h - 1) / 2), X(0.42), hgt, X(b.h - 1));
+      }
+      boxAt(g, conc, X(b.x + b.w / 2), 120, X(b.y + 1 + (b.h - 1) / 2), X(1.6), 240, X(b.h - 1));
+      boxAt(g, conc, X(b.x + b.w / 2), 140, X(b.y + 0.8), X(1.4), 280, X(1.6));
+      pyrAt(g, mat('#9aa0a2', { roughness: 0.6 }), X(b.x + b.w / 2), X(b.y + 0.8), X(1.4), 70, 280);
+      boxAt(g, glowM(0xe8f0ff, 1.6), X(b.x + b.w / 2), 250, X(b.y) + 0.6, 10, 18, 1);         // 시계
+      g.userData.beacon = new THREE.Mesh(GEO.eye, new THREE.MeshBasicMaterial({ color: 0xff3020 })); g.userData.beacon.scale.setScalar(4); g.userData.beacon.position.set(X(b.x + b.w / 2), 354, X(b.y + 0.8)); g.add(g.userData.beacon);
+      boxAt(g, mat('#4a4e50'), X(lm.statue[0]), 14, X(lm.statue[1]), 22, 28, 22);
+      g.add(part(GEO.cyl, mat('#3e5a54', { metalness: 0.6, roughness: 0.4 }), X(lm.statue[0]), 44, X(lm.statue[1]), 5, 32, 5));
+      LT.push([X(b.x + b.w / 2), 40, X(b.y + b.h) + 30, 240, 0xd8e4ff, 1.0]);
+    } else if (k === 'geyser') {
+      // 간헐천 — 하늘빛 온천(스스로 은은히 빛난다), 회백색 규화 테. 물기둥은 updateLandmarks 에서 솟는다
+      const rim = mat('#c8c4b0', { roughness: 0.9 }), hot = new THREE.MeshStandardMaterial({ color: 0x2a90a8, emissive: 0x1a6070, emissiveIntensity: 1.2, roughness: 0.05, metalness: 0.1 });
+      for (const [x, y] of lm.pools) { g.add(part(GEO.cyl, rim, X(x), 1, X(y), X(1.2), 2, X(0.95))); g.add(part(GEO.cyl, hot, X(x), 2.2, X(y), X(0.9), 0.4, X(0.7))); LT.push([X(x), 12, X(y), 140, 0x60d0ff, 0.9]); }
+      g.add(part(GEO.cyl, rim, X(lm.vent[0]), 3, X(lm.vent[1]), 30, 6, 24));
+      const jet = part(GEO.cyl, new THREE.MeshBasicMaterial({ color: 0xc8dce4, transparent: true, opacity: 0.55, depthWrite: false }), X(lm.vent[0]), 0, X(lm.vent[1]), 9, 1, 9);
+      jet.castShadow = false; g.add(jet); g.userData.jet = jet;
+    } else if (k === 'station') {
+      // 남극 기지 — 기둥 위 주황 · 초록 연구동, 레이더 돔, 연료 탱크, 헬기장
+      const C = ['#d8642a', '#3c7a52', '#d8642a'], leg = mat('#4a4e52', { metalness: 0.6, roughness: 0.4 });
+      lm.mods.forEach(([x, y, wd, h], i) => {
+        for (let a = 0; a <= wd; a += Math.max(1, wd / 2)) for (const b of [0.2, h - 0.2]) g.add(part(GEO.cyl, leg, X(x + a) + (a === wd ? -6 : 6), 9, X(y + b), 2.5, 18, 2.5));
+        boxAt(g, mat(C[i], { roughness: 0.55 }), X(x + wd / 2), 36, X(y + h / 2), X(wd), 36, X(h));
+        boxAt(g, mat('#e8ecf0', { roughness: 0.9 }), X(x + wd / 2), 55, X(y + h / 2), X(wd) + 2, 2.5, X(h) + 2);   // 지붕의 눈
+        for (let q = 0; q < wd * 2; q++) if ((q + i) % 3) boxAt(g, glowM(0xf4f0e0, 1.6), X(x) + 14 + q * (X(wd) - 28) / Math.max(1, wd * 2 - 1), 38, X(y + h) + 0.6, 8, 8, 1);
+        LT.push([X(x + wd / 2), 36, X(y + h) + 24, 180, 0xe8f0ff, 1.0]);
+      });
+      boxAt(g, mat('#9aa0a4'), X(lm.dome[0]), 15, X(lm.dome[1]), X(2) - 6, 30, X(2) - 6);
+      domeAt3(g, mat('#eef2f4', { roughness: 0.5 }), X(lm.dome[0]), 30, X(lm.dome[1]), X(1) - 2, 1.1);
+      g.userData.beacon = new THREE.Mesh(GEO.eye, new THREE.MeshBasicMaterial({ color: 0xff3020 })); g.userData.beacon.scale.setScalar(4); g.userData.beacon.position.set(X(lm.dome[0]), 30 + X(1) * 1.1, X(lm.dome[1])); g.add(g.userData.beacon);
+      for (const [x, y] of lm.tanks) { g.add(part(GEO.cyl, mat('#6a7a86', { metalness: 0.5, roughness: 0.4 }), X(x), 22, X(y), 20, 44, 20)); g.add(part(GEO.cyl, mat('#e8ecf0', { roughness: 0.9 }), X(x), 44.5, X(y), 20.5, 1.5, 20.5)); }
+      const ring = new THREE.Mesh(GEO.ring, mat('#d6b846', { roughness: 0.6 })); ring.scale.set(58, 1, 58); ring.position.set(X(lm.pad[0]), 0.6, X(lm.pad[1])); g.add(ring);
+      boxAt(g, mat('#d6b846'), X(lm.pad[0]) - 14, 0.6, X(lm.pad[1]), 6, 0.4, 40); boxAt(g, mat('#d6b846'), X(lm.pad[0]) + 14, 0.6, X(lm.pad[1]), 6, 0.4, 40); boxAt(g, mat('#d6b846'), X(lm.pad[0]), 0.6, X(lm.pad[1]), 28, 0.4, 6);
     } else if (k === 'scramble') {
       const corners = [[lm.x - 1, lm.y - 1], [lm.x + lm.w, lm.y - 1], [lm.x - 1, lm.y + lm.h], [lm.x + lm.w, lm.y + lm.h]];
       g.userData.screens = [];
@@ -2974,7 +3291,7 @@ function buildLandmarks(w) {
         if (i % 2 === 0) LT.push([X(x + 0.5), 30, X(y), 160, 0xffb060, 1.1]);
       });
     }
-    mergeStatic(g, new Set([g.userData.beacon].filter(Boolean)));
+    mergeStatic(g, new Set([g.userData.beacon, g.userData.jet].filter(Boolean)));
     // 랜드마크가 플레이어를 가리면 비쳐 보이게 — 공유 재질을 복제해 이 그룹에만 건다
     const seen = new Map();
     g.traverse(o => {
@@ -2991,6 +3308,11 @@ function updateLandmarks(g, w) {
     o.position.set(lm.ox || 0, 0, lm.oy || 0);
     if (o.userData.beacon) o.userData.beacon.visible = Math.sin(g.time * 3.1 + lm.x) > 0.2;
     for (const [x, y, z, r, c, k] of o.userData.lights || []) pushLight(x + (lm.ox || 0), y, z + (lm.oy || 0), r, tmpC.set(c), k);
+    if (o.userData.jet) {                                       // 간헐천 — 26초마다 5초 동안 물기둥이 솟는다
+      const cyc = (g.time + 7) % 26, h = cyc < 5 ? Math.sin(cyc / 5 * Math.PI) : 0, j = o.userData.jet;
+      j.visible = h > 0.02; j.scale.set(9 + h * 6, 1 + h * 300, 9 + h * 6); j.position.y = j.scale.y / 2;
+      if (h > 0.02) pushLight(j.position.x + (lm.ox || 0), 40, j.position.z + (lm.oy || 0), 200, tmpC.set(0xbfe8ff), h * 1.2);
+    }
     if (o.userData.screens) for (const m of o.userData.screens) m.color.setHSL(((g.time * 20) % 360) / 360, 0.5, 0.25 + Math.random() * 0.15);
   }
 }

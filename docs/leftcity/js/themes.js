@@ -57,6 +57,62 @@ const THEMES = {
     walls: [['#5a2f26', 1], ['#61372b', 1], ['#553026', 1], ['#4f4a3c', 0], ['#46423c', 0], ['#5b5446', 0]],
     roofs: ['#232620', '#1f221d', '#262920', '#1c1e1a'],
     streetDecor: ['bin']
+  },
+  /* ── 2부: 새벽호의 항해 — 지역마다 땅이 다르다(terrain) · 날씨가 다르다(weather) ── */
+  /* 인도 바라나시 — 강가강의 가트(계단 강변), 좁은 골목의 파스텔 집들, 우기. 진흙탕이 발을 붙잡는다 */
+  varanasi: {
+    key: 'varanasi', name: '바라나시', river: '갠지스강', terrain: 'mud', weather: 'monsoon',
+    signs: ['चाय', 'दवाखाना', 'होटल', 'मिठाई', 'किराना', 'दवा', 'भोजनालय', 'साड़ी', 'मोबाइल', 'बैंक', 'पान', 'ढाबा'],
+    signCols: ['#ffca28', '#ff7043', '#26c6da', '#ec407a', '#66bb6a', '#ffffff'],
+    carCols: ['#2e7d32', '#f2c21a', '#c9ccd1', '#3a3d42', '#8a2b2b', '#2f4a63'],     // 초록·노랑 오토릭샤 빛깔
+    busCol: '#c0612b', small: 'tuktuk',
+    walls: [['#6a4a6a', 0], ['#4a6a7a', 0], ['#7a5a3a', 0], ['#5a6a4a', 0], ['#7a4a3a', 1], ['#6a6250', 0]],
+    roofs: ['#2a2420', '#26221e', '#2e2822', '#221e1a'],
+    streetDecor: ['cart', 'shrine', 'bin', 'cart']
+  },
+  /* 이집트 카이로 — 나일강, 기자의 피라미드, 사암 건물. 모래가 길에 쌓이고 모래 폭풍이 불빛을 삼킨다 */
+  cairo: {
+    key: 'cairo', name: '카이로', river: '나일강', terrain: 'sand', weather: 'sandstorm',
+    signs: ['صيدلية', 'مطعم', 'قهوة', 'فندق', 'بنك', 'سوق', 'مخبز', 'كشري', 'عطارة', 'مكتبة'],
+    signCols: ['#ffd54f', '#4fc3f7', '#ff8a65', '#81c784', '#ffffff', '#ce93d8'],
+    carCols: ['#e0e0e0', '#2f2f2f', '#c9b48a', '#8a2b2b', '#3a5a7a', '#f2f2f2'],     // 흑백 택시
+    busCol: '#c9a24a', small: 'tuktuk',
+    walls: [['#7a6448', 0], ['#86704e', 0], ['#6e5a40', 0], ['#8a7452', 0], ['#7a5a3a', 1], ['#66563e', 0]],
+    roofs: ['#3a3226', '#352e24', '#40372a', '#2f2a20'],
+    streetDecor: ['cart', 'parasol', 'bin']
+  },
+  /* 베네치아 — 대운하와 다리, 물에 잠긴 골목. 얕은 물이 모두의 발을 늦춘다 */
+  venice: {
+    key: 'venice', name: '베네치아', river: '대운하', terrain: 'flood', weather: 'fog',
+    signs: ['FARMACIA', 'TRATTORIA', 'HOTEL', 'GELATERIA', 'BAR', 'PANIFICIO', 'VAPORETTO', 'OSTERIA', 'MASCHERE', 'BANCA'],
+    signCols: ['#ffffff', '#ffcc80', '#80deea', '#f48fb1', '#c5e1a5', '#ffe082'],
+    carCols: ['#7a2a24', '#c9ccd1', '#2f4a63', '#3a3d42', '#d8d2c4', '#5a6a4a'],
+    busCol: '#2f6a8a', small: null,
+    walls: [['#8a5a44', 0], ['#a0704e', 0], ['#7a4a3a', 0], ['#9a7a5a', 0], ['#6a3a30', 1], ['#8a6a5a', 0]],
+    roofs: ['#3a2622', '#35231f', '#402a24', '#2f201c'],
+    streetDecor: ['parasol', 'bin']
+  },
+  /* 아이슬란드 레이캬비크 — 함석 지붕의 알록달록한 집, 계단식 교회, 땅을 가르는 용암 균열과 김 */
+  reykjavik: {
+    key: 'reykjavik', name: '레이캬비크', river: null, terrain: 'lava', weather: 'snow',
+    signs: ['APÓTEK', 'KAFFI', 'HÓTEL', 'BAKARÍ', 'BANKI', 'BÚÐ', 'PÖBB', 'FISKUR', 'LAUG', 'BÓKABÚÐ'],
+    signCols: ['#ffffff', '#80d8ff', '#ffab91', '#fff59d', '#b9f6ca', '#ff8a80'],
+    carCols: ['#c9ccd1', '#3a3d42', '#2f4a63', '#7a2a24', '#e0e0e0', '#2d3a2e'],
+    busCol: '#e0b83a', small: null,
+    walls: [['#7a2a24', 0], ['#2a4a6a', 0], ['#c8b04a', 0], ['#4a6a4a', 0], ['#d8d4cc', 0], ['#3a3d42', 0]],
+    roofs: ['#2a2e33', '#7a2a24', '#2a3a4a', '#33373c'],
+    streetDecor: ['bin', 'bike']
+  },
+  /* 남극 연구 기지 — 기둥 위의 조립식 동, 레이더 돔, 연료 탱크. 얼음판은 미끄럽고 눈보라가 시야를 지운다 */
+  antarctic: {
+    key: 'antarctic', name: '남극 기지', river: null, terrain: 'ice', weather: 'blizzard',
+    signs: ['LAB', 'MESS', 'GARAGE', 'MED', 'COMMS', 'FUEL', 'DORM 1', 'DORM 2', 'STORES', 'WORKSHOP'],
+    signCols: ['#ffffff', '#ff8a65', '#80d8ff', '#fff176', '#a5d6a7', '#ef9a9a'],
+    carCols: ['#e8641a', '#c8201a', '#e0b83a', '#c9ccd1', '#2f4a63', '#e8641a'],     // 주황 · 빨강 설상차
+    busCol: '#c8201a', small: null,
+    walls: [['#c8201a', 0], ['#e8641a', 0], ['#3a5a7a', 0], ['#c9ccd1', 0], ['#e0b83a', 0], ['#5a6a7a', 0]],
+    roofs: ['#c8ccd0', '#b8bcc0', '#d0d4d8', '#aeb2b6'],
+    streetDecor: ['bin']
   }
 };
 
@@ -279,6 +335,96 @@ const LANDMARKS = {
       }
       return { kind: 'grove', x: x0, y: y0, w: 11, h: 11, rally: { tx: x0 + 5, ty: y0 + 9 },
         trees: trees.map(([dx, dy, k]) => [x0 + dx + 0.5, y0 + dy + 0.5, k]) };
+    }
+  },
+  /* ── 2부의 랜드마크 ── */
+  /* 이집트 — 큰 피라미드 · 작은 피라미드 둘 · 스핑크스. 돌 사이 모래 마당이 집결지 */
+  pyramids: {
+    name: '기자의 피라미드', w: 13, h: 11, ground: D_PLAZA,
+    stamp(wd, x0, y0) {
+      lmSolid(wd, x0 + 1, y0 + 1, 5, 5); lmSolid(wd, x0 + 8, y0 + 1, 3, 3); lmSolid(wd, x0 + 11, y0 + 5, 1, 1);
+      lmSolid(wd, x0 + 2, y0 + 8, 3, 1);                                            // 스핑크스
+      return { kind: 'pyramids', x: x0, y: y0, w: 13, h: 11, rally: { tx: x0 + 7, ty: y0 + 7 },
+        pyr: [[x0 + 1, y0 + 1, 5], [x0 + 8, y0 + 1, 3], [x0 + 11, y0 + 5, 1]], sphinx: { x: x0 + 2, y: y0 + 8 } };
+    }
+  },
+  /* 카이로 — 돔과 두 첨탑(미나렛)의 사원, 분수가 있는 안마당 */
+  mosque: {
+    name: '사원', w: 11, h: 11, ground: D_PLAZA,
+    stamp(wd, x0, y0) {
+      lmSolid(wd, x0 + 2, y0 + 1, 7, 4);
+      lmSolid(wd, x0 + 1, y0 + 1, 1, 1); lmSolid(wd, x0 + 9, y0 + 1, 1, 1);
+      lmSolid(wd, x0 + 5, y0 + 8, 1, 1);                                            // 분수
+      return { kind: 'mosque', x: x0, y: y0, w: 11, h: 11, rally: { tx: x0 + 3, ty: y0 + 8 },
+        hall: { x: x0 + 2, y: y0 + 1, w: 7, h: 4 }, minarets: [[x0 + 1.5, y0 + 1.5], [x0 + 9.5, y0 + 1.5]], fountain: [x0 + 5.5, y0 + 8.5] };
+    }
+  },
+  /* 인도 — 계단으로 둘러싼 사원 연못(쿤드)과 네 귀퉁이의 작은 사당 */
+  kund: {
+    name: '계단 연못', w: 11, h: 11, ground: D_PLAZA,
+    stamp(wd, x0, y0) {
+      wd.fill(x0 + 3, y0 + 3, 5, 5, T_WATER);
+      for (const [dx, dy] of [[1, 1], [9, 1], [1, 9], [9, 9]]) lmSolid(wd, x0 + dx, y0 + dy, 1, 1);
+      return { kind: 'kund', x: x0, y: y0, w: 11, h: 11, rally: { tx: x0 + 5, ty: y0 + 9 }, tank: { x: x0 + 3, y: y0 + 3, w: 5, h: 5 },
+        shrines: [[1, 1], [9, 1], [1, 9], [9, 9]].map(([dx, dy]) => [x0 + dx + 0.5, y0 + dy + 0.5]) };
+    }
+  },
+  /* 인도 — 옥수수 모양 첨탑(시카라)의 사원과 앞 회랑, 문 기둥 */
+  mandir: {
+    name: '시카라 사원', w: 9, h: 11, ground: D_PLAZA,
+    stamp(wd, x0, y0) {
+      lmSolid(wd, x0 + 3, y0 + 1, 3, 3); lmSolid(wd, x0 + 3, y0 + 4, 3, 2);
+      lmSolid(wd, x0 + 2, y0 + 10, 1, 1); lmSolid(wd, x0 + 6, y0 + 10, 1, 1);
+      return { kind: 'mandir', x: x0, y: y0, w: 9, h: 11, rally: { tx: x0 + 4, ty: y0 + 8 },
+        sanctum: { x: x0 + 3, y: y0 + 1 }, hall: { x: x0 + 3, y: y0 + 4, w: 3, h: 2 }, gate: [[x0 + 2.5, y0 + 10.5], [x0 + 6.5, y0 + 10.5]] };
+    }
+  },
+  /* 베네치아 — 돔 다섯의 대성당, 붉은 벽돌 종탑, 광장의 두 기둥 */
+  piazza: {
+    name: '산마르코 광장', w: 13, h: 11, ground: D_PLAZA,
+    stamp(wd, x0, y0) {
+      lmSolid(wd, x0 + 1, y0 + 1, 6, 4); lmSolid(wd, x0 + 9, y0 + 2, 2, 2);
+      lmSolid(wd, x0 + 4, y0 + 9, 1, 1); lmSolid(wd, x0 + 8, y0 + 9, 1, 1);
+      return { kind: 'piazza', x: x0, y: y0, w: 13, h: 11, rally: { tx: x0 + 6, ty: y0 + 7 },
+        church: { x: x0 + 1, y: y0 + 1, w: 6, h: 4 }, tower: { x: x0 + 9, y: y0 + 2 }, cols: [[x0 + 4.5, y0 + 9.5], [x0 + 8.5, y0 + 9.5]] };
+    }
+  },
+  /* 레이캬비크 — 현무암 기둥을 닮은 계단식 콘크리트 교회와 그 앞 동상 */
+  hallgrim: {
+    name: '계단 교회', w: 11, h: 11, ground: D_PLAZA,
+    stamp(wd, x0, y0) {
+      lmSolid(wd, x0 + 3, y0 + 1, 5, 5);
+      lmSolid(wd, x0 + 5, y0 + 9, 1, 1);
+      return { kind: 'hallgrim', x: x0, y: y0, w: 11, h: 11, rally: { tx: x0 + 3, ty: y0 + 8 }, body: { x: x0 + 3, y: y0 + 1, w: 5, h: 5 }, statue: [x0 + 5.5, y0 + 9.5] };
+    }
+  },
+  /* 아이슬란드 — 김이 오르는 온천 웅덩이와 주기적으로 솟는 간헐천 */
+  geyser: {
+    name: '간헐천 들판', w: 9, h: 9, ground: D_GRASS,
+    stamp(wd, x0, y0) {
+      wd.fill(x0 + 2, y0 + 2, 2, 2, T_WATER); wd.fill(x0 + 6, y0 + 5, 1, 1, T_WATER);
+      lmSolid(wd, x0 + 6, y0 + 2, 1, 1);
+      return { kind: 'geyser', x: x0, y: y0, w: 9, h: 9, rally: { tx: x0 + 4, ty: y0 + 7 }, vent: [x0 + 6.5, y0 + 2.5], pools: [[x0 + 3, y0 + 3], [x0 + 6.5, y0 + 5.5]] };
+    }
+  },
+  /* 남극 — 기둥 위 조립식 연구동들, 레이더 돔, 연료 탱크. 가운데 헬기장이 집결지 */
+  station: {
+    name: '연구 기지', w: 13, h: 11, ground: D_ASPHALT,
+    stamp(wd, x0, y0) {
+      const mods = [[x0 + 1, y0 + 1, 4, 2], [x0 + 8, y0 + 1, 4, 2], [x0 + 1, y0 + 6, 3, 2]];
+      for (const [x, y, w, h] of mods) lmSolid(wd, x, y, w, h);
+      lmSolid(wd, x0 + 10, y0 + 6, 2, 2);
+      for (const dx of [5, 7]) lmSolid(wd, x0 + dx, y0 + 9, 1, 1);
+      return { kind: 'station', x: x0, y: y0, w: 13, h: 11, rally: { tx: x0 + 6, ty: y0 + 5 }, mods, dome: [x0 + 11, y0 + 7],
+        tanks: [[x0 + 5.5, y0 + 9.5], [x0 + 7.5, y0 + 9.5]], pad: [x0 + 6.5, y0 + 5.5] };
+    }
+  },
+  /* 남극 — 부두에 댄 붉은 쇄빙선. 항만과 같은 자리 잡기, 현문이 집결지 */
+  icebreaker: {
+    name: '쇄빙선 부두', w: 13, h: 11, ground: D_ASPHALT,
+    stamp(wd, x0, y0) {
+      const lm = LANDMARKS.port.stamp(wd, x0, y0);
+      return Object.assign(lm, { ice: true });
     }
   },
   /* 싱가포르 — 컨테이너 부두. 위쪽은 바다와 배, 아래는 컨테이너 더미와 크레인.

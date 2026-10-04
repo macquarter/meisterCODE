@@ -27,6 +27,13 @@ const I18N = (() => {
     '{m}분 {s}초': '{m}m {s}s',
     '잠김': 'Locked',
     '클리어': 'Cleared',
+    '붉게 빛나는 균열은 밟지 말 것. 대신 저것들을 그 위로 끌어들여라.': 'Don\'t step on the glowing red cracks. Lure them over the cracks instead.',
+    '모래 폭풍이 온다 — 불빛이 반밖에 닿지 않는다': 'A sandstorm is coming — your light reaches half as far',
+    '눈보라가 온다 — 불빛이 반밖에 닿지 않는다': 'A blizzard is coming — your light reaches half as far',
+    '감염체가 떨어뜨린 무기를 주울 것': 'Pick up weapons dropped by the infected',
+    '시작 무기: {k}': 'Starting weapons: {k}', '{p}은(는) 감염체가 떨어뜨린다': '{p} drop from the infected',
+    '{name}을(를) 떨어뜨렸다': 'It dropped a {name}', '무기': 'Weapon',
+    '쓰러뜨린 감염체가 총을 떨어뜨렸다 — 빛나는 총을 밟아 줍자': 'A downed infected dropped a gun — step on the glowing gun to take it',
     '서울': 'Seoul', '도쿄': 'Tokyo', '방콕': 'Bangkok', '싱가포르': 'Singapore', '싱가포르강': 'Singapore River', '대피 기지': 'Evac Base', '한강 하구': 'Han Estuary', '대피 기지 본영': 'Base HQ',
     '대피 검문소': 'Evacuation Checkpoint', '화물 철로': 'Freight Yard', '주유소': 'Gas Station',
     '호커 센터': 'Hawker Centre', '수직 정원': 'Vertical Garden', '항만': 'Container Port',
@@ -34,6 +41,35 @@ const I18N = (() => {
     '한강': 'Han River', '스미다강': 'Sumida River', '짜오프라야강': 'Chao Phraya',
     '광화문': 'Gwanghwamun', '남산타워': 'Namsan Tower', '시부야 스크램블': 'Shibuya Scramble', '도쿄 타워': 'Tokyo Tower',
     '센소지': 'Senso-ji', '왓 아룬': 'Wat Arun', '민주기념탑': 'Democracy Monument', '야시장': 'Night Market',
+    /* ── 2부: 새벽호의 항해 ── */
+    '바라나시': 'Varanasi', '카이로': 'Cairo', '베네치아': 'Venice', '레이캬비크': 'Reykjavik', '남극 기지': 'Antarctic Station',
+    '갠지스강': 'Ganges', '나일강': 'Nile', '대운하': 'Grand Canal',
+    '기자의 피라미드': 'Pyramids of Giza', '사원': 'Mosque', '계단 연못': 'Stepped Pool', '시카라 사원': 'Shikhara Temple',
+    '산마르코 광장': 'Piazza San Marco', '계단 교회': 'Stepped Church', '간헐천 들판': 'Geyser Field', '연구 기지': 'Research Station', '쇄빙선': 'Icebreaker',
+    '계단 연못 · 시카라 사원 · 갠지스강 — 진흙 · 몬순': 'Stepped Pool · Shikhara Temple · Ganges — mud · monsoon',
+    '기자의 피라미드 · 사원 · 나일강 — 모래 · 모래 폭풍': 'Pyramids of Giza · Mosque · Nile — sand · sandstorm',
+    '산마르코 광장 · 운하 — 침수 · 안개': 'Piazza San Marco · canals — flooding · fog',
+    '계단 교회 · 간헐천 — 용암 균열 · 눈': 'Stepped Church · geyser — lava cracks · snow',
+    '연구 기지 · 쇄빙선 — 얼음판 · 눈보라': 'Research Station · icebreaker — ice sheets · blizzard',
+    '1부 — 남겨진 도시': 'Part 1 — Left City', '2부 — 새벽호의 항해': 'Part 2 — Voyage of the Dawn',
+    '1부 엔딩 보기': 'See the Part 1 ending',
+    '새벽호의 항해는 계속된다 — 2부에서 다섯 지역이 기다린다.': 'The Dawn\'s voyage goes on — five more regions wait in Part 2.',
+    '강가의 계단': 'Steps by the River', '모래 폭풍': 'Sandstorm', '잠긴 도시': 'The Drowned City', '불의 땅': 'Land of Fire', '마지막 기지': 'The Last Station',
+    '약품 상자': 'medicine crate', '약품 상자 4개 확보': 'Secure 4 medicine crates', '강가의 계단 연못으로 이동': 'Reach the stepped pool by the river',
+    '100초 생존': 'Survive 100 seconds', '피라미드 아래 집결지로 이동': 'Reach the rally point below the pyramids',
+    '가동 후 광장으로 이동': 'Then head to the square',
+    '감염체 35기 소탕': 'Clear 35 infected', '교회 앞 집결지로 이동': 'Reach the rally point by the church',
+    '120초 생존': 'Survive 120 seconds', '헬기장으로 이동': 'Reach the helipad',
+    '새벽호는 서쪽으로 뱃머리를 돌렸다. 녹의 진료소에 약이 떨어졌다. 바라나시의 병원 창고에 항바이러스제가 남아 있다는 교신. 우기의 골목은 진흙탕이다 — 발이 빠지면 느려지고, 저것들도 느려진다.':
+      'The Dawn turned her bow west. Nok\'s clinic has run out of medicine, and word on the radio is that a hospital store in Varanasi still has antivirals. In the monsoon the alleys are mud — sink in and you slow down. So do they.',
+    '수에즈로 가는 연료를 채우려면 카이로의 저장고 문을 열어야 한다. 원격 개방까지 100초 — 모래 폭풍이 몰려오는 중이다. 폭풍이 지나가는 동안 손전등은 반밖에 닿지 않는다. 모래 더미를 밟으면 발이 묶인다.':
+      'To fuel up for Suez, the depot door in Cairo has to open. A hundred seconds until the remote unlock — and a sandstorm is rolling in. While it passes, your flashlight reaches half as far. Sand drifts will drag at your feet.',
+    '지중해. 베네치아의 비상 종탑 중계기 셋이 아직 살아 있다면, 북쪽 바다의 생존자들과 이어진다. 조수가 골목까지 들어왔다. 얕은 물은 모두의 발을 늦춘다 — 내 발도, 저것들의 발도.':
+      'The Mediterranean. If Venice\'s three bell-tower emergency relays are still alive, we can reach survivors in the northern seas. The tide has come up into the alleys. Shallow water slows everyone — you, and them.',
+    '레이캬비크. 남쪽으로 가는 쇄빙선이 연료를 넣는 동안 항구를 비워야 한다. 땅이 갈라져 용암이 비친다 — 붉게 빛나는 금은 밟지 말 것. 저것들은 모른다. 그 위로 몰아넣어라.':
+      'Reykjavik. The harbour has to be cleared while a southbound icebreaker refuels. The ground has split and lava shows through — don\'t step on the glowing red cracks. They don\'t know better. Drive them over.',
+    '남극. 감염이 닿지 않은 마지막 곳이라던 연구 기지는 조용했다. 헬기는 120초 뒤에 내린다. 얼음판 위에서는 멈추려 해도 미끄러진다 — 눈보라가 오면 불빛도 삼켜진다. 헬기장을 지켜라.':
+      'Antarctica. The research station, said to be the last place the infection hadn\'t reached, was silent. The helicopter lands in 120 seconds. On the ice you slide even when you try to stop — and when the blizzard comes, it swallows your light. Hold the helipad.',
     '서바이벌 — 도시 선택': 'Survival — choose a city',
     '광화문 · 남산타워 · 한강': 'Gwanghwamun · Namsan Tower · Han River',
     '시부야 스크램블 · 도쿄 타워 · 센소지 · 스미다강': 'Shibuya Scramble · Tokyo Tower · Senso-ji · Sumida River',
@@ -332,7 +368,7 @@ const I18N = (() => {
   const EN_HTML = {
     howtoNote: 'On touch screens, touch and drag <b>anywhere on the left</b> to walk. The flashlight <b>aims itself</b> at the nearest enemy (or where you walk); drag on the right side to aim yourself, tap it to snap to the nearest enemy. Other schemes are in <b>Settings</b>.<br>' +
       'There is no fire button — <b>anything in your beam is shot automatically</b>, and shots only go where the light points.<br>' +
-      'Pick up weapons by stepping on the <b>glowing icons</b> on the ground.<br>' +
+      'Guns <b>drop from the infected you kill</b> — step on the glowing gun to pick it up.<br>' +
       '<b>Spitters</b> lob acid at where you stood — step out of the green ring.<br>' +
       'Guns work <b>by the magazine</b> — the big number is what\'s loaded, the small one is spare.',
     aimNote: '<b>Auto-aim</b> (default) — the flashlight points at the nearest enemy, or where you walk. Drag on the right to aim directly; tap to snap to the nearest enemy. <b>Aim stick</b> is a classic twin stick. <b>Turn</b> rotates like the original. In every scheme, touching anywhere on the left creates a move stick under your thumb.',

@@ -16,6 +16,9 @@ function makeRng(seed) {
   };
 }
 
+const TERRAIN_KIND = { sand: 1, ice: 2, flood: 3, lava: 4, mud: 5 };
+/** 지형 칸이 발을 늦추는 정도 (얼음은 늦추지 않고 미끄럽게 한다 · 용암은 데운다) */
+const TERRAIN_SLOW = [1, 0.74, 1, 0.68, 1, 0.8];
 const T_ROAD = 0, T_WALL = 1, T_WATER = 2;          // 물은 걸을 수 없지만 빛과 총알은 지나간다
 const D_ASPHALT = 0, D_SIDEWALK = 1, D_BUILDING = 2, D_RUBBLE = 3, D_PROP = 4,
       D_LANDMARK = 5, D_GRASS = 6, D_PLAZA = 7, D_WATER = 8, D_BRIDGE = 9;
@@ -65,7 +68,46 @@ class World {
     }
     // 마지막 장처럼 '다리 앞'에서 시작하는 판 — 출구까지 도로로 approach 칸 남짓한 트인 곳
     if (opts.approach) this.spawn = this.tileCenter(this.approachTile(opts.approach));
+    // 지형 — 지역마다 땅이 다르다. 걸을 수 있는 칸 위에 덧칠한다(길찾기 · 충돌은 그대로)
+    this.terr = new Uint8Array(this.w * this.h);
+    this.terrain = opts.terrain !== undefined ? opts.terrain : (this.theme.terrain || null);
+    if (this.terrain) this.paintTerrain(this.terrain, makeRng((seed ^ 0x51ed) >>> 0));
   }
+
+  /** 지형 덧칠 — 1 모래 더미(느림) · 2 얼음판(미끄러움) · 3 얕은 물(느림) · 4 용암 균열(화상) · 5 진흙(느림).
+      시작점 · 출구 · 랜드마크 집결지 둘레는 비워 두고, 용암은 가는 금으로만 */
+  paintTerrain(kind, rng) {
+    const W = this.w, H = this.h, val = TERRAIN_KIND[kind] || 0;
+    if (!val) return;
+    // 부드러운 잡음(칸 몇 개 크기의 덩어리) — 격자 꼭짓점에 난수, 사이를 보간
+    const S = kind === 'lava' ? 4 : 5, gw = Math.ceil(W / S) + 2, gh = Math.ceil(H / S) + 2, gr = new Float32Array(gw * gh);
+    for (let i = 0; i < gr.length; i++) gr[i] = rng();
+    const noise = (x, y) => {
+      const fx = x / S, fy = y / S, ix = Math.floor(fx), iy = Math.floor(fy), tx = fx - ix, ty = fy - iy;
+      const a = gr[iy * gw + ix], b = gr[iy * gw + ix + 1], c = gr[(iy + 1) * gw + ix], d = gr[(iy + 1) * gw + ix + 1];
+      const sx = tx * tx * (3 - 2 * tx), sy = ty * ty * (3 - 2 * ty);
+      return a + (b - a) * sx + (c - a) * sy + (a - b - c + d) * sx * sy;
+    };
+    const cover = { mud: 0.3, sand: 0.36, ice: 0.52, flood: 0.5, lava: 0.075 }[kind];
+    const keep = [this.spawn, this.exit].filter(Boolean).map(p => [Math.floor(p.x / TILE), Math.floor(p.y / TILE)]);
+    for (const lm of this.landmarks) if (lm.rally) keep.push([lm.rally.tx, lm.rally.ty]);
+    const clearR = kind === 'lava' ? 4 : 2;
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+      const i = y * W + x;
+      if (this.grid[i] !== T_ROAD) continue;
+      const d = this.deco[i];
+      if (d === D_BRIDGE || d === D_BUILDING || d === D_WATER) continue;
+      if (keep.some(([kx, ky]) => Math.abs(kx - x) <= clearR && Math.abs(ky - y) <= clearR)) continue;
+      let n = noise(x, y);
+      if (kind === 'lava') n = 1 - Math.abs(n - 0.5) * 2;            // 잡음의 등고선 — 가는 균열 줄기
+      else n = 1 - n;
+      if (kind === 'flood' && d === D_SIDEWALK) n -= 0.12;            // 보도는 조금 덜 잠긴다
+      if (kind === 'ice' && (d === D_PLAZA || d === D_GRASS)) n += 0.1;
+      if (n > 1 - cover) this.terr[i] = val;
+    }
+  }
+  /** 그 자리의 지형 (0 = 없음) */
+  terrAt(px, py) { return this.terr ? this.terr[this.idx(Math.floor(px / TILE), Math.floor(py / TILE))] : 0; }
 
   /** 출구까지의 도로 거리가 n 칸 안팎이고, 트였으며 지도 가장자리 구조물에 끼지 않는 칸 */
   approachTile(n) {

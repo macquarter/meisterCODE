@@ -214,7 +214,8 @@ class Player {
   get lightRange() {
     if (!this.lightOn || this.battery <= 0) return 0;
     const low = this.battery < 22 ? 0.72 + Math.random() * 0.28 : 1;  // 저전력 깜빡임
-    return 430 * low * (this.bile > 0 ? 0.7 : 1);       // 담즙에 눈이 흐려진다
+    const storm = typeof G !== 'undefined' && G.storm ? 1 - 0.45 * G.storm : 1;   // 모래 폭풍 · 눈보라가 불빛을 삼킨다
+    return 430 * low * (this.bile > 0 ? 0.7 : 1) * storm;       // 담즙에 눈이 흐려진다
   }
 
   hurt(dmg) {
@@ -356,6 +357,9 @@ class Zombie {
   /** 벽 회피: 목표 각도에서 조금씩 벌려가며 통과 가능한 방향을 찾는다. 움직였으면 true */
   steerMove(target, speed, dt, g) {
     this.steerHold -= dt;
+    // 지형 — 진흙 · 모래 · 얕은 물은 저것들도 늦춘다. 얼음판에서는 조금 미끄러져 굼뜨다
+    const tr = g.world.terrAt(this.x, this.y);
+    if (tr) speed *= tr === 2 ? 0.86 : TERRAIN_SLOW[tr];
     const offsets = this.steerHold > 0
       ? [this.steer, 0, 0.55, -0.55, 1.1, -1.1, 1.7, -1.7, 2.5, -2.5]
       : [0, 0.55, -0.55, 1.1, -1.1, 1.7, -1.7, 2.5, -2.5];

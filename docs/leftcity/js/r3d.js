@@ -459,9 +459,11 @@ void main() {`).replace('#include <opaque_fragment>', `{
         `#include <clipping_planes_fragment>
         { float d = length(gl_FragCoord.xy - uSeePos) / uSeeRad;
           if (d < 1.0 && gl_FragCoord.z < uSeeDepth) {
-            float k = smoothstep(0.55, 1.0, d);
-            vec2 q = mod(floor(gl_FragCoord.xy), 2.0);
-            if (k < 0.5 || (k < 0.85 && q.x == q.y)) discard;
+            float k = smoothstep(0.5, 1.0, d);
+            vec2 a = floor(gl_FragCoord.xy);
+            vec2 a2 = floor(a * 0.5);
+            float b = fract(dot(a2, vec2(0.5, a2.y * 0.75))) * 0.25 + fract(dot(a, vec2(0.5, a.y * 0.75)));
+            if (k <= b * 0.94 + 0.03) discard;
           } }`);
     }
     sh.fragmentShader = f;
@@ -1723,7 +1725,7 @@ function makeSign(sg) {
 
 /* ═══════════ 장면 · 빛 · 카메라 ═══════════ */
 const dyn = { props: new Map(), decor: new Map(), signs: new Map(), humans: new Map(), corpses: new Map(), pickups: new Map(), relays: new Map(), tw: new Map() };
-let sparkGeo, sparks, player3 = null, splatMesh, dotMesh, particles, partGeo, tracerGeo, tracers, rain, rainGeo, exitRing, exitBeam, nadeMeshes = [];
+let pHalo = null, sparkGeo, sparks, player3 = null, splatMesh, dotMesh, particles, partGeo, tracerGeo, tracers, rain, rainGeo, exitRing, exitBeam, nadeMeshes = [];
 const MAXP = 600, MAXDEC = 450, RAIN_N = 1400;
 
 /* ═══════════ 후처리 · 빛줄기 ═══════════
@@ -3117,7 +3119,7 @@ function resetPeople() {
   for (const [, o] of dyn.corpses) scene.remove(o); dyn.corpses.clear();
   dropPlayer();
 }
-function dropPlayer() { if (player3) scene.remove(player3); if (pGun) scene.remove(pGun); if (chestLamp) scene.remove(chestLamp); player3 = null; pGun = null; chestLamp = null; }
+function dropPlayer() { if (pHalo) { scene.remove(pHalo); pHalo.geometry.dispose(); pHalo.material.dispose(); pHalo = null; } if (player3) scene.remove(player3); if (pGun) scene.remove(pGun); if (chestLamp) scene.remove(chestLamp); player3 = null; pGun = null; chestLamp = null; }
 /** 플레이어 — 군인 몸체, 두 손으로 총을 겨눈다. 총은 오른손 위치에 따로 둔다 */
 let pGun = null;
 function attachToBone(bone, obj) {
@@ -3463,6 +3465,18 @@ function updateHumans(g, p) {
     carry3.position.set(p.x - Math.sin(a) * 13 - Math.cos(a) * 3, 15, p.y + Math.cos(a) * 13 - Math.sin(a) * 3);
     carry3.rotation.set(sw, -a, 0);
   } else if (carry3) carry3.visible = false;
+  // 플레이어 발밑의 옅은 고리 — 휴대폰 화면에서 어두운 옷의 내가 아스팔트에 묻혀 안 보였다. 감염체에는 없다
+  if (!pHalo) {
+    pHalo = new THREE.Mesh(new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2), new THREE.ShaderMaterial({
+      uniforms: { uA: { value: 0.3 } }, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+      vertexShader: 'varying vec2 vU; void main(){ vU = uv * 2.0 - 1.0; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+      fragmentShader: 'uniform float uA; varying vec2 vU; void main(){ float r = length(vU); float ring = smoothstep(0.7, 0.84, r) * (1.0 - smoothstep(0.86, 1.0, r)); float core = (1.0 - smoothstep(0.0, 0.75, r)) * 0.25; gl_FragColor = vec4(vec3(0.95, 0.85, 0.62) * (ring + core) * uA, 1.0); }'
+    }));
+    pHalo.renderOrder = 2; pHalo.frustumCulled = false; scene.add(pHalo);
+  }
+  pHalo.visible = !p.dead;
+  pHalo.position.set(p.x, groundY(g.world, p.x, p.y, p.terr) + 1.2, p.y); pHalo.scale.setScalar(50);
+  pHalo.material.uniforms.uA.value = 0.12 + (p.hp < 30 ? 0.2 * (0.5 + 0.5 * Math.sin(g.time * 7)) : 0);   // 체력이 바닥이면 고리가 숨 쉬듯 뛴다
   // 플레이어
   if (!player3 && rigs) { player3 = makePlayerRig(); player3.scale.setScalar(1.06 * CHAR_S); scene.add(player3); }
   if (player3 && player3.userData.rig) {

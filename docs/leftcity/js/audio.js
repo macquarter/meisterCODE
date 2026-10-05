@@ -23,8 +23,9 @@ const SFX = (() => {
   /** 설정의 0‒100 볼륨을 게인으로. 0 이면 완전 무음 */
   function masterLevel() {
     const v = (typeof SETTINGS !== 'undefined' ? SETTINGS.volume : 55) / 100;
-    return enabled ? v * 0.55 : 0;
+    return enabled ? v * 0.55 * (ducked ? 0.4 : 1) : 0;
   }
+  let ducked = false, duckF = null;
 
   function init() {
     if (ctx) return;
@@ -37,7 +38,9 @@ const SFX = (() => {
     // 리미터 — 총성 · 폭발 · 비명이 한꺼번에 겹쳐도 찢어지지(클리핑) 않게
     const lim = ctx.createDynamicsCompressor();
     lim.threshold.value = -9; lim.knee.value = 6; lim.ratio.value = 10; lim.attack.value = 0.003; lim.release.value = 0.22;
-    master.connect(lim); lim.connect(ctx.destination);
+    // 일시정지에서는 소리를 낮추고 먹먹하게(문 너머로 듣는 것처럼) — 멈춘 화면 위로 빗소리 · 음악이 그대로 쏟아지지 않게
+    duckF = ctx.createBiquadFilter(); duckF.type = 'lowpass'; duckF.frequency.value = 20000; duckF.Q.value = 0.5;
+    master.connect(duckF); duckF.connect(lim); lim.connect(ctx.destination);
     noiseBuf = makeNoise(2.0);
     rainBuf = makeRain(7.0);
     // 앱 전환 · 알림창 · 전화로 오디오가 멈췄다가 돌아오면 다시 깨운다(예전엔 다음 터치 전까지 빗소리 · 효과음이 멈춰 있었다)
@@ -322,9 +325,10 @@ const SFX = (() => {
         }
         rainNodes = { lp, lfo, base: W };
         rainSrc.start();
-        rainGain.gain.linearRampToValueAtTime(W[2], ctx.currentTime + 2.5);
+        // 시작점을 박아 두어야 2.5초에 걸쳐 차오른다(없으면 문맥이 켜진 0초부터 잰 기울기라 거의 한꺼번에 튀어나온다)
+        rainGain.gain.setValueAtTime(0.0001, ctx.currentTime); rainGain.gain.linearRampToValueAtTime(W[2], ctx.currentTime + 2.5);
       } else if (!on && rainSrc) {
-        rainGain.gain.linearRampToValueAtTime(0.0001, ctx.currentTime + 0.6);
+        { const g = rainGain.gain, t = ctx.currentTime; g.cancelScheduledValues(t); g.setValueAtTime(g.value, t); g.linearRampToValueAtTime(0.0001, t + 0.6); }
         const s = rainSrc, l = rainNodes && rainNodes.lfo; setTimeout(() => { try { s.stop(); if (l) l.stop(); } catch (e) {} }, 800);
         rainSrc = null; rainNodes = null;
       }
@@ -402,7 +406,16 @@ const SFX = (() => {
       drone.gain.gain.setTargetAtTime(0.05 + k * 0.07, t, 0.8);
     },
     /** 판 하나의 배경음 전체 — 비와 드론을 함께 켜고 끈다 */
-    ambience(on) { ambWanted = !!on; this.rain(on); this.drone(on); this.music(on); },
+    ambience(on) { ambWanted = !!on; this.duck(false); this.rain(on); this.drone(on); this.music(on); },
+    /** 일시정지 — 0.25초에 걸쳐 낮추고 먹먹하게, 풀면 되돌린다 */
+    duck(on) {
+      on = !!on; if (on === ducked) return; ducked = on;
+      if (!ctx || !master) return;
+      const t = ctx.currentTime;
+      master.gain.cancelScheduledValues(t); master.gain.setValueAtTime(master.gain.value, t); master.gain.setTargetAtTime(masterLevel(), t, 0.08);
+      duckF.frequency.cancelScheduledValues(t); duckF.frequency.setValueAtTime(duckF.frequency.value, t); duckF.frequency.setTargetAtTime(on ? 900 : 20000, t, 0.08);
+    },
+    get ducked() { return ducked; },
     /** 판이 도는 동안 1초마다 — 멈춘 오디오를 깨우고, 꺼져 버린 빗소리 · 드론을 되살린다 */
     keepAlive() {
       if (!ctx) return;

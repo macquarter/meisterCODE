@@ -146,6 +146,23 @@ function buzz(ms) {
   try { navigator.vibrate(ms); } catch (e) { /* 막힌 환경 */ }
 }
 
+/** 판이 도는 동안만 화면이 꺼지지 않게 — 스틱을 누른 채 버티거나 무전을 읽는 사이 휴대폰이 어두워지며 잠기던 것.
+ *  일시정지 · 결과 · 메뉴에서는 놓아 주고, 앱을 다녀오면(브라우저가 자동으로 푼다) 다시 잡는다 */
+const WakeLock = { s: null, busy: false,
+  want() { return typeof G !== 'undefined' && G.state === 'play' && !document.hidden; },
+  sync() {
+    if (!navigator.wakeLock || this.busy) return;
+    if (this.want() && !this.s) {
+      this.busy = true;
+      navigator.wakeLock.request('screen').then(l => { this.s = l; l.addEventListener('release', () => { if (this.s === l) this.s = null; }); })
+        .catch(() => {}).then(() => { this.busy = false; });
+    } else if (!this.want() && this.s) { const l = this.s; this.s = null; l.release().catch(() => {}); }
+  }
+};
+setInterval(() => WakeLock.sync(), 1000);
+window.LC_WAKE = WakeLock;
+document.addEventListener('visibilitychange', () => WakeLock.sync());
+
 /* ═══════════ 입력 ═══════════ */
 const keys = Object.create(null);
 const input = { mx: W / 2, my: H / 2, firing: false, moveX: 0, moveY: 0, aimTouch: null, turnRate: 0, dragTurn: 0, hasMouse: !isTouch,
@@ -508,7 +525,7 @@ const Modal = {
     if (G.state === 'arms') G.closeArms(null);
     if (G.state !== 'play' && G.state !== 'pause') return;
     this.homeFrom = G.state;
-    G.state = 'pause'; input.firing = false;
+    G.state = 'pause'; input.firing = false; SFX.duck(true);
     UI.hideScreens();
     $('homeAskNote').textContent = G.survival || G.challenge
       ? T('이번 판의 기록은 남지 않습니다.')
@@ -518,7 +535,7 @@ const Modal = {
   homeAnswer(go) {
     $('homeAsk').classList.add('hidden');
     if (go) { G.state = 'title'; Radio.reset(); SFX.ambience(false); UI.enterMenu(); return; }
-    if (this.homeFrom === 'play') { G.state = 'play'; UI.hideScreens(); } else UI.showPause();
+    if (this.homeFrom === 'play') { G.state = 'play'; UI.hideScreens(); SFX.duck(false); } else UI.showPause();
   },
   /** 열린 모달을 닫는다(Esc · 게임패드 B) — 닫았으면 true */
   close() {
@@ -2575,8 +2592,8 @@ const G = {
     if (this.hitDirs.length < 6) this.hitDirs.push({ a, t: 0.9 });
   },
   togglePause() {
-    if (this.state === 'play') { this.state = 'pause'; UI.showPause(); }
-    else if (this.state === 'pause') { this.state = 'play'; UI.hideScreens(); }
+    if (this.state === 'play') { this.state = 'pause'; UI.showPause(); SFX.duck(true); }
+    else if (this.state === 'pause') { this.state = 'play'; UI.hideScreens(); SFX.duck(false); }
   },
 
   finish(won) {
@@ -5324,6 +5341,9 @@ function drawChapterMap(cv, unlocked) {
     if (!locked) hits.push({ x: n.x, y: n.y, i, st: undefined, r: 19 });
   }
   cv._hits = hits;
+  // 옆으로 미는 좁은 화면 — 지금 할 장이 가운데 오게
+  const wrap = cv.parentElement, cur = N[Math.min(unlocked, N.length - 1)];
+  if (wrap && cur) requestAnimationFrame(() => { if (wrap.scrollWidth > wrap.clientWidth + 4) wrap.scrollLeft = cur.x / Wd * cv.clientWidth - wrap.clientWidth / 2; });   // 화면이 보인 다음에 잰다
   if (!cv._bound) {
     cv._bound = true;
     cv.addEventListener('click', e => {
@@ -6253,7 +6273,7 @@ const UI = {
     const swapped = KEYBIND.set(id, code);
     this.buildKeys();
     $('keyMsg').textContent = swapped
-      ? T("{k} → {a} · '{b}' 은(는) {kb} 로 바꿨습니다", { k: KEYBIND.label(code), a: KEYBIND.nameOf(id), b: KEYBIND.nameOf(swapped), kb: KEYBIND.labelOf(swapped) })
+      ? T("{k} → {a} · '{b}'은(는) {kb}(으)로 바꿨습니다", { k: KEYBIND.label(code), a: KEYBIND.nameOf(id), b: KEYBIND.nameOf(swapped), kb: KEYBIND.labelOf(swapped) })
       : T('{k} → {a}', { k: KEYBIND.label(code), a: KEYBIND.nameOf(id) });
     for (const k of [id, swapped]) {
       const b = k && document.querySelector(`[data-bind="${k}"]`);
@@ -6408,7 +6428,8 @@ const UI = {
     $('rankHead').textContent = `Lv ${L.lv}` + (L.need ? ` · ${L.into.toLocaleString()} / ${L.need.toLocaleString()} XP` : ' · MAX');
     $('rankBarFill').style.width = L.need ? `${Math.round(L.into / L.need * 100)}%` : '100%';
     $('rankNote').textContent = pts ? T('특성 점수 {p}점을 쓸 수 있다. 단계마다 필요한 레벨이 있다(1 · 6 · 12).', { p: pts })
-      : T('레벨이 오를 때마다 특성 점수 1점. 판을 끝내면 점수 · 임무 · 도감으로 경험치를 얻는다.');
+      : L.need ? T('특성 점수 0점 — Lv {n}까지 {x} XP 남았다. 판을 끝내면 점수 · 임무 · 도감으로 경험치를 얻는다.', { n: L.lv + 1, x: (L.need - L.into).toLocaleString() })
+      : T('최고 레벨 — 모든 특성 점수를 받았다.');
     $('perkList').innerHTML = PERKS.map(k => {
       const r = R.perks[k.id] | 0, can = Rank.canBuy(k.id), lock = r < 3 && L.lv < PERK_REQ[r];
       return `<div class="perk${r ? ' perk--on' : ''}"><b>${LT(k.n)}</b><span>${LT(k.d)}</span>` +
@@ -6421,6 +6442,17 @@ const UI = {
       [T('누적 처치'), (st.kills | 0).toLocaleString()], [T('도감'), `${Codex.count()}/${STORY.codex.length}`], [T('연속 출격'), T('{n}일', { n: d.streak | 0 })]];
     $('lifeStats').innerHTML = rows.map(r => `<div><dt>${r[0]}</dt><dd>${r[1]}</dd></div>`).join('');
     this.show('scrRank');
+  },
+  /** 아직 못 본 개체 — 같은 문장 열네 줄 대신 어디서 처음 마주치는지 알려 준다 */
+  codexWhere(id) {
+    let i = -1;
+    if (id === 'maw') return T('화성 서바이벌의 크레이터 바닥에 산다.');
+    if (id === 'behemoth') i = LEVELS.findIndex(L => L.objective && L.objective.type === 'boss');
+    else if (id === 'weeper') i = LEVELS.findIndex(L => L.weepers > 0);
+    else i = LEVELS.findIndex(L => L.mix && L.mix[id] > 0);
+    if (i < 0) return T('아직 마주치지 않았다. 불빛에 비추거나 쓰러뜨리면 기록된다.');
+    const where = T('{n}장 {city}', { n: i + 1, city: T(CITY_NAME[LEVELS[i].city] || '') });
+    return i < G.progress() + 1 ? T('{where}부터 나타난다 — 불빛에 비추면 기록된다.', { where }) : T('{where}에 들어서면 마주친다.', { where });
   },
   /** 좀비 도감 — 카드마다 그림 · 분류 · 위험도 · 관찰 기록 · 약점 · 대처법 · 수치 · 처치 수 */
   showCodex() {
@@ -6438,7 +6470,7 @@ const UI = {
         (seen
           ? `<h3>${LT(e.n)} <small>${LT(e.cls)}</small></h3><div class="cx__threat" data-t="${e.threat}">${T('위험도')} <b>${dots}</b></div>` +
             `<p>${LT(e.obs)}</p><dl><dt>${T('약점')}</dt><dd>${LT(e.weak)}</dd><dt>${T('대처')}</dt><dd>${LT(e.tip)}</dd></dl><div class="cx__stat">${stat}</div>`
-          : `<h3>???</h3><div class="cx__threat">${T('위험도')} <b>?????</b></div><p class="cx__hint">${T('아직 마주치지 않았다. 불빛에 비추거나 쓰러뜨리면 기록된다.')}</p>`) + `</div>`;
+          : `<h3>???</h3><div class="cx__threat">${T('위험도')} <b>?????</b></div><p class="cx__hint">${this.codexWhere(e.id)}</p>`) + `</div>`;
       list.appendChild(el);
       Codex.portrait(el.querySelector('canvas'), e.id, !seen);
     }
@@ -6794,9 +6826,12 @@ document.addEventListener('click', e => {
       break;
     }
     case 'wipe':
-      if (confirm(T('챕터 진행 · 평가 · 서바이벌 기록을 지웁니다. 설정과 키 설정은 남습니다. 계속할까요?'))) {
-        for (const k of ['aftermath.layout', 'aftermath.progress', 'aftermath.grades', 'aftermath.best', 'aftermath.hints', 'aftermath.errors', 'aftermath.records', 'aftermath.cityBest', 'aftermath.prologue', 'aftermath.ach', 'aftermath.stats', 'aftermath.chal', 'aftermath.codex', 'aftermath.stages']) try { localStorage.removeItem(k); } catch (e) { /* 무시 */ }
+      if (confirm(T('챕터 진행 · 평가 · 서바이벌 기록 · 레벨과 특성 · 도감을 지웁니다. 설정과 키 설정은 남습니다. 계속할까요?'))) {
+        for (const k of ['aftermath.layout', 'aftermath.progress', 'aftermath.grades', 'aftermath.best', 'aftermath.hints', 'aftermath.errors', 'aftermath.records', 'aftermath.cityBest', 'aftermath.prologue', 'aftermath.ach', 'aftermath.stats', 'aftermath.chal', 'aftermath.codex', 'aftermath.stages', 'aftermath.rank']) try { localStorage.removeItem(k); } catch (e) { /* 무시 */ }
+        // 레벨 · 특성 · 도감은 메모리에도 들고 있다 — 그대로 두면 다음 저장 때 지운 기록이 되살아난다. 새로 읽어 들인다
+        Rank.cache = null; Codex.cache = null;
         $('aboutMsg').textContent = T('진행 기록을 지웠습니다');
+        setTimeout(() => location.reload(), 700);
       }
       break;
     case 'start':    G.start(G.pendingLevel, null, G.pendingStage); break;

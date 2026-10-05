@@ -31,6 +31,11 @@ const I18N = (() => {
     '모래 폭풍이 온다 — 불빛이 반밖에 닿지 않는다': 'A sandstorm is coming — your light reaches half as far',
     '눈보라가 온다 — 불빛이 반밖에 닿지 않는다': 'A blizzard is coming — your light reaches half as far',
     '감염체가 떨어뜨린 무기를 주울 것': 'Pick up weapons dropped by the infected',
+    '화성 서바이벌의 크레이터 바닥에 산다.': 'Lives at the bottom of the craters in Mars survival.',
+    '{n}장 {city}': 'Chapter {n}, {city}', '{where}부터 나타난다 — 불빛에 비추면 기록된다.': 'Appears from {where} — catch it in your light to record it.',
+    '{where}에 들어서면 마주친다.': 'You will meet it in {where}.',
+    '특성 점수 0점 — Lv {n}까지 {x} XP 남았다. 판을 끝내면 점수 · 임무 · 도감으로 경험치를 얻는다.': 'No perk points — {x} XP to Lv {n}. Finishing a run earns XP for score, objectives and field guide entries.',
+    '최고 레벨 — 모든 특성 점수를 받았다.': 'Max level — every perk point earned.',
     '시작 무기: {k}': 'Starting weapons: {k}', '{p}은(는) 감염체가 떨어뜨린다': '{p} drop from the infected',
     '{name}을(를) 떨어뜨렸다': 'It dropped a {name}', '무기': 'Weapon',
     '쓰러뜨린 감염체가 총을 떨어뜨렸다 — 빛나는 총을 밟아 줍자': 'A downed infected dropped a gun — step on the glowing gun to take it',
@@ -505,7 +510,7 @@ const I18N = (() => {
     "'{a}' 에 쓸 키를 누르세요 · Esc 취소": "Press a key for '{a}' · Esc to cancel",
     '{k} 는 쓸 수 없습니다': '{k} can\'t be used',
     '{k} → {a}': '{k} → {a}',
-    "{k} → {a} · '{b}' 은(는) {kb} 로 바꿨습니다": "{k} → {a} · '{b}' moved to {kb}",
+    "{k} → {a} · '{b}'은(는) {kb}(으)로 바꿨습니다": "{k} → {a} · '{b}' moved to {kb}",
     '기본 키로 되돌렸습니다': 'Keys reset to defaults',
     '앞으로': 'Forward', '뒤로': 'Back', '왼쪽': 'Left', '오른쪽': 'Right', '손전등 켜고 끄기': 'Flashlight on/off',
     '오른쪽 Shift': 'Right Shift', '오른쪽 Ctrl': 'Right Ctrl', '오른쪽 Alt': 'Right Alt',
@@ -519,7 +524,7 @@ const I18N = (() => {
     '개인정보 처리방침': 'Privacy policy', '오류 기록 복사': 'Copy error log', '진행 기록 지우기': 'Clear progress',
     '오류 기록을 복사했습니다 — 제보할 때 붙여 넣어 주세요': 'Error log copied — paste it into your bug report',
     '복사할 수 없는 환경입니다': 'Copying isn\'t available here',
-    '챕터 진행 · 평가 · 서바이벌 기록을 지웁니다. 설정과 키 설정은 남습니다. 계속할까요?': 'This clears chapter progress, grades and survival records. Settings and key bindings stay. Continue?',
+    '챕터 진행 · 평가 · 서바이벌 기록 · 레벨과 특성 · 도감을 지웁니다. 설정과 키 설정은 남습니다. 계속할까요?': 'This clears chapter progress, grades, survival records, your level and perks, and the field guide. Settings and key bindings stay. Continue?',
     '진행 기록을 지웠습니다': 'Progress cleared',
     '{n} fps · {w}×{h}{auto}': '{n} fps · {w}×{h}{auto}', ' 자동': ' auto',
 
@@ -579,7 +584,26 @@ const I18N = (() => {
 
   let lang = 'ko';
   const pick = pref => pref === 'ko' || pref === 'en' ? pref : (/^ko\b/i.test(navigator.language || '') ? 'ko' : 'en');
-  const fmt = (s, v) => v ? s.replace(/\{(\w+)\}/g, (m, k) => (k in v ? v[k] : m)) : s;
+  const fmt = (s, v) => v ? josa(s.replace(/\{(\w+)\}/g, (m, k) => (k in v ? v[k] : m))) : s;
+  /** 조사 고르기 — '권총을(를)' 이 아니라 '권총을', 'SMG은(는)' 이 아니라 'SMG는'. 영문 · 숫자는 읽는 소리로 받침을 정한다 */
+  const LATIN_B = new Set('LMNR'), DIGIT_B = new Set('013678');
+  function batchim(ch) {
+    const c = ch.charCodeAt(0);
+    if (c >= 0xac00 && c <= 0xd7a3) { const j = (c - 0xac00) % 28; return j === 0 ? 0 : j === 8 ? 'ㄹ' : 1; }
+    if (/[0-9]/.test(ch)) return ch === '1' || ch === '7' || ch === '8' ? 'ㄹ' : DIGIT_B.has(ch) ? 1 : 0;
+    if (/[A-Za-z]/.test(ch)) return ch.toUpperCase() === 'L' || ch.toUpperCase() === 'R' ? 'ㄹ' : LATIN_B.has(ch.toUpperCase()) ? 1 : 0;
+    return null;
+  }
+  const PAIR = { '을(를)': ['을', '를'], '를(을)': ['을', '를'], '이(가)': ['이', '가'], '가(이)': ['이', '가'], '은(는)': ['은', '는'], '는(은)': ['은', '는'], '과(와)': ['과', '와'], '와(과)': ['과', '와'], '(으)로': ['으로', '로'] };
+  function josa(s) {
+    if (s.indexOf('(') < 0) return s;
+    return s.replace(/([^\s'"’”)\]])(['"’”)\]]?)\s?(을\(를\)|를\(을\)|이\(가\)|가\(이\)|은\(는\)|는\(은\)|과\(와\)|와\(과\)|\(으\)로)/g, (m, ch, q, k) => {
+      const b = batchim(ch); if (b === null) return m;
+      const [hb, nb] = PAIR[k];
+      const pick = k === '(으)로' ? (b && b !== 'ㄹ' ? hb : nb) : (b ? hb : nb);
+      return ch + q + pick;
+    });
+  }
 
   /** 지금 언어의 문장. vars 는 {이름} 자리를 채운다 */
   function T(ko, vars) {

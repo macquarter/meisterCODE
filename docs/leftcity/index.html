@@ -153,6 +153,7 @@
           <p class="tagline">도시는 사람을 두고 떠났다.<br>손전등이 닿는 곳까지만, 세상은 존재한다.</p>
         </div>
         <div class="title__menu screen__side">
+          <button type="button" class="rankchip" data-act="rank" id="rankChip" aria-label="생존자"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="7.5" r="3.5"/><path d="M5 20.5c.6-4 3.4-6.5 7-6.5s6.4 2.5 7 6.5"/><path d="M17.5 3.5l1 2 2 .3-1.5 1.4.4 2-1.9-1-1.9 1 .4-2-1.5-1.4 2-.3z" fill="currentColor" stroke="none"/></svg><b id="rankLv" data-noi18n>Lv 1</b><span class="rankchip__bar"><i id="rankFill"></i></span><em id="rankPts" hidden></em></button>
           <button type="button" class="play" data-act="campaign" id="btnPlay"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4.5v15l12.5-7.5z" fill="currentColor"/></svg><span class="play__t" id="playLabel">시작</span><small id="playSub" data-noi18n></small></button>
           <div class="modes">
             <button type="button" class="mode" data-act="chapters" aria-label="챕터 선택"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6.5 9 4l6 2.5L21 4v13.5L15 20l-6-2.5L3 20z"/><path d="M9 4v13.5M15 6.5V20"/></svg><span>챕터</span></button>
@@ -218,6 +219,19 @@
         <h2>도전</h2>
         <p class="note">짧은 판에서 점수를 겨룬다. 2.5초 안에 이어서 쓰러뜨리면 배수가 오른다(최대 ×3).</p>
         <div class="chals" id="challengeList"></div>
+        <button class="btn btn--ghost" data-act="back">돌아가기</button>
+      </div>
+    </section>
+
+    <section class="screen screen--list hidden" id="scrRank">
+      <div class="screen__inner">
+        <h2>생존자 <small id="rankHead" data-noi18n></small></h2>
+        <div class="rankbar"><i id="rankBarFill"></i></div>
+        <p class="note" id="rankNote"></p>
+        <div class="perks" id="perkList"></div>
+        <h3 class="rank__sub">평생 기록</h3>
+        <dl class="result__stats lifestats" id="lifeStats"></dl>
+        <button class="btn" data-act="perkreset">특성 초기화 (무료)</button>
         <button class="btn btn--ghost" data-act="back">돌아가기</button>
       </div>
     </section>
@@ -515,6 +529,13 @@
         <h2 id="resultTitle">생존</h2>
         <div class="result__grade" id="resultGrade" hidden><b></b><span>평가</span></div>
         <p class="result__sub" id="resultSub"></p>
+        <div class="result__xp" id="resultXp" hidden>
+          <div class="xp__head"><b id="xpGain" data-noi18n></b><span id="xpLv" data-noi18n></span></div>
+          <div class="xp__bar"><i id="xpFill"></i></div>
+          <div class="xp__parts" id="xpParts"></div>
+          <p class="xp__note" id="xpNote"></p>
+          <button class="btn btn--small" data-act="rank" id="xpPerk" hidden>특성 찍기</button>
+        </div>
         <dl class="result__stats" id="resultStats"></dl>
         <div class="screen__side screen__actions">
           <button class="btn btn--primary" data-act="next">계속</button>

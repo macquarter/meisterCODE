@@ -47,6 +47,8 @@ const WEAPONS = {
 const SLOT_ORDER = ['pistol', 'smg', 'shotgun', 'rifle', 'magnum', 'auto', 'lmg', 'crossbow', 'flamer', 'launcher', 'rail', 'minigun'];
 /** 특전 무기 — 화성에서 열리는 차례와 시각(초) */
 const SPECIAL_UNLOCKS = [['flamer', 180], ['launcher', 300], ['rail', 600], ['minigun', 1200]];
+/** 생존자 특성 · 도감 금메달 · 오늘의 도시 변수 — game.js 의 Rank.apply 가 판마다 채운다(도전은 늘 기본값) */
+const PK = { hp: 1, reload: 1, drain: 1, charge: 1, shove: 0, shoveCd: 1, stam: 1, ammo: 1, nade: 0, med: 1, spread: 1, gold: {} };
 
 const ZTYPES = {
   walker: { hp: 62,  speed: 47,  dmg: 17, r: 13, size: 12, hear: 330, score: 10,
@@ -157,8 +159,8 @@ class Player {
       return false;
     }
     this.reloadKey = w.key;
-    this.reloadSpan = w.reload;
-    this.reloadT = w.reload;
+    this.reloadSpan = w.reload * PK.reload;
+    this.reloadT = w.reload * PK.reload;
     SFX.reload();
     return true;
   }
@@ -212,7 +214,7 @@ class Player {
   /** 근접 밀치기 — 탄이 없거나 몰렸을 때의 마지막 수단 */
   melee(g) {
     if (this.dead || this.meleeCool > 0) return false;
-    this.meleeCool = 0.58;
+    this.meleeCool = 0.58 * PK.shoveCd;
     this.meleeAnim = 0.32;                                   // 밀치기 — 몸을 실어 두 팔로 내지른다(예전 0.2초는 눈에 잘 안 띄었다)
     (g.shoves || (g.shoves = [])).push({ x: this.x, y: this.y, a: this.angle, t: 0, max: 0.34, hits: 0 });
     this.noise = Math.max(this.noise, 0.34);
@@ -225,7 +227,7 @@ class Player {
       const dx = z.x - this.x, dy = z.y - this.y;
       const d = Math.hypot(dx, dy);
       // 사방으로 — 몸을 크게 휘둘러 둘레 전부를 떼어 낸다. 등 뒤에서 껴안은 것도 밀린다(앞쪽이 조금 더 멀리)
-      if (d > 46 + z.r) continue;
+      if (d > 46 + PK.shove + z.r) continue;
       const a = Math.atan2(dy, dx);
       const front = Math.cos(a - this.angle) > 0.3;
       z.hurt(front ? 24 : 18, a, g, 0, 'melee');
@@ -307,7 +309,7 @@ class Player {
       g.grenades.push(new Grenade(mx, my, base + (Math.random() - 0.5) * w.spread * 2, { impact: true, speed: w.speed }));
     } else for (let i = 0; i < w.pellets; i++) {
       // 어둠 속 사격 — 탄이 45% 더 퍼지고 손이 떨린다(약 1.4° 더). 불빛 아래에서 쏘는 게 훨씬 낫다
-      const spread = this.dark ? w.spread * 1.45 + 0.025 : w.spread;
+      const spread = (this.dark ? w.spread * 1.45 + 0.025 : w.spread) * PK.spread;
       const a = base + (Math.random() - 0.5) * spread * 2;
       const b = new Bullet(mx, my, a, w.dmg, w.range * (0.85 + Math.random() * 0.3), w.speed, w.pierce | 0, w.knock);
       if (w.burn) { b.burn = w.burn; b.flame = true; }
@@ -361,13 +363,13 @@ class Player {
     this.noise = Math.max(0, this.noise - dt * 1.4);
     this.bile = Math.max(0, (this.bile || 0) - dt);
     if (this.lightOn && this.battery > 0) {
-      this.battery = Math.max(0, this.battery - (g.level.batteryDrain || 1.25) * SETTINGS.mod.battery * dt);
+      this.battery = Math.max(0, this.battery - (g.level.batteryDrain || 1.25) * SETTINGS.mod.battery * PK.drain * dt);
       this.offT = 0;
       if (this.battery === 0) { this.lightOn = false; g.toast(T('배터리 방전 — 꺼 두면 다시 충전된다')); }
     } else if (!this.lightOn && this.battery < 100) {
       // 꺼 두면 손잡이 발전기가 천천히 채운다 — 어둠 속에서 버티는 시간과 맞바꾼다(0.8초 뒤부터 초당 3.2)
       this.offT = (this.offT || 0) + dt;
-      if (this.offT > 0.8) this.battery = Math.min(100, this.battery + 3.2 * dt);
+      if (this.offT > 0.8) this.battery = Math.min(100, this.battery + 3.2 * PK.charge * dt);
     }
     this.charging = !this.lightOn && this.battery < 100 && (this.offT || 0) > 0.8;
   }
@@ -405,6 +407,7 @@ class Zombie {
   }
 
   hurt(dmg, ang, g, knock = 0, src = '') {
+    if (PK.gold[this.type]) dmg *= 1.06;                      // 도감 금메달 — 약점을 안다
     // 진압 경찰 — 앞에서 온 총알은 방패가 받는다. 밀치기는 몸을 돌려세워 등을 드러낸다. 폭발은 그대로
     const ar = this.t.armor;
     // 석궁 · 매그넘 · 경기관총(ap)은 방패째 꿰뚫는다 — 불꽃만 튀고 피해는 그대로
@@ -1035,16 +1038,16 @@ class Pickup {
     this.dead = true;
     SFX.pickup();
     switch (this.type) {
-      case 'ammo':    p.ammo.smg += 35; break;           // 결핍이 선택을 무겁게 한다 (RE)
-      case 'shells':  p.ammo.shell += 8; break;
-      case 'medkit':  p.hp = Math.min(p.hpMax, p.hp + 40); break;
+      case 'ammo':    p.ammo.smg += Math.round(35 * PK.ammo); break;           // 결핍이 선택을 무겁게 한다 (RE)
+      case 'shells':  p.ammo.shell += Math.round(8 * PK.ammo); break;
+      case 'medkit':  p.hp = Math.min(p.hpMax, p.hp + 40 * PK.med); break;
       case 'battery': p.battery = Math.min(100, p.battery + 55);
                       if (!p.lightOn) p.lightOn = true; break;
       case 'nade':    p.nades += 2; break;
       case 'wpn_smg':     p.owned.add('smg');     p.ammo.smg += 60;  p.equip('smg'); break;
       case 'wpn_shotgun': p.owned.add('shotgun'); p.ammo.shell += 12; p.equip('shotgun'); break;
-      case 'rounds':  p.ammo.rifle += 10; break;
-      case 'bolts':   p.ammo.bolt += 6; break;
+      case 'rounds':  p.ammo.rifle += Math.round(10 * PK.ammo); break;
+      case 'bolts':   p.ammo.bolt += Math.round(6 * PK.ammo); break;
       case 'wpn_rifle':   p.owned.add('rifle');   p.ammo.rifle += 15; p.equip('rifle'); break;
       default:
         if (this.type.startsWith('wpn_')) {                  // 늘어난 칸의 무기 — 저마다의 탄을 조금 들고 온다

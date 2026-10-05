@@ -1227,6 +1227,98 @@ const Pits = {
 window.LC_PITS = Pits;
 
 /* ── 좀비 도감 — 불빛에 비추거나 쓰러뜨린 개체가 기록되고, 종류마다 처치 수가 쌓인다 ── */
+/* ── 생존자 레벨 · 특성 ──
+   판마다 경험치(점수 · 임무 · 도감)를 쌓아 레벨을 올리고, 레벨마다 특성 점수 1. 특성은 아홉 가지 × 3단계 —
+   효과는 작게(한 단계 6‒15%) 두어 실력을 대신하지 않고 "조금씩 강해지는" 맛만. 도전 모드는 공정하게 늘 기본값 */
+const PERKS = [
+  { id: 'hp',      n: ['강철 체력', 'Iron Body'],   d: ['최대 체력 +8%', 'Max health +8%'],                                 apply: (k, r) => { k.hp = 1 + 0.08 * r; } },
+  { id: 'reload',  n: ['빠른 손', 'Quick Hands'],   d: ['재장전 시간 −8%', 'Reload time −8%'],                              apply: (k, r) => { k.reload = 1 - 0.08 * r; } },
+  { id: 'aim',     n: ['침착함', 'Steady Aim'],     d: ['탄 퍼짐 −8%', 'Bullet spread −8%'],                                apply: (k, r) => { k.spread = 1 - 0.08 * r; } },
+  { id: 'battery', n: ['발전기', 'Dynamo'],         d: ['손전등 소모 −10% · 충전 +15%', 'Flashlight drain −10% · recharge +15%'], apply: (k, r) => { k.drain = 1 - 0.1 * r; k.charge = 1 + 0.15 * r; } },
+  { id: 'shove',   n: ['어깨', 'Shoulder'],         d: ['밀치기 반경 +6 · 대기 −8%', 'Shove radius +6 · cooldown −8%'],   apply: (k, r) => { k.shove = 6 * r; k.shoveCd = 1 - 0.08 * r; } },
+  { id: 'stam',    n: ['지구력', 'Endurance'],      d: ['기력 +12%', 'Stamina +12%'],                                      apply: (k, r) => { k.stam = 1 + 0.12 * r; } },
+  { id: 'ammo',    n: ['탄띠', 'Bandolier'],        d: ['주운 탄약 +12%', 'Ammo pickups +12%'],                             apply: (k, r) => { k.ammo = 1 + 0.12 * r; } },
+  { id: 'med',     n: ['의무병', 'Medic'],          d: ['구급킷 회복 +15%', 'Medkits heal +15%'],                           apply: (k, r) => { k.med = 1 + 0.15 * r; } },
+  { id: 'nade',    n: ['투척병', 'Grenadier'],      d: ['시작 수류탄 +1', 'Start with +1 grenade'],                         apply: (k, r) => { k.nade = r; } }
+];
+const PERK_REQ = [1, 6, 12];        // 각 단계를 찍을 수 있는 최소 레벨
+const PK_DEF = { hp: 1, reload: 1, drain: 1, charge: 1, shove: 0, shoveCd: 1, stam: 1, ammo: 1, nade: 0, med: 1, spread: 1 };
+const Rank = {
+  KEY: 'aftermath.rank', MAX: 30, cache: null, runXp: 0, runParts: [],
+  get() {
+    if (this.cache) return this.cache;
+    let o = null; try { o = JSON.parse(localStorage.getItem(this.KEY) || '{}'); } catch (e) { o = null; }
+    o = o && typeof o === 'object' ? o : {};
+    return (this.cache = { xp: +o.xp || 0, perks: o.perks || {}, daily: o.daily || {}, life: o.life || { runs: 0, time: 0 } });
+  },
+  save() { try { localStorage.setItem(this.KEY, JSON.stringify(this.get())); } catch (e) { /* 무시 */ } },
+  need(l) { return 300 + 150 * (l - 1); },                       // l → l+1 에 드는 경험치
+  levelOf(xp) {
+    let l = 1;
+    while (l < this.MAX && xp >= this.need(l)) { xp -= this.need(l); l++; }
+    return { lv: l, into: xp, need: l < this.MAX ? this.need(l) : 0 };
+  },
+  level() { return this.levelOf(this.get().xp); },
+  spent() { const p = this.get().perks; return PERKS.reduce((a, k) => a + (p[k.id] | 0), 0); },
+  points() { return Math.max(0, this.level().lv - 1 - this.spent()); },
+  canBuy(id) { const r = this.get().perks[id] | 0; return r < 3 && this.points() > 0 && this.level().lv >= PERK_REQ[r]; },
+  buy(id) { if (!this.canBuy(id)) return false; const p = this.get().perks; p[id] = (p[id] | 0) + 1; this.save(); return true; },
+  reset() { this.get().perks = {}; this.save(); },
+  /** 판 시작 — 특성 · 도감 금메달 · 오늘의 도시 변수를 PK 에 */
+  apply(g) {
+    Object.assign(PK, PK_DEF); PK.gold = {};
+    if (!g.challenge) {
+      const p = this.get().perks;
+      for (const k of PERKS) if (p[k.id]) k.apply(PK, p[k.id]);
+      for (const e of STORY.codex) if (Codex.medal(e.id) >= 3) PK.gold[e.id] = true;
+    }
+    if (g.dmod && g.dmod.drain) PK.drain *= g.dmod.drain;
+    this.runXp = 0; this.runParts = [];
+  },
+  bonus(n, why) { this.runXp += n; this.runParts.push([why, n]); },
+  /** 판이 끝나면 — 경험치를 셈해 더하고, 결과 화면에 보일 것을 돌려준다 */
+  award(g, won) {
+    const R = this.get(), before = this.levelOf(R.xp), parts = [];
+    const sc = Math.round(g.score * (g.challenge ? 0.08 : 0.2));
+    if (sc > 0) parts.push([T('처치 · 점수'), sc]);
+    if (g.survival && !g.challenge) { const t = Math.round(g.time * 0.8); if (t > 0) parts.push([T('버틴 시간'), t]); }
+    if (!g.survival && won) parts.push([g.stage === 0 ? T('진입 미션 완료') : T('본편 미션 완료'), g.stage === 0 ? 90 : 150]);
+    if (!g.survival && !won) parts.push([T('참전'), 25]);
+    for (const p of this.runParts) parts.push(p);
+    const gain = parts.reduce((a, p) => a + p[1], 0);
+    R.xp += gain; R.life.runs = (R.life.runs | 0) + 1; R.life.time = (R.life.time | 0) + Math.round(g.time);
+    this.save(); this.runXp = 0; this.runParts = [];
+    return { gain, parts, before, after: this.levelOf(R.xp) };
+  }
+};
+
+/* ── 오늘의 도시 — 날짜로 정해지는 서바이벌 한 판(누구나 같은 도시 · 같은 지도 · 같은 변수). 연속으로 하면 연속 기록 ── */
+const Daily = {
+  MODS: [
+    { id: 'dark',   n: ['정전의 밤', 'Blackout'],  d: ['손전등 소모 ×2', 'Flashlight drains ×2'], drain: 2 },
+    { id: 'horde',  n: ['무리의 날', 'Horde Day'], d: ['감염체 ×1.35', 'Infected ×1.35'], spawn: 1.35, max: 1.25 },
+    { id: 'scarce', n: ['탄약 부족', 'Scarcity'],   d: ['보급 ×0.6', 'Supplies ×0.6'], loot: 0.6 }
+  ],
+  day(off = 0) { const d = new Date(Date.now() + off * 864e5); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; },
+  info(date = this.day()) {
+    let h = 2166136261; for (const ch of 'lc' + date) { h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619) >>> 0; }
+    const cities = Object.keys(SURVIVAL_CITIES).filter(c => !SURVIVAL_CITIES[c].bonus);
+    return { date, city: cities[h % cities.length], mod: this.MODS[(h >>> 7) % this.MODS.length], seed: h % 999983 };
+  },
+  rec() { const d = Rank.get().daily; return d && typeof d === 'object' ? d : {}; },
+  /** 오늘 기록 · 연속 일수 */
+  finish(g) {
+    const R = Rank.get(), d = R.daily = this.rec(), today = g.daily.date, t = Math.floor(g.time);
+    const first = d.last !== today;
+    if (first) d.streak = d.last === this.day(-1) ? (d.streak | 0) + 1 : 1;
+    d.last = today;
+    const best = d.date === today ? d.best | 0 : 0;
+    d.date = today; d.best = Math.max(best, t);
+    Rank.save();
+    return { first, best: d.best, streak: d.streak, newBest: t > best };
+  }
+};
+
 const Codex = {
   KEY: 'aftermath.codex', cache: null, dirty: false,
   get() {
@@ -1242,9 +1334,22 @@ const Codex = {
     if (!e) return;
     d.seen[id] = Date.now(); this.save();
     if (g && g.toast) g.toast(T('도감에 새 기록 — {n}', { n: LT(e.n) }), 2.6);
+    if (g && !g.challenge) Rank.bonus(50, T('도감 새 기록 — {n}', { n: LT(e.n) }));
     if (STORY.codex.every(c => d.seen[c.id])) Ach.unlock('codex');
   },
-  kill(id) { const d = this.get(); d.kills[id] = (d.kills[id] || 0) + 1; this.dirty = true; },
+  MEDAL: [25, 100, 500],
+  /** 0 없음 · 1 동 · 2 은 · 3 금(그 개체에게 피해 +6%) */
+  medal(id) { const k = this.get().kills[id] | 0; return this.MEDAL.filter(n => k >= n).length; },
+  kill(id, g) {
+    const d = this.get(), k = d.kills[id] = (d.kills[id] || 0) + 1; this.dirty = true;
+    const i = this.MEDAL.indexOf(k);
+    if (i < 0 || !g || g.challenge) return;
+    const e = STORY.codex.find(c => c.id === id), nm = [T('동메달'), T('은메달'), T('금메달')][i];
+    Rank.bonus([100, 250, 600][i], T('도감 {m} — {n}', { m: nm, n: e ? LT(e.n) : id }));
+    if (g.toast) g.toast(T('도감 {m} — {n}', { m: nm, n: e ? LT(e.n) : id }) + (i === 2 ? T(' · 피해 +6%') : ''), 2.6);
+    if (i === 2) PK.gold[id] = true;
+    this.save();
+  },
   flush() { if (this.dirty) this.save(); },
   count() { const d = this.get(); return STORY.codex.filter(c => d.seen[c.id]).length; },
   /** 도감 그림 — 2D 모형을 크게. 아직 못 본 것은 검은 실루엣 */
@@ -1583,12 +1688,16 @@ const G = {
     this.challenge = C || null;
     this.survival = index === 'survival' || !!C;          // 도전은 서바이벌의 흐름(무한 소환 · 보급 · 이야기 없음)을 같이 쓴다
     this.levelIndex = this.survival ? -1 : index;
+    // 오늘의 도시 — 정해진 도시 · 시드 · 변수
+    this.daily = index === 'survival' && this.dailyNext ? this.dailyNext : null; this.dailyNext = null;
+    this.dmod = this.daily ? this.daily.mod : null;
+    if (this.daily) this.survivalCity = this.daily.city;
     // 장마다 두 미션 — A(진입, stage 0) · B(본편, stage 1). 따로 고르지 않았으면 본편
     this.stage = this.survival ? 1 : cp && cp.stage !== undefined ? cp.stage : stage === 0 ? 0 : 1;
     const city = this.survivalCity || 'seoul';
     const L = C ? Object.assign({}, SURVIVAL, { drops: [] }, C, { objective: { type: 'endless' }, fixedKit: true })
       : this.survival
-      ? Object.assign({}, SURVIVAL, { seed: (Math.random() * 1e9) | 0, city }, SURVIVAL_CITIES[city])
+      ? Object.assign({}, SURVIVAL, { seed: this.daily ? this.daily.seed : (Math.random() * 1e9) | 0, city }, SURVIVAL_CITIES[city])
       : this.stage === 0 ? stageLevel(index) : LEVELS[index];
     this.combo = 0; this.comboMax = 0; this.lastKillT = -9; this.chHordeT = C && C.rules && C.rules.hordeEvery ? 6 : 0;
     this.level = L;
@@ -1602,6 +1711,9 @@ const G = {
     // 시작 무기는 난이도에 따라 — 체크포인트에서 이어 받을 때는 그때의 장비를 되살린다(아래)
     const rushAmmo = SETTINGS.mod.rush ? { smg: (L.startAmmo.smg | 0) * 2.5 + 200, shell: (L.startAmmo.shell | 0) * 2.5 + 30, rifle: (L.startAmmo.rifle | 0) * 2 + 10, bolt: 8 } : null;
     this.player = new Player(w.spawn.x, w.spawn.y, Object.assign({}, L, { own: startKit(L, SETTINGS.difficulty) }, rushAmmo ? { startAmmo: rushAmmo, startNades: (L.startNades | 0) + 4 } : {}));
+    // 생존자 특성
+    Rank.apply(this);
+    { const p0 = this.player; p0.hp = p0.hpMax = Math.round(100 * PK.hp); p0.stam = p0.stamMax = Math.round(100 * PK.stam); p0.nades += PK.nade; }
     this.sinceGun = 0; this.lavaKills = 0;
     this.player.angle = openingAngle(w, this.player);
     this.lastHurt = null;
@@ -1630,7 +1742,7 @@ const G = {
     const rng = makeRng(L.seed ^ 0x5bf03635);
     // 지도가 커진 만큼(이어 붙는 지도로 넓힌 3블록) 보급품도 늘린다 — 길 위의 밀도를 예전과 맞춘다
     const spread = Math.sqrt((L.blocks * L.blocks) / ((L.blocks - 3) * (L.blocks - 3)));
-    const loot = n => Math.max(1, Math.round(n * SETTINGS.mod.loot * spread));
+    const loot = n => Math.max(1, Math.round(n * SETTINGS.mod.loot * spread * (this.dmod && this.dmod.loot || 1)));
     const place = (type, n, minD) => {
       n = loot(n);
       for (let i = 0; i < n; i++) {
@@ -2282,7 +2394,7 @@ const G = {
 
   onKill(z) {
     this.kills++;
-    Codex.kill(z.type); Codex.see(z.type, this);
+    Codex.kill(z.type, this); Codex.see(z.type, this);
     if (!(this.challenge && this.challenge.rules && this.challenge.rules.pistolOnly)) this.dropGun(z);
     // 가까이서 쓰러질수록 긴장도가 오른다 (L4D: 거리에 반비례). 처치에는 짧은 정지
     const d = Math.hypot(z.x - this.player.x, z.y - this.player.y);
@@ -2470,6 +2582,9 @@ const G = {
   finish(won) {
     this.state = 'result';
     Codex.flush();
+    this.dailyResult = this.daily ? Daily.finish(this) : null;
+    if (this.dailyResult && this.dailyResult.first) Rank.bonus(80, T('오늘의 도시 — 첫 출격'));
+    this.rankResult = Rank.award(this, won);
     Radio.reset();
     SFX.ambience(false);
     if (won) {
@@ -2712,9 +2827,9 @@ const G = {
     const sp = this.level.spawn;
     if (this.survival) this.waveScale = 1 + this.time / 55;
     // 캠페인의 자잘한 소환은 연출가가 압박을 맡은 만큼 줄인다
-    const rate = sp.rate * this.waveScale * SETTINGS.mod.spawn * (this.survival ? 1 : 0.6);
+    const rate = sp.rate * this.waveScale * SETTINGS.mod.spawn * (this.survival ? 1 : 0.6) * (this.dmod && this.dmod.spawn || 1);
     const maxZ = Math.min(
-      Math.round((sp.max + (this.survival ? Math.floor(this.time / 20) : 0)) * SETTINGS.mod.max), SETTINGS.mod.cap || 60);
+      Math.round((sp.max + (this.survival ? Math.floor(this.time / 20) : 0)) * SETTINGS.mod.max * (this.dmod && this.dmod.max || 1)), SETTINGS.mod.cap || 60);
     if (this.spawnT <= 0 && this.zombies.length < maxZ) {
       this.spawnT = 1 / Math.max(0.05, rate);
       if (!this.dir || this.dir.phase === 'build' || this.dir.phase === 'sustain') this.spawnZombie(620, 1500);
@@ -2771,7 +2886,7 @@ const G = {
       // 도시의 색 — 모스크바는 뱉는 것, 나이로비는 덮치는 것 · 들이받는 것이 처음부터 몇 배로
       const K = !this.challenge && SURVIVAL_CITIES[this.level.city] && SURVIVAL_CITIES[this.level.city].mixK;
       if (K) for (const k in K) this.level.mix[k] = (this.level.mix[k] || 0) * K[k] + 0.025 * K[k];
-      if (this.pickups.length < 6 && Math.random() < dt * 0.35) {
+      if (this.pickups.length < 6 && Math.random() < dt * 0.35 * (this.dmod && this.dmod.loot || 1)) {
         let types = ['ammo', 'ammo', 'shells', 'medkit', 'battery', 'nade'];
         if (p.owned.has('rifle')) types.push('rounds');
         if (p.owned.has('crossbow')) types.push('bolts');
@@ -6080,7 +6195,7 @@ G.refreshHud = function (force) {
 
 /* ═══════════ 화면 전환 ═══════════ */
 const UI = {
-  screens: ['scrCodex', 'scrTitle', 'scrChapters', 'scrHowto', 'scrBrief', 'scrCity', 'scrPause', 'scrResult',
+  screens: ['scrRank', 'scrCodex', 'scrTitle', 'scrChapters', 'scrHowto', 'scrBrief', 'scrCity', 'scrPause', 'scrResult',
             'scrSettings', 'scrEnding', 'scrKeys', 'scrAbout', 'scrStory', 'scrJournal', 'scrChallenge'],
   settingsFrom: 'scrTitle',
   hideScreens() { this.screens.forEach(s => $(s).classList.add('hidden')); },
@@ -6162,6 +6277,7 @@ const UI = {
     $('recordChip').title = T('서바이벌 최고 기록');
     /* 타이틀 — 글자 대신 아이콘. 큰 버튼 하나(이어서 할 곳까지 보여 준다) · 모드 넷 · 도구 넷.
        잠긴 모드는 자물쇠와 진행 숫자만 두고, 여는 조건은 툴팁 · 화면 낭독기로 */
+    UI.rankChip();
     const prog = G.progress(), next = Math.min(prog, LEVELS.length - 1), L = LEVELS[next];
     const ck = L && L.city, city = ck && CITY_LOCAL[ck] ? (I18N.lang === 'en' ? CITY_LOCAL[ck].replace(/[가-힣·]+\s*/g, '').trim() : CITY_LOCAL[ck]) : '';
     $('playLabel').textContent = prog > 0 ? T('이어하기') : T('시작');
@@ -6257,6 +6373,53 @@ const UI = {
     if (!j) { then(); return; }
     this.story([{ journey: j }], then, true);
   },
+  /** 타이틀의 생존자 칩 — 레벨 · 경험치 막대 · 남은 특성 점수 */
+  rankChip() {
+    const el = $('rankChip'); if (!el) return;
+    const L = Rank.level(), pts = Rank.points();
+    $('rankLv').textContent = `Lv ${L.lv}`;
+    $('rankFill').style.width = L.need ? `${Math.round(L.into / L.need * 100)}%` : '100%';
+    const pe = $('rankPts'); pe.hidden = !pts; pe.textContent = T('특성 {n}', { n: pts });
+    el.setAttribute('aria-label', T('생존자 Lv {l} · 특성 점수 {n}', { l: L.lv, n: pts }));
+  },
+  /** 결과 화면 — 얻은 경험치, 막대가 차오르고 레벨이 오르면 알린다 */
+  resultXp(r) {
+    const box = $('resultXp'); if (!box) return;
+    box.hidden = !r || !r.gain;
+    if (!r || !r.gain) return;
+    const up = r.after.lv - r.before.lv;
+    $('xpGain').textContent = `+${r.gain.toLocaleString()} XP`;
+    $('xpLv').textContent = up ? `Lv ${r.before.lv} → Lv ${r.after.lv}` : `Lv ${r.after.lv}`;
+    $('xpParts').innerHTML = r.parts.map(p => `<span>${p[0]} <b>+${p[1]}</b></span>`).join('');
+    const fill = $('xpFill'), pct = x => x.need ? Math.round(x.into / x.need * 100) : 100;
+    fill.style.transition = 'none'; fill.style.width = (up ? 0 : pct(r.before)) + '%'; void fill.offsetWidth;
+    fill.style.transition = ''; requestAnimationFrame(() => { fill.style.width = pct(r.after) + '%'; });
+    const pts = Rank.points();
+    $('xpNote').textContent = up ? T('레벨 업! 특성 점수 +{n} — 지금 {p}점', { n: up, p: pts }) : pts ? T('쓰지 않은 특성 점수 {p}점', { p: pts }) : '';
+    $('xpPerk').hidden = !pts;
+    box.classList.toggle('up', up > 0);
+    if (up) SFX.objective();
+  },
+  /** 생존자 — 레벨 · 특성 아홉 가지(3단계) · 평생 기록 */
+  showRank() {
+    const R = Rank.get(), L = Rank.level(), pts = Rank.points();
+    $('rankHead').textContent = `Lv ${L.lv}` + (L.need ? ` · ${L.into.toLocaleString()} / ${L.need.toLocaleString()} XP` : ' · MAX');
+    $('rankBarFill').style.width = L.need ? `${Math.round(L.into / L.need * 100)}%` : '100%';
+    $('rankNote').textContent = pts ? T('특성 점수 {p}점을 쓸 수 있다. 단계마다 필요한 레벨이 있다(1 · 6 · 12).', { p: pts })
+      : T('레벨이 오를 때마다 특성 점수 1점. 판을 끝내면 점수 · 임무 · 도감으로 경험치를 얻는다.');
+    $('perkList').innerHTML = PERKS.map(k => {
+      const r = R.perks[k.id] | 0, can = Rank.canBuy(k.id), lock = r < 3 && L.lv < PERK_REQ[r];
+      return `<div class="perk${r ? ' perk--on' : ''}"><b>${LT(k.n)}</b><span>${LT(k.d)}</span>` +
+        `<i class="perk__pips">${'●'.repeat(r)}${'○'.repeat(3 - r)}</i>` +
+        `<button class="perk__btn" data-act="perk" data-id="${k.id}"${can ? '' : ' disabled'}>${r >= 3 ? 'MAX' : lock ? `Lv ${PERK_REQ[r]}` : '+'}</button></div>`;
+    }).join('');
+    const st = (() => { try { return JSON.parse(localStorage.getItem('aftermath.stats') || '{}') || {}; } catch (e) { return {}; } })();
+    const h = Math.floor((R.life.time | 0) / 3600), m = Math.floor((R.life.time | 0) % 3600 / 60), d = Daily.rec();
+    const rows = [[T('출격'), T('{n}회', { n: R.life.runs | 0 })], [T('플레이 시간'), h ? T('{h}시간 {m}분', { h, m }) : T('{m}분', { m })],
+      [T('누적 처치'), (st.kills | 0).toLocaleString()], [T('도감'), `${Codex.count()}/${STORY.codex.length}`], [T('연속 출격'), T('{n}일', { n: d.streak | 0 })]];
+    $('lifeStats').innerHTML = rows.map(r => `<div><dt>${r[0]}</dt><dd>${r[1]}</dd></div>`).join('');
+    this.show('scrRank');
+  },
   /** 좀비 도감 — 카드마다 그림 · 분류 · 위험도 · 관찰 기록 · 약점 · 대처법 · 수치 · 처치 수 */
   showCodex() {
     const d = Codex.get(), list = $('codexList');
@@ -6266,7 +6429,9 @@ const UI = {
       const seen = !!d.seen[e.id], t = ZTYPES[e.id], el = document.createElement('article');
       el.className = 'cx' + (seen ? '' : ' cx--locked');
       const dots = '●'.repeat(e.threat) + '○'.repeat(5 - e.threat);
-      const stat = t ? T('체력 {h} · 속도 {s} · 처치 {k}', { h: t.hp, s: t.speed, k: d.kills[e.id] | 0 }) : T('처치 {k}', { k: d.kills[e.id] | 0 });
+      const md = Codex.medal(e.id), nextM = Codex.MEDAL[md];
+      const stat = (t ? T('체력 {h} · 속도 {s} · 처치 {k}', { h: t.hp, s: t.speed, k: d.kills[e.id] | 0 }) : T('처치 {k}', { k: d.kills[e.id] | 0 })) +
+        ` · <span class="cx__medal" data-m="${md}">${[T('메달 없음'), T('동메달'), T('은메달'), T('금메달 · 피해 +6%')][md]}</span>` + (nextM ? ` <em>${T('다음 {n}', { n: nextM })}</em>` : '');
       el.innerHTML = `<canvas width="160" height="160" aria-hidden="true"></canvas><div class="cx__body">` +
         (seen
           ? `<h3>${LT(e.n)} <small>${LT(e.cls)}</small></h3><div class="cx__threat" data-t="${e.threat}">${T('위험도')} <b>${dots}</b></div>` +
@@ -6320,8 +6485,14 @@ const UI = {
   },
   /** 서바이벌 도시 고르기 — 도시마다 최고 기록을 붙인다 */
   showCities() {
-    const bests = G.cityBests();
-    for (const b of document.querySelectorAll('#scrCity .city')) {
+    const bests = G.cityBests(), di = Daily.info(), dr = Daily.rec();
+    let dc = $('dailyCard');
+    if (!dc) { dc = document.createElement('button'); dc.id = 'dailyCard'; dc.className = 'city city--daily'; dc.dataset.act = 'daily'; const cs = document.querySelector('#scrCity .cities'); cs.insertBefore(dc, cs.firstChild); }
+    const today = dr.date === di.date ? dr.best | 0 : 0, played = dr.last === di.date;
+    dc.innerHTML = `<b>${T('오늘의 도시')} — ${T(CITY_NAME[di.city])}</b><span>${LT(di.mod.n)} · ${LT(di.mod.d)} · ${T('모두 같은 지도')}</span>` +
+      `<em>${played ? T('오늘 최고 {m}분 {s}초', { m: Math.floor(today / 60), s: today % 60 }) : T('첫 출격 +80 XP')}` +
+      ((played || dr.last === Daily.day(-1)) && dr.streak ? ` · ${T('연속 {n}일', { n: dr.streak })}` : '') + `</em>`;
+    for (const b of document.querySelectorAll('#scrCity .city[data-city]')) {
       let sm = b.querySelector('small');
       if (!sm) { sm = document.createElement('small'); b.appendChild(sm); }
       const r = bests[b.dataset.city];
@@ -6522,9 +6693,15 @@ const UI = {
       if (cb) rows.push([T('{city} 최고', { city: T(CITY_NAME[G.level.city]) }) + (G.cityBest ? ' ★' : ''), T('{m}분 {s}초', { m: Math.floor(cb.t / 60), s: cb.t % 60 })]);
       rows.push([T('최고 기록'), T('{m}분 {s}초', { m: Math.floor(G.bestSurvival() / 60), s: G.bestSurvival() % 60 })]);
     } else if (G.notesFound) rows.push([T('주운 기록'), T('{n}장', { n: G.notesFound })]);
+    if (G.dailyResult) {
+      const d = G.dailyResult;
+      rows.push([T('오늘의 도시 최고') + (d.newBest ? ' ★' : ''), T('{m}분 {s}초', { m: Math.floor(d.best / 60), s: d.best % 60 })]);
+      rows.push([T('연속 출격'), T('{n}일째', { n: d.streak })]);
+    }
     for (const a of Ach.fresh) rows.push([T('도전 과제'), '★ ' + LT(a.t)]);
     $('resultStats').innerHTML = rows.map(r =>
       `<div><dt>${r[0]}</dt><dd>${r[1]}</dd></div>`).join('');
+    this.resultXp(G.rankResult);
 
     $('hud').classList.add('hidden');
     $('touch').classList.add('hidden');
@@ -6567,6 +6744,10 @@ document.addEventListener('click', e => {
     case 'prologue': UI.prologue(() => UI.showJournal()); break;
     case 'journal': UI.showJournal(); break;
     case 'codex':   UI.showCodex(); break;
+    case 'rank':    UI.showRank(); break;
+    case 'perk':    if (Rank.buy(btn.dataset.id)) { SFX.objective(); UI.showRank(); } else SFX.dry(); break;
+    case 'perkreset': Rank.reset(); SFX.click(); UI.showRank(); break;
+    case 'daily':   G.dailyNext = Daily.info(); G.start('survival'); break;
     case 'chapters': UI.buildChapters(); UI.show('scrChapters'); break;
     case 'survival': if (G.survivalOpen()) UI.showCities(); break;
     case 'survcity': G.survivalCity = btn.dataset.city; G.start('survival'); break;
@@ -6623,7 +6804,7 @@ document.addEventListener('click', e => {
     case 'layout':   TLayout.open(); break;
     case 'layoutdone': TLayout.close(); break;
     case 'layoutreset': TLayout.reset(); break;
-    case 'restart':  G.start(G.challenge ? 'ch:' + G.challenge.id : G.survival ? 'survival' : G.levelIndex, null, G.stage); break;
+    case 'restart':  G.dailyNext = G.daily; G.start(G.challenge ? 'ch:' + G.challenge.id : G.survival ? 'survival' : G.levelIndex, null, G.stage); break;
     case 'challenges': if (G.challengeOpen()) UI.showChallenges(); break;
     case 'chstart': G.start('ch:' + btn.dataset.id); break;
     case 'checkpoint': if (G.checkpoint) G.start(G.levelIndex, G.checkpoint); break;

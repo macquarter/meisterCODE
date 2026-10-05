@@ -1369,8 +1369,9 @@ const Kit = {
   /** 이긴 뒤 — 다음 미션(같은 장 B, 또는 다음 장 A)에 들고 갈 것을 적어 둔다 */
   store(g) {
     const p = g.player, li = g.levelIndex, st = g.stage;
-    const next = st === 0 ? { level: li, stage: 1 } : { level: li + 1, stage: 0 };
-    if (next.level >= LEVELS.length) { this.get().carry = null; this.save(); return; }
+    // 챕터 안에서만 — A(진입)에서 모은 것을 B(본편)로. 장이 바뀌면 시작 장비로(성장은 생존자 특성 · 장비가 맡는다)
+    if (st !== 0) { this.get().carry = null; this.save(); return; }
+    const next = { level: li, stage: 1 };
     const guns = SLOT_ORDER.filter(k => k !== 'pistol' && p.owned.has(k) && !WEAPONS[k].special);
     const prev = this.get().carry;
     const keepPick = prev && prev.pick ? prev.pick.filter(k => guns.includes(k)) : [];
@@ -1660,6 +1661,15 @@ const SURVIVAL_UNLOCK = PART1_END + 1;
 /** 도시 이름 카드에 쓰는 현지 표기 */
 const CITY_LOCAL = { seoul: '서울 SEOUL', base: '대피 기지 EVAC BASE', tokyo: '東京 TOKYO', bangkok: 'กรุงเทพฯ BANGKOK', singapore: '新加坡 SINGAPORE',
   varanasi: 'वाराणसी VARANASI', cairo: 'القاهرة CAIRO', venice: 'VENEZIA', reykjavik: 'REYKJAVÍK', antarctic: 'ANTARCTICA', istanbul: 'İSTANBUL', rio: 'RIO DE JANEIRO', mars: 'MARS · 화성', moscow: 'МОСКВА MOSCOW', nairobi: 'NAIROBI' };
+/** 나라 — 대피 기지는 서울 곁(한국). 동료 이벤트는 미션이 셋 이상인 나라의 마지막 미션(그 나라 마지막 장의 B)에서만 */
+const COUNTRY_OF = { base: 'seoul' };
+function squadFinale(i) {
+  const L = LEVELS[i]; if (!L) return false;
+  const c = COUNTRY_OF[L.city] || L.city;
+  const idx = LEVELS.map((M, k) => (COUNTRY_OF[M.city] || M.city) === c ? k : -1).filter(k => k >= 0);
+  return idx.length * 2 >= 3 && i === idx[idx.length - 1];
+}
+window.LC_SQUAD = squadFinale;
 const CITY_NAME = { seoul: '서울', tokyo: '도쿄', bangkok: '방콕', singapore: '싱가포르', base: '대피 기지',
   varanasi: '바라나시', cairo: '카이로', venice: '베네치아', reykjavik: '레이캬비크', antarctic: '남극 기지', istanbul: '이스탄불', rio: '리우데자네이루', mars: '화성', moscow: '모스크바', nairobi: '나이로비' };
 /** 처음 손전등이 벽이 아니라 갈 길을 비추도록 — 출구 쪽으로 몇 칸 따라간 곳과 트인 거리를 함께 본다 */
@@ -1853,7 +1863,8 @@ const G = {
     this.elites = 0; this.eliteT = this.challenge ? 0 : this.survival ? 150 : 60 + Math.random() * 40;
     // 곁가지 — 초록 신호탄. 닿으면 생존자 셋이 합류하고 무리가 몰려온다(이야기 판은 미션마다 하나, 서바이벌은 100초 뒤부터)
     this.allies = []; this.rally = null; this.rallyT = this.survival && !this.challenge ? 100 : 0;
-    if (!this.survival) this.placeRally(w.spawn.x, w.spawn.y, 750, 1400, makeRng(L.seed ^ 0x2a11ce));
+    // 이야기 판 — 미션이 셋 이상인 나라의 마지막 미션에서만, 집결지 앞의 마지막 이벤트로
+    if (!this.survival && this.stage === 1 && squadFinale(index) && w.exit) this.placeRally(w.exit.x, w.exit.y, 300, 560, makeRng(L.seed ^ 0x2a11ce), true);
     this.lightningT = 6 + Math.random() * 10;
 
     // 목표 설정
@@ -2126,11 +2137,11 @@ const G = {
     SFX.roar(900);
   },
   /* ── 곁가지: 생존자 무리 (rc.31) ── */
-  placeRally(x, y, minD, maxD, rng) {
+  placeRally(x, y, minD, maxD, rng, nearExit) {
     const w = this.world;
     for (let i = 0; i < 24; i++) {
       const q = w.pickPoint(x, y, minD, maxD, rng);
-      if (w.exit && Math.hypot(q.x - w.exit.x, q.y - w.exit.y) < 520) continue;
+      if (!nearExit && w.exit && Math.hypot(q.x - w.exit.x, q.y - w.exit.y) < 520) continue;
       this.rally = { x: q.x, y: q.y, used: false };
       return;
     }
@@ -6798,7 +6809,7 @@ const UI = {
     $('briefGoals').innerHTML = L.goals.map(g => `<li>${T(g)}</li>`).join('') +
       (L.twist && L.twist.brief ? `<li class="brief__twist">${T(L.twist.brief)}</li>` : '') +
       `<li class="brief__kit">${T('시작 무기: {k}', { k: kit })}${pool ? ' — ' + T('{p}은(는) 감염체가 떨어뜨린다', { p: pool }) : ''}</li>` +
-      `<li class="brief__side">${T('곁가지 — 초록 신호탄: 생존자 셋이 합류하지만, 그만큼 무리가 몰려온다')}</li>`;
+      (st === 1 && squadFinale(i) ? `<li class="brief__side">${T('마지막 이벤트 — 집결지 앞 초록 신호탄: 생존자 셋이 합류하지만, 그만큼 무리가 몰려온다')}</li>` : '');
     this.briefKit(i, st);
     drawBriefMap(L);
     this.show('scrBrief');
@@ -6806,7 +6817,9 @@ const UI = {
   /** 돌파 난이도 — 시작 전에 '부활 없음'을 알리고 확인을 받는다 */
   rushGate(go) {
     if (SETTINGS.difficulty !== 'rush') { go(); return; }
-    this.rushNext = go; $('rushAsk').classList.remove('hidden');
+    // 3D 판은 메뉴 층(#screens)을 #stage 밖으로 옮긴다 — 경고창이 #stage 안에 있으면 브리핑 지도 밑에 깔려 '시작'을 누를 수 없었다
+    const m = $('rushAsk'); if (m.parentElement !== document.body) document.body.appendChild(m);
+    this.rushNext = go; m.classList.remove('hidden');
     const b = $('rushAsk').querySelector('[data-act=rushyes]'); if (b) b.focus();
   },
   /** 브리핑의 소지품 · 장비 — 들고 갈 총(배낭 셋)과 낄 장비(두 칸)를 여기서 고른다 */

@@ -65,6 +65,7 @@ const I18N = (() => {
     '체크포인트가 없고, 쓰러지면 처음부터입니다. 지난 장에서 들고 온 소지품도 모두 잃습니다.': 'No checkpoints — if you fall, you start over, and you lose everything you carried from the last chapter.',
     '각오하고 시작': 'Start anyway',
     '총구 불꽃 · 타격 효과': 'Muzzle flash · hit effects',
+    '마지막 이벤트 — 집결지 앞 초록 신호탄: 생존자 셋이 합류하지만, 그만큼 무리가 몰려온다': 'Final event — a green flare before the extraction point: three survivors join you, but a horde comes with them',
     '시작 무기: {k}': 'Starting weapons: {k}', '{p}은(는) 감염체가 떨어뜨린다': '{p} drop from the infected',
     '{name}을(를) 떨어뜨렸다': 'It dropped a {name}', '무기': 'Weapon',
     '쓰러뜨린 감염체가 총을 떨어뜨렸다 — 빛나는 총을 밟아 줍자': 'A downed infected dropped a gun — step on the glowing gun to take it',

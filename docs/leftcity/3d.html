@@ -75,6 +75,7 @@ html:not(.r3d-off) #view{background:transparent !important}
         <div class="gauge__label">기력</div>
         <div class="gauge__track"><i id="gaugeStam" style="width:100%"></i></div>
       </div>
+      <div class="squad hidden" id="hudSquad" aria-label="동료"></div>
       <div class="ammo">
         <div class="ammo__slots" id="hudSlots"></div>
         <div class="ammo__gun">
@@ -125,6 +126,17 @@ html:not(.r3d-off) #view{background:transparent !important}
   </div>
 
   <!-- 홈으로 — 임무 중 HUD 의 집 모양 버튼. 게임이 멈춘 채로 묻는다 -->
+  <div id="rushAsk" class="modal hidden" role="dialog" aria-modal="true" aria-label="돌파 난이도">
+    <div class="modal__box modal__box--warn">
+      <h3>돌파 — 부활 없음</h3>
+      <p>체크포인트가 없고, 쓰러지면 처음부터입니다. 지난 장에서 들고 온 소지품도 모두 잃습니다.</p>
+      <div class="modal__acts">
+        <button type="button" class="btn btn--primary" data-act="rushyes">각오하고 시작</button>
+        <button type="button" class="btn" data-act="rushno">돌아가기</button>
+      </div>
+    </div>
+  </div>
+
   <div id="homeAsk" class="modal hidden" role="dialog" aria-modal="true" aria-label="홈으로">
     <div class="modal__box">
       <h3>홈으로 나갈까요?</h3>
@@ -235,6 +247,9 @@ html:not(.r3d-off) #view{background:transparent !important}
         <div class="rankbar"><i id="rankBarFill"></i></div>
         <p class="note" id="rankNote"></p>
         <div class="perks" id="perkList"></div>
+        <h3 class="rank__sub">장비 <small id="gearCount" data-noi18n></small></h3>
+        <p class="note">정예 감염체 · 그것을 쓰러뜨리면 떨어뜨린다. 두 칸까지 낀다 — 누르면 끼고 뺀다.</p>
+        <div class="gears" id="gearList"></div>
         <h3 class="rank__sub">평생 기록</h3>
         <dl class="result__stats lifestats" id="lifeStats"></dl>
         <button class="btn" data-act="perkreset">특성 초기화 (무료)</button>
@@ -269,6 +284,7 @@ html:not(.r3d-off) #view{background:transparent !important}
         <h2 id="briefTitle">첫 번째 밤</h2>
         <p class="brief__text" id="briefText"></p>
         <ul class="brief__goals" id="briefGoals"></ul>
+        <div class="brief__kitbox" id="briefKit"></div>
         <div class="screen__side">
           <figure class="brief__map"><canvas id="briefMap" width="220" height="220" aria-label="구역 지도"></canvas>
             <figcaption><i class="dot dot--start"></i>진입 <i class="dot dot--exit"></i>집결지</figcaption></figure>

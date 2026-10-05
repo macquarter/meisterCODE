@@ -403,6 +403,18 @@ const MODELS = (() => {
     R.draw(ctx, over);
   }
 
+  /** 동료 (rc.31) — 저마다 다른 옷, 배낭 없이 총만 든 생존자 */
+  function ally(ctx, a, over) {
+    shadow(ctx, a.x, a.y, 11);
+    const k = a.kit;
+    const R = humanRig({
+      x: a.x, y: a.y, face: a.angle, S: 1.08, ph: a.walkPhase, amp: a.stride || 0, lean: 1.2, arms: 'gun', melee: 0,
+      skin: k.skin, top: a.hurtFlash > 0.05 ? '#7a3e3a' : k.top, pants: k.pants, hair: k.hair, shoes: '#121416', sleeve: k.top, fore: k.top,
+      extra(R2, bob, L) { R2.limb([L + 6.5, 0.6, 19.6], [L + 18, 0.2, 20.2], 1.25, '#15181c'); }
+    });
+    R.draw(ctx, over);
+  }
+
   /** 쓰러진 몸 — 맞은 방향으로 팔다리를 벌리고 엎어진다 */
   function corpse(ctx, c) {
     if (!c.look) {
@@ -413,6 +425,7 @@ const MODELS = (() => {
       if (c.type === 'player') { c.look.top = '#2f3a44'; c.look.pants = '#262b31'; }
       if (c.hazmat) { c.look.top = '#d9d7cc'; c.look.pants = '#cfcdc2'; }
       else if (c.top && c.type !== 'player') { c.look.top = c.top; c.look.pants = c.pants || c.look.pants; }   // 쓰러지기 전 옷 그대로
+      if (c.skin) c.look.skin = c.skin;                                     // 동료 — 사람의 살빛 그대로
     }
     // 쓰러진 몸은 움직이지 않는다 — 한 번 그려 둔 그림을 옮겨 찍는다 (시체 40구에서도 프레임이 버틴다)
     if (!c.img) {
@@ -732,7 +745,7 @@ const MODELS = (() => {
 
   /* 화면에서 높이 h(세계 px)는 세계 y 로 h·UP/TL 만큼 위 */
   const ZK = UP / TL;
-  const api = { zombie, player, corpse, prop, decor, STANDING, headZ, lookOf, box, tone, ZK, TL, UP, CS, HK, lod: 0, military: false, region: null, outline: true,
+  const api = { zombie, player, ally, corpse, prop, decor, STANDING, headZ, lookOf, box, tone, ZK, TL, UP, CS, HK, lod: 0, military: false, region: null, outline: true,
                 light: { x: -0.55, y: -0.8, k: 0 } };   // 그릴 인형의 빛 방향(화면 단위) · 손전등을 받는 정도
   return api;
 })();

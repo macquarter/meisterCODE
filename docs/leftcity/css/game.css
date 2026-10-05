@@ -929,3 +929,30 @@ body.ct #view,body.ct #view3d{filter:contrast(var(--ct,1))}
 .city--daily em{display:block;margin-top:4px;font-style:normal;font-size:11.5px;color:#f0b429}
 .cx__medal[data-m="1"]{color:#c88a5a}.cx__medal[data-m="2"]{color:#c9ccd1}.cx__medal[data-m="3"]{color:#f0b429;font-weight:700}
 .cx__stat em{font-style:normal;color:#6e767e}
+
+/* ── rc.31 — 소지품 · 장비 · 동료 · 돌파 경고 ── */
+.brief__side{color:#9fe0a8;list-style:none;margin-top:4px}
+.brief__kitbox{display:flex;flex-direction:column;gap:10px;margin:0 0 14px;text-align:left}
+.brief__kitbox:empty{display:none}
+.kitrow{padding:10px 12px;border:1px solid rgba(255,255,255,.08);border-radius:10px;background:rgba(255,255,255,.025)}
+.kitrow>b{display:block;font-size:13px;color:#f2ede0;margin-bottom:6px}.kitrow>b small{font-weight:500;color:#a39c88;margin-left:6px}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{min-height:36px;padding:6px 12px;border-radius:999px;border:1px solid rgba(255,255,255,.16);background:transparent;color:#a39c88;font:inherit;font-size:12.5px;cursor:pointer}
+.chip--on{border-color:rgba(255,207,90,.7);background:rgba(255,207,90,.12);color:#ffcf5a;font-weight:600}
+.chip:focus-visible{outline:2px solid #f0b429;outline-offset:2px}
+.kitnote{display:block;margin-top:6px;font-size:11.5px;color:#a39c88;line-height:1.45}
+.gears{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:8px;margin:0 0 16px;text-align:left}
+.gearc{position:relative;display:flex;flex-direction:column;gap:4px;padding:10px 12px;border-radius:10px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.025);color:inherit;font:inherit;text-align:left;cursor:pointer;min-height:76px}
+.gearc b{font-size:14px;color:#f2ede0}.gearc span{font-size:12px;color:#b8b2a2;line-height:1.4}
+.gearc i{position:absolute;top:10px;right:10px;font-style:normal;font-size:11px;color:#6e767e}
+.gearc--on{border-color:rgba(255,207,90,.6);background:rgba(255,207,90,.07)}.gearc--on i{color:#ffcf5a;font-weight:700}
+.gearc--lock{opacity:.5;cursor:default}.gearc--lock b{color:#6e767e}
+.modal__box--warn{border-color:rgba(224,80,58,.55)}.modal__box--warn h3{color:#ff7a5a}
+.squad{display:flex;flex-direction:column;gap:3px;margin-top:4px;width:150px;max-width:40vw}
+.squad__m{display:grid;grid-template-columns:42px 1fr;align-items:center;gap:6px;font-size:10.5px;color:#cfe8d2}
+.squad__m i{display:block;height:4px;border-radius:2px;background:rgba(255,255,255,.12);overflow:hidden}
+.squad__m b{display:block;height:100%;background:#7fe08a;transition:width .2s}
+.squad__m.dead{color:#6e767e;text-decoration:line-through}.squad__m.dead b{width:0!important}
+.modal{z-index:40}                                                  /* 브리핑 · 메뉴 화면 위에도 뜨게(돌파 경고) */
+/* 휴대폰 — 무기 칸 목록은 지금 든 것만. 들고 다니는 총이 늘면 목록이 무전 글을 덮었다(바꾸기 단추로 돌린다) */
+body.touch .ammo__slots span:not(.on){display:none}

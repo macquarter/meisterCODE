@@ -704,7 +704,7 @@ const Specials = {
     for (const [k, t] of SPECIAL_UNLOCKS) {
       if (g.time < t || p.owned.has(k)) continue;
       const w = WEAPONS[k];
-      p.owned.add(k); p.mag[k] = w.mag; p.equip(k);
+      p.owned.add(k); p.mag[k] = magCap(w); p.equip(k);
       SFX.objective(); g.shake = Math.min(14, g.shake + 4);
       this.banner(T(w.name), SPECIAL_UNLOCKS.findIndex(q => q[0] === k) + 1);
       g.toast(T('특전 무기 — {w}', { w: T(w.name) }), 3);
@@ -1012,7 +1012,7 @@ const Hints = (() => {
       if (tr) push('terr' + tr);
       if (g.maws) for (const m of g.maws) if (m.near && !(m.dormant > 0) && Math.hypot(p.x - m.nx, p.y - m.ny) < m.R + 160) push('maw');
       const w = p.weapon;
-      if (!p.reloading && p.magOf(w) <= Math.ceil(w.mag * 0.34)) push('reload');
+      if (!p.reloading && p.magOf(w) <= Math.ceil(magCap(w) * 0.34)) push('reload');
       if (p.battery < 30 && p.lightOn) push('battery');
 
       let close = 0, adjacent = false;
@@ -1259,7 +1259,8 @@ const PERKS = [
   { id: 'nade',    n: ['투척병', 'Grenadier'],      d: ['시작 수류탄 +1', 'Start with +1 grenade'],                         apply: (k, r) => { k.nade = r; } }
 ];
 const PERK_REQ = [1, 6, 12];        // 각 단계를 찍을 수 있는 최소 레벨
-const PK_DEF = { hp: 1, reload: 1, drain: 1, charge: 1, shove: 0, shoveCd: 1, stam: 1, ammo: 1, nade: 0, med: 1, spread: 1 };
+const PK_DEF = { hp: 1, reload: 1, drain: 1, charge: 1, shove: 0, shoveCd: 1, stam: 1, ammo: 1, nade: 0, med: 1, spread: 1,
+  noise: 1, step: 1, mag: 1, armor: 1, lamp: 1, speed: 1, dmg: 1, stamUse: 1, fx: 1 };
 const Rank = {
   KEY: 'aftermath.rank', MAX: 30, cache: null, runXp: 0, runParts: [],
   get() {
@@ -1288,6 +1289,9 @@ const Rank = {
       const p = this.get().perks;
       for (const k of PERKS) if (p[k.id]) k.apply(PK, p[k.id]);
       for (const e of STORY.codex) if (Codex.medal(e.id) >= 3) PK.gold[e.id] = true;
+      Kit.apply(PK);
+      // 레벨이 오를수록 총구 불꽃 · 피 · 쓰러짐 · 밀치기 충격파가 커진다(Lv 1 → 30 에서 ×1 → ×1.7)
+      PK.fx = 1 + (this.level().lv - 1) / (this.MAX - 1) * 0.7;
     }
     if (g.dmod && g.dmod.drain) PK.drain *= g.dmod.drain;
     this.runXp = 0; this.runParts = [];
@@ -1310,6 +1314,104 @@ const Rank = {
 };
 
 /* ── 오늘의 도시 — 날짜로 정해지는 서바이벌 한 판(누구나 같은 도시 · 같은 지도 · 같은 변수). 연속으로 하면 연속 기록 ── */
+/* ═══════════ 장비 · 이어지는 소지품 (rc.31) ═══════════
+   장비 — 정예 감염체 · 그것이 떨어뜨린다. 한 번 얻으면 계속 쓰고, 두 칸에 골라 낀다(빌드).
+   소지품 — 이야기 판(챕터)에서 이긴 그대로 다음 미션에 들고 간다. 총은 권총 말고 셋까지(배낭),
+   탄 · 수류탄은 모은 만큼(상한 있음). 쓰러지면 그 미션을 시작할 때의 소지품으로 다시 — 돌파 난이도만 모두 잃는다 */
+const GEAR = [
+  { id: 'suppressor', n: ['소음기', 'Suppressor'], d: ['총성이 들리는 거리 −60% · 피해 −8%', 'Gunshots heard 60% less far · damage −8%'],
+    apply: k => { k.noise *= 0.4; k.dmg *= 0.92; } },
+  { id: 'extmag', n: ['확장 탄창', 'Extended mags'], d: ['탄창 +50%', 'Magazines +50%'], apply: k => { k.mag *= 1.5; } },
+  { id: 'vest', n: ['방탄 조끼', 'Body armor'], d: ['받는 피해 −20% · 기력 소모 +20%', 'Damage taken −20% · stamina use +20%'],
+    apply: k => { k.armor *= 0.8; k.stamUse *= 1.2; } },
+  { id: 'lens', n: ['고휘도 렌즈', 'Bright lens'], d: ['손전등 거리 +15% · 배터리 소모 +10%', 'Flashlight reach +15% · battery use +10%'],
+    apply: k => { k.lamp *= 1.15; } },
+  { id: 'soles', n: ['고무창 장화', 'Soft soles'], d: ['발소리 −50% · 걸음 +5%', 'Footsteps −50% · move speed +5%'],
+    apply: k => { k.step *= 0.5; k.speed *= 1.05; } }
+];
+const CARRY_CAP = { smg: 360, shell: 48, rifle: 40, bolt: 24 };
+const Kit = {
+  KEY: 'aftermath.kit', SLOTS: 2, BAG: 3, cache: null,
+  get() {
+    if (this.cache) return this.cache;
+    let o = null; try { o = JSON.parse(localStorage.getItem(this.KEY) || '{}'); } catch (e) { o = null; }
+    o = o && typeof o === 'object' ? o : {};
+    return (this.cache = { gear: o.gear || {}, load: Array.isArray(o.load) ? o.load : [], carry: o.carry || null });
+  },
+  save() { try { localStorage.setItem(this.KEY, JSON.stringify(this.get())); } catch (e) { /* 무시 */ } },
+  has(id) { return !!this.get().gear[id]; },
+  owned() { return GEAR.filter(x => this.has(x.id)); },
+  loadout() { const K = this.get(); return K.load.filter(id => K.gear[id]).slice(0, this.SLOTS); },
+  toggle(id) {
+    const K = this.get(); if (!K.gear[id]) return false;
+    const i = K.load.indexOf(id);
+    if (i >= 0) K.load.splice(i, 1);
+    else { K.load = this.loadout(); if (K.load.length >= this.SLOTS) K.load.shift(); K.load.push(id); }
+    this.save(); return true;
+  },
+  /** 장비를 PK 에 — 도전은 규칙 그대로라 끼지 않는다 */
+  apply(k) { for (const id of this.loadout()) { const x = GEAR.find(q => q.id === id); if (x) x.apply(k); } },
+  /** 아직 없는 장비 하나 — 없으면 null */
+  nextGear() { const left = GEAR.filter(x => !this.has(x.id)); return left.length ? left[(Math.random() * left.length) | 0].id : null; },
+  award(id) {
+    const K = this.get(); if (K.gear[id]) return false;
+    K.gear[id] = Date.now();
+    if (this.loadout().length < this.SLOTS) K.load = this.loadout().concat(id);   // 빈 칸이 있으면 바로 낀다(다음 판부터)
+    this.save(); return true;
+  },
+  /* ── 소지품 ── */
+  /** 이 총 · 탄 상태를 탄 종류별 합계로(약실 포함) */
+  totals(p) {
+    const t = Object.assign({}, p.ammo);
+    for (const k of p.owned) { const w = WEAPONS[k]; if (w && w.ammoKey) t[w.ammoKey] = (t[w.ammoKey] | 0) + (p.mag[k] | 0); }
+    return t;
+  },
+  /** 이긴 뒤 — 다음 미션(같은 장 B, 또는 다음 장 A)에 들고 갈 것을 적어 둔다 */
+  store(g) {
+    const p = g.player, li = g.levelIndex, st = g.stage;
+    const next = st === 0 ? { level: li, stage: 1 } : { level: li + 1, stage: 0 };
+    if (next.level >= LEVELS.length) { this.get().carry = null; this.save(); return; }
+    const guns = SLOT_ORDER.filter(k => k !== 'pistol' && p.owned.has(k) && !WEAPONS[k].special);
+    const prev = this.get().carry;
+    const keepPick = prev && prev.pick ? prev.pick.filter(k => guns.includes(k)) : [];
+    // 배낭 — 지난번에 고른 것을 먼저, 남은 칸은 센 총부터(뒤쪽 칸이 대체로 세다)
+    const pick = keepPick.concat(guns.slice().reverse().filter(k => !keepPick.includes(k))).slice(0, this.BAG);
+    const t = this.totals(p);
+    const ammo = {}; for (const k in CARRY_CAP) ammo[k] = Math.min(CARRY_CAP[k], Math.max(0, t[k] | 0));
+    this.get().carry = Object.assign({}, next, { guns, pick, ammo, nades: Math.min(8, p.nades | 0), diff: g.difficulty });
+    this.save();
+  },
+  carryFor(level, stage) { const c = this.get().carry; return c && c.level === level && c.stage === stage ? c : null; },
+  togglePick(k) {
+    const c = this.get().carry; if (!c || !c.guns.includes(k)) return false;
+    const i = c.pick.indexOf(k);
+    if (i >= 0) c.pick.splice(i, 1); else { if (c.pick.length >= this.BAG) c.pick.shift(); c.pick.push(k); }
+    this.save(); return true;
+  },
+  drop() { this.get().carry = null; this.save(); },
+  /** 판 시작 — 가져온 것을 시작 장비에 얹는다(시작 장비보다 나빠지지는 않는다) */
+  load(g) {
+    if (g.survival || g.challenge) return null;
+    const c = this.carryFor(g.levelIndex, g.stage); if (!c) return null;
+    const p = g.player, base = this.totals(p);
+    for (const k of c.pick) if (WEAPONS[k]) p.owned.add(k);
+    const tot = {}; for (const k in CARRY_CAP) tot[k] = Math.max(base[k] | 0, c.ammo[k] | 0);
+    p.ammo = Object.assign({}, p.ammo, tot); p.mag = {};
+    for (const k of SLOT_ORDER) {
+      const w = WEAPONS[k];
+      if (!p.owned.has(k)) { p.mag[k] = 0; continue; }
+      if (!w.ammoKey) { p.mag[k] = magCap(w); continue; }
+      const take = Math.min(magCap(w), p.ammo[w.ammoKey] | 0); p.mag[k] = take; p.ammo[w.ammoKey] -= take;
+    }
+    p.nades = Math.max(p.nades, c.nades | 0);
+    const best = c.pick.slice().reverse().find(k => p.owned.has(k) && (p.magOf(WEAPONS[k]) > 0));
+    if (best) p.wpn = best;
+    return c;
+  }
+};
+
+window.LC_KIT = Kit; window.LC_RANK = Rank;
+
 const Daily = {
   MODS: [
     { id: 'dark',   n: ['정전의 밤', 'Blackout'],  d: ['손전등 소모 ×2', 'Flashlight drains ×2'], drain: 2 },
@@ -1727,17 +1829,19 @@ const G = {
     const w = this.world;
     // 시작 무기는 난이도에 따라 — 체크포인트에서 이어 받을 때는 그때의 장비를 되살린다(아래)
     const rushAmmo = SETTINGS.mod.rush ? { smg: (L.startAmmo.smg | 0) * 2.5 + 200, shell: (L.startAmmo.shell | 0) * 2.5 + 30, rifle: (L.startAmmo.rifle | 0) * 2 + 10, bolt: 8 } : null;
-    this.player = new Player(w.spawn.x, w.spawn.y, Object.assign({}, L, { own: startKit(L, SETTINGS.difficulty) }, rushAmmo ? { startAmmo: rushAmmo, startNades: (L.startNades | 0) + 4 } : {}));
-    // 생존자 특성
+    // 생존자 특성 · 장비 — 탄창 크기(확장 탄창)가 첫 장전에 들어가도록 플레이어를 만들기 전에
     Rank.apply(this);
+    this.player = new Player(w.spawn.x, w.spawn.y, Object.assign({}, L, { own: startKit(L, SETTINGS.difficulty) }, rushAmmo ? { startAmmo: rushAmmo, startNades: (L.startNades | 0) + 4 } : {}));
     { const p0 = this.player; p0.hp = p0.hpMax = Math.round(100 * PK.hp); p0.stam = p0.stamMax = Math.round(100 * PK.stam); p0.nades += PK.nade; }
+    // 지난 미션에서 들고 온 소지품 — 체크포인트로 이어 받을 때는 그때의 장비가 덮어쓴다(아래)
+    this.carried = Kit.load(this);
     this.sinceGun = 0; this.lavaKills = 0;
     this.player.angle = openingAngle(w, this.player);
     this.lastHurt = null;
     this.hitDirs = [];
     this.zombies = []; this.bullets = []; this.grenades = []; this.pickups = [];
     this.spits = []; this.acids = [];
-    this.particles = []; this.splashes = []; this.decals = []; this.corpses = []; this.flashes = [];
+    this.particles = []; this.splashes = []; this.decals = []; this.corpses = []; this.flashes = []; this.noiseRings = []; this.shoves = [];
     this.time = 0; this.shake = 0; this.kills = 0; this.score = 0; this.spitGapT = 0; this.fromCheckpoint = false;
     this.nonPistol = false; this.weeperWoke = false; this.screams = 0;
     this.shots = 0; this.hits = 0; this.hitMark = 0;
@@ -1746,6 +1850,10 @@ const G = {
     this.difficulty = SETTINGS.difficulty;   // 진입 시점의 난이도로 전적을 기록한다
     this.spawnT = 0; this.waveScale = 1; this.lightning = 0;
     this.nextBossT = 120;
+    this.elites = 0; this.eliteT = this.challenge ? 0 : this.survival ? 150 : 60 + Math.random() * 40;
+    // 곁가지 — 초록 신호탄. 닿으면 생존자 셋이 합류하고 무리가 몰려온다(이야기 판은 미션마다 하나, 서바이벌은 100초 뒤부터)
+    this.allies = []; this.rally = null; this.rallyT = this.survival && !this.challenge ? 100 : 0;
+    if (!this.survival) this.placeRally(w.spawn.x, w.spawn.y, 750, 1400, makeRng(L.seed ^ 0x2a11ce));
     this.lightningT = 6 + Math.random() * 10;
 
     // 목표 설정
@@ -1918,7 +2026,7 @@ const G = {
      긴 장에서 한 번 죽었다고 처음부터 걷게 하지 않는다. 목표의 고비(상자 · 중계기 · 부두 · 길의 절반 …)마다
      지금 상태를 적어 두고, 사망 화면에서 그 자리부터 다시 할 수 있게 한다. 체력과 배터리는 조금 채워 준다. */
   makeCheckpoint(k, v) {
-    if (this.survival || this.player.dead) return;
+    if (this.survival || this.player.dead || this.difficulty === 'rush') return;   // 돌파 — 부활 없음
     const p = this.player;
     this.checkpoint = {
       level: this.levelIndex, stage: this.stage, label: { k, v: v || null },
@@ -1997,8 +2105,86 @@ const G = {
     const d = Math.hypot(p.x - this.player.x, p.y - this.player.y);
     if (da < CONE_HALF + 0.05 && d < this.player.lightRange + 90) return null;
     const z = new Zombie(p.x, p.y, this.pickType());
+    if (this.eliteDue(z)) this.makeElite(z);
     this.zombies.push(z);
     return z;
+  },
+  /* ── 정예 (rc.31) — 금빛 고리를 두른 강한 개체. 쓰러뜨리면 장비를 반드시 떨어뜨린다 ──
+     이야기 판은 한 판에 셋까지(처음은 60‒100초 뒤, 다음은 2‒3분마다), 서바이벌은 2분 반마다. 도전에는 없다 */
+  eliteDue(z) {
+    if (this.challenge || !this.eliteT || this.time < this.eliteT) return false;
+    if (['weeper', 'bloater', 'crawler', 'behemoth'].includes(z.type)) return false;
+    if (this.zombies.some(o => o.elite && !o.dead)) return false;
+    return this.survival || (this.elites | 0) < 3;
+  },
+  makeElite(z) {
+    z.elite = true; z.hp = z.hpMax = Math.round(z.hpMax * 3.2); z.spdK = 1.12; z.dmgK = 1.35;
+    this.elites = (this.elites | 0) + 1;
+    this.eliteT = this.time + (this.survival ? 150 : 120 + Math.random() * 60);
+    const e = STORY.codex.find(c => c.id === z.type);
+    this.toast(T('정예 {n}이(가) 나타났다 — 쓰러뜨리면 장비를 떨어뜨린다', { n: e ? LT(e.n) : '' }), 3.2);
+    SFX.roar(900);
+  },
+  /* ── 곁가지: 생존자 무리 (rc.31) ── */
+  placeRally(x, y, minD, maxD, rng) {
+    const w = this.world;
+    for (let i = 0; i < 24; i++) {
+      const q = w.pickPoint(x, y, minD, maxD, rng);
+      if (w.exit && Math.hypot(q.x - w.exit.x, q.y - w.exit.y) < 520) continue;
+      this.rally = { x: q.x, y: q.y, used: false };
+      return;
+    }
+  },
+  updateRally(dt) {
+    const p = this.player, w = this.world;
+    if (this.survival && !this.challenge && !this.rally && this.time >= this.rallyT && !this.allies.some(a => !a.dead))
+      this.placeRally(p.x, p.y, 600, 1000);
+    const R = this.rally;
+    if (R && R.used && this.survival && !this.allies.some(a => !a.dead)) { this.rally = null; this.rallyT = this.time + 240; return; }
+    if (!R || R.used || p.dead) return;
+    const q = w.near(R.x, R.y, p.x, p.y);
+    if (Math.hypot(q.x - p.x, q.y - p.y) > 80) return;
+    R.used = true;
+    this.allies = [0, 1, 2].map(i => { const s = w.pickPoint(q.x, q.y, 20, 70); return new Ally(s.x, s.y, i); });
+    // 신호탄이 무리를 부른다 — 동료가 는 만큼 많이(난이도가 높을수록 더)
+    const room = 70 - this.zombies.filter(z => !z.dead).length;
+    const n = Math.min(room, 18 + (this.difficulty === 'hard' ? 6 : this.difficulty === 'rush' ? 12 : 0));
+    let far = null;
+    for (let i = 0; i < n; i++) {
+      const s = w.pickPoint(q.x, q.y, 420, 780);
+      const z = new Zombie(s.x, s.y, this.pickType());
+      if (z.t.boss || z.t.weeper) continue;
+      z.aggro = true; z.horde = true; this.zombies.push(z); far = far || s;
+    }
+    if (far) SFX.horde(Math.hypot(far.x - p.x, far.y - p.y), Math.atan2(far.y - p.y, far.x - p.x));
+    this.stress(30); this.shake = Math.min(14, this.shake + 6);
+    SFX.objective();
+    this.toast(T('생존자 셋이 합류했다 — 신호탄을 보고 무리가 몰려온다!'), 3.6);
+  },
+  /** 정예 · 그것의 몫 — 아직 없는 장비, 다 있으면 정예의 짐 */
+  dropReward(z, boss) {
+    const id = Kit.nextGear();
+    const pk = new Pickup(z.x, z.y, id ? 'gear' : 'cache'); pk.gear = id; this.pickups.push(pk);
+    if (boss) this.pickups.push(new Pickup(z.x + 30, z.y + 10, 'cache'));
+    this.toast(id ? T('장비가 떨어졌다 — 금빛 기둥을 주워라') : T('정예의 짐이 떨어졌다'), 2.6);
+  },
+  onGear(pk) {
+    const x = GEAR.find(q => q.id === pk.gear);
+    if (!x || !Kit.award(x.id)) { this.onCache(pk); return; }
+    SFX.objective();
+    Rank.bonus(60, T('장비 — {n}', { n: LT(x.n) }));
+    const on = Kit.loadout().includes(x.id);
+    this.toast(T('장비 획득: {n} — {d}', { n: LT(x.n), d: LT(x.d) }) + (on ? ' · ' + T('다음 판부터 장착') : ' · ' + T('브리핑에서 장착')), 4.2);
+  },
+  onCache() {
+    const p = this.player;
+    for (const k in CARRY_CAP) p.ammo[k] = (p.ammo[k] | 0) + Math.round(CARRY_CAP[k] * 0.3);
+    p.nades += 2;
+    const left = (this.level.drops || []).filter(k => !p.owned.has(k) && WEAPONS[k] && !WEAPONS[k].special);
+    let got = '';
+    if (left.length) { const k = left[(Math.random() * left.length) | 0]; p.owned.add(k); p.equip(k); got = ' · ' + T(WEAPONS[k].name); }
+    SFX.objective();
+    this.toast(T('정예의 짐 — 탄약 · 수류탄 +2') + got, 3);
   },
 
   /* ── 연출가 ──────────────────────────────────
@@ -2106,6 +2292,7 @@ const G = {
     for (let i = R.length - 1; i >= 0; i--) if ((R[i].t += dt) >= R[i].max) R.splice(i, 1);
     if (this.beams) for (let i = this.beams.length - 1; i >= 0; i--) if ((this.beams[i].t += dt) >= this.beams[i].max) this.beams.splice(i, 1);
     if (this.shoves) for (let i = this.shoves.length - 1; i >= 0; i--) if ((this.shoves[i].t += dt) >= this.shoves[i].max) this.shoves.splice(i, 1);
+    if (this.noiseRings) for (let i = this.noiseRings.length - 1; i >= 0; i--) if ((this.noiseRings[i].t += dt) >= this.noiseRings[i].max) this.noiseRings.splice(i, 1);
     if (!w.terr) { p.terr = 0; return; }
     const fx = (e, moving, me) => {
       const tr = w.terrAt(e.x, e.y);
@@ -2413,6 +2600,7 @@ const G = {
     this.kills++;
     Codex.kill(z.type, this); Codex.see(z.type, this);
     if (!(this.challenge && this.challenge.rules && this.challenge.rules.pistolOnly)) this.dropGun(z);
+    if (!this.challenge && (z.elite || z.t.boss)) { this.dropReward(z, z.t.boss); if (z.elite) Rank.bonus(40, T('정예 처치')); }
     // 가까이서 쓰러질수록 긴장도가 오른다 (L4D: 거리에 반비례). 처치에는 짧은 정지
     const d = Math.hypot(z.x - this.player.x, z.y - this.player.y);
     this.stress(Math.max(0, 14 * (1 - d / 360)));
@@ -2518,18 +2706,27 @@ const G = {
     this.decals.push({ x, y, r: 52, a: 0.6, s: -1, rot: Math.random() * 6.283 });
   },
   spawnBlood(x, y, ang, n) {
-    // 맞은 자리의 붉은 안개 — 원작에서 총에 맞을 때마다 피어오르던 것
+    // 맞은 자리의 붉은 안개 — 원작에서 총에 맞을 때마다 피어오르던 것. 레벨이 오를수록(PK.fx) 크고 많이 튄다
+    const fx = PK.fx || 1;
+    n = Math.round(n * fx);
     for (let i = 0; i < 2; i++) {
       const a = ang + (Math.random() - 0.5) * 0.9, sp = 30 + Math.random() * 60;
       this.particles.push({ x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, life: 0.32 + Math.random() * 0.2, max: 0.5,
-        size: 6 + Math.random() * 5, col: '#9a1a12', kind: 'mist' });
+        size: (6 + Math.random() * 5) * fx, col: '#9a1a12', kind: 'mist' });
     }
     for (let i = 0; i < n; i++) {
-      const a = ang + (Math.random() - 0.5) * 2.2, sp = 40 + Math.random() * 210;
+      const a = ang + (Math.random() - 0.5) * 2.2, sp = (40 + Math.random() * 210) * (0.8 + 0.2 * fx);
       this.particles.push({ x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp,
         life: 0.25 + Math.random() * 0.35, max: 0.6, size: 1.4 + Math.random() * 2.6,
         col: '#7d1410', kind: 'blood' });
     }
+  },
+  /** 총성의 고리 — 이 소리를 들은 걷는 것이 깨어나는 거리(벽 너머는 60%). 소음기를 끼면 고리가 작아진다 */
+  noiseRing(x, y, loud) {
+    const N = this.noiseRings || (this.noiseRings = []);
+    if (N.length && this.time - N[N.length - 1].at < 0.32) return;   // 연사는 고리 하나로
+    if (N.length >= 3) N.shift();
+    N.push({ x, y, R: ZTYPES.walker.hear * (1 + loud * 1.6), t: 0, max: 0.75, at: this.time });
   },
   spawnSparks(x, y, ang) {
     for (let i = 0; i < 6; i++) {
@@ -2601,9 +2798,14 @@ const G = {
     Codex.flush();
     this.dailyResult = this.daily ? Daily.finish(this) : null;
     if (this.dailyResult && this.dailyResult.first) Rank.bonus(80, T('오늘의 도시 — 첫 출격'));
+    { const alive = (this.allies || []).filter(a => !a.dead).length; if (alive) Rank.bonus(40 * alive, T('동료 생존 {n}명', { n: alive })); }
     this.rankResult = Rank.award(this, won);
     Radio.reset();
     SFX.ambience(false);
+    if (!this.survival && !this.challenge) {
+      if (won) Kit.store(this);
+      else if (this.difficulty === 'rush') Kit.drop();      // 돌파 — 쓰러지면 들고 온 것도 모두 잃는다
+    }
     if (won) {
       SFX.win();
       if (!this.survival && this.stage === 0) this.markStage(this.levelIndex);
@@ -2685,7 +2887,7 @@ const G = {
     const limp = p.hp < 25 ? 0.8 : 1;
     // 지형 — 진흙 · 모래 더미 · 얕은 물은 발을 늦추고, 얼음판은 미끄러워 멈추려 해도 밀려간다
     const tr = w.terrAt(p.x, p.y);
-    const speed = (p.dead ? 0 : 158) * (p.sprinting ? 1.42 : p.reloading ? 0.78 : 1) * grab * limp * TERRAIN_SLOW[tr] * (p.carry ? 0.88 : 1) * (p.slowT > 0 ? 0.55 : 1) * (p.weapon.heavy || 1);
+    const speed = (p.dead ? 0 : 158) * PK.speed * (p.sprinting ? 1.42 : p.reloading ? 0.78 : 1) * grab * limp * TERRAIN_SLOW[tr] * (p.carry ? 0.88 : 1) * (p.slowT > 0 ? 0.55 : 1) * (p.weapon.heavy || 1);
     const tvx = !p.dead && (mx || my) ? mx * speed : 0, tvy = !p.dead && (mx || my) ? my * speed : 0;
     if (tr === 2) {
       const k = Math.min(1, dt * 1.6);
@@ -2750,6 +2952,8 @@ const G = {
     /* 엔티티 */
     for (const z of this.zombies) if (!z.dead) { SFX.pan(z.x - p.x); z.update(dt, this); }
     SFX.pan(0);
+    this.updateRally(dt);
+    for (const a of this.allies) a.update(dt, this);
     this.separate(dt);
     for (const b of this.bullets) b.update(dt, this);
     for (const gr of this.grenades) gr.update(dt, this);
@@ -3106,6 +3310,16 @@ function render() {
   worldTransform(ctx, cam);
 
   for (const pk of g.pickups) drawPickup(pk, g.time, cam);
+  // 초록 신호탄 — 생존자 무리가 기다리는 곳. 바닥의 고리와 위로 솟는 연기 기둥
+  if (g.rally && !g.rally.used) {
+    const q = g.world.near(g.rally.x, g.rally.y, g.player.x, g.player.y), pu = 0.5 + 0.5 * Math.sin(g.time * 3);
+    ctx.strokeStyle = `rgba(127,224,138,${0.45 + 0.3 * pu})`; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.arc(q.x, q.y, 60 + pu * 6, 0, 6.283); ctx.stroke();
+    const grd = ctx.createLinearGradient(q.x, q.y - 160, q.x, q.y);
+    grd.addColorStop(0, 'rgba(127,224,138,0)'); grd.addColorStop(1, 'rgba(127,224,138,.45)');
+    ctx.fillStyle = grd; ctx.fillRect(q.x - 6, q.y - 160, 12, 160);
+    ctx.fillStyle = '#c8ffd0'; ctx.beginPath(); ctx.arc(q.x, q.y, 4 + pu * 2, 0, 6.283); ctx.fill();
+  }
   for (const r of g.relays || []) drawRelay(r, g, cam);
   for (const o of g.twObjs || []) drawTwist(o, g, cam);
   if (g.maws && g.maws.length) drawMaws(g);
@@ -3182,6 +3396,12 @@ function render() {
     ctx.beginPath(); ctx.arc(sv.x, sv.y, R1, 0, 6.283); ctx.stroke();
     ctx.strokeStyle = `rgba(255,255,255,${0.9 * al})`; ctx.lineWidth = 4;
     ctx.beginPath(); ctx.arc(sv.x, sv.y, R1, sv.a - 0.7, sv.a + 0.7); ctx.stroke();
+  }
+  // 총성 — 소리가 닿는 거리까지 옅게 퍼지는 고리
+  if (g.noiseRings) for (const nr of g.noiseRings) {
+    const k = nr.t / nr.max, R = nr.R * (0.25 + 0.75 * Math.sqrt(k));
+    ctx.strokeStyle = `rgba(255,236,200,${0.36 * (1 - k)})`; ctx.lineWidth = 2.5;
+    ctx.beginPath(); ctx.arc(nr.x, nr.y, R, 0, 6.283); ctx.stroke();
   }
   // 물결 — 물에 들어선 발 둘레로 퍼지는 고리 (밀쳐진 감염체 발밑의 충격 고리도 같은 그림)
   if (g.ripples) {
@@ -5005,6 +5225,7 @@ function drawCity(cam, g, w) {
   // 인형을 1.3배 키운 뒤로는 한 마리가 칠하는 넓이가 1.7배라 문턱도 그만큼 낮춘다 (22 → 16)
   MODELS.lod = shown + (g.lightning > 0.1 ? g.zombies.length : 0) > 16 ? 1 : 0;
   if (!g.player.dead) put(g.player.x, g.player.y, 1, g.player, 120);
+  for (const a of g.allies || []) if (!a.dead) put(a.x, a.y, 4, a, 120);
   for (let r = y0; r <= y1; r++) {
     worldTransform(ctx, cam);
     buildingRow(w, r, x0, x1);
@@ -5016,6 +5237,7 @@ function drawCity(cam, g, w) {
       if (it.f === 0) drawZombie(it.o);
       else if (it.f === 1) drawPlayer(it.o);
       else if (it.f === 2) MODELS.prop(ctx, it.o);
+      else if (it.f === 4) { MODELS.ally(ctx, it.o); if (it.o.hp < it.o.hpMax) { const a = it.o, wv = 22, y = a.y * TILT - 44; ctx.fillStyle = 'rgba(0,0,0,.55)'; ctx.fillRect(a.x - wv / 2, y, wv, 3); ctx.fillStyle = '#7fe08a'; ctx.fillRect(a.x - wv / 2, y, wv * a.hp / a.hpMax, 3); } }
       else { const d = it.o, o = DECOR_OFF[d.wall] || DECOR_OFF.s; MODELS.decor(ctx, d, d.x + o[0], d.y + o[1]); }
     }
   }
@@ -5116,6 +5338,12 @@ function drawZombie(z) {
     const dx = p.x - z.x, dy = (p.y - z.y) * TILT, n = Math.hypot(dx, dy) || 1;
     L.x = dx / n; L.y = dy / n - 0.25; L.k = z.lit;
   } else { L.x = -0.55; L.y = -0.8; L.k = 0; }
+  if (z.elite) {                                            // 정예 — 발밑의 금빛 고리(어둠 속에서도 조금 보인다)
+    ctx.globalAlpha = Math.max(0.35, clamp(vis, 0, 1));
+    ctx.strokeStyle = `rgba(255,207,90,${0.55 + 0.25 * Math.sin(G.time * 5)})`; ctx.lineWidth = 2.5;
+    ctx.beginPath(); ctx.ellipse(z.x, z.y * TILT, z.r + 9, (z.r + 9) * TILT, 0, 0, 6.283); ctx.stroke();
+    ctx.globalAlpha = clamp(vis, 0, 1);
+  }
   MODELS.zombie(ctx, z, z.flash > 0 ? '#f4f1ea' : null);    // 맞은 순간 하얗게 번쩍인다
   L.x = -0.55; L.y = -0.8; L.k = 0;
   ctx.globalAlpha = 1;
@@ -5195,6 +5423,15 @@ function drawPickup(pk, time, cam) {
   } else if (pk.p.icon === 'nade') {
     ctx.beginPath(); ctx.arc(0, 1, 6.5, 0, 6.283); ctx.fill();
     ctx.fillRect(-1.5, -9, 3, 4);
+  } else if (pk.p.icon === 'gear' || pk.p.icon === 'cache') {
+    // 장비 · 정예의 짐 — 금빛 기둥이 솟아 멀리서도 보인다
+    const pulse = 0.5 + 0.5 * Math.sin(time * 4 + pk.bob);
+    const grd = ctx.createLinearGradient(0, -120, 0, 6);
+    grd.addColorStop(0, 'rgba(255,207,90,0)'); grd.addColorStop(1, `rgba(255,207,90,${0.28 + 0.18 * pulse})`);
+    ctx.fillStyle = grd; ctx.fillRect(-7, -120, 14, 126);
+    ctx.fillStyle = '#2a2620'; ctx.fillRect(-11, -8, 22, 15);
+    ctx.strokeStyle = '#ffcf5a'; ctx.lineWidth = 2; ctx.strokeRect(-11, -8, 22, 15);
+    ctx.fillStyle = '#ffcf5a'; ctx.fillRect(-3, -3, 6, 5);
   } else if (pk.p.icon === 'fuel') {
     // 붉은 연료통 — 손잡이와 주둥이
     ctx.fillRect(-8, -9, 16, 19);
@@ -6022,6 +6259,9 @@ const Minimap = {
     for (const r of g.relays || []) dot(r.x, r.y, r.done ? '#7fe08a' : '#f0b429', 5);
     for (const o of g.twObjs || []) if (!o.done && !o.lost && o.kind !== 'tank') dot(o.x, o.y, o.kind === 'crate' ? '#ff5a4a' : '#f0b429', 5);
     for (const pk of g.pickups) if (pk.type === 'fuel' && !pk.dead) dot(pk.x, pk.y, '#e0503a', 4);
+    for (const pk of g.pickups) if ((pk.type === 'gear' || pk.type === 'cache') && !pk.dead) dot(pk.x, pk.y, '#ffcf5a', 5);
+    if (g.rally && !g.rally.used) dot(g.rally.x, g.rally.y, '#7fe08a', 5);
+    for (const a of g.allies || []) if (!a.dead) dot(a.x, a.y, '#9fe0a8', 3);
     if ((g.exitOpen || ob.type === 'finale') && ob.type !== 'endless') dot(g.world.exit.x, g.world.exit.y, '#78dcff', 6);
     // 플레이어 — 바라보는 쪽을 가리키는 삼각형
     c.translate(S / 2, S / 2); c.rotate(p.angle);
@@ -6127,6 +6367,15 @@ G.refreshHud = function (force) {
   $('valHealth').textContent = Math.ceil(p.hp);
   $('valBattery').textContent = Math.ceil(p.battery);
   $('gaugeStam').style.width = (p.stam / p.stamMax * 100) + '%';
+  // 동료 — 이름과 체력 막대. 쓰러지면 회색으로 남는다
+  { const sq = $('hudSquad'), A = G.allies || [];
+    if (sq) {
+      sq.classList.toggle('hidden', !A.length);
+      if (A.length) {
+        if (sq.childElementCount !== A.length) sq.innerHTML = A.map(a => `<div class="squad__m"><span>${a.name}</span><i><b></b></i></div>`).join('');
+        A.forEach((a, k) => { const m = sq.children[k]; m.classList.toggle('dead', a.dead); m.querySelector('b').style.width = (a.hp / a.hpMax * 100) + '%'; });
+      }
+    } }
   document.querySelector('.gauge--health').classList.toggle('low', p.hp < 30);
   document.querySelector('.gauge--battery').classList.toggle('charging', !!p.charging);
   document.querySelector('.gauge--stam').classList.toggle('low', p.winded);
@@ -6136,15 +6385,15 @@ G.refreshHud = function (force) {
   // 원작 HUD 처럼 총 그림자와 탄창의 남은 알을 눈금으로
   const icon = $('hudGunIcon');
   if (icon.dataset.k !== wp.key) { icon.dataset.k = wp.key; icon.setAttribute('viewBox', '0 0 84 34'); icon.innerHTML = (ARM_ICON[wp.key] || '').replace(/^<svg[^>]*>|<\/svg>$/g, ''); }   // 무기 고르기 창과 같은 그림
-  const pipW = Math.min(4, 120 / wp.mag);
+  const pipW = Math.min(4, 120 / magCap(wp));
   const pips = $('hudPips');
-  pips.parentNode.style.width = (wp.mag * pipW) + 'px';
+  pips.parentNode.style.width = (magCap(wp) * pipW) + 'px';
   pips.style.width = (inMag * pipW) + 'px';
   pips.parentNode.style.setProperty('--pip', pipW + 'px');
   $('hudReserve').textContent = spare === Infinity ? '/ ∞' : '/ ' + spare;
   $('hudWeapon').textContent = p.reloading ? T('장전 중') : T(wp.name);
   const gun = document.querySelector('.ammo__gun');
-  gun.classList.toggle('dry', inMag <= Math.max(1, wp.mag * 0.2));
+  gun.classList.toggle('dry', inMag <= Math.max(1, magCap(wp) * 0.2));
   gun.classList.toggle('reloading', p.reloading);
   $('hudReloadBar').style.width = (p.reloadProgress * 100) + '%';
   $('hudNades').textContent = p.nades;
@@ -6439,8 +6688,10 @@ const UI = {
     const st = (() => { try { return JSON.parse(localStorage.getItem('aftermath.stats') || '{}') || {}; } catch (e) { return {}; } })();
     const h = Math.floor((R.life.time | 0) / 3600), m = Math.floor((R.life.time | 0) % 3600 / 60), d = Daily.rec();
     const rows = [[T('출격'), T('{n}회', { n: R.life.runs | 0 })], [T('플레이 시간'), h ? T('{h}시간 {m}분', { h, m }) : T('{m}분', { m })],
-      [T('누적 처치'), (st.kills | 0).toLocaleString()], [T('도감'), `${Codex.count()}/${STORY.codex.length}`], [T('연속 출격'), T('{n}일', { n: d.streak | 0 })]];
+      [T('누적 처치'), (st.kills | 0).toLocaleString()], [T('도감'), `${Codex.count()}/${STORY.codex.length}`], [T('연속 출격'), T('{n}일', { n: d.streak | 0 })],
+      [T('총구 불꽃 · 타격 효과'), `×${(1 + (L.lv - 1) / (Rank.MAX - 1) * 0.7).toFixed(2)}`]];
     $('lifeStats').innerHTML = rows.map(r => `<div><dt>${r[0]}</dt><dd>${r[1]}</dd></div>`).join('');
+    this.gearList();
     this.show('scrRank');
   },
   /** 아직 못 본 개체 — 같은 문장 열네 줄 대신 어디서 처음 마주치는지 알려 준다 */
@@ -6546,9 +6797,48 @@ const UI = {
     const pool = (L.drops || []).filter(k => !startKit(L, SETTINGS.difficulty).includes(k)).map(k => T(WEAPONS[k].name)).join(' · ');
     $('briefGoals').innerHTML = L.goals.map(g => `<li>${T(g)}</li>`).join('') +
       (L.twist && L.twist.brief ? `<li class="brief__twist">${T(L.twist.brief)}</li>` : '') +
-      `<li class="brief__kit">${T('시작 무기: {k}', { k: kit })}${pool ? ' — ' + T('{p}은(는) 감염체가 떨어뜨린다', { p: pool }) : ''}</li>`;
+      `<li class="brief__kit">${T('시작 무기: {k}', { k: kit })}${pool ? ' — ' + T('{p}은(는) 감염체가 떨어뜨린다', { p: pool }) : ''}</li>` +
+      `<li class="brief__side">${T('곁가지 — 초록 신호탄: 생존자 셋이 합류하지만, 그만큼 무리가 몰려온다')}</li>`;
+    this.briefKit(i, st);
     drawBriefMap(L);
     this.show('scrBrief');
+  },
+  /** 돌파 난이도 — 시작 전에 '부활 없음'을 알리고 확인을 받는다 */
+  rushGate(go) {
+    if (SETTINGS.difficulty !== 'rush') { go(); return; }
+    this.rushNext = go; $('rushAsk').classList.remove('hidden');
+    const b = $('rushAsk').querySelector('[data-act=rushyes]'); if (b) b.focus();
+  },
+  /** 브리핑의 소지품 · 장비 — 들고 갈 총(배낭 셋)과 낄 장비(두 칸)를 여기서 고른다 */
+  briefKit(i, st) {
+    const box = $('briefKit'); if (!box) return;
+    const c = Kit.carryFor(i, st), own = Kit.owned(), load = Kit.loadout();
+    let h = '';
+    if (c && c.guns.length) {
+      const am = [['smg', 'SMG'], ['shell', T('산탄')], ['rifle', T('소총탄')], ['bolt', T('화살')]].filter(([k]) => c.ammo[k] > 0).map(([k, n]) => `${n} ${c.ammo[k]}`).join(' · ');
+      h += `<div class="kitrow"><b>${T('가져온 소지품')} <small>${T('배낭 {n}칸', { n: Kit.BAG })}</small></b><div class="chips">` +
+        c.guns.map(k => `<button type="button" class="chip${c.pick.includes(k) ? ' chip--on' : ''}" data-act="bag" data-id="${k}">${T(WEAPONS[k].name)}</button>`).join('') +
+        `</div><small class="kitnote">${am}${c.nades ? ' · ' + T('수류탄 {n}', { n: c.nades }) : ''}</small></div>`;
+    } else if (c) {
+      const am = ['smg', 'shell', 'rifle', 'bolt'].reduce((a, k) => a + (c.ammo[k] | 0), 0);
+      if (am || c.nades) h += `<div class="kitrow"><b>${T('가져온 소지품')}</b><small class="kitnote">${T('탄약 · 수류탄을 이어 받는다')}</small></div>`;
+    }
+    h += `<div class="kitrow"><b>${T('장비')} <small>${load.length}/${Kit.SLOTS}</small></b>` + (own.length
+      ? `<div class="chips">${own.map(x => `<button type="button" class="chip${load.includes(x.id) ? ' chip--on' : ''}" data-act="gear" data-id="${x.id}" title="${LT(x.d)}">${LT(x.n)}</button>`).join('')}</div>` +
+        (load.length ? `<small class="kitnote">${load.map(id => LT(GEAR.find(x => x.id === id).d)).join(' / ')}</small>` : '')
+      : `<small class="kitnote">${T('정예 감염체를 쓰러뜨리면 장비를 얻는다')}</small>`) + `</div>`;
+    box.innerHTML = h;
+  },
+  /** 생존자 화면의 장비 목록 — 얻은 것은 눌러 끼고 빼고, 못 얻은 것은 자물쇠 */
+  gearList() {
+    const el = $('gearList'); if (!el) return;
+    const load = Kit.loadout();
+    $('gearCount').textContent = `${Kit.owned().length}/${GEAR.length}`;
+    el.innerHTML = GEAR.map(x => {
+      const has = Kit.has(x.id), on = load.includes(x.id);
+      return `<button type="button" class="gearc${has ? '' : ' gearc--lock'}${on ? ' gearc--on' : ''}" data-act="gear" data-id="${x.id}"${has ? '' : ' disabled'}>` +
+        `<b>${has ? LT(x.n) : '???'}</b><span>${has ? LT(x.d) : T('정예가 떨어뜨린다')}</span><i>${on ? T('장착') : has ? T('보관') : ''}</i></button>`;
+    }).join('');
   },
   /** 일시정지 중 현재 판의 전황 — 멈춘 김에 상황을 보라고 */
   showPause() {
@@ -6781,10 +7071,10 @@ document.addEventListener('click', e => {
     case 'rank':    UI.showRank(); break;
     case 'perk':    if (Rank.buy(btn.dataset.id)) { SFX.objective(); UI.showRank(); } else SFX.dry(); break;
     case 'perkreset': Rank.reset(); SFX.click(); UI.showRank(); break;
-    case 'daily':   G.dailyNext = Daily.info(); G.start('survival'); break;
+    case 'daily':   UI.rushGate(() => { G.dailyNext = Daily.info(); G.start('survival'); }); break;
     case 'chapters': UI.buildChapters(); UI.show('scrChapters'); break;
     case 'survival': if (G.survivalOpen()) UI.showCities(); break;
-    case 'survcity': G.survivalCity = btn.dataset.city; G.start('survival'); break;
+    case 'survcity': G.survivalCity = btn.dataset.city; UI.rushGate(() => G.start('survival')); break;
     // 조작법·설정은 일시정지에서도 열리므로 돌아갈 화면을 기억해 둔다
     case 'howto':
     case 'keys':
@@ -6827,14 +7117,18 @@ document.addEventListener('click', e => {
     }
     case 'wipe':
       if (confirm(T('챕터 진행 · 평가 · 서바이벌 기록 · 레벨과 특성 · 도감을 지웁니다. 설정과 키 설정은 남습니다. 계속할까요?'))) {
-        for (const k of ['aftermath.layout', 'aftermath.progress', 'aftermath.grades', 'aftermath.best', 'aftermath.hints', 'aftermath.errors', 'aftermath.records', 'aftermath.cityBest', 'aftermath.prologue', 'aftermath.ach', 'aftermath.stats', 'aftermath.chal', 'aftermath.codex', 'aftermath.stages', 'aftermath.rank']) try { localStorage.removeItem(k); } catch (e) { /* 무시 */ }
+        for (const k of ['aftermath.layout', 'aftermath.progress', 'aftermath.grades', 'aftermath.best', 'aftermath.hints', 'aftermath.errors', 'aftermath.records', 'aftermath.cityBest', 'aftermath.prologue', 'aftermath.ach', 'aftermath.stats', 'aftermath.chal', 'aftermath.codex', 'aftermath.stages', 'aftermath.rank', 'aftermath.kit']) try { localStorage.removeItem(k); } catch (e) { /* 무시 */ }
         // 레벨 · 특성 · 도감은 메모리에도 들고 있다 — 그대로 두면 다음 저장 때 지운 기록이 되살아난다. 새로 읽어 들인다
-        Rank.cache = null; Codex.cache = null;
+        Rank.cache = null; Codex.cache = null; Kit.cache = null;
         $('aboutMsg').textContent = T('진행 기록을 지웠습니다');
         setTimeout(() => location.reload(), 700);
       }
       break;
-    case 'start':    G.start(G.pendingLevel, null, G.pendingStage); break;
+    case 'start':    UI.rushGate(() => G.start(G.pendingLevel, null, G.pendingStage)); break;
+    case 'rushyes':  $('rushAsk').classList.add('hidden'); { const f = UI.rushNext; UI.rushNext = null; if (f) f(); } break;
+    case 'rushno':   $('rushAsk').classList.add('hidden'); UI.rushNext = null; break;
+    case 'bag':      if (Kit.togglePick(btn.dataset.id)) UI.briefKit(G.pendingLevel, G.pendingStage); break;
+    case 'gear':     if (Kit.toggle(btn.dataset.id)) { if (!$('scrBrief').classList.contains('hidden')) UI.briefKit(G.pendingLevel, G.pendingStage); else UI.gearList(); } break;
     case 'resume':   G.togglePause(); break;
     case 'homeno':   Modal.homeAnswer(false); break;
     case 'homeyes':  Modal.homeAnswer(true); break;

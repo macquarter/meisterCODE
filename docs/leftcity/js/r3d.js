@@ -1725,7 +1725,7 @@ function makeSign(sg) {
 
 /* ═══════════ 장면 · 빛 · 카메라 ═══════════ */
 const dyn = { props: new Map(), decor: new Map(), signs: new Map(), humans: new Map(), corpses: new Map(), pickups: new Map(), relays: new Map(), tw: new Map() };
-let pHalo = null, sparkGeo, sparks, player3 = null, splatMesh, dotMesh, particles, partGeo, tracerGeo, tracers, rain, rainGeo, exitRing, exitBeam, nadeMeshes = [];
+let pHalo = null, NOISE3 = null, ELITE3 = null, sparkGeo, sparks, player3 = null, splatMesh, dotMesh, particles, partGeo, tracerGeo, tracers, rain, rainGeo, exitRing, exitBeam, nadeMeshes = [];
 const MAXP = 600, MAXDEC = 450, RAIN_N = 1400;
 
 /* ═══════════ 후처리 · 빛줄기 ═══════════
@@ -2060,8 +2060,30 @@ function updateHazards(g, near) {
     if (!sv) return;
     const k = sv.t / sv.max, R = 22 + k * 46;
     m.position.set(sv.x, 6 + (1 - k) * 10, sv.y); m.rotation.set(0, -sv.a, 0); m.scale.set(R, 1, R);
-    m.material.opacity = (sv.hits ? 0.95 : 0.55) * (1 - k);
+    m.material.opacity = Math.min(1, (sv.hits ? 0.95 : 0.55) * (1 - k) * (PK.fx || 1));
   });
+  /* 총성 고리 — 소리가 닿는 거리. 소음기를 끼면 작다 */
+  if (!NOISE3) { NOISE3 = []; const geo = new THREE.RingGeometry(0.985, 1, 96).rotateX(-Math.PI / 2); for (let i = 0; i < 3; i++) { const m = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: 0xffecc8, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide })); m.visible = false; m.frustumCulled = false; scene.add(m); NOISE3.push(m); } }
+  NOISE3.forEach((m, i) => {
+    const nr = (g.noiseRings || [])[i];
+    m.visible = !!nr;
+    if (!nr) return;
+    const k = nr.t / nr.max, R = nr.R * (0.25 + 0.75 * Math.sqrt(k));
+    m.position.set(nr.x, 3.5, nr.y); m.scale.set(R, 1, R);
+    m.material.opacity = 0.5 * (1 - k);
+  });
+  /* 정예 — 발밑의 금빛 고리가 숨 쉬듯 뛴다 */
+  if (!ELITE3) { ELITE3 = []; const geo = new THREE.RingGeometry(0.78, 1, 48).rotateX(-Math.PI / 2); for (let i = 0; i < 3; i++) { const m = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: 0xffcf5a, transparent: true, opacity: 0.7, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide })); m.visible = false; m.frustumCulled = false; scene.add(m); ELITE3.push(m); } }
+  { let ne = 0;
+    for (const z of g.zombies) {
+      if (!z.elite || z.dead || ne >= ELITE3.length || !near(z.x, z.y, 900)) continue;
+      const m = ELITE3[ne++], R = (z.r + 10) * (1 + 0.06 * Math.sin(g.time * 5));
+      m.visible = true; m.position.set(z.x, 3.8 + groundY(g.world, z.x, z.y, z.terr), z.y); m.scale.set(R, 1, R);
+      m.material.opacity = 0.55 + 0.25 * Math.sin(g.time * 5);
+      pushLight(z.x, 20, z.y, 70, tmpC.set(0xffb030), 0.5);
+    }
+    for (let i = ne; i < ELITE3.length; i++) ELITE3[i].visible = false;
+  }
   for (const k in HZ) { HZ[k].instanceMatrix.needsUpdate = true; if (HZ[k].instanceColor) HZ[k].instanceColor.needsUpdate = true; }
   updateRelays(g, near);
   updateTwist(g, near);
@@ -3219,6 +3241,70 @@ function reachArm(up, lo, hand, out, w = 1) {
   aimBone(lo, gTmp.copy(hand).sub(gE), w);
   return L;
 }
+/* ── 동료 (rc.31) — 플레이어와 같은 몸에 저마다 다른 옷 · 총 한 자루. 다리는 움직이는 쪽으로, 상체는 겨눈 쪽으로 ── */
+const ALLY3 = new Map(), aF = new THREE.Vector3(), aL = new THREE.Vector3(), aC = new THREE.Vector3(), aR = new THREE.Vector3(),
+  aG = new THREE.Vector3(), aFo = new THREE.Vector3(), aH = new THREE.Vector3();
+function updateAllies3(g, dt, rigs) {
+  const seen = new Set();
+  for (const a of g.allies || []) {
+    if (a.dead) continue;
+    seen.add(a);
+    let h = ALLY3.get(a);
+    if (h && !h.userData.rig && rigs) { removeHuman(h); if (h.userData.gun) scene.remove(h.userData.gun); ALLY3.delete(a); h = null; }
+    if (!h) {
+      const k = a.kit, look = { skin: k.skin, top: k.top, sleeve: k.top, pants: k.pants, shoes: '#141414', hair: k.hair, clean: true, rim: '0.04, 0.09, 0.05' };
+      if (rigs) { h = makeRig('xbot', { look }); h.scale.setScalar(1.02 * CHAR_S); }
+      else { h = makeHuman(look); h.scale.setScalar(1.25 * CHAR_S); }
+      const len = a.wpn === 'rifle' ? 24 : a.wpn === 'shotgun' ? 20 : 16;
+      const gun = new THREE.Group(); gun.add(part(GEO.box, mat('#15181c', { roughness: 0.5, metalness: 0.5 }), len / 2, 0, 0, len, 2.6, 2.2));
+      gun.userData.len = len; h.userData.gun = gun; scene.add(gun);
+      ALLY3.set(a, h); scene.add(h);
+    }
+    h.position.set(a.x, groundY(g.world, a.x, a.y, 0), a.y);
+    if (h.userData.rig) poseAllyRig(h, a, dt);
+    else { h.rotation.y = -a.angle; poseHuman(h, { ph: a.walkPhase, amp: a.stride || 0, lean: 1.2, arms: 'gun', melee: 0 }); h.userData.gun.visible = false; }
+    if (a.muzzle > 0) pushLight(a.x + Math.cos(a.angle) * 30, 26, a.y + Math.sin(a.angle) * 30, 140, tmpC.set(0xffc880), 2.2);
+  }
+  for (const [a, h] of ALLY3) if (!seen.has(a)) { removeHuman(h); if (h.userData.gun) scene.remove(h.userData.gun); ALLY3.delete(a); }
+}
+function poseAllyRig(h, a, dt) {
+  const u = h.userData, B = u.bones;
+  trackMotion(u, a.x, a.y, undefined, dt);
+  const sp = u.spd, aim = a.angle;
+  if (u.root === undefined) u.root = aim;
+  let back = false;
+  if (sp > 12) {
+    const m = Math.atan2(u.vy, u.vx);
+    back = Math.abs(wrapA(aim - m)) > 1.95;
+    const base = back ? m + Math.PI : m;
+    u.root = turnToward(u.root, base + Math.max(-0.12, Math.min(0.12, wrapA(aim - base))), 11 * dt);
+    u.turning = false;
+  } else {
+    const off = wrapA(aim - u.root);
+    if (Math.abs(off) > 0.7 || u.turning) { u.turning = Math.abs(off) > 0.08; u.root = turnToward(u.root, aim, 7 * dt); }
+  }
+  h.rotation.y = -u.root;
+  let [clip, ts] = gaitFor(u, sp, h.scale.x, true);
+  if (clip === 'run') ts = Math.min(2.5, sp / (NAT_SPEED.xbot.run * h.scale.x));
+  if (u.turning && clip === 'idle') { clip = 'walk'; ts = 0.55; }
+  blendRig(h, clip, 12, dt, back ? -ts : ts);
+  h.updateMatrixWorld(true);
+  const twist = wrapA(aim - u.root);
+  if (Math.abs(twist) > 0.002) { for (const b of [B.Spine, B.Spine1, B.Spine2]) tiltBone(b, YAX, -twist / 3); h.updateMatrixWorld(true); }
+  const S = h.scale.x;
+  aF.set(Math.cos(aim), 0, Math.sin(aim)); aL.set(aF.z, 0, -aF.x);
+  if (B.Spine2) B.Spine2.getWorldPosition(aC); else aC.set(a.x, 36 * S, a.y);
+  aR.copy(aL).multiplyScalar(-1);
+  aG.copy(aC).addScaledVector(aF, 7 * S).addScaledVector(aR, 3.5 * S).addScaledVector(YAX, -4.5 * S);
+  aFo.copy(aG).addScaledVector(aF, 11 * S).addScaledVector(aR, -2 * S).addScaledVector(YAX, 0.5 * S);
+  reachArm(B.RightArm, B.RightForeArm, aG, aR, 0.97);
+  reachArm(B.LeftArm, B.LeftForeArm, aFo, aL, 0.97);
+  const gun = u.gun;
+  if (gun) {
+    if (B.RightHand) B.RightHand.getWorldPosition(aH); else aH.copy(aG);
+    gun.position.copy(aH).addScaledVector(YAX, 0.6 * S); gun.rotation.set(0, -aim, 0); gun.scale.setScalar(S); gun.visible = h.visible;
+  }
+}
 function posePlayerRig(h, p, g, dt) {
   const u = h.userData, B = u.bones;
   /* 하체와 상체를 나눈다 — 다리는 실제로 움직이는 쪽으로 걷고(뒤로 물러서면 뒷걸음), 상체가 비틀려 손전등 쪽을 겨눈다.
@@ -3316,6 +3402,7 @@ const DEATH_POSES = [
 function makeCorpseRig(c) {
   let h;
   if (c.type === 'player') h = makeRig('xbot', { look: { skin: '#9a7a64', top: '#23303c', sleeve: '#23303c', pants: '#2a3442', hair: '#141210' } });
+  else if (c.type === 'ally') h = makeRig('xbot', { look: { skin: c.skin, top: c.top, sleeve: c.top, pants: c.pants, hair: c.hair || '#141210', clean: true } });
   else if (c.hazmat) h = makeRig('soldier', { tex: 'hazmat' });
   else h = makeRig('xbot', { look: { skin: '#6a7262', top: c.top || '#5a5a50', pants: c.pants || '#2d3440', sleeve: c.top || '#5a5a50' } });
   const u = h.userData;
@@ -3477,6 +3564,7 @@ function updateHumans(g, p) {
   pHalo.visible = !p.dead;
   pHalo.position.set(p.x, groundY(g.world, p.x, p.y, p.terr) + 1.2, p.y); pHalo.scale.setScalar(50);
   pHalo.material.uniforms.uA.value = 0.12 + (p.hp < 30 ? 0.2 * (0.5 + 0.5 * Math.sin(g.time * 7)) : 0);   // 체력이 바닥이면 고리가 숨 쉬듯 뛴다
+  updateAllies3(g, dt, rigs);
   // 플레이어
   if (!player3 && rigs) { player3 = makePlayerRig(); player3.scale.setScalar(1.06 * CHAR_S); scene.add(player3); }
   if (player3 && player3.userData.rig) {
@@ -3583,7 +3671,7 @@ function updateCorpses(g, near) {
     seen.add(c);
     let o = dyn.corpses.get(c);
     if (!o) {
-      const look = c.type === 'player' ? { top: '#2f3a44', pants: '#262b31', skin: '#a8866e' } :
+      const look = c.type === 'player' ? { top: '#2f3a44', pants: '#262b31', skin: '#a8866e' } : c.type === 'ally' ? { top: c.top, pants: c.pants, skin: c.skin } :
         { top: c.hazmat ? '#d9d7cc' : c.top || '#5a5a50', pants: c.hazmat ? '#cfcdc2' : c.pants || '#2d3440', skin: '#8a8f7c', gore: true };
       if (CHAR.ready) {
         const t0 = performance.now(); o = makeCorpseRig(c); prof('corpse', t0);
@@ -3681,7 +3769,7 @@ function updateParticles(g) {
 }
 
 const LT_PICK = [];
-const PICK_COL = { bolts: '#c8a878', fuel: '#d0402e', ammo: '#e8c04a', shells: '#d0503a', rounds: '#c08a3a', medkit: '#e8e8e0', battery: '#5ab0e8', nade: '#6a8a3a', goal: '#59b7d8', note: '#f0ece0' };
+const PICK_COL = { bolts: '#c8a878', fuel: '#d0402e', ammo: '#e8c04a', shells: '#d0503a', rounds: '#c08a3a', medkit: '#e8e8e0', battery: '#5ab0e8', nade: '#6a8a3a', goal: '#59b7d8', note: '#f0ece0', gear: '#ffcf5a', cache: '#ffcf5a' };
 function updatePickups(g, near) {
   const seen = new Set();
   for (const pk of g.pickups) {
@@ -3697,6 +3785,17 @@ function updatePickups(g, near) {
         const src = pGun && pGun.userData.guns[pk.type.slice(4)];
         if (src) { const gm = src.clone(); gm.visible = true; gm.position.set(0, 9, 0); gm.scale.setScalar(1.25); const w = new THREE.Group(); w.add(gm); gm.position.x = -(src.userData.len || 20) * 0.6; o.add(w); }
         else { o.add(part(GEO.box, mat('#20242a', { emissive: col('#f0b429'), emissiveIntensity: 0.6 }), 0, 6, 0, 22, 3, 4)); o.userData.fb = true; }
+        if (!LT_PICK.includes(pk)) LT_PICK.push(pk);
+      }
+      else if (pk.type === 'gear' || pk.type === 'cache') {
+        // 장비 · 정예의 짐 — 금빛 테를 두른 검은 상자와 하늘로 솟는 빛기둥
+        const crate = new THREE.Group();
+        crate.add(part(GEO.box, mat('#22201c', { roughness: 0.5, metalness: 0.4 }), 0, 6, 0, 16, 10, 11));
+        crate.add(part(GEO.box, mat(c, { emissive: col(c), emissiveIntensity: 1.1 }), 0, 11.3, 0, 16.6, 0.8, 11.6));
+        crate.add(part(GEO.box, mat(c, { emissive: col(c), emissiveIntensity: 1.1 }), 0, 6, 5.7, 4, 4, 0.6));
+        o.add(crate);
+        const pillar = new THREE.Mesh(GEO.cyl, new THREE.MeshBasicMaterial({ color: col(c), transparent: true, opacity: 0.22, depthWrite: false, blending: THREE.AdditiveBlending }));
+        pillar.scale.set(5, 220, 5); pillar.position.y = 110; o.add(pillar);
         if (!LT_PICK.includes(pk)) LT_PICK.push(pk);
       }
       else if (pk.type === 'goal') o.add(part(GEO.box, mat(c, { emissive: col(c), emissiveIntensity: 0.9 }), 0, 7, 0, 12, 10, 12));
@@ -3722,7 +3821,25 @@ function updatePickups(g, near) {
   for (let i = LT_PICK.length - 1; i >= 0; i--) { const pk = LT_PICK[i]; if (pk.dead || !seen.has(pk)) { LT_PICK.splice(i, 1); continue; } pushLight(pk.x, 14, pk.y, 90, tmpC.set(0xf0b429), 1.1 + Math.sin(g.time * 4) * 0.3); }
 }
 
+let RALLY3 = null;
 function updateMisc(g, p, w) {
+  // 초록 신호탄 — 생존자 무리가 기다리는 곳(rc.31)
+  if (!RALLY3) {
+    RALLY3 = new THREE.Group();
+    const ring = new THREE.Mesh(new THREE.RingGeometry(0.9, 1, 48).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0x7fe08a, transparent: true, opacity: 0.6, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide }));
+    ring.scale.set(60, 1, 60); ring.position.y = 3.6; RALLY3.add(ring);
+    const pillar = new THREE.Mesh(GEO.cyl, new THREE.MeshBasicMaterial({ color: 0x7fe08a, transparent: true, opacity: 0.2, depthWrite: false, blending: THREE.AdditiveBlending }));
+    pillar.scale.set(7, 260, 7); pillar.position.y = 130; RALLY3.add(pillar);
+    const core = part(GEO.eye, new THREE.MeshStandardMaterial({ color: 0x000000, emissive: 0xc8ffd0, emissiveIntensity: 4 }), 0, 6, 0, 4, 4, 4); RALLY3.add(core);
+    scene.add(RALLY3);
+  }
+  RALLY3.visible = !!(g.rally && !g.rally.used);
+  if (RALLY3.visible) {
+    const q = w.near(g.rally.x, g.rally.y, p.x, p.y), pu = 0.5 + 0.5 * Math.sin(g.time * 3);
+    RALLY3.position.set(q.x, groundY(w, q.x, q.y, 0), q.y);
+    RALLY3.children[0].material.opacity = 0.4 + 0.35 * pu; RALLY3.children[0].scale.set(60 + pu * 6, 1, 60 + pu * 6);
+    pushLight(q.x, 30, q.y, 220, tmpC.set(0x6ae07a), 1.4 + pu * 0.8);
+  }
   const open = g.exitOpen && g.level.objective.type !== 'endless';
   exitRing.visible = exitBeam.visible = open;
 
@@ -3768,12 +3885,13 @@ function updateLights(g, p, w) {
   const haveGun = pGun && pGun.visible;
   if (haveGun) muzzle.position.copy(muzzleP).addScaledVector(XAXIS.clone().set(ca, 0, sa), 4); else muzzle.position.set(p.x + ca * 44, 26, p.y + sa * 44);
   R3D._fill.position.set(p.x - ca * 20, 70, p.y - sa * 20 + 30);
-  muzzle.intensity = p.muzzle > 0 ? 5 : 0;
+  const FX = PK.fx || 1;                                            // 레벨이 오를수록 총구 불꽃이 크다
+  muzzle.intensity = p.muzzle > 0 ? 5 * (0.8 + 0.2 * FX) : 0;
   R3D._flash.visible = p.muzzle > 0 && !p.dead;
   R3D._flashCore.visible = R3D._flash.visible;
   if (R3D._flash.visible) {
     if (haveGun) R3D._flash.position.copy(muzzleP).add(gTmp.set(ca * 5, 0, sa * 5)); else R3D._flash.position.set(p.x + ca * 34, 30, p.y + sa * 34);
-    const k = 0.7 + Math.random() * 0.5; R3D._flash.scale.set(24 * k, 24 * k, 1);
+    const k = (0.7 + Math.random() * 0.5) * FX; R3D._flash.scale.set(24 * k, 24 * k, 1);
     R3D._flash.material.rotation = Math.random() * 6.28;
     R3D._flashCore.position.copy(R3D._flash.position); R3D._flashCore.scale.set(8 * k, 8 * k, 1);
   }

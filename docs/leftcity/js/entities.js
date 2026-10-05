@@ -5,27 +5,27 @@
 const WEAPONS = {
   pistol:  { key: 'pistol',  name: '권총', slot: 1, rate: 0.40, dmg: 21, spread: 0.028,
              range: 540, speed: 1300, pellets: 1, ammoKey: null,   kick: 1.8, sfx: 'pistol', knock: 7,
-             mag: 12, reload: 1.05 },
+             mag: 12, reload: 1.05, loud: 0.8 },
   smg:     { key: 'smg',     name: 'SMG',  slot: 2, rate: 0.085, dmg: 17, spread: 0.075,
              range: 620, speed: 1500, pellets: 1, ammoKey: 'smg',  kick: 2.2, sfx: 'shot', knock: 5,
-             mag: 30, reload: 1.75 },
+             mag: 30, reload: 1.75, loud: 0.9 },
   shotgun: { key: 'shotgun', name: '샷건', slot: 3, rate: 0.74, dmg: 15, spread: 0.20,
              range: 430, speed: 1200, pellets: 8, ammoKey: 'shell', kick: 8, sfx: 'shotgun', knock: 11,
-             mag: 6,  reload: 2.15 },
+             mag: 6,  reload: 2.15, loud: 1.25 },
   // 소총 — 원작의 네 번째 무기. 느리지만 한 발이 줄 선 감염체 여럿을 꿰뚫는다
   rifle:   { key: 'rifle',   name: '소총', slot: 4, rate: 0.82, dmg: 92, spread: 0.004,
              range: 900, speed: 2300, pellets: 1, ammoKey: 'rifle', kick: 5.5, sfx: 'rifle', knock: 22,
-             mag: 5,  reload: 2.35, pierce: 3 },
+             mag: 5,  reload: 2.35, pierce: 3, loud: 1.15 },
   // ── 늘어난 무기 칸 — 감염체가 떨어뜨리거나 보급 상자에서 나온다. 탄은 기존 탄을 나눠 쓴다(석궁만 화살) ──
   magnum:  { key: 'magnum',  name: '매그넘', slot: 5, rate: 0.55, dmg: 74, spread: 0.012,
              range: 720, speed: 1900, pellets: 1, ammoKey: 'rifle', kick: 4.6, sfx: 'magnum', knock: 16,
-             mag: 6,  reload: 1.9, pierce: 1, pick: 12, ap: true },   // ap — 진압 방패를 뚫는다
+             mag: 6,  reload: 1.9, pierce: 1, pick: 12, ap: true, loud: 1.35 },   // ap — 진압 방패를 뚫는다
   auto:    { key: 'auto',    name: '자동 샷건', slot: 6, rate: 0.27, dmg: 13, spread: 0.22,
              range: 400, speed: 1200, pellets: 7, ammoKey: 'shell', kick: 6.5, sfx: 'shotgun', knock: 9,
-             mag: 10, reload: 2.8, pick: 16 },
+             mag: 10, reload: 2.8, pick: 16, loud: 1.25 },
   lmg:     { key: 'lmg',     name: '경기관총', slot: 7, rate: 0.07, dmg: 19, spread: 0.09,
              range: 680, speed: 1600, pellets: 1, ammoKey: 'smg', kick: 2.6, sfx: 'shot', knock: 6,
-             mag: 75, reload: 3.6, pierce: 1, heavy: 0.86, pick: 110, ap: true },
+             mag: 75, reload: 3.6, pierce: 1, heavy: 0.86, pick: 110, ap: true, loud: 1.05 },
   // 석궁 — 소리가 거의 없어 무리를 깨우지 않는다. 한 발에 여럿을 꿰뚫는다
   crossbow:{ key: 'crossbow', name: '석궁', slot: 8, rate: 0.9, dmg: 130, spread: 0.003,
              range: 820, speed: 1350, pellets: 1, ammoKey: 'bolt', kick: 1.4, sfx: 'bow', knock: 14,
@@ -48,7 +48,10 @@ const SLOT_ORDER = ['pistol', 'smg', 'shotgun', 'rifle', 'magnum', 'auto', 'lmg'
 /** 특전 무기 — 화성에서 열리는 차례와 시각(초) */
 const SPECIAL_UNLOCKS = [['flamer', 180], ['launcher', 300], ['rail', 600], ['minigun', 1200]];
 /** 생존자 특성 · 도감 금메달 · 오늘의 도시 변수 — game.js 의 Rank.apply 가 판마다 채운다(도전은 늘 기본값) */
-const PK = { hp: 1, reload: 1, drain: 1, charge: 1, shove: 0, shoveCd: 1, stam: 1, ammo: 1, nade: 0, med: 1, spread: 1, gold: {} };
+const PK = { hp: 1, reload: 1, drain: 1, charge: 1, shove: 0, shoveCd: 1, stam: 1, ammo: 1, nade: 0, med: 1, spread: 1, gold: {},
+  noise: 1, step: 1, mag: 1, armor: 1, lamp: 1, speed: 1, dmg: 1, stamUse: 1, fx: 1 };   // 아래 줄은 장비(rc.31) · fx 는 레벨에 따라 커지는 효과
+/** 탄창 크기 — 확장 탄창 장비가 늘린다(특전 무기 · 한 발짜리 석궁은 그대로) */
+function magCap(w) { return w.special || w.mag <= 1 ? w.mag : Math.round(w.mag * PK.mag); }
 
 const ZTYPES = {
   walker: { hp: 62,  speed: 47,  dmg: 17, r: 13, size: 12, hear: 330, score: 10,
@@ -114,8 +117,8 @@ class Player {
     for (const k of SLOT_ORDER) {
       const w = WEAPONS[k];
       if (!this.owned.has(k)) { this.mag[k] = 0; continue; }
-      if (!w.ammoKey) { this.mag[k] = w.mag; continue; }
-      const take = Math.min(w.mag, this.ammo[w.ammoKey]);
+      if (!w.ammoKey) { this.mag[k] = magCap(w); continue; }
+      const take = Math.min(magCap(w), this.ammo[w.ammoKey]);
       this.mag[k] = take; this.ammo[w.ammoKey] -= take;
     }
     this.reloadT = 0; this.reloadKey = null; this.reloadSpan = 1; this.dryT = 0;
@@ -153,7 +156,7 @@ class Player {
   reload(g, auto) {
     if (this.dead || this.reloadT > 0) return false;
     const w = this.weapon;
-    if (this.magOf(w) >= w.mag) { if (!auto) SFX.click(); return false; }
+    if (this.magOf(w) >= magCap(w)) { if (!auto) SFX.click(); return false; }
     if (this.reserveOf(w) <= 0) {
       if (!auto) { SFX.dry(); if (g) g.toast('예비 탄약이 없다'); }
       return false;
@@ -170,7 +173,7 @@ class Player {
     this.cancelReload();
     this.wpn = key;
     const w = WEAPONS[key];
-    const need = w.mag - this.magOf(w);
+    const need = magCap(w) - this.magOf(w);
     if (need > 0) {
       const take = w.ammoKey ? Math.min(need, this.ammo[w.ammoKey]) : need;
       this.mag[key] = this.magOf(w) + take;
@@ -181,7 +184,7 @@ class Player {
     const w = WEAPONS[this.reloadKey];
     this.reloadT = 0; this.reloadKey = null;
     if (!w) return;
-    const need = w.mag - this.magOf(w);
+    const need = magCap(w) - this.magOf(w);
     const take = w.ammoKey ? Math.min(need, this.ammo[w.ammoKey]) : need;
     if (take <= 0) return;
     this.mag[w.key] += take;
@@ -195,7 +198,7 @@ class Player {
     // 하한을 0 으로 두어야 0 에서 깔끔히 끊긴다 — 하한이 양수면 달리기가 덜덜 떨린다.
     this.sprinting = !!(want && moving && !this.dead && this.stam > (this.winded ? Player.WIND_CLEAR : 0));
     if (this.sprinting) {
-      this.stam = Math.max(0, this.stam - 24 * dt);
+      this.stam = Math.max(0, this.stam - 24 * PK.stamUse * dt);
       this.stamCool = 0.5;
       if (this.stam <= 0 && !this.winded) { this.winded = true; SFX.gasp(); }
     } else if (this.stamCool > 0) {
@@ -206,7 +209,7 @@ class Player {
     }
     // 발소리도 좀비를 부른다. 질주는 빠른 대신 멀리까지 들린다 —
     // 기력은 "달릴 수 있는가"를, 이 소리는 "달려도 되는가"를 묻는다.
-    const step = this.sprinting ? Player.NOISE_SPRINT : (moving && !this.dead ? Player.NOISE_WALK : 0);
+    const step = (this.sprinting ? Player.NOISE_SPRINT : (moving && !this.dead ? Player.NOISE_WALK : 0)) * PK.step;
     if (step > this.noise) this.noise = step;
     return this.sprinting;
   }
@@ -275,11 +278,12 @@ class Player {
     if (!this.lightOn || this.battery <= 0) return 0;
     const low = this.battery < 22 ? 0.72 + Math.random() * 0.28 : 1;  // 저전력 깜빡임
     const storm = typeof G !== 'undefined' && G.storm ? 1 - 0.45 * G.storm : 1;   // 모래 폭풍 · 눈보라가 불빛을 삼킨다
-    return 430 * low * (this.bile > 0 ? 0.7 : 1) * storm;       // 담즙에 눈이 흐려진다
+    return 430 * PK.lamp * low * (this.bile > 0 ? 0.7 : 1) * storm;       // 담즙에 눈이 흐려진다
   }
 
   hurt(dmg) {
     if (this.dead) return;
+    dmg *= PK.armor;                                          // 방탄 조끼
     this.hp -= dmg;
     this.dmgTaken += dmg;
     this.stress = (this.stress || 0) + dmg;                   // 연출가가 읽는 긴장도
@@ -311,7 +315,7 @@ class Player {
       // 어둠 속 사격 — 탄이 45% 더 퍼지고 손이 떨린다(약 1.4° 더). 불빛 아래에서 쏘는 게 훨씬 낫다
       const spread = (this.dark ? w.spread * 1.45 + 0.025 : w.spread) * PK.spread;
       const a = base + (Math.random() - 0.5) * spread * 2;
-      const b = new Bullet(mx, my, a, w.dmg, w.range * (0.85 + Math.random() * 0.3), w.speed, w.pierce | 0, w.knock);
+      const b = new Bullet(mx, my, a, w.dmg * (w.special ? 1 : PK.dmg), w.range * (0.85 + Math.random() * 0.3), w.speed, w.pierce | 0, w.knock);
       if (w.burn) { b.burn = w.burn; b.flame = true; }
       if (w.rail) b.rail = true;
       if (w.key === 'crossbow') b.bolt = true;
@@ -320,7 +324,10 @@ class Player {
     }
     if (w.rail && g.beam) g.beam(mx, my, base, w.range);
     this.muzzle = w.pellets > 1 ? 0.1 : w.flame ? 0.03 : 0.06;
-    this.noise = w.silent ? 0.12 : 1;
+    // 총성 — 총마다 크기가 다르고(권총 0.8 · 매그넘 1.35) 소음기가 60% 줄인다. 들은 감염체만 깨어난다
+    const loud = w.silent ? 0.12 : (w.loud || 1) * (w.special ? 1 : PK.noise);
+    this.noise = Math.max(this.noise, loud); this.shotLoud = loud;
+    if (!w.silent && g.noiseRing) g.noiseRing(this.x, this.y, loud);
     g.shake = Math.min(14, g.shake + w.kick);
     g.recoil(base, w.kick);                                   // 카메라가 반동 방향으로 튄다
     if (!w.flame && !w.launcher && !w.silent) g.ejectCasing(this.x, this.y, base, w.key);   // 탄피는 바닥에 남는다
@@ -363,7 +370,7 @@ class Player {
     this.noise = Math.max(0, this.noise - dt * 1.4);
     this.bile = Math.max(0, (this.bile || 0) - dt);
     if (this.lightOn && this.battery > 0) {
-      this.battery = Math.max(0, this.battery - (g.level.batteryDrain || 1.25) * SETTINGS.mod.battery * PK.drain * dt);
+      this.battery = Math.max(0, this.battery - (g.level.batteryDrain || 1.25) * SETTINGS.mod.battery * PK.drain * (PK.lamp > 1 ? 1.1 : 1) * dt);
       this.offT = 0;
       if (this.battery === 0) { this.lightOn = false; g.toast(T('배터리 방전 — 꺼 두면 다시 충전된다')); }
     } else if (!this.lightOn && this.battery < 100) {
@@ -475,7 +482,8 @@ class Zombie {
       : [0, 0.55, -0.55, 1.1, -1.1, 1.7, -1.7, 2.5, -2.5];
     for (const off of offsets) {
       const a = target + off;
-      const nx = Math.cos(a) * speed * dt, ny = Math.sin(a) * speed * dt;
+      const sk = speed * (this.spdK || 1);                     // 정예는 조금 더 빠르다
+      const nx = Math.cos(a) * sk * dt, ny = Math.sin(a) * sk * dt;
       if (!g.world.hits(this.x + nx, this.y + ny, this.r)) {
         this.x += nx; this.y += ny; this.face = a;
         if (off !== 0) { this.steer = off; this.steerHold = 0.5; }
@@ -639,8 +647,10 @@ class Zombie {
 
     // 감지: 소리 · 불빛 · 근접
     if (!this.aggro) {
-      const heard = d < this.t.hear * (1 + p.noise * 1.6);
-      if ((heard && g.world.los(this.x, this.y, p.x, p.y)) || this.lit > 0.1) {
+      const R = this.t.hear * (1 + p.noise * 1.6);
+      // 큰 총성은 벽을 돌아서도 들린다(들리는 거리의 60%까지) — 조용히 쏠수록 깨우는 무리가 작다
+      const heard = d < R && (p.noise >= 0.6 && d < R * 0.6 || g.world.los(this.x, this.y, p.x, p.y));
+      if (heard || this.lit > 0.1) {
         this.aggro = true;
         if (this.type === 'runner' || this.type === 'crawler') SFX.screech(d);
         else SFX.growl(d);
@@ -762,7 +772,7 @@ class Zombie {
       }
     }
 
-    let speed, target;
+    let speed, target, A = null;
     if (this.aggro) {
       speed = this.t.speed;
       // 원작의 감염체는 비틀거리지 않고 달려든다(리뷰: "Left 4 Dead 의 달리는 무리").
@@ -786,12 +796,14 @@ class Zombie {
         }
         speed *= this.lunging ? 1.5 : 0.22;
       }
+      // 동료 — 보통 감염체는 플레이어보다 가까운 동료에게 달려든다(특수 감염체는 늘 플레이어를 노린다)
+      A = this.allyTarget(g, d, dt);
       // 뱉는 것은 거리를 유지한다 — 너무 붙으면 물러난다
-      target = Math.atan2(dy, dx);
+      target = A ? Math.atan2(A.y - this.y, A.x - this.x) : Math.atan2(dy, dx);
       // 시야가 막혀 있으면 도로를 따라 돌아 들어온다 (시야 확인은 0.3초마다)
       this.losT = (this.losT || 0) - dt;
       if (this.losT <= 0) { this.losT = 0.25 + Math.random() * 0.1; this.seen = d < 70 || g.world.los(this.x, this.y, p.x, p.y); }
-      if (!this.seen) { const fa = g.world.flowDir(this.x, this.y); if (fa !== null) target = fa; }
+      if (!this.seen && !A) { const fa = g.world.flowDir(this.x, this.y); if (fa !== null) target = fa; }
       const hold = sp ? sp.hold : this.t.tongue ? this.t.tongue.hold : 0;
       if (hold && this.seen) {
         if (d < hold * 0.75) { target += Math.PI; speed *= 0.8; }
@@ -822,14 +834,25 @@ class Zombie {
     if (d < this.r + p.r + 3 && !p.dead) {
       p.grabN = (p.grabN || 0) + (this.t.boss ? 0 : 1);
       // 여럿이 붙어도 피해는 덜 늘어난다 — 포위의 무서움은 피해보다 발이 묶이는 데서 온다
-      p.hurt(this.t.dmg * SETTINGS.mod.dmg * dt / (1 + 0.3 * Math.max(0, (p.grabbed || 0) - 1)));
+      p.hurt(this.t.dmg * (this.dmgK || 1) * SETTINGS.mod.dmg * dt / (1 + 0.3 * Math.max(0, (p.grabbed || 0) - 1)));
       g.hitFrom(this.x, this.y, this.type);
       g.shake = Math.min(10, g.shake + 14 * dt);
       const push = 46 * dt;
       g.world.slide(p, (p.x - this.x) / d * push, (p.y - this.y) / d * push);
       if (g.hurtSfxT <= 0) { SFX.hurt(); g.hurtSfxT = 0.55; }
     }
+    if (A && !A.dead && Math.hypot(A.x - this.x, A.y - this.y) < this.r + A.r + 3) A.hurt(this.t.dmg * (this.dmgK || 1) * SETTINGS.mod.dmg * dt, g);
     this.lit = Math.max(0, this.lit - dt * 3);
+  }
+  /** 노릴 동료 — 0.4초마다 다시 고른다. 플레이어보다 10% 넘게 가깝고 320 안일 때만 */
+  allyTarget(g, d, dt) {
+    const L = g.allies;
+    if (!L || !L.length || this.t.special || this.t.spit || this.t.tongue || this.t.leap || this.t.charge || this.t.bloat || this.t.boss) return null;
+    if ((this.allyT = (this.allyT || 0) - dt) > 0) return this.ally && !this.ally.dead ? this.ally : null;
+    this.allyT = 0.4; this.ally = null;
+    let bd = Math.min(320, d * 0.9);
+    for (const a of L) { if (a.dead) continue; const ad = Math.hypot(a.x - this.x, a.y - this.y); if (ad < bd) { bd = ad; this.ally = a; } }
+    return this.ally;
   }
 }
 
@@ -866,8 +889,10 @@ class Bullet {
         if (Math.hypot(z.x - this.x, z.y - this.y) < z.r + (this.flame ? 9 : 3)) {
           if (this.burn) { z.burn = Math.max(z.burn || 0, this.burn); }
           z.hurt(this.dmg, this.ang, g, this.knock, this.flame ? 'fire' : this.ap ? 'ap' : '');
-          if (!this.struck || this.struck.size === 0) g.hits++;   // 명중률은 탄 하나당 한 번
-          g.onHit(z.dead);
+          if (!this.ally) {                                    // 동료의 탄은 내 명중률 · 명중 표시에 넣지 않는다
+            if (!this.struck || this.struck.size === 0) g.hits++;   // 명중률은 탄 하나당 한 번
+            g.onHit(z.dead);
+          }
           SFX.hitFlesh(Math.hypot(this.x - g.player.x, this.y - g.player.y));
           if (this.pierce > 0) {
             // 꿰뚫을 때마다 힘이 빠진다
@@ -885,6 +910,89 @@ class Bullet {
         this.dead = true; return;
       }
     }
+  }
+}
+
+/* ── 동료 (rc.31) ─────────────────────────────
+   초록 신호탄에 닿으면 생존자 셋이 합류해 곁에서 싸운다(Left 4 Dead 의 봇처럼). 저마다 총 한 자루 · 탄은 끝없되
+   탄창을 갈아 끼우는 틈이 있다. 쓰러지면 일어나지 않는다. 플레이어를 둘러싼 자리(뒤 · 옆)를 지키며 따라오고,
+   손전등 없이도 보이는 가까운 감염체(460 안 · 시야)를 쏜다 */
+const ALLY_KIT = [
+  { name: ['민준', 'Minjun'], wpn: 'smg', top: '#4a5a3a', pants: '#2d3326', skin: '#c49a7c', hair: '#18140f', slot: 2.3 },
+  { name: ['레나', 'Lena'], wpn: 'shotgun', top: '#6a3a30', pants: '#2a2a30', skin: '#e0b89a', hair: '#7a4a22', slot: -2.3 },
+  { name: ['오코', 'Oko'], wpn: 'rifle', top: '#3a4a5e', pants: '#24282e', skin: '#7a5440', hair: '#0e0c0a', slot: Math.PI }
+];
+class Ally {
+  constructor(x, y, i) {
+    const k = ALLY_KIT[i % ALLY_KIT.length];
+    this.kit = k; this.i = i; this.x = x; this.y = y; this.r = 11;
+    this.hp = this.hpMax = 160; this.angle = Math.random() * 6.28; this.dead = false;
+    this.wpn = k.wpn; this.magLeft = WEAPONS[k.wpn].mag; this.cool = 0.4 + i * 0.15; this.reloadT = 0;
+    this.walkPhase = 0; this.stride = 0; this.meleeAnim = 0; this.target = null; this.scanT = 0; this.muzzle = 0; this.hurtFlash = 0;
+  }
+  get weapon() { return WEAPONS[this.wpn]; }
+  get name() { return LT(this.kit.name); }
+  hurt(dmg, g) {
+    if (this.dead) return;
+    this.hp -= dmg * 0.75; this.hurtFlash = 1;
+    if (this.hp <= 0) {
+      this.hp = 0; this.dead = true;
+      if (g) { g.toast(T('{n}이(가) 쓰러졌다', { n: this.name }), 2.4); g.corpses.push({ x: this.x, y: this.y, a: this.angle + Math.PI, type: 'ally', age: 0, how: 'knees', push: 0, top: this.kit.top, pants: this.kit.pants, skin: this.kit.skin, hair: this.kit.hair }); SFX.death && SFX.death(); }
+    }
+  }
+  update(dt, g) {
+    if (this.dead) return;
+    const p = g.player, w = g.world;
+    this.cool = Math.max(0, this.cool - dt); this.muzzle = Math.max(0, this.muzzle - dt); this.hurtFlash = Math.max(0, this.hurtFlash - dt * 3);
+    if (this.reloadT > 0 && (this.reloadT -= dt) <= 0) this.magLeft = WEAPONS[this.wpn].mag;
+    // 너무 떨어지면(1000 넘게) 곁으로 따라붙는다 — 길이 막혀 혼자 남지 않게
+    if (Math.hypot(p.x - this.x, p.y - this.y) > 1000) { const q = w.pickPoint(p.x, p.y, 60, 160); this.x = q.x; this.y = q.y; }
+    // 표적 — 0.2초마다 가까운 감염체를 고른다
+    if ((this.scanT -= dt) <= 0) {
+      this.scanT = 0.2; let best = null, bd = 460;
+      for (const z of g.zombies) {
+        if (z.dead || (z.t.weeper && !z.rage)) continue;     // 우는 것은 건드리지 않는다
+        const d = Math.hypot(z.x - this.x, z.y - this.y);
+        if (d < bd && w.los(this.x, this.y, z.x, z.y)) { bd = d; best = z; }
+      }
+      this.target = best;
+    }
+    const t = this.target && !this.target.dead ? this.target : null;
+    // 자리 — 플레이어가 바라보는 쪽을 기준으로 뒤 · 옆. 싸울 때는 조금 더 붙는다
+    const sa = p.angle + this.kit.slot, sd = t ? 58 : 74;
+    const tx = p.x + Math.cos(sa) * sd, ty = p.y + Math.sin(sa) * sd;
+    const dx = tx - this.x, dy = ty - this.y, dd = Math.hypot(dx, dy);
+    let moved = 0;
+    if (dd > 14) {
+      const sp = (dd > 220 ? 230 : 165) * Math.min(1, dd / 60);
+      const before = [this.x, this.y];
+      w.slide(this, dx / dd * sp * dt, dy / dd * sp * dt);
+      moved = Math.hypot(this.x - before[0], this.y - before[1]);
+    }
+    // 서로 · 플레이어와 겹치지 않게
+    for (const o of [p, ...(g.allies || [])]) {
+      if (o === this || o.dead) continue;
+      const ox = this.x - o.x, oy = this.y - o.y, od = Math.hypot(ox, oy) || 1;
+      if (od < 26) w.slide(this, ox / od * (26 - od) * 0.5, oy / od * (26 - od) * 0.5);
+    }
+    this.stride = Math.min(1, moved / Math.max(dt, 1e-3) / 160);
+    this.walkPhase += moved * 0.09;
+    const want = t ? Math.atan2(t.y - this.y, t.x - this.x) : (dd > 14 ? Math.atan2(dy, dx) : p.angle);
+    const da = Math.atan2(Math.sin(want - this.angle), Math.cos(want - this.angle));
+    this.angle += Math.max(-9 * dt, Math.min(9 * dt, da));
+    if (!t || this.reloadT > 0 || this.cool > 0 || Math.abs(da) > 0.3) return;
+    const W = WEAPONS[this.wpn];
+    if (this.magLeft <= 0) { this.reloadT = W.reload * 1.3; return; }
+    this.magLeft--; this.cool = W.rate * 1.35; this.muzzle = 0.06;
+    const mx = this.x + Math.cos(this.angle) * 14, my = this.y + Math.sin(this.angle) * 14;
+    for (let i = 0; i < W.pellets; i++) {
+      const a = this.angle + (Math.random() - 0.5) * W.spread * 2.4;
+      const b = new Bullet(mx, my, a, W.dmg * 0.7, W.range * 0.8, W.speed, W.pierce | 0, W.knock * 0.7);
+      b.ally = true; g.bullets.push(b);
+    }
+    // 동료의 총성도 무리를 깨운다(소리는 플레이어 것보다 작게 친다)
+    for (const z of g.zombies) if (!z.aggro && !z.t.weeper && Math.hypot(z.x - this.x, z.y - this.y) < 420) z.aggro = true;
+    SFX.pan(this.x - p.x); (SFX[W.sfx] || SFX.shot).call(SFX); SFX.pan(0);
   }
 }
 
@@ -1019,7 +1127,9 @@ const PICKUPS = {
   bolts:       { label: '화살 +6',       col: '#c8a878', icon: 'round' },
   goal:        { label: '보급 상자 확보', col: '#59b7d8', icon: 'goal' },
   note:        { label: '기록', col: '#e8e2d0', icon: 'note' },
-  fuel:        { label: '연료통을 들었다', col: '#d0402e', icon: 'fuel' }   // 미션 변주 '연료 모으기' — 하나씩 날라 탈것에 넣는다
+  fuel:        { label: '연료통을 들었다', col: '#d0402e', icon: 'fuel' },   // 미션 변주 '연료 모으기' — 하나씩 날라 탈것에 넣는다
+  gear:        { label: '장비', col: '#ffcf5a', icon: 'gear' },                  // 정예 · 그것이 떨어뜨리는 장비(rc.31)
+  cache:       { label: '정예의 짐', col: '#ffcf5a', icon: 'cache' }            // 장비를 다 모았으면 대신 탄 · 수류탄 · 총
 };
 
 class Pickup {
@@ -1056,6 +1166,8 @@ class Pickup {
         }
       case 'goal':    g.onGoalItem(); return;
       case 'note':    g.onRecord(this); return;
+      case 'gear':    g.onGear(this); return;
+      case 'cache':   g.onCache(this); return;
     }
     g.toast(this.p.label);
   }

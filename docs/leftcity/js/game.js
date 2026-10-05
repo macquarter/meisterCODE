@@ -2915,6 +2915,8 @@ const G = {
     if (ob.type === 'finale' && !this.exitOpen) this.updateFinale(dt, ob);
     Twist.update(this, dt);
     Pits.update(this, dt);
+    // 오디오 점검 — 앱 전환 · 알림 뒤 멈춘 오디오를 깨우고, 꺼진 빗소리 · 드론을 되살린다
+    if ((this.audioT = (this.audioT || 0) - dt) <= 0) { this.audioT = 1; SFX.keepAlive(); }
     // 도감 — 불빛에 제대로 비친 개체(0.25초마다 확인)
     if ((this.codexT = (this.codexT || 0) - dt) <= 0) {
       this.codexT = 0.25;

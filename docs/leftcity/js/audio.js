@@ -7,7 +7,15 @@ const SFX = (() => {
   /** 날씨마다 배경 소음 — [고역 통과, 저역 통과, 크기]. 바람은 낮고 둥글게, 몬순은 크고 거칠게 */
   const WX = { rain: [620, 5200, 0.13], monsoon: [520, 6400, 0.19], fog: [700, 3600, 0.07], snow: [120, 700, 0.07], blizzard: [140, 900, 0.1], sandstorm: [180, 1300, 0.09] };
   let drone = null;                   // { oscs, filt, gain, lfo } — 낮게 깔리는 위협음
-  let noiseBuf = null, enabled = true;
+  let noiseBuf = null, rainBuf = null, enabled = true, ambWanted = false;
+  /* 한 번에 울리는 짧은 소리(노이즈 · 톤)의 수 — 휴대폰에서 연사 · 피격 · 무리 소리가 겹쳐 노드가 수백 개로 불면
+     오디오 스레드가 버티지 못해 소리가 통째로 끊겼다. 넘치면 작은 소리부터 버린다 */
+  const TOUCH = typeof matchMedia !== 'undefined' && matchMedia('(pointer: coarse)').matches;
+  const ONESHOT_CAP = TOUCH ? 22 : 40;
+  let oneshots = 0;
+  const gateT = {};
+  /** 같은 소리가 ms 안에 다시 오면 건너뛴다(연사 · 관통탄 피격음이 한 프레임에 몇 겹씩 쌓이지 않게) */
+  function gate(key, ms) { const now = ctx ? ctx.currentTime * 1000 : 0; if (now - (gateT[key] || -1e9) < ms) return false; gateT[key] = now; return true; }
 
   /** 이 아래로는 들리지도 않고, exponentialRampToValueAtTime 이 0 을 거부한다 */
   const SILENT = 0.0005;
@@ -22,14 +30,47 @@ const SFX = (() => {
     if (ctx) return;
     const AC = window.AudioContext || window.webkitAudioContext;
     if (!AC) { enabled = false; return; }
-    ctx = new AC();
+    // 휴대폰은 버퍼를 조금 넉넉히('balanced') — 3D 렌더로 CPU 가 바쁠 때 오디오가 비지 않게(지연은 수십 ms 늘 뿐)
+    try { ctx = new AC({ latencyHint: TOUCH ? 'balanced' : 'interactive' }); } catch (e) { ctx = new AC(); }
     master = ctx.createGain();
     master.gain.value = masterLevel();
-    master.connect(ctx.destination);
+    // 리미터 — 총성 · 폭발 · 비명이 한꺼번에 겹쳐도 찢어지지(클리핑) 않게
+    const lim = ctx.createDynamicsCompressor();
+    lim.threshold.value = -9; lim.knee.value = 6; lim.ratio.value = 10; lim.attack.value = 0.003; lim.release.value = 0.22;
+    master.connect(lim); lim.connect(ctx.destination);
     noiseBuf = makeNoise(2.0);
+    rainBuf = makeRain(7.0);
+    // 앱 전환 · 알림창 · 전화로 오디오가 멈췄다가 돌아오면 다시 깨운다(예전엔 다음 터치 전까지 빗소리 · 효과음이 멈춰 있었다)
+    const wake = () => resume();
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) wake(); });
+    window.addEventListener('pageshow', wake);
+    window.addEventListener('focus', wake);
+    for (const ev of ['touchend', 'pointerdown', 'keydown']) window.addEventListener(ev, wake, { capture: true, passive: true });
+    ctx.onstatechange = () => { if (ctx.state !== 'running' && !document.hidden) setTimeout(wake, 250); };
   }
 
-  function resume() { if (ctx && ctx.state === 'suspended') ctx.resume(); }
+  function resume() { if (ctx && ctx.state !== 'running' && ctx.state !== 'closed') { try { const r = ctx.resume(); if (r && r.catch) r.catch(() => {}); } catch (e) { /* 무시 */ } } }
+
+  /** 빗소리 — 7초짜리 잡음에 빗방울 톡톡을 섞고, 끝과 시작을 겹쳐 이어 붙인다(이음매에서 '툭' 끊기지 않게) */
+  function makeRain(seconds) {
+    const sr = ctx.sampleRate, len = Math.floor(sr * seconds), X = Math.floor(sr * 0.5);
+    const buf = ctx.createBuffer(1, len, sr), d = buf.getChannelData(0), tmp = new Float32Array(len + X);
+    let b0 = 0, b1 = 0, b2 = 0;
+    for (let i = 0; i < len + X; i++) {
+      const w = Math.random() * 2 - 1;
+      b0 = 0.99765 * b0 + w * 0.0990460; b1 = 0.96300 * b1 + w * 0.2965164; b2 = 0.57000 * b2 + w * 1.0526913;
+      tmp[i] = (b0 + b1 + b2 + w * 0.1848) * 0.2;
+    }
+    // 빗방울 — 초당 수십 개의 아주 짧은 톡
+    const drops = Math.floor(seconds * 38);
+    for (let k = 0; k < drops; k++) {
+      const at = Math.floor(Math.random() * (len + X - 400)), a = 0.15 + Math.random() * 0.35, f = 0.25 + Math.random() * 0.5;
+      for (let j = 0; j < 260; j++) tmp[at + j] += Math.sin(j * f) * a * Math.exp(-j / 38);
+    }
+    for (let i = 0; i < len; i++) d[i] = tmp[i];
+    for (let i = 0; i < X; i++) { const t = i / X; d[i] = tmp[i] * t + tmp[len + i] * (1 - t); }      // 겹쳐 잇기
+    return buf;
+  }
 
   function makeNoise(seconds) {
     const len = Math.floor(ctx.sampleRate * seconds);
@@ -61,7 +102,10 @@ const SFX = (() => {
   function burst(dur, freq, q, gain, type = 'lowpass', decay) {
     if (!enabled || !ctx) return;
     if (!(gain > SILENT)) return;
+    if (oneshots >= ONESHOT_CAP && gain < 0.3) return;          // 넘치면 작은 소리부터 버린다
+    oneshots++;
     const src = ctx.createBufferSource();
+    src.onended = () => { oneshots = Math.max(0, oneshots - 1); };
     src.buffer = noiseBuf;
     src.playbackRate.value = 0.8 + Math.random() * 0.5;
     const f = ctx.createBiquadFilter();
@@ -78,7 +122,10 @@ const SFX = (() => {
   function tone(freq, dur, gain, type = 'sine', slideTo) {
     if (!enabled || !ctx) return;
     if (!(gain > SILENT)) return;        // 들리지도 않는 소리에 노드를 만들지 않는다
+    if (oneshots >= ONESHOT_CAP && gain < 0.3) return;
+    oneshots++;
     const o = ctx.createOscillator();
+    o.onended = () => { oneshots = Math.max(0, oneshots - 1); };
     const g = ctx.createGain();
     const t = ctx.currentTime;
     o.type = type;
@@ -202,7 +249,7 @@ const SFX = (() => {
     const beat = 60 / bpm / 2;                                    // 8분음표
     const now = ctx.currentTime;
     if (music.next < now) music.next = now + 0.05;
-    while (music.next < now + 0.25) {
+    while (music.next < now + 0.6) {        // 0.6초 앞까지 예약 — 화면이 잠깐 버벅여도 음악이 비지 않게
       const t = music.next, i = music.step++;
       if (S.menu) {
         const ch = MENU_CHORDS[((i / 16) | 0) % 4];
@@ -257,7 +304,7 @@ const SFX = (() => {
       if (!enabled || !ctx) return;
       if (on && !rainSrc) {
         rainSrc = ctx.createBufferSource();
-        rainSrc.buffer = noiseBuf; rainSrc.loop = true;
+        rainSrc.buffer = rainBuf || noiseBuf; rainSrc.loop = true;
         const W = WX[weather] || WX.rain;
         const hp = ctx.createBiquadFilter();
         hp.type = 'highpass'; hp.frequency.value = W[0];
@@ -292,7 +339,7 @@ const SFX = (() => {
       rainGain.gain.setTargetAtTime(W[2] * (1 + k * 1.8), t, 0.5);
       rainNodes.lp.frequency.setTargetAtTime(W[1] * (1 + k * 1.2), t, 0.5);
     },
-    shot()      { burst(0.16, 1500, 1.1, 0.34, 'lowpass', 0.11); tone(150, 0.1, 0.2, 'sine', 48); },
+    shot()      { if (!gate('shot', 45)) return; burst(0.16, 1500, 1.1, 0.34, 'lowpass', 0.11); tone(150, 0.1, 0.2, 'sine', 48); },
     shotgun()   { burst(0.42, 850, 0.8, 0.55, 'lowpass', 0.34); tone(96, 0.26, 0.3, 'sine', 34);
                   setTimeout(() => burst(0.1, 3000, 2.5, 0.06, 'bandpass', 0.09), 260); },
     rifle()     { burst(0.5, 2200, 0.9, 0.5, 'lowpass', 0.2); tone(70, 0.3, 0.34, 'sine', 30);
@@ -300,8 +347,8 @@ const SFX = (() => {
                   setTimeout(() => burst(0.06, 2400, 3, 0.07, 'bandpass', 0.05), 520); },  // 노리쇠
     pistol()    { burst(0.13, 1100, 1.0, 0.22, 'lowpass', 0.09); tone(120, 0.08, 0.13, 'sine', 44); },
     dry()       { burst(0.05, 3200, 3, 0.1, 'bandpass', 0.04); },
-    hitFlesh(d) { burst(0.1, 420, 0.9, 0.2 * near(d), 'lowpass', 0.08); },
-    hitWall(d)  { burst(0.07, 2600, 2.4, 0.14 * near(d), 'bandpass', 0.06); },
+    hitFlesh(d) { if (!gate('flesh', 40)) return; burst(0.1, 420, 0.9, 0.2 * near(d), 'lowpass', 0.08); },
+    hitWall(d)  { if (!gate('wall', 40)) return; burst(0.07, 2600, 2.4, 0.14 * near(d), 'bandpass', 0.06); },
     explode()   { burst(0.9, 260, 0.7, 0.62, 'lowpass', 0.75); tone(74, 0.55, 0.34, 'sine', 26); },
     nadeThrow() { burst(0.12, 900, 1.2, 0.1, 'bandpass', 0.1); },
 
@@ -355,7 +402,16 @@ const SFX = (() => {
       drone.gain.gain.setTargetAtTime(0.05 + k * 0.07, t, 0.8);
     },
     /** 판 하나의 배경음 전체 — 비와 드론을 함께 켜고 끈다 */
-    ambience(on) { this.rain(on); this.drone(on); this.music(on); },
+    ambience(on) { ambWanted = !!on; this.rain(on); this.drone(on); this.music(on); },
+    /** 판이 도는 동안 1초마다 — 멈춘 오디오를 깨우고, 꺼져 버린 빗소리 · 드론을 되살린다 */
+    keepAlive() {
+      if (!ctx) return;
+      if (ctx.state !== 'running') resume();
+      if (ambWanted && ctx.state === 'running') { if (!rainSrc) this.rain(true); if (!drone) this.drone(true); }
+    },
+    get state() { return ctx ? ctx.state : 'none'; },
+    get oneshots() { return oneshots; },
+    get rainOn() { return !!rainSrc; },
     get droneOn() { return !!drone; },
 
     /** 명중 · 처치 확인음 — 짧고 높게, 귀에 거슬리지 않게 */

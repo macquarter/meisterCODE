@@ -319,7 +319,7 @@ const MAT = {};
 function makeMaterials() {
   const std = (o) => new THREE.MeshStandardMaterial(o);
   const set = (S, o = {}) => Object.assign({ map: S.map, roughnessMap: S.rough, normalMap: S.normal, roughness: 1 }, o);
-  MAT.asphalt = std(set(TEX.asphaltSet, { normalScale: new THREE.Vector2(0.35, 0.35), envMapIntensity: 1.8 }));   // 젖은 아스팔트 — 웅덩이는 거울처럼
+  MAT.asphalt = std(set(TEX.asphaltSet, { normalScale: new THREE.Vector2(0.18, 0.18), envMapIntensity: 1.8 }));   // 결은 약하게 — 손전등을 비스듬히 받으면 자갈 노이즈처럼 보였다   // 젖은 아스팔트 — 웅덩이는 거울처럼
   // 지역의 길 — 모래길(카이로) · 흙길(바라나시) · 돌길(베네치아) · 눈길(레이캬비크 · 남극). 세계 좌표 240 마다 되풀이
   {
     const street = (seed, base, draw, nk) => { const t = canvasTex(512, 512, (x, W, H) => { const r = rng(seed); x.fillStyle = base; x.fillRect(0, 0, W, H); draw(x, W, H, r); }); return [t, normalFrom(t.image, nk)]; };
@@ -401,7 +401,7 @@ function makeMaterials() {
   MAT.brick = std({ map: TEX.brick, normalMap: normalFrom(TEX.brick.image, 2.2), vertexColors: true, roughness: 0.85, emissive: 0xffffff, emissiveMap: TEX.brickLit, emissiveIntensity: 0.95, envMapIntensity: 0.4 });
   MAT.stucco = std({ map: TEX.stucco, normalMap: normalFrom(TEX.stucco.image, 1.6), vertexColors: true, roughness: 0.85, emissive: 0xffffff, emissiveMap: TEX.stuccoLit, emissiveIntensity: 0.95, envMapIntensity: 0.4 });
   MAT.shop = std({ map: TEX.shop, vertexColors: true, roughness: 0.7 });
-  MAT.shopLit = std({ map: TEX.shopLit, emissive: 0xffffff, emissiveMap: TEX.shopLit, emissiveIntensity: 1.0, roughness: 0.55, envMapIntensity: 0.4 });
+  MAT.shopLit = std({ map: TEX.shopLit, emissive: 0xffffff, emissiveMap: TEX.shopLit, emissiveIntensity: 0.62, roughness: 0.55, envMapIntensity: 0.4 });
   MAT.roof = std(set(TEX.roofSet, { vertexColors: true, envMapIntensity: 0.5, normalScale: new THREE.Vector2(0.5, 0.5) }));
   MAT.parapet = std({ color: 0x6a6c70, roughness: 0.85 });
   MAT.stone = std({ color: 0x77736a, roughness: 0.85 });
@@ -1628,15 +1628,20 @@ function makeProp(pr) {
     bx(g, mat('#d8d4c8'), 0, 32.5, 0, L * 0.96, 1, Wd * 0.96);
     wheelsOn(g, [-L * 0.34, L * 0.34], Wd / 2 - 1, 5.5);
   } else if (k === 'truck' || k === 'mtruck') {
-    const mil = k === 'mtruck', cab = mil ? '#4a5236' : '#c9c4b8';
+    const mil = k === 'mtruck', cab = mil ? '#4a5236' : '#9c988e';
     bx(g, mat(cab, { roughness: 0.5 }), L * 0.36, 13, 0, L * 0.28, 20, Wd * 0.92);
     bx(g, GLASS(), L * 0.5, 17, 0, 0.6, 8, Wd * 0.8);
     if (mil) {
       bx(g, mat('#545a40', { roughness: 0.95 }), -L * 0.14, 19, 0, L * 0.7, 24, Wd);
       for (let q = -2; q <= 2; q++) bx(g, mat('#3a3f2c'), -L * 0.14 + q * L * 0.13, 31.2, 0, 1.2, 0.8, Wd + 0.2);
     } else {
-      bx(g, mat('#e2ded4', { roughness: 0.6 }), -L * 0.14, 20, 0, L * 0.7, 28, Wd);
+      // 짐칸 — 바랜 흰 알루미늄. 예전엔 거의 흰색이라 달빛 · 손전등에 무늬 없는 흰 상자로 날아갔다. 칸막이 골 · 지붕 띠 · 문짝 선으로 결을 준다
+      bx(g, mat('#8f8b82', { roughness: 0.55, metalness: 0.25 }), -L * 0.14, 20, 0, L * 0.7, 28, Wd);
       bx(g, mat(pr.col || '#2a4a6a'), -L * 0.14, 20, 0, L * 0.7 + 0.2, 5, Wd + 0.2);
+      const rib = mat('#5c5952', { roughness: 0.7 });
+      for (let q = 1; q < 6; q++) bx(g, rib, -L * 0.49 + q * L * 0.7 / 6, 20, 0, 0.9, 27.6, Wd + 0.5);
+      bx(g, mat('#6e6b64', { roughness: 0.8 }), -L * 0.14, 34.3, 0, L * 0.7, 0.6, Wd * 0.7);
+      bx(g, rib, -L * 0.49 - 0.2, 20, 0, 0.4, 26, 0.6);
     }
     wheelsOn(g, [-L * 0.36, -L * 0.2, L * 0.36], Wd / 2 - 1, 5.8);
   } else if (k === 'wagon') {
@@ -1740,6 +1745,9 @@ const GradeShader = {
       vec2 d = vUv - 0.5; float r2 = dot(d, d);
       float ca = 0.006 * r2;
       vec3 c = vec3(texture2D(tDiffuse, vUv + d * ca).r, texture2D(tDiffuse, vUv).g, texture2D(tDiffuse, vUv - d * ca).b);
+      // 하이라이트 어깨 — 손전등을 정면으로 받은 흰 차 · 벽이 하얗게 날아가지 않게, 밝기 0.22 위로는 부드럽게 눌러 결을 남긴다(색조는 그대로)
+      float Lh = dot(c, vec3(0.2126, 0.7152, 0.0722));
+      if (Lh > 0.22) { float e = Lh - 0.22; c *= (0.22 + e / (1.0 + e / 0.55)) / Lh; }
       c = srgb(aces(c));
       float l = dot(c, vec3(0.299, 0.587, 0.114));
       c = mix(c, c * uSh, (1.0 - smoothstep(0.0, 0.4, l)) * 0.6);
@@ -2253,10 +2261,10 @@ function makeRipples() {
         vec2 wp = off.xy + jit * 700.0;                       // 세계 좌표의 자리 — 걸어도 물방울 자리가 따라오지 않게
         vec3 c = vec3(uOrigin.x + mod(wp.x - uOrigin.x + 350.0, 700.0) - 350.0, 0.7, uOrigin.z + mod(wp.y - uOrigin.z + 350.0, 700.0) - 350.0);
         vec3 v = c - uApex; float d = length(v);
-        vA = (0.03 + 1.1 * smoothstep(uCos, uCos + 0.06, dot(v / max(d, 0.001), uDir)) * clamp(1.0 - d / uRange, 0.0, 1.0)) * (1.0 - ph);
+        vA = (0.02 + 0.42 * smoothstep(uCos, uCos + 0.06, dot(v / max(d, 0.001), uDir)) * clamp(1.0 - d / uRange, 0.0, 1.0)) * (1.0 - ph) * (1.0 - ph);   // 은은하게 — 하얀 고리가 화면을 덮었다
         vec3 p = c + position * (2.5 + ph * 7.0);
         gl_Position = projectionMatrix * viewMatrix * vec4(p, 1.0); }`,
-    fragmentShader: `varying vec2 vUv; varying float vK, vA; void main(){ float r = length(vUv - 0.5) * 2.0; float ring = smoothstep(0.12, 0.0, abs(r - 0.8)); gl_FragColor = vec4(vec3(0.7, 0.78, 0.86) * ring * vA, 1.0); }`,
+    fragmentShader: `varying vec2 vUv; varying float vK, vA; void main(){ float r = length(vUv - 0.5) * 2.0; float ring = smoothstep(0.2, 0.0, abs(r - 0.78)) * 0.8; gl_FragColor = vec4(vec3(0.7, 0.78, 0.86) * ring * vA, 1.0); }`,
     transparent: true, depthWrite: false, blending: THREE.AdditiveBlending
   });
   ripples = new THREE.Mesh(ig, m); ripples.frustumCulled = false; ripples.renderOrder = 2;
@@ -2287,7 +2295,7 @@ function makeComposer() {
   const rt = new THREE.WebGLRenderTarget(4, 4, { type: THREE.HalfFloatType, samples });
   composer = new EffectComposer(renderer, rt);
   composer.addPass(new RenderPass(scene, camera));
-  bloom = new UnrealBloomPass(new THREE.Vector2(256, 256), 0.75, 0.55, 0.92);
+  bloom = new UnrealBloomPass(new THREE.Vector2(256, 256), 0.5, 0.5, 1.25);   // 문턱을 올려 가로등 · 불꽃만 번지게(손전등 받은 면은 번지지 않게)
   composer.addPass(bloom);
   grade = new ShaderPass(GradeShader);
   grade.material.toneMapped = false;
@@ -2679,7 +2687,7 @@ function draw3(g) {
   if (fx) {
     grade.uniforms.uTime.value = g.time;
     grade.uniforms.uLift.value = (SETTINGS.brightness - 50) / 50;
-    bloom.strength = 0.75 + Math.min(1, g.lightning) * 0.4;
+    bloom.strength = 0.5 + Math.min(1, g.lightning) * 0.4;
     composer.render();
   } else renderer.render(scene, camera);
   if (window.LC_TRACE) { const T3 = performance.now(); if (T3 - T0 > 200) (PROF.slow || (PROF.slow = [])).push([Math.round(g.time * 10) / 10, Math.round(T1 - T0), Math.round(T2 - T1), Math.round(T3 - T2), renderer.info.render.calls, renderer.info.memory.textures]); }
@@ -3188,7 +3196,7 @@ function makePlayerRig() {
   // 가슴 손전등 — 멜빵에 단 등. 빛줄기 · 스포트라이트가 여기서 나간다
   chestLamp = new THREE.Group();
   chestLamp.add(part(GEO.box, mat('#1a1c1f', { roughness: 0.5, metalness: 0.5 }), 0, 0, 0, 3, 3.2, 3.6));
-  const lens = new THREE.Mesh(GEO.cyl, new THREE.MeshBasicMaterial({ color: new THREE.Color(2.2, 2.1, 1.9) }));
+  const lens = new THREE.Mesh(GEO.cyl, new THREE.MeshBasicMaterial({ color: new THREE.Color(1.25, 1.2, 1.1) }));
   lens.scale.set(1.3, 0.6, 1.3); lens.rotation.z = Math.PI / 2; lens.position.x = 1.8; chestLamp.add(lens);
   for (const sd of [-1, 1]) chestLamp.add(part(GEO.box, mat('#2a2620', { roughness: 0.9 }), -1, 3, sd * 2.6, 1, 8, 1));   // 멜빵
   scene.add(chestLamp);
@@ -3719,7 +3727,11 @@ function updateLights(g, p, w) {
   const lx = lampOn ? chestLamp.position.x + ca * 2 : p.x + ca * 8, lz = lampOn ? chestLamp.position.z + sa * 2 : p.y + sa * 8, ly = lampOn ? chestLamp.position.y : 40;
   spot.position.set(lx, ly + 4, lz);
   spotTarget.position.set(p.x + ca * 200, 0, p.y + sa * 200);
-  spot.intensity = range > 0 ? 8 * (range / 430) : 0;
+  // 바로 앞을 벽이 막으면(눈이 적응하듯) 손전등을 조금 줄인다 — 벽 · 차를 정면으로 비추면 바닥보다 몇십 배 밝아진다
+  const wallD = range > 0 ? beamReach(w, p.x, p.y, ca, sa, range * 1.05) : range;
+  const wantK = range > 0 ? 0.62 + 0.38 * Math.min(1, Math.max(0, (wallD - 70) / 230)) : 1;
+  R3D._spotK = (R3D._spotK ?? 1) + (wantK - (R3D._spotK ?? 1)) * 0.15;      // 부드럽게 — 깜빡이지 않게
+  spot.intensity = range > 0 ? 8 * (range / 430) * R3D._spotK : 0;
   spot.distance = Math.max(10, range * 1.25);
   // 빛줄기 — 가슴 높이 손전등에서 바닥 쪽으로 조금 숙여 나간다. 벽에 막히면 거기서 끊긴다
   beam.visible = range > 0 && !p.dead;

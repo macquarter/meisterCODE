@@ -15,3 +15,11 @@
 4. 결과를 모아 보고: 무엇을 확인했고 무엇을 못 봤는지(자막만/화면만/둘 다) 분명히 밝힌다
 
 보고 형식: 영상 요약 → 과장·근거 부족한 주장 → 우리 회사(가드/코드/크루/클린 사업부)에 도입할 만한지와 구체적 적용안.
+
+## 사이트 수정 후 화면 확인 (Chrome DevTools MCP)
+
+`.mcp.json`에 `chrome-devtools` MCP가 등록되어 있다(`tools/mcp/chrome-devtools.mjs`가 실행). `docs/`를 고친 뒤에는 브라우저로 직접 열어 확인한다.
+
+- 모든 페이지 도구는 `pageId`가 필요하다: `new_page`(url) → 결과의 `[selected]` 번호를 `pageId`로 사용
+- 확인 순서: `new_page` → `list_console_messages`(오류) → `take_screenshot` → 모바일은 `emulate`/`resize_page`
+- 클라우드 세션에서는 외부 이미지·폰트가 프록시 인증서 문제로 `ERR_CERT_AUTHORITY_INVALID`가 나며 안 보인다. 사이트 버그가 아니니 무시하고, 로컬 파일(`file:///.../docs/...`)의 레이아웃·스크립트 오류만 판단한다

@@ -632,7 +632,11 @@ function wallQuad(B, ax, az, bx, bz, y0, y1, nrm, color, u0, vScale = 1 / (FLOOR
   B.quad([ax, y0, az], [bx, y0, bz], [bx, y1, bz], [ax, y1, az], nrm, [[ua, y0 * vScale], [ub, y0 * vScale], [ub, y1 * vScale], [ua, y1 * vScale]], color);
 }
 
-function buildChunk(w, cx, cy) {
+/** 덩어리 하나를 지금 다 짓는다(발밑 · 판 시작) */
+function buildChunk(w, cx, cy) { const it = chunkSteps(w, cx, cy); let r; do r = it.next(); while (!r.done); return r.value; }
+/** 덩어리 짓기를 줄 단위로 나눈다 — 한 덩어리에 15‒40ms(휴대폰은 그 몇 배)라 한 프레임에 지으면 걸을 때마다 멈칫했다.
+    먼 덩어리는 프레임마다 몇 ms 씩만 이어 짓는다(syncChunks) */
+function* chunkSteps(w, cx, cy) {
   const g = new THREE.Group();
   const B = {}, wrap = {};
   // 작은 재질들은 한 재질(정점 색)로 모은다 — 덩어리마다 그리기 호출이 30여 개에서 열 개 남짓으로 준다
@@ -648,7 +652,7 @@ function buildChunk(w, cx, cy) {
   const isB = (x, y) => deco(x, y) === D_BUILDING;
   const isRoadish = (x, y) => { const d = deco(x, y), gr = w.grid[w.idx(x, y)]; return gr === T_ROAD && (d === D_ASPHALT || d === D_PROP || d === D_RUBBLE); };
   const SW_H = 3, lamps = [], fires = [], clutter = [], marks = [], pits = [];
-  for (let y = y0; y < y0 + CH; y++) for (let x = x0; x < x0 + CH; x++) {
+  for (let y = y0; y < y0 + CH; y++) { if (y > y0) yield; for (let x = x0; x < x0 + CH; x++) {
     const i = w.idx(x, y), d = w.deco[i], gr = w.grid[i];
     const X0 = x * T, Z0 = y * T, X1 = X0 + T, Z1 = Z0 + T;
     if (w.pitIdx && w.pitIdx[i] >= 0) { pits.push(x, y); continue; }     // 개미지옥 — 바닥 대신 깔때기 비탈(아래에서 한 번에)
@@ -797,7 +801,8 @@ function buildChunk(w, cx, cy) {
       else if (dm === 1 && sw(-1, 0)) floorQuad(get('paint'), X0 + 4, Z0 + 2, X0 + 24, Z0 + 4, 0.4, 100);
       else if (dm === 1 && sw(1, 0)) floorQuad(get('paint'), X1 - 24, Z0 + 2, X1 - 4, Z0 + 4, 0.4, 100);
     }
-  }
+  } }
+  yield;
   for (const k in B) {
     const m = B[k].mesh(MAT[k]);
     if (!m) continue;
@@ -815,6 +820,7 @@ function buildChunk(w, cx, cy) {
   g.userData.lamps = lamps;
   g.userData.fires = fires;
   g.userData.marks = marks;
+  yield;
   addClutter(g, clutter);
   addWires(g, lamps, kitOf(w).wires);
   return g;
@@ -1399,7 +1405,8 @@ function fencePanel(B, w, x, y, X0, Z0, X1, Z1) {
   if (fence(0, 1) || fence(0, -1)) wallQuad(B, cxm, Z0, cxm, Z1, 0, H, [1, 0, 0], null, 0, 1 / 24, 1 / 24);
 }
 
-let lastChunkT = 0;
+/** PEND — 짓는 중인 먼 덩어리 { key, w, it }. PRIMING — 판 준비 중(브리핑 화면 뒤)엔 한 프레임 몫 제한 없이 다 만든다 */
+let PEND = null, PRIMING = false;
 function syncChunks(w, px, pz, all) {
   const ccx = Math.floor(px / TILE / CH), ccy = Math.floor(pz / TILE / CH);
   const need = new Set(), miss = [];
@@ -1408,27 +1415,38 @@ function syncChunks(w, px, pz, all) {
     need.add(key);
     if (!chunks.has(key)) miss.push([Math.max(Math.abs(dx), Math.abs(dy)), dx, dy, key]);
   }
-  // 발밑과 바로 곁(3×3)은 곧바로 — 시작 화면이 비지 않게. 그 바깥은 가까운 것부터 하나씩, 0.1초 이상 띄워서
-  // (한 덩어리에 15‒40ms — 연달아 지으면 멈칫거림이 이어진다. 앞쪽으로 세 덩어리를 미리 두므로 늦지 않는다).
+  // 발밑과 바로 곁(3×3)은 곧바로 — 시작 화면이 비지 않게. 그 바깥은 가까운 것부터 하나씩 나눠 짓는다
+  // (한 덩어리에 15‒40ms — 한 프레임에 지으면 걸을 때마다 멈칫했다. 앞쪽으로 세 덩어리를 미리 두므로 늦지 않는다).
   // all = 판을 시작할 때 둘레 25 덩어리를 한꺼번에(시작 화면이 떠 있는 동안)
   miss.sort((a, b) => a[0] - b[0]);
-  const now = performance.now();
+  if (PEND && (PEND.w !== w || !need.has(PEND.key))) PEND = null;     // 지나쳐 버린 덩어리는 버린다
   for (let i = 0; i < miss.length; i++) {
     const [d, dx, dy, key] = miss[i];
-    if (!all && d > 1 && (i > 0 || now - lastChunkT < 100)) break;
-    if (d > 1) lastChunkT = now;
+    if (!all && d > 1) {
+      // 한 번에 하나씩, 프레임마다 3ms 만 — 다 지어지면 장면에 넣는다
+      if (!PEND) PEND = { key, w, it: chunkSteps(w, ccx + dx, ccy + dy), ms: 0 };   // 이미 짓던 것이 아직 필요하면 그것부터 마저
+      const t0 = performance.now(); let r;
+      do r = PEND.it.next(); while (!r.done && performance.now() - t0 < 3);
+      PEND.ms += performance.now() - t0;
+      if (!r.done) break;
+      const e = PROF.chunk || (PROF.chunk = [0, 0, 0]); e[0]++; e[1] += PEND.ms; e[2] = Math.max(e[2], performance.now() - t0);
+      chunks.set(PEND.key, r.value); scene.add(r.value); MOON.dirty = true; PEND = null;
+      break;
+    }
+    if (PEND && PEND.key === key) PEND = null;
     const t0 = performance.now(), g = buildChunk(w, ccx + dx, ccy + dy); prof('chunk', t0);
-    chunks.set(key, g); scene.add(g);
+    chunks.set(key, g); scene.add(g); MOON.dirty = true;
   }
   for (const [key, g] of chunks) {
     if (need.has(key)) continue;
     const [kx, ky] = key.split(',').map(Number);
     if (Math.abs(kx - ccx) > 3 || ky - ccy > 2 || ccy - ky > 4) {
-      scene.remove(g); g.traverse(o => { if (o.geometry) o.geometry.dispose(); }); chunks.delete(key);
+      scene.remove(g); g.traverse(o => { if (o.geometry) o.geometry.dispose(); }); chunks.delete(key); MOON.dirty = true;
     }
   }
 }
 function clearChunks() {
+  PEND = null;
   for (const [, g] of chunks) { scene.remove(g); g.traverse(o => { if (o.geometry) o.geometry.dispose(); }); }
   chunks.clear();
 }
@@ -2109,7 +2127,7 @@ function updateRelays(g, near) {
       });
       const ring = new THREE.Mesh(new THREE.RingGeometry(74, 80, 64).rotateX(-Math.PI / 2), ringM); ring.position.y = 4.3; o.add(ring);
       o.userData = { lamp, panel, ringM };
-      dyn.relays.set(r, o); scene.add(o);
+      dyn.relays.set(r, o); scene.add(o); MOON.dirty = true;
     }
     seen.add(r);
     o.visible = near(r.x, r.y, 1000);
@@ -2159,7 +2177,7 @@ function updateTwist(g, near) {
         u.ringM = TW_RING(); u.ringM.uniforms.uCol.value.set(0xff5a3a); u.ringM.uniforms.uBase.value.set(0x401008);
         const ring = new THREE.Mesh(new THREE.RingGeometry(112, 120, 64).rotateX(-Math.PI / 2), u.ringM); ring.position.y = 4.4; o.add(ring);
       }
-      dyn.tw.set(ob, o); scene.add(o);
+      dyn.tw.set(ob, o); scene.add(o); MOON.dirty = true;
     }
     const u = o.userData;
     o.position.set(ob.x, 0, ob.y);
@@ -2358,6 +2376,7 @@ function init() {
   scene.background = new THREE.Color(0x040507);
   scene.fog = new THREE.FogExp2(0x06080c, 0.00062);
   camera = new THREE.PerspectiveCamera(FOV, 1, 20, 4000);
+  camera.layers.enable(CHAR_LAYER);                              // 사람 · 시체 · 총은 1 층 — 화면과 손전등 그림자에는 보이고, 달빛 그림자 지도에는 안 들어간다
   makeTextures(); makeMaterials(); makeGeos();
   scene.environment = window.LC_NOENV ? null : makeEnv();
   beam = makeBeam(); dust = makeDust(); scene.add(beam, dust, makeRipples(), makeLampCones(), makeGlows(), ...makeFire(), ...makeHazards());
@@ -2374,7 +2393,9 @@ function init() {
   // 달빛 그림자 — 건물이 길 · 옥상에 긴 그림자를 드리운다. 카메라가 보는 범위만 덮는 직교 상자
   moon.castShadow = true;
   moon.shadow.mapSize.set(2048, 2048);
-  Object.assign(moon.shadow.camera, { left: -820, right: 820, top: 760, bottom: -760, near: 10, far: 2600 });
+  // 범위는 화면에 보이는 땅 + 따라가는 간격(MOON_SNAP)의 절반. 지도는 매 프레임이 아니라 간격을 넘거나 도시가 바뀔 때만 다시 그린다
+  Object.assign(moon.shadow.camera, { left: -860, right: 860, top: 800, bottom: -800, near: 10, far: 2600 });
+  moon.shadow.autoUpdate = false; moon.shadow.needsUpdate = true;
   moon.shadow.bias = -0.0008; moon.shadow.normalBias = 1.2;
   scene.add(hemi, moon, moon.target);
   // 손전등 — 가슴 높이에서 나가는 원뿔. 그림자를 드리운다
@@ -2383,6 +2404,7 @@ function init() {
   spot.shadow.mapSize.set(1024, 1024);
   spot.shadow.camera.near = 8; spot.shadow.camera.far = 620;
   spot.shadow.bias = -0.0006; spot.shadow.normalBias = 0.6;
+  spot.shadow.camera.layers.enable(CHAR_LAYER);
   spotTarget = new THREE.Object3D();
   scene.add(spot, spotTarget); spot.target = spotTarget;
   muzzle = new THREE.PointLight(0xffc880, 0, 300, 0); scene.add(muzzle);
@@ -2434,7 +2456,7 @@ function init() {
   exitRing.scale.set(40, 1, 40);
   exitBeam = new THREE.Mesh(new THREE.CylinderGeometry(30, 34, 260, 24, 1, true), new THREE.MeshBasicMaterial({ color: 0x50c8ff, transparent: true, opacity: 0.08, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
   scene.add(exitRing, exitBeam);
-  for (let i = 0; i < 6; i++) { const n = part(GEO.ico, mat('#3a4a2a', { roughness: 0.5 }), 0, 0, 0, 3.2, 3.2, 3.2); n.visible = false; nadeMeshes.push(n); scene.add(n); }
+  for (let i = 0; i < 6; i++) { const n = part(GEO.ico, mat('#3a4a2a', { roughness: 0.5 }), 0, 0, 0, 3.2, 3.2, 3.2); n.visible = false; charLayer(n); nadeMeshes.push(n); scene.add(n); }
   // 총구 불꽃 · 폭발 섬광 — 빛(점광원)과 함께 보이는 밝은 판
   const addSprite = (c, sz) => { const m = new THREE.Sprite(new THREE.SpriteMaterial({ map: TEX.glow, color: c, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false })); m.scale.set(sz, sz, 1); m.visible = false; scene.add(m); return m; };
   R3D._flash = addSprite(0xffd090, 34);
@@ -2457,6 +2479,8 @@ function prof(k, t0) { const d = performance.now() - t0, e = PROF[k] || (PROF[k]
 /** 단계별 픽셀 배율 상한 — '자동'이라도 1 밑으로는 내리지 않는다(화면보다 낮은 해상도는 계단 · 뭉개짐이 눈에 띈다).
     대신 MSAA → 그림자 → 빛 번짐(후처리) 순으로 덜어 낸다. '선명하게'는 기기 배율 2 까지 */
 const PR_CAP = [1.5, 1.25, 1.0, 1.0];
+/** 휴대폰 · 태블릿 — 화면이 촘촘해 1.25 로도 선명하고, 후처리(HDR · 빛 번짐)를 칠할 화소가 3 할 준다 */
+const PR_CAP_TOUCH = [1.25, 1.1, 1.0, 1.0];
 function perfStep(now) {
   const dt = now - PERF.last;
   PERF.last = now;
@@ -2466,13 +2490,14 @@ function perfStep(now) {
   // 꾸준히 느린 기기(프레임마다 40ms 넘게)는 그대로 내려간다
   PERF.ema += (Math.min(dt, 120) - PERF.ema) * 0.05;
   if (SETTINGS.quality === 'high' || PERF.level >= 3 || document.hidden || now < PERF.calm) return;
-  if (now - PERF.since > 2500 && PERF.ema > 42) {
+  // 36ms(약 28fps) 아래로 2.5초 머물면 한 단계 — 예전 42ms 는 20fps 대까지 버텨 휴대폰에서 끊김이 그대로 보였다
+  if (now - PERF.since > 2500 && PERF.ema > 36) {
     PERF.level++; PERF.since = now; PERF.ema = 30;
     (PROF.lv || (PROF.lv = [])).push([Math.round(now), PERF.level]);
     // 어느 단계도 셰이더를 다시 엮지 않는다(재질 · 출력 색공간을 바꾸지 않음) — 바꾸는 순간 수십 개가 한꺼번에 엮여 멈춘다
     if (PERF.level === 1 && composer) for (const t of [composer.renderTarget1, composer.renderTarget2]) if (t.samples) { t.samples = 0; t.dispose(); }
     if (PERF.level === 2) {                              // 그림자는 끄지 않고 가볍게 — 달빛 그림자 지도를 줄이고 두 프레임에 한 번 그린다
-      moon.shadow.mapSize.set(1024, 1024); if (moon.shadow.map) { moon.shadow.map.dispose(); moon.shadow.map = null; }
+      moon.shadow.mapSize.set(1024, 1024); if (moon.shadow.map) { moon.shadow.map.dispose(); moon.shadow.map = null; } MOON.dirty = true;
       renderer.shadowMap.autoUpdate = false; renderer.shadowMap.needsUpdate = true;
     }
     if (PERF.level === 3) {                              // 빛 번짐을 끄고 손전등 그림자 지도도 줄인다(후처리 자체는 남겨 색 · 셰이더가 그대로)
@@ -2484,7 +2509,7 @@ function perfStep(now) {
 }
 function size() {
   if (!renderer) return;
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, SETTINGS.quality === 'low' ? 0.75 : SETTINGS.quality === 'high' ? 2 : PR_CAP[PERF.level]));
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, SETTINGS.quality === 'low' ? 0.75 : SETTINGS.quality === 'high' ? 2 : (matchMedia && matchMedia('(pointer: coarse)').matches ? PR_CAP_TOUCH : PR_CAP)[PERF.level]));
   const SW = (window.STAGE && window.STAGE.w) || window.innerWidth, SH = (window.STAGE && window.STAGE.h) || window.innerHeight;
   renderer.setSize(SW, SH, false);
   if (composer) { composer.setPixelRatio(renderer.getPixelRatio()); composer.setSize(SW, SH); grade.uniforms.uRes.value.set(SW * renderer.getPixelRatio(), SH * renderer.getPixelRatio()); }
@@ -2542,7 +2567,7 @@ function resetWorld(w) {
   for (const k of ['props', 'decor', 'signs', 'humans', 'corpses', 'pickups', 'relays', 'tw']) { for (const [, o] of dyn[k]) scene.remove(o); dyn[k].clear(); }
   dropPlayer();
   for (const lm of LM3) scene.remove(lm); LM3.length = 0;
-  curWorld = w;
+  curWorld = w; MOON.dirty = true;
   PERF.calm = performance.now() + 5000;                  // 새 판의 준비 끊김은 화질 판단에서 뺀다
   ensureSignMats(w);
   applyKit(w);
@@ -2586,7 +2611,7 @@ R3D.unproject = (sx, sy) => {
   return ray.ray.intersectPlane(plane, hit) ? [hit.x, hit.z] : null;
 };
 R3D.info = () => renderer ? { chunks: chunks.size, calls: renderer.info.render.calls, tris: renderer.info.render.triangles, programs: renderer.info.programs.length, level: PERF.level, ms: Math.round(PERF.ema), failed: R3D.failed } : null;
-R3D._dbg = () => ({ CHAR, dyn, THREE, renderer, scene, camera, moon, hemi, spot, bloom, grade, MAT, CL, PERF, makeRig, blendRig, player: player3 });
+R3D._dbg = () => ({ chunkSteps, CHAR, dyn, THREE, renderer, scene, camera, moon, hemi, spot, bloom, grade, MAT, CL, PERF, makeRig, blendRig, player: player3 });
 R3D.hide = () => { if (cv) cv.style.display = 'none'; };
 /** 판 준비 — '시작'을 누른 그 순간(브리핑 화면이 떠 있는 동안) 도시 · 둘레 덩어리 25 개 · 인물 · 첫 그림을 모두 마친다.
     예전엔 이 일이 게임 화면이 뜬 뒤의 첫 프레임들에 나뉘어 몰려 시작하자마자 여러 번 멈칫했다 */
@@ -2598,7 +2623,8 @@ R3D.prime = g => {
     if (g.world !== curWorld) resetWorld(g.world);
     placeCamera(g);
     syncChunks(g.world, camT.x, camT.z, true);
-    draw3(g);
+    for (const sg of g.world.signs) signTexture(sg.text, sg.col);     // 간판 글씨는 여기서 미리 다 그린다(판 도중에 하나 5‒30ms)
+    PRIMING = true; try { draw3(g); } finally { PRIMING = false; }
     PROF.prime = Math.round(performance.now() - t0);
   } catch (e) { fail('init', e); }
 };
@@ -2646,6 +2672,7 @@ function draw3(g) {
   cv.style.display = '';
   const T0 = performance.now();
   placeCamera(g);
+  FRUST.setFromProjectionMatrix(FR_M.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse));
   syncChunks(w, camT.x, camT.z);
   const T1 = performance.now();
   const near = (x, y, m) => Math.abs(x - camT.x) < m && Math.abs(y - camT.z) < m * 1.1;
@@ -2657,8 +2684,9 @@ function draw3(g) {
   // 탈것 · 장식 · 간판 — 게임이 플레이어 곁의 사본으로 옮겨 둔 자리
   for (const pr of w.props) {
     let o = dyn.props.get(pr);
-    if (!near(pr.x, pr.y, 1100)) { if (o) o.visible = false; continue; }
-    if (!o) { const t0 = performance.now(); o = mergeStatic(makeProp(pr)); dyn.props.set(pr, o); scene.add(o); prof('prop', t0); }
+    if (!near(pr.x, pr.y, 1100)) { if (o && o.visible) { o.visible = false; MOON.dirty = true; } continue; }
+    if (!o) { const t0 = performance.now(); o = mergeStatic(makeProp(pr)); dyn.props.set(pr, o); scene.add(o); prof('prop', t0); MOON.dirty = true; }
+    if (!o.visible) MOON.dirty = true;
     o.visible = true; o.position.set(pr.x, 0, pr.y); o.rotation.y = -pr.a;
     if (o.userData.head) { const ca = Math.cos(pr.a), sa = Math.sin(pr.a), hd = o.userData.head; pushLight(pr.x + ca * (hd + 70), 14, pr.y + sa * (hd + 70), 190, HEAD_C, 1.3); if (blinkOn) pushLight(pr.x, 14, pr.y, 90, BLINK_C, 0.9); }
     if (o.userData.fire) addFire(pr.x + Math.cos(pr.a) * pr.w * 0.18, 12, pr.y + Math.sin(pr.a) * pr.w * 0.18, 1, o.userData.fire);
@@ -2678,8 +2706,9 @@ function draw3(g) {
   for (const d of w.decor) {
     if (d.kind === 'tree' && w.deco[w.idx(Math.floor(d.x / TILE), Math.floor(d.y / TILE))] === D_BUILDING) continue;
     let o = dyn.decor.get(d);
-    if (!near(d.x, d.y, 1100)) { if (o) o.visible = false; continue; }
-    if (!o) { const t0 = performance.now(); o = mergeStatic(makeDecor(d)); dyn.decor.set(d, o); scene.add(o); prof('decor', t0); }
+    if (!near(d.x, d.y, 1100)) { if (o && o.visible) { o.visible = false; MOON.dirty = true; } continue; }
+    if (!o) { const t0 = performance.now(); o = mergeStatic(makeDecor(d)); dyn.decor.set(d, o); scene.add(o); prof('decor', t0); MOON.dirty = true; }
+    if (!o.visible) MOON.dirty = true;
     o.visible = true; o.position.set(d.x, d.kind === 'boat' ? -6 : (w.deco[w.idx(Math.floor(d.x / TILE), Math.floor(d.y / TILE))] === D_SIDEWALK ? 3 : 0), d.y);
     o.rotation.y = -(d.a || 0) + (d.wall === 'n' ? Math.PI / 2 : d.wall === 'w' ? 0 : d.wall === 'e' ? Math.PI : d.wall ? -Math.PI / 2 : 0);
   }
@@ -2722,10 +2751,12 @@ function draw3(g) {
 
 function updateSigns(g, w, near) {
   const t = g.time, lit = [];
+  let fresh = 0;
   for (const sg of w.signs) {
     let o = dyn.signs.get(sg);
     const X = (sg.x + 0.5) * TILE, Z = (sg.y + 0.5) * TILE;
     if (!near(X, Z, 900)) { if (o) o.visible = false; continue; }
+    if (!o && fresh++ > 0 && !PRIMING) continue;                                     // 간판 하나에 글씨 그리기 5‒7ms — 한 프레임에 하나만 만든다
     if (!o) { const t0 = performance.now(); o = makeSign(sg); dyn.signs.set(sg, o); scene.add(o); prof('sign', t0); }
     const dead = (sg.ph * 10 | 0) % 3 === 0;
     const flick = dead ? 0.08 : (sg.ph * 7 | 0) % 4 === 0 ? (Math.sin(t * 23 + sg.ph * 9) > 0.3 ? 1 : 0.15) : 0.85 + Math.sin(t * 2 + sg.ph) * 0.15;
@@ -2774,6 +2805,13 @@ const CHAR = { ready: false, loading: false, body: {} };
 const MODEL_H = 50;
 /** 사람 · 감염체의 보이는 크기 — 건물 · 차와 비율을 맞춰 0.6 (판정 반지름은 그대로) */
 const CHAR_S = 0.6;
+/** 사람 층 — 화면과 손전등 그림자에만 그린다(달빛 그림자 지도는 멈춘 것만 담아 가끔 다시 그린다) */
+const CHAR_LAYER = 1;
+function charLayer(o) { if (o) o.traverse(c => c.layers.set(CHAR_LAYER)); return o; }
+const MOON_SNAP = 64, MOON = { x: NaN, z: NaN, dirty: true, age: 0 };
+/** 화면 안인가 — 카메라 시야 원뿔과 공(x, 높이 r/2, z, 반지름 r). 매 프레임 한 번 시야를 잡는다 */
+const FRUST = new THREE.Frustum(), FR_M = new THREE.Matrix4(), FR_S = new THREE.Sphere();
+function inView(x, z, r) { FR_S.center.set(x, r * 0.5, z); FR_S.radius = r; return FRUST.intersectsSphere(FR_S); }
 function modelSrc(k) { return (window.LC_MODELS && window.LC_MODELS[k]) || ('vendor/models/' + k + '.glb'); }
 /** 모형 하나 — 단일 파일 판(아티팩트)은 모형을 data: 로 품고 있다. 그곳의 보안 정책(CSP)은 fetch 를 막으므로
     (connect-src) 네트워크를 쓰지 않고 base64 를 직접 풀어 파싱한다. 안의 그림도 fetch 를 쓰는 ImageBitmapLoader 대신
@@ -3257,10 +3295,11 @@ function updateAllies3(g, dt, rigs) {
       else { h = makeHuman(look); h.scale.setScalar(1.25 * CHAR_S); }
       const len = a.wpn === 'rifle' ? 24 : a.wpn === 'shotgun' ? 20 : 16;
       const gun = new THREE.Group(); gun.add(part(GEO.box, mat('#15181c', { roughness: 0.5, metalness: 0.5 }), len / 2, 0, 0, len, 2.6, 2.2));
-      gun.userData.len = len; h.userData.gun = gun; scene.add(gun);
-      ALLY3.set(a, h); scene.add(h);
+      gun.userData.len = len; h.userData.gun = gun; scene.add(charLayer(gun));
+      ALLY3.set(a, h); scene.add(charLayer(h));
     }
     h.position.set(a.x, groundY(g.world, a.x, a.y, 0), a.y);
+    h.visible = inView(a.x, a.y, 64);
     if (h.userData.rig) poseAllyRig(h, a, dt);
     else { h.rotation.y = -a.angle; poseHuman(h, { ph: a.walkPhase, amp: a.stride || 0, lean: 1.2, arms: 'gun', melee: 0 }); h.userData.gun.visible = false; }
     if (a.muzzle > 0) pushLight(a.x + Math.cos(a.angle) * 30, 26, a.y + Math.sin(a.angle) * 30, 140, tmpC.set(0xffc880), 2.2);
@@ -3491,20 +3530,26 @@ function updateHumans(g, p) {
   const seen = new Set();
   const dt = lastHT < 0 ? 0 : Math.max(0, Math.min(0.1, g.time - lastHT)); lastHT = g.time;
   const rigs = CHAR.ready;
+  let fresh = 0;
   for (const z of g.zombies) {
     if (z.dead) continue;
     seen.add(z);
     let h = dyn.humans.get(z);
     if (!h) {
+      // 몰려오는 무리(18‒30)가 한꺼번에 생기면 인형 복제가 한 프레임에 몰려 멈칫한다 — 한 프레임에 둘까지만(나머지는 다음 프레임)
+      if (fresh >= 2 && !PRIMING) continue;
+      fresh++;
       const t = z.t, S = t.boss ? 2.3 : t.size >= 18 ? 1.55 : t.charge ? 1.42 : t.tongue ? 1.16 : t.bloat ? 1.18 : t.scream ? 1.08 : t.speed > 100 ? 1 : 1.05;
       const t0 = performance.now();
       if (rigs) { h = zombieRig(z); h.scale.setScalar(S * CHAR_S); prof('zrig', t0); }
       else { h = makeHuman(zombieLook(z)); h.scale.setScalar(S * 1.25 * CHAR_S); }
-      dyn.humans.set(z, h); scene.add(h);
+      charLayer(h); dyn.humans.set(z, h); scene.add(h);
     }
     const d = Math.hypot(z.x - p.x, z.y - p.y);
     const vis = Math.max(z.lit, Math.min(1, Math.max(0, (180 - d) / 60)), g.lightning * 1.4, z.t.boss ? 0.5 : 0);
-    h.visible = d < 1300;
+    // 화면 밖은 그리지 않는다 — 예전엔 1300 안이면 다 그려 화면에 하나도 없어도 뼈대 모형 일고여덟을 그리고 있었다(한 명에 삼각형 1 만 개)
+    h.visible = d < 1300 && inView(z.x, z.y, 62 * h.scale.x / CHAR_S);
+    if (!h.visible && h.userData.eyes) h.userData.eyes.visible = false;
     trackMotion(h.userData, z.x, z.y, -z.face, dt, z.t.boss ? 5 : 8);
     h.position.set(z.x, groundY(g.world, z.x, z.y, z.terr), z.y); h.rotation.y = h.userData.yaw;
     const t = z.t, ph = z.phase, aggro = !!z.aggro;
@@ -3545,6 +3590,7 @@ function updateHumans(g, p) {
       const m = mat('#b8321f', { emissive: col('#501008'), emissiveIntensity: 0.5, roughness: 0.45, metalness: 0.3 });
       carry3.add(part(GEO.box, m, 0, 0, 0, 10, 14, 5.5));
       carry3.add(part(GEO.box, mat('#3a1410'), 0, 8.5, 0, 6, 2, 2));
+      charLayer(carry3);
       scene.add(carry3);
     }
     const a = p.angle, sw = Math.sin((p.walkPhase || 0)) * 0.12;
@@ -3566,7 +3612,7 @@ function updateHumans(g, p) {
   pHalo.material.uniforms.uA.value = 0.12 + (p.hp < 30 ? 0.2 * (0.5 + 0.5 * Math.sin(g.time * 7)) : 0);   // 체력이 바닥이면 고리가 숨 쉬듯 뛴다
   updateAllies3(g, dt, rigs);
   // 플레이어
-  if (!player3 && rigs) { player3 = makePlayerRig(); player3.scale.setScalar(1.06 * CHAR_S); scene.add(player3); }
+  if (!player3 && rigs) { player3 = makePlayerRig(); player3.scale.setScalar(1.06 * CHAR_S); scene.add(player3); charLayer(player3); charLayer(pGun); charLayer(chestLamp); }
   if (player3 && player3.userData.rig) {
     player3.visible = !p.dead; if (pGun) pGun.visible = !p.dead;
     player3.position.set(p.x, groundY(g.world, p.x, p.y, p.terr), p.y);
@@ -3585,7 +3631,7 @@ function updateHumans(g, p) {
     // 플레이어만 옅은 윤곽광 — 어둠 속에서도 내가 어디 있는지 보인다(감염체는 어둠에 숨는다)
     const rimmed = new Map();
     player3.traverse(o => { if (o.isMesh && o.material.isMeshStandardMaterial) { if (!rimmed.has(o.material)) rimmed.set(o.material, enhance(o.material.clone(), false, '0.05, 0.08, 0.12')); o.material = rimmed.get(o.material); } });
-    scene.add(player3);
+    scene.add(charLayer(player3));
   }
   player3.visible = !p.dead;
   player3.position.set(p.x, 0, p.y); player3.rotation.y = -p.angle;
@@ -3609,7 +3655,7 @@ function updateMaws(g, near) {
       ring: new THREE.InstancedMesh(new THREE.RingGeometry(0.82, 1, 36).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide }), 24)
     };
     for (const k of ['seg', 'ring']) MAW3[k].instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(MAW3[k].instanceMatrix.count * 3), 3);
-    for (const k in MAW3) { MAW3[k].frustumCulled = false; MAW3[k].count = 0; if (k !== 'ring' && k !== 'hole') MAW3[k].castShadow = true; scene.add(MAW3[k]); }
+    for (const k in MAW3) { MAW3[k].frustumCulled = false; MAW3[k].count = 0; if (k !== 'ring' && k !== 'hole') MAW3[k].castShadow = true; charLayer(MAW3[k]); scene.add(MAW3[k]); }
   }
   const M = MAW3, N = 16;
   let ns = 0, nl = 0, nt = 0, nr = 0;
@@ -3664,20 +3710,29 @@ function updateMaws(g, near) {
   if (M.seg.instanceColor) M.seg.instanceColor.needsUpdate = true;
   if (M.ring.instanceColor) M.ring.instanceColor.needsUpdate = true;
 }
+/** 시체 — 화면 안의 것만, 새것부터 CORPSE_MAX 까지. 다 쓰러진 시체는 그림자를 드리우지 않는다.
+    예전엔 둘레 1100 안의 시체를 모두(판이 길면 수십) 뼈대 모형으로 그리고 그림자 지도에도 두 번씩 그렸다 —
+    좀비를 잡을수록 느려지던 까닭 */
+const CORPSE_MAX = 10;
 function updateCorpses(g, near) {
   const seen = new Set();
-  for (const c of g.corpses) {
+  let shown = 0, fresh = 0;
+  for (let i = g.corpses.length - 1; i >= 0; i--) {
+    const c = g.corpses[i];
     if (!near(c.x, c.y, 1100)) continue;
-    seen.add(c);
     let o = dyn.corpses.get(c);
+    if (shown >= CORPSE_MAX || !inView(c.x, c.y, 70)) { if (o) { o.visible = false; seen.add(c); } continue; }
+    if (!o && fresh >= 3 && !PRIMING) continue;                                     // 수류탄 한 방에 여럿이 쓰러져도 한 프레임에 셋까지만 만든다
+    seen.add(c); shown++;
     if (!o) {
+      fresh++;
       const look = c.type === 'player' ? { top: '#2f3a44', pants: '#262b31', skin: '#a8866e' } : c.type === 'ally' ? { top: c.top, pants: c.pants, skin: c.skin } :
         { top: c.hazmat ? '#d9d7cc' : c.top || '#5a5a50', pants: c.hazmat ? '#cfcdc2' : c.pants || '#2d3440', skin: '#8a8f7c', gore: true };
       if (CHAR.ready) {
         const t0 = performance.now(); o = makeCorpseRig(c); prof('corpse', t0);
         o.scale.setScalar(CHAR_S * (c.type === 'brute' ? 1.5 : c.type === 'behemoth' ? 2.2 : c.type === 'charger' ? 1.4 : c.type === 'bloater' ? 1.2 : 1));
         o.rotation.y = -(c.a || 0) + Math.PI;
-        dyn.corpses.set(c, o); scene.add(o);
+        dyn.corpses.set(c, o); scene.add(charLayer(o));
         o.position.set(c.x, 0, c.y);
       } else {
       // 모형이 아직 없을 때만 단순 인형 — 예전엔 둘 다 만들어 뼈대 시체가 장면에 남은 채(지워지지 않고) 쌓였다
@@ -3690,14 +3745,15 @@ function updateCorpses(g, near) {
       const S = c.type === 'brute' ? 1.5 : c.type === 'behemoth' ? 2.2 : c.type === 'charger' ? 1.4 : c.type === 'bloater' ? 1.2 : 1;
       o.scale.setScalar(S * 1.25 * CHAR_S);
       o.rotation.y = -(c.a || 0) + Math.PI;
-      dyn.corpses.set(c, o); scene.add(o);
+      dyn.corpses.set(c, o); scene.add(charLayer(o));
       }
     }
+    o.visible = true;
     const gy = g.world.pitIdx ? groundY(g.world, c.x, c.y, 0) : 0;
     o.position.set(c.x, gy, c.y);
     const fd = o.userData.fall ? DEATH_DUR[o.userData.fall.style] || 0.65 : 0;
     if (o.userData.fall && (c.age || 0) < fd) o.position.y = gy + fallPose(o, c.age || 0);
-    else if (o.userData.fall && !o.userData.settled) { fallPose(o, 2); o.userData.settled = true; }
+    else if (o.userData.fall && !o.userData.settled) { fallPose(o, 2); o.userData.settled = true; if (o.userData.meshes) for (const m of o.userData.meshes) m.castShadow = false; }
   }
   for (const [c, o] of dyn.corpses) if (!seen.has(c)) { scene.remove(o); dyn.corpses.delete(c); }
 }
@@ -3811,7 +3867,7 @@ function updatePickups(g, near) {
       else o.add(part(GEO.box, mat(c, { emissive: col(c), emissiveIntensity: 0.55 }), 0, 4, 0, 9, 7, 9));
       const halo = new THREE.Mesh(GEO.plane, new THREE.MeshBasicMaterial({ map: TEX.glow, color: col(c), transparent: true, opacity: 0.35, depthWrite: false, blending: THREE.AdditiveBlending }));
       halo.position.y = 0.8; halo.scale.set(46, 1, 46); o.add(halo);
-      dyn.pickups.set(pk, o); scene.add(o);
+      charLayer(o); dyn.pickups.set(pk, o); scene.add(o);
     }
     o.position.set(pk.x, Math.sin(g.time * 3 + pk.x) * 1.5 + (g.world.pitIdx ? groundY(g.world, pk.x, pk.y, 0) : 0), pk.y);
     o.children[0].rotation.y = g.time * 1.2;
@@ -3911,8 +3967,11 @@ function updateLights(g, p, w) {
   hemi.intensity = 0.6 + L * 3 + (SETTINGS.brightness - 50) * 0.01;
   moon.intensity = 0.95 + L * 1.6;
   // 서남쪽 높은 하늘 — 보이는 남쪽 벽면에 비스듬한 달빛, 그림자는 동북쪽 길로 눕는다. 그림자 지도의 칸에 맞춰 움직여 떨림을 막는다
-  const sx = Math.round(camT.x / 8) * 8, sz = Math.round(camT.z / 8) * 8;
-  moon.position.set(sx - 900, 1250, sz + 380); moon.target.position.set(sx, 0, sz);
+  // 그림자 지도는 건물 · 소품 같은 멈춰 있는 것만 담는다(사람은 1 층이라 빠진다) — 그래서 매 프레임 그릴 까닭이 없다.
+  // 예전엔 150 번 가까운 그리기 호출을 매 프레임 했다(느린 휴대폰에서 좀비가 없어도 끊기던 큰 몫)
+  const sx = Math.round(camT.x / MOON_SNAP) * MOON_SNAP, sz = Math.round(camT.z / MOON_SNAP) * MOON_SNAP;
+  if (sx !== MOON.x || sz !== MOON.z) { MOON.x = sx; MOON.z = sz; MOON.dirty = true; moon.position.set(sx - 900, 1250, sz + 380); moon.target.position.set(sx, 0, sz); moon.target.updateMatrixWorld(); }
+  if (MOON.dirty || ++MOON.age > 90) { moon.shadow.needsUpdate = true; MOON.dirty = false; MOON.age = 0; }
 }
 
 /** 0 비 · 1 눈 · 2 모래 — 같은 선분 묶음을 길이 · 속도만 바꿔 쓴다 */

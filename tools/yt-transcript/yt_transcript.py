@@ -133,6 +133,7 @@ def try_ytdlp_captions(url: str, langs: list[str], workdir: Path,
         opts = ydl_opts(
             workdir, cookies_browser,
             skip_download=True, writesubtitles=True, writeautomaticsub=True,
+            ignore_no_formats_error=True,  # 영상 포맷이 막혀도 자막은 받을 수 있음
             subtitleslangs=wanted, subtitlesformat="vtt",
             extractor_args={"youtube": {"player_client": [client]}},
         )
@@ -330,14 +331,19 @@ def save_thumbnails(vid: str, workdir: Path) -> list[Path]:
     return saved
 
 
-def gemini_watch_youtube(url: str, prompt: str) -> str:
+def gemini_models() -> list[str]:
+    """GEMINI_MODEL은 쉼표로 여러 개를 줄 수 있다. 앞 모델이 과부하면 다음 모델로."""
+    models = [m.strip() for m in os.environ.get("GEMINI_MODEL", "").split(",") if m.strip()]
+    if not models:
+        raise RuntimeError("GEMINI_MODEL 환경변수에 사용할 모델 이름을 넣어 주세요")
+    return models
+
+
+def gemini_watch_youtube(url: str, prompt: str, model: str) -> str:
     """Gemini API는 YouTube 주소를 직접 받아 영상을 본다 (Google 서버가 영상을 가져감)."""
     from google import genai
     from google.genai import types
 
-    model = os.environ.get("GEMINI_MODEL")
-    if not model:
-        raise RuntimeError("GEMINI_MODEL 환경변수에 사용할 모델 이름을 넣어 주세요")
     with genai.Client() as client:  # 변수로 붙잡지 않으면 응답 전에 연결이 닫힌다
         resp = client.models.generate_content(
             model=model,
@@ -364,17 +370,26 @@ def handle_blocked(url: str, vid: str, workdir: Path, prompt: str) -> int:
         import time
 
         text, err = None, None
-        for wait in (0, 10, 30, 60):  # 503(과부하)·429(한도)는 잠시 뒤 재시도
-            if wait:
-                log(f"    일시적 오류로 {wait}초 뒤 재시도")
-                time.sleep(wait)
-            try:
-                text = gemini_watch_youtube(url, prompt)
-                break
-            except Exception as e:
-                err = e
-                if not re.search(r"\b(503|429|500)\b|UNAVAILABLE|RESOURCE_EXHAUSTED", str(e)):
+        try:
+            models = gemini_models()
+        except RuntimeError as e:
+            models, err = [], e
+        for model in models:
+            for wait in (0, 10, 30):  # 503(과부하)·429(한도)는 잠시 뒤 재시도
+                if wait:
+                    log(f"    {model}: 일시적 오류로 {wait}초 뒤 재시도")
+                    time.sleep(wait)
+                try:
+                    text = gemini_watch_youtube(url, prompt, model)
                     break
+                except Exception as e:
+                    err = e
+                    if not re.search(r"\b(503|429|500)\b|UNAVAILABLE|RESOURCE_EXHAUSTED", str(e)):
+                        break
+            if text is not None:
+                log(f"  ✓ 사용 모델: {model}")
+                break
+            log(f"    {model} 실패 → 다음 모델")
         if text is None:
             log(f"  ✗ Gemini 영상 분석 실패: {err}")
         else:

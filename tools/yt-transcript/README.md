@@ -104,4 +104,5 @@ YouTube가 지금 내 인터넷(IP)을 막은 상태입니다. 자막과 음성�
 - 요약 모델 기본값은 `claude-opus-5-5`입니다. 바꾸려면 `.env`에 `CLAUDE_MODEL=...`을 넣습니다.
 - Claude가 내용을 거절하면 서버가 자동으로 다른 Claude 모델로 다시 시도하도록 설정되어 있습니다(`fallbacks: "default"`).
 - GPT·Gemini는 모델 이름이 자주 바뀌어 기본값을 두지 않았습니다. `.env`의 `OPENAI_MODEL`, `GEMINI_MODEL`에 직접 넣어 주세요.
+- `GEMINI_MODEL`은 쉼표로 여러 개를 줄 수 있습니다. 앞 모델이 과부하(503)면 다음 모델로 넘어갑니다. 예: `GEMINI_MODEL=gemini-flash-latest,gemini-3.8-flash`
 - 종료 코드: `0` 성공(차단됐지만 Gemini 영상 분석 성공 포함), `1` 자막 또는 요약 실패, `2` YouTube 차단

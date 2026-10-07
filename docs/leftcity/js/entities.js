@@ -557,9 +557,12 @@ class Zombie {
   wakeCheck(dt, g, p, d) {
     if (p.dead) return false;
     if (d < this.r + p.r + 12) return true;                                     // 부딪힘
-    if (p.noise > 0.05) {
-      const R = this.t.hear * p.noise * 1.6;
+    if (p.noise >= 0.6) {                                                       // 총성 — 화면의 총성 고리만큼 들린다(벽 너머는 60% 까지). 소음기를 끼면 고리도 깨우는 범위도 작다
+      const R = this.t.hear * (1 + p.noise * 1.6);
       if (d < R && (d < R * 0.6 || g.world.los(this.x, this.y, p.x, p.y))) return true;
+    } else if (p.noise > 0.05) {                                                // 발소리 — 질주는 약 200, 걸음은 바로 곁. 보이는 곳에서만
+      const R = this.t.hear * p.noise * 1.6;
+      if (d < R && g.world.los(this.x, this.y, p.x, p.y)) return true;
     }
     if (this.lit > 0.5) {                                                       // 불빛 — 비추는 동안 천천히 고개를 돌리다 깬다
       this.litT = (this.litT || 0) + dt * (d < 160 ? 1.8 : 1);

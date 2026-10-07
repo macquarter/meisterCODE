@@ -219,7 +219,10 @@ class Player {
     if (this.dead || this.meleeCool > 0) return false;
     this.meleeCool = 0.58 * PK.shoveCd;
     this.meleeAnim = 0.32;                                   // 밀치기 — 몸을 실어 두 팔로 내지른다(예전 0.2초는 눈에 잘 안 띄었다)
-    (g.shoves || (g.shoves = [])).push({ x: this.x, y: this.y, a: this.angle, t: 0, max: 0.34, hits: 0 });
+    // 밀치기 연출(rc.36) — 원형 고리 대신 레퍼런스(근접 공격의 '스미어 한 장 + 맞은 자리 섬광 + 파편 + 짧은 정지')를 따른다.
+    // sw: 휘두르는 방향(번갈아), pts: 맞은 자리(섬광을 그린다)
+    g.shoveSw = -(g.shoveSw || 1);
+    (g.shoves || (g.shoves = [])).push({ x: this.x, y: this.y, a: this.angle, t: 0, max: 0.24, hits: 0, sw: g.shoveSw, pts: [] });
     this.noise = Math.max(this.noise, 0.34);
     this.cancelReload();
     this.cool = Math.max(this.cool, 0.22);
@@ -241,14 +244,19 @@ class Player {
         // 덩치도 한 걸음은 물러나야 한다 — 예전(140 · 0.2초)은 밀려도 닿는 거리 안이라 곧바로 다시 붙었다
         z.kbV = (brute ? 270 : 380) * (front ? 1 : 0.85); z.kbA = a; z.shoved = brute ? 0.45 : 0.6; z.shoveA = a;
         z.stagger = Math.max(z.stagger, brute ? 0.5 : 0.62);
-        for (let i = 0; i < 5; i++) { const pa = a + Math.PI + (Math.random() - 0.5) * 1.6, sp = 40 + Math.random() * 60;
-          g.particles.push({ x: z.x, y: z.y, vx: Math.cos(pa) * sp, vy: Math.sin(pa) * sp, life: 0.6, max: 0.6, size: 6 + Math.random() * 5, col: '#8a8478', kind: 'smoke' }); }
-        (g.ripples || (g.ripples = [])).push({ x: z.x, y: z.y, t: 0, max: 0.35, r: 22, shove: true });
       }
+      // 맞은 자리 — 섬광 하나와 밀린 쪽으로 튀는 흙먼지 · 불티 몇 점(가벼운 타격엔 3‒8 점이면 충분하다)
+      const cx = z.x - Math.cos(a) * z.r * 0.8, cy = z.y - Math.sin(a) * z.r * 0.8;
+      const sv0 = g.shoves[g.shoves.length - 1]; if (sv0) sv0.pts.push({ x: cx, y: cy, a, big: z.type === 'brute' || z.type === 'charger' || !!z.t.boss });
+      for (let i = 0; i < 5; i++) { const pa = a + (Math.random() - 0.5) * 1.1, sp = 120 + Math.random() * 150, l = 0.28 + Math.random() * 0.18;
+        g.particles.push({ x: cx, y: cy, vx: Math.cos(pa) * sp, vy: Math.sin(pa) * sp, life: l, max: l, size: 2 + Math.random() * 1.6, col: '#cbbfa6' }); }
+      for (let i = 0; i < 3; i++) { const pa = a + (Math.random() - 0.5) * 1.6, sp = 200 + Math.random() * 140;
+        g.particles.push({ x: cx, y: cy, vx: Math.cos(pa) * sp, vy: Math.sin(pa) * sp, life: 0.16, max: 0.16, size: 1.6, col: '#fff1c8', kind: 'spark' }); }
       hits++;
     }
     const sh = g.shoves[g.shoves.length - 1]; if (sh) sh.hits = hits;
-    if (hits) { SFX.meleeHit(0); g.shake = Math.min(18, g.shake + 7); g.onHit(killed); g.freezeT = Math.max(g.freezeT || 0, 0.055); if (g.buzz) g.buzz(25); }
+    // 짧은 정지(약 4‒5 프레임) · 짧고 굵은 흔들림 · 카메라를 앞으로 툭 — 맞혔다는 손맛
+    if (hits) { SFX.meleeHit(0); g.shake = Math.min(14, g.shake + 5); g.onHit(killed); g.freezeT = Math.max(g.freezeT || 0, hits > 1 ? 0.085 : 0.065); if (g.recoil) g.recoil(this.angle + Math.PI, 3); if (g.buzz) g.buzz(25); }
     return true;
   }
 
@@ -397,6 +405,7 @@ class Zombie {
     this.hp = hp; this.hpMax = hp;
     this.face = Math.random() * Math.PI * 2;
     this.aggro = false;
+    this.stand = Math.random() < 0.75;      // 잠든 도시(이야기 판): 넷 중 셋은 제자리에 서 있고, 하나는 느릿느릿 서성인다
     this.steer = 0; this.steerHold = 0;
     this.wanderDir = Math.random() * Math.PI * 2;
     this.wanderT = 1 + Math.random() * 3;
@@ -542,6 +551,54 @@ class Zombie {
     if (this.rageT <= 0 || p.dead) { this.rage = false; this.startle = 0; this.aggro = false; }   // 그 자리에 다시 주저앉는다
   }
 
+  /** 잠든 도시에서 서 있는 종류 — 특수 감염체는 여전히 사냥한다(눈에 띄면 온다) */
+  dormantKind() { const t = this.t; return !(t.special || t.spit || t.tongue || t.leap || t.charge || t.scream || t.boss || t.weeper); }
+  /** 깨울까 — 소리(총성은 벽 너머까지 · 질주는 가까이 · 걸음은 바로 곁), 부딪힘, 1초 남짓 비춘 불빛, 곁의 것이 깨어남 */
+  wakeCheck(dt, g, p, d) {
+    if (p.dead) return false;
+    if (d < this.r + p.r + 12) return true;                                     // 부딪힘
+    if (p.noise > 0.05) {
+      const R = this.t.hear * p.noise * 1.6;
+      if (d < R && (d < R * 0.6 || g.world.los(this.x, this.y, p.x, p.y))) return true;
+    }
+    if (this.lit > 0.5) {                                                       // 불빛 — 비추는 동안 천천히 고개를 돌리다 깬다
+      this.litT = (this.litT || 0) + dt * (d < 160 ? 1.8 : 1);
+      if (this.litT > 1.1) return true;
+    } else this.litT = Math.max(0, (this.litT || 0) - dt * 0.5);
+    if (this.chainT > 0 && (this.chainT -= dt) <= 0) return true;
+    return false;
+  }
+  /** 깨어난다 — 비명과 함께 0.5초 몸을 일으키고, 곁에 서 있던 것들도 줄줄이 깬다 */
+  wake(g, d, chain) {
+    this.aggro = true; this.wakeHold = 0.5; this.litT = 0;
+    if (this.type === 'runner' || this.type === 'crawler') SFX.screech(d); else SFX.growl(d);
+    if (!chain) return;
+    for (const o of g.zombies) {
+      if (o === this || o.dead || o.aggro || o.chainT > 0 || !o.dormantKind()) continue;
+      const od = Math.hypot(o.x - this.x, o.y - this.y);
+      if (od < 170) o.chainT = 0.25 + od / 170 * 0.6 + Math.random() * 0.3;
+    }
+  }
+  /** 잠든 동안 — 서 있는 것은 제자리에서 흔들리고, 비추면 천천히 이쪽으로 돈다. 서성이는 것은 느리게 걷는다 */
+  idle(dt, g, p, dx, dy) {
+    if (this.litT > 0.2) {
+      const want = Math.atan2(dy, dx), da = Math.atan2(Math.sin(want - this.face), Math.cos(want - this.face));
+      this.face += Math.max(-1.6 * dt, Math.min(1.6 * dt, da));
+      this.phase += dt * 1.5;
+      return;
+    }
+    if (this.stand) {
+      this.phase += dt * 0.9;
+      this.wanderT -= dt;
+      if (this.wanderT <= 0) { this.wanderT = 3 + Math.random() * 6; this.face += (Math.random() - 0.5) * 1.2; }
+      return;
+    }
+    this.wanderT -= dt;
+    if (this.wanderT <= 0) { this.wanderT = 2 + Math.random() * 4; this.wanderDir = Math.random() * 6.283; }
+    if (!this.steerMove(this.wanderDir, this.t.speed * 0.22, dt, g)) this.wanderT = 0;
+    this.phase += dt * 2.4;
+  }
+
   cutTongue(g, quiet) {
     if (!this.tonguePhase) return;
     const was = this.tonguePhase;
@@ -654,6 +711,21 @@ class Zombie {
       this.kbV *= Math.pow(0.004, dt);
     }
     if (this.t.weeper) { this.updateWeeper(dt, g, p, d, dx, dy); return; }
+
+    // 잠든 도시 — 이야기 판의 보통 감염체는 그냥 서 있다. 소리 · 부딪힘 · 오래 비춘 불빛 · 깨어난 곁의 것만이 깨운다
+    if (!this.aggro && g.dormant && this.dormantKind()) {
+      if (this.wakeCheck(dt, g, p, d)) this.wake(g, d, true);
+      else {
+        this.lit = Math.max(0, this.lit - dt * 3);
+        this.idle(dt, g, p, dx, dy);
+        return;
+      }
+    }
+    if (this.wakeHold > 0) {                              // 깨어나는 순간 — 고개를 돌리고 몸을 일으킨다(0.5초). 그 틈에 쏘거나 물러설 수 있다
+      this.wakeHold -= dt; this.face = Math.atan2(dy, dx); this.phase += dt * 4;
+      this.lit = Math.max(0, this.lit - dt * 3);
+      return;
+    }
 
     // 감지: 소리 · 불빛 · 근접
     if (!this.aggro) {

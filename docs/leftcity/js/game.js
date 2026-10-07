@@ -433,13 +433,15 @@ function autoAimTarget(g, wide) {
   for (const z of g.zombies) {
     if (z.dead || (z.t.weeper && !z.rage)) continue;
     const dx = z.x - p.x, dy = z.y - p.y, d = Math.hypot(dx, dy);
-    if (d > R || (!z.aggro && d > 220)) continue;
+    if (d > R || (!z.aggro && d > (g.dormant ? 70 : 220))) continue;   // 잠든 도시: 서 있는 것은 바로 곁이 아니면 겨누지 않는다
     const da = Math.abs(Math.atan2(Math.sin(Math.atan2(dy, dx) - p.angle), Math.cos(Math.atan2(dy, dx) - p.angle)));
     const sc = d + da * 70 - (z.aggro ? 60 : 0);
     if (sc < bs && w.los(p.x, p.y, z.x, z.y)) { bs = sc; best = z; }
   }
   return best;
 }
+/** 그것과 싸우는 중인가 — 무리는 보스전 동안 오지 않는다 */
+function bossFightNow(g) { const p = g.player; return !!(g.boss && !g.boss.dead && g.boss.aggro && Math.hypot(g.boss.x - p.x, g.boss.y - p.y) < 900); }
 /** 자동 조준 — 표적이 있으면 그쪽으로, 없으면 걷는 쪽으로 손전등을 돌린다 (부드럽게, 초당 최대 9 rad) */
 function autoFace(g, p, mx, my, dt) {
   g.aimT = (g.aimT || 0) - dt;
@@ -954,6 +956,7 @@ const Hints = (() => {
     leaper:   () => [T('덮치는 것'), T('웅크리면 곧 날아든다 — 옆으로 비키거나, 날아오는 순간 쏘면 떨어진다')],
     charger:  () => [T('들이받는 것'), T('땅을 긁으면 돌진한다 — 옆으로 비켜 벽에 박게 하라')],
     puller:   () => [T('휘감는 것'), T('기침 소리 뒤에 혀가 날아온다 — 옆으로 비키거나 그것을 쏴서 끊어라')],
+    sleeper:  () => [T('서 있는 것'), T('저절로 쏘지 않는다 — 오래 비추거나 부딪히거나 총성을 들으면 깬다. 지나칠지 쏠지 정하라')],
     riot:     () => [T('진압 경찰'), T('방패가 총알을 막는다 — 석궁 · 매그넘 · 경기관총은 뚫는다. 아니면 밀쳐 돌려세우고 등을 쏴라')],
     // 2부의 땅 — 처음 밟는 순간
     terr1:    () => [T('모래 더미'), T('발이 빠져 느려진다 — 감염체도 마찬가지')],
@@ -966,7 +969,7 @@ const Hints = (() => {
     maw:      () => [T('구덩이 입'), T('깔때기 안의 것은 무엇이든 후려친다 — 감염체도. 무리를 둘레로 끌고 돌아라')]
   };
   // 지금 당장 알아야 하는 것은 줄 앞으로 끼워 넣는다
-  const URGENT = new Set(['terr2', 'terr4', 'maw', 'bile', 'weeper', 'horde', 'melee', 'reload', 'nade', 'runner', 'brute', 'crawler', 'spitter', 'behemoth', 'screamer', 'leaper', 'charger', 'puller', 'riot']);
+  const URGENT = new Set(['sleeper', 'terr2', 'terr4', 'maw', 'bile', 'weeper', 'horde', 'melee', 'reload', 'nade', 'runner', 'brute', 'crawler', 'spitter', 'behemoth', 'screamer', 'leaper', 'charger', 'puller', 'riot']);
 
   const queue = [];
   let cur = null, t = 0, gap = 0;
@@ -1023,6 +1026,7 @@ const Hints = (() => {
         if (z.aggro && d < 320) close++;
         if (z.lit > 0.5 && z.type !== 'walker' && !z.t.weeper) push(z.type);
         if (z.t.weeper && d < 560) push('weeper');
+        if (g.dormant && !z.aggro && z.lit > 0.5 && d < 320 && z.dormantKind()) push('sleeper');
         if (z.screamPhase === 'wind') push('screamer');
         if (z.leapPhase === 'crouch' || z.tonguePhase === 'wind' || z.chargePhase === 'wind') push(z.type);
       }
@@ -1816,6 +1820,8 @@ const G = {
     const C = typeof index === 'string' && index.startsWith('ch:') ? CHALLENGES.find(c => c.id === index.slice(3)) : null;
     this.challenge = C || null;
     this.survival = index === 'survival' || !!C;          // 도전은 서바이벌의 흐름(무한 소환 · 보급 · 이야기 없음)을 같이 쓴다
+    // 잠든 도시 — 이야기 판(돌파 제외)의 보통 감염체는 서 있다가 소리 · 부딪힘 · 오래 비춘 불빛에 깬다. 시간마다 오던 무리 대신 소음이 쌓이면 온다
+    this.dormant = !this.survival && !SETTINGS.mod.rush;
     this.levelIndex = this.survival ? -1 : index;
     // 오늘의 도시 — 정해진 도시 · 시드 · 변수
     this.daily = index === 'survival' && this.dailyNext ? this.dailyNext : null; this.dailyNext = null;
@@ -2414,6 +2420,19 @@ const G = {
       if (pr.ringing <= 0) pr.ringing = 0;
     }
 
+    // 잠든 도시의 소음 — 총성 · 질주 · 밀치기가 쌓인다. 조용하면 천천히 가라앉고, 가득 차면 소리를 들은 무리가 이쪽으로 온다.
+    // 한 발에 약 1, 질주 1초에 약 0.5. 문턱은 26(챕터마다 조금씩 낮아진다). 70% 를 넘으면 한 번 경고한다
+    if (this.dormant) {
+      const n = p.noise, cap = Math.max(16, 26 - this.levelIndex * 0.6);
+      D.heat = Math.max(0, (D.heat || 0) + (n > 0.3 ? (n - 0.3) * 6 : -0.45) * dt);
+      if (D.heat > cap * 0.7 && !D.heatWarned) { D.heatWarned = true; this.toast(T('소리가 멀리 퍼졌다 — 무언가 듣고 있다')); SFX.horde(1400, Math.random() * 6.28); }
+      if (D.heat >= cap && !bossFightNow(this) && this.callHorde(this.hordeSize(), { x: p.x, y: p.y })) {
+        D.heat = 0; D.heatWarned = false;
+        this.toast(T('소리를 듣고 무리가 몰려온다'));
+      }
+      if (D.heat < cap * 0.4) D.heatWarned = false;
+    }
+
     // 긴장도: 피해(Player.stress 누적) · 붙잡힘 → 올리고, 교전이 없으면 내린다
     if (p.stress) { this.stress(p.stress * 1.2); p.stress = 0; }
     if (p.grabbed) this.stress(p.grabbed * 9 * dt);
@@ -2428,11 +2447,15 @@ const G = {
     if (D.phase === 'build' && !bossFight) {
       // 등 뒤의 추적자 — 조용한 시간에도 완전히 안전하지는 않다
       D.stalkT -= dt;
+      // 잠든 도시엔 저절로 쫓아오는 추적자 · 시간마다 오는 무리가 없다 — 단, 버티는 구간(배를 기다림 · 생존 목표)은 예전처럼 몰려온다
+      const quiet = this.dormant && !this.holding && !['survive', 'endless'].includes(this.level.objective.type);
+      if (quiet) D.stalkT = 99;
       if (D.stalkT <= 0 && this.zombies.length < (SETTINGS.mod.cap || 58)) {
         D.stalkT = SETTINGS.mod.rush ? 1.5 + Math.random() * 1.5 : 7 + Math.random() * 6;
         const z = this.spawnZombie(430, 650);
         if (z) { z.aggro = true; z.stalker = true; }
       }
+      if (quiet) D.mobT = 99;                          // 시간마다 오는 무리 대신 — 위의 소음이 무리를 부른다
       D.mobT -= dt;
       if (D.mobT <= 0) {
         if (this.callHorde(this.hordeSize())) D.mobT = D.every * (0.8 + Math.random() * 0.5) * (SETTINGS.mod.rush ? 0.35 : 1);
@@ -3191,6 +3214,7 @@ const G = {
     for (const z of this.zombies) {
       if (z.t.weeper && !z.rage) continue;          // 우는 것은 자동으로 쏘지 않는다 — 깨울지는 플레이어가 정한다
       const d = Math.hypot(z.x - p.x, z.y - p.y);
+      if (this.dormant && !z.aggro && d > 70) continue;   // 서 있는 것도 마찬가지 — 쏘면 총성이 곁의 것까지 깨운다. 지나칠지 쏠지는 플레이어 몫
       if (d > range || d > bd) continue;
       const a = Math.atan2(z.y - p.y, z.x - p.x);
       let da = Math.abs(((a - p.angle + Math.PI * 3) % (Math.PI * 2)) - Math.PI);
@@ -3398,7 +3422,17 @@ function render() {
   }
 
   // 밀치기 — 몸에서 사방으로 퍼지는 공기의 파동. 일렁이는 물결 셋이 번지고 뒤로 잔물결이 남는다. 바라보는 쪽이 진하다
-  if (g.shoves) for (const sv of g.shoves) drawShoveWave(sv, g.time);
+  if (g.shoves) for (const sv of g.shoves) drawShove(sv);
+  // 밀려나는 감염체 뒤로 짧은 속도선 — 얼마나 세게 밀렸는지
+  for (const z of g.zombies) {
+    if (z.dead || !(z.kbV > 90)) continue;
+    const bx = -Math.cos(z.kbA), by = -Math.sin(z.kbA), L = Math.min(34, z.kbV * 0.1), al = Math.min(0.55, z.kbV / 600);
+    ctx.strokeStyle = `rgba(235,228,210,${al})`; ctx.lineWidth = 1.6;
+    for (const o of [-0.6, 0, 0.6]) {
+      const ox = z.x - by * o * z.r, oy = z.y + bx * o * z.r - GUN_LIFT * 0.6;
+      ctx.beginPath(); ctx.moveTo(ox + bx * z.r, oy + by * z.r); ctx.lineTo(ox + bx * (z.r + L * (o ? 0.7 : 1)), oy + by * (z.r + L * (o ? 0.7 : 1))); ctx.stroke();
+    }
+  }
   // 총성 — 소리가 닿는 거리까지 옅게 퍼지는 고리
   if (g.noiseRings) for (const nr of g.noiseRings) {
     const k = nr.t / nr.max, R = nr.R * (0.25 + 0.75 * Math.sqrt(k));
@@ -3441,30 +3475,33 @@ function render() {
   drawCrosshair(g, p);
 }
 
-/** 밀치기 파동 — 세계 좌표(바닥 기울기 적용된 변환) 위에 그린다. 반지름이 각도마다 조금씩 일렁이는 고리 셋 + 잔물결 */
-function drawShoveWave(sv, time) {
-  const k = sv.t / sv.max, e = 1 - (1 - k) * (1 - k), fade = (sv.hits ? 1 : 0.65) * (1 - k * k), R0 = 14 + e * 70;
-  const ring = (R, amp, lw, al) => {
+/** 밀치기 — 바라보는 쪽으로 휘두른 팔의 스미어 한 장(초승달, 0.1초에 휙 지나간다) + 맞은 자리의 네 갈래 섬광.
+    레퍼런스: 근접 공격은 스미어 하나 · 두 색(바탕 + 밝은 앞머리) · 맞은 자리에 짧은 섬광과 파편 · 4‒5 프레임 정지 */
+function drawShove(sv) {
+  const k = sv.t / sv.max, A0 = 1.25, R = 50 + (typeof PK !== 'undefined' ? PK.shove || 0 : 0);
+  const head = -A0 + 2 * A0 * Math.min(1, k / 0.42), tail = -A0 + 2 * A0 * Math.max(0, (k - 0.18) / 0.82);
+  if (head - tail > 0.05) {
+    const N = 22, pts = [];
+    for (let i = 0; i <= N; i++) { const u = i / N, ang = sv.a + sv.sw * (tail + (head - tail) * u); pts.push([ang, u]); }
     ctx.beginPath();
-    for (let i = 0; i <= 48; i++) {
-      const a = i / 48 * 6.2832, rr = R + amp * Math.sin(a * 9 + time * 18) + amp * 0.5 * Math.sin(a * 23 - time * 31);
-      const f = 0.45 + 0.55 * Math.max(0, Math.cos(a - sv.a));           // 바라보는 쪽이 더 진하다
-      const x = sv.x + Math.cos(a) * rr * (0.9 + 0.1 * f), y = sv.y + Math.sin(a) * rr * (0.9 + 0.1 * f);
-      i ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
-    }
-    ctx.strokeStyle = `rgba(255,246,226,${al})`; ctx.lineWidth = lw; ctx.stroke();
-  };
-  // 잔물결 — 파면 안쪽에 옅은 동심원 몇 겹
-  const gr = ctx.createRadialGradient(sv.x, sv.y, 0, sv.x, sv.y, R0);
-  for (let i = 0; i <= 6; i++) gr.addColorStop(i / 6, `rgba(220,236,255,${(i % 2 ? 0.1 : 0.02) * fade * (i / 6)})`);
-  ctx.fillStyle = gr; ctx.beginPath(); ctx.arc(sv.x, sv.y, R0, 0, 6.283); ctx.fill();
-  const amp = 3.2 * (1 - k);
-  ring(R0, amp, 3.4, 0.85 * fade);
-  if (R0 > 22) ring(R0 - 11, amp * 0.8, 2.2, 0.5 * fade);
-  if (R0 > 34) ring(R0 - 22, amp * 0.6, 1.4, 0.28 * fade);
-  // 앞쪽 파면 — 몸을 실어 내지른 방향
-  ctx.beginPath(); ctx.arc(sv.x, sv.y, R0 + 2, sv.a - 0.6, sv.a + 0.6);
-  ctx.strokeStyle = `rgba(255,255,255,${0.75 * fade})`; ctx.lineWidth = 4.5; ctx.stroke();
+    for (const [ang] of pts) ctx.lineTo(sv.x + Math.cos(ang) * R, sv.y + Math.sin(ang) * R);
+    for (let i = pts.length - 1; i >= 0; i--) { const [ang, u] = pts[i], w = 4 + 15 * Math.sin(Math.PI * Math.min(1, u * 1.15)); ctx.lineTo(sv.x + Math.cos(ang) * (R - w), sv.y + Math.sin(ang) * (R - w)); }
+    ctx.closePath();
+    const t0 = sv.a + sv.sw * tail, h0 = sv.a + sv.sw * head, fade = 1 - Math.max(0, (k - 0.45) / 0.55);
+    const gr = ctx.createLinearGradient(sv.x + Math.cos(t0) * R, sv.y + Math.sin(t0) * R, sv.x + Math.cos(h0) * R, sv.y + Math.sin(h0) * R);
+    gr.addColorStop(0, `rgba(214,206,186,0)`); gr.addColorStop(0.6, `rgba(226,218,198,${0.42 * fade})`); gr.addColorStop(1, `rgba(255,252,240,${0.9 * fade})`);
+    ctx.fillStyle = gr; ctx.fill();
+  }
+  // 맞은 자리 — 처음 0.12초만. 네 갈래 별이 빠르게 줄어든다
+  if (sv.t < 0.12) for (const q of sv.pts) {
+    const kk = sv.t / 0.12, L = (q.big ? 22 : 16) * (1 - kk * 0.7), wd = 3.2 * (1 - kk);
+    ctx.save(); ctx.translate(q.x, q.y - GUN_LIFT * 0.7); ctx.rotate(q.a + Math.PI / 4);
+    ctx.fillStyle = `rgba(255,248,226,${1 - kk})`;
+    ctx.beginPath();
+    for (let i = 0; i < 8; i++) { const r = i % 2 ? wd : L * (i % 4 === 0 ? 1 : 0.62), an = i * Math.PI / 4; ctx.lineTo(Math.cos(an) * r, Math.sin(an) * r); }
+    ctx.closePath(); ctx.fill();
+    ctx.restore();
+  }
 }
 
 /** 3D 판 — 세계는 WebGL 캔버스에, 그 위 투명한 2D 캔버스에는 화면 표시만(조준선 · 피격 방향 · 무리 예고 · 담즙) */

@@ -2081,40 +2081,55 @@ function updateHazards(g, near) {
     const c = (r.shove ? 2.2 : 0.5) * (1 - k); HZ.wade.instanceColor.setXYZ(nw, c, c * 0.92, c * 0.8); nw++;
   }
   HZ.wade.count = nw;
-  // 밀치기 — 몸에서 사방으로 퍼지는 공기의 파동. 앞선 물결 셋이 일렁이며 번지고, 그 뒤로 잔물결이 남는다.
-  // 바라보는 쪽이 더 진하고, 맞히면 더 밝다(예전엔 납작한 흰 고리 하나라 '밀었다'는 느낌이 약했다)
+  // 밀치기(rc.36) — 2D 판과 같은 그림: 바라보는 쪽으로 휘두른 팔의 스미어 한 장(초승달) + 맞은 자리의 네 갈래 섬광.
+  // 스미어는 바닥 가까이 눕힌 판 하나에 셰이더로 그린다(앞머리가 밝고 꼬리는 사라진다). 섬광은 화면을 향한 판(스프라이트)
   if (!SHOVE3) {
     SHOVE3 = [];
     const geo = new THREE.PlaneGeometry(2, 2).rotateX(-Math.PI / 2);
     const base = new THREE.ShaderMaterial({
-      uniforms: { uK: { value: 0 }, uA: { value: 0 }, uFwd: { value: 0 }, uT: { value: 0 } },
+      uniforms: { uHead: { value: 0 }, uTail: { value: 0 }, uA: { value: 0 } },
       transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
       vertexShader: 'varying vec2 vU; void main(){ vU = uv * 2.0 - 1.0; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
-      fragmentShader: `uniform float uK, uA, uFwd, uT; varying vec2 vU;
+      fragmentShader: `uniform float uHead, uTail, uA; varying vec2 vU;
         void main(){
-          float r = length(vU), a = atan(vU.y, vU.x);
-          float rr = r + 0.022 * sin(a * 9.0 + uT * 18.0) * (1.0 - uK * 0.6) + 0.008 * sin(a * 23.0 - uT * 31.0);
-          float w = 0.0;
-          for (int i = 0; i < 3; i++) { float f = uK - float(i) * 0.17; if (f > 0.04) w += exp(-pow((rr - f) / (0.022 + 0.012 * float(i)), 2.0)) * (1.0 - float(i) * 0.34); }
-          float bk = uK - rr;
-          float trail = bk > 0.0 ? pow(0.5 + 0.5 * sin(bk * 70.0 - uT * 24.0), 6.0) * exp(-bk * 6.0) * 0.35 : 0.0;
-          float dirK = 0.5 + 0.5 * max(0.0, cos(a - uFwd));
-          vec3 col = mix(vec3(1.0, 0.95, 0.84), vec3(0.72, 0.86, 1.0), smoothstep(0.2, 1.0, r));
-          float edge = 1.0 - smoothstep(0.9, 1.0, r);
-          gl_FragColor = vec4(col * (w + trail) * dirK * uA * edge, 1.0);
+          float r = length(vU), a = atan(vU.y, vU.x), span = uHead - uTail;
+          if (abs(span) < 0.02) discard;
+          float du = atan(sin(a - uTail), cos(a - uTail)), u = du / span;
+          if (u < 0.0 || u > 1.0) discard;
+          float w = 0.05 + 0.24 * sin(3.14159 * min(1.0, u * 1.15));
+          float band = smoothstep(0.96 - w - 0.04, 0.96 - w, r) * (1.0 - smoothstep(0.93, 0.98, r));
+          vec3 col = mix(vec3(0.55, 0.52, 0.46), vec3(0.95, 0.93, 0.86), u * u);
+          gl_FragColor = vec4(col * band * (0.15 + 0.85 * u) * uA, 1.0);
         }`
     });
     for (let i = 0; i < 3; i++) { const m = new THREE.Mesh(geo, base.clone()); m.visible = false; m.frustumCulled = false; m.renderOrder = 3; scene.add(m); SHOVE3.push(m); }
+    // 네 갈래 섬광 — 캔버스로 한 번 그린 별 무늬
+    const tex = canvasTex(64, 64, (c, W, H) => {
+      c.translate(W / 2, H / 2); c.rotate(Math.PI / 4); c.fillStyle = '#fff';
+      c.beginPath(); for (let i = 0; i < 8; i++) { const r = i % 2 ? 3 : (i % 4 === 0 ? 30 : 19), an = i * Math.PI / 4; c.lineTo(Math.cos(an) * r, Math.sin(an) * r); } c.closePath(); c.fill();
+      const g2 = c.createRadialGradient(0, 0, 0, 0, 0, 10); g2.addColorStop(0, 'rgba(255,255,255,1)'); g2.addColorStop(1, 'rgba(255,255,255,0)'); c.fillStyle = g2; c.fillRect(-10, -10, 20, 20);
+    });
+    STAR3 = [];
+    for (let i = 0; i < 6; i++) { const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, color: new THREE.Color(2.2, 2.0, 1.6), transparent: true, depthWrite: false, depthTest: false, blending: THREE.AdditiveBlending })); sp.visible = false; sp.renderOrder = 4; scene.add(sp); STAR3.push(sp); }
   }
+  let nStar = 0;
   SHOVE3.forEach((m, i) => {
     const sv = (g.shoves || [])[i];
     m.visible = !!sv;
-    if (!sv) { if (PRIMING && !i) { m.visible = true; m.material.uniforms.uA.value = 0; m.position.set(g.player.x, 5, g.player.y); } return; }   // 판 시작 때 셰이더를 미리 엮는다(첫 밀치기에서 멈칫하지 않게)
-    const k = sv.t / sv.max, e = 1 - (1 - k) * (1 - k), U = m.material.uniforms;
-    m.position.set(sv.x, 5, sv.y); m.scale.set(84, 1, 84);
-    U.uK.value = 0.16 + 0.84 * e; U.uFwd.value = -sv.a; U.uT.value = g.time;
-    U.uA.value = Math.min(1.4, (sv.hits ? 1.0 : 0.65) * (1 - k * k) * (PK.fx || 1));
+    if (!sv) { if (PRIMING && !i) { m.visible = true; m.material.uniforms.uA.value = 0; m.material.uniforms.uHead.value = 1; m.position.set(g.player.x, 5, g.player.y); } return; }   // 판 시작 때 셰이더를 미리 엮는다
+    const k = sv.t / sv.max, A0 = 1.25, U = m.material.uniforms;
+    const head = -A0 + 2 * A0 * Math.min(1, k / 0.42), tail = -A0 + 2 * A0 * Math.max(0, (k - 0.18) / 0.82);
+    // 판의 uv 는 세계 (x, -z) 쪽 — 세계 각도의 부호를 뒤집는다
+    U.uHead.value = -(sv.a + sv.sw * head); U.uTail.value = -(sv.a + sv.sw * tail);
+    U.uA.value = (sv.hits ? 0.8 : 0.5) * (1 - Math.max(0, (k - 0.45) / 0.55)) * (PK.fx || 1);
+    m.position.set(sv.x, 10, sv.y); m.scale.set(52 + (PK.shove || 0), 1, 52 + (PK.shove || 0));
+    if (sv.t < 0.12) for (const q of sv.pts || []) {
+      if (nStar >= STAR3.length) break;
+      const sp = STAR3[nStar++], kk = sv.t / 0.12, S = (q.big ? 44 : 32) * (1 - kk * 0.7);
+      sp.visible = true; sp.position.set(q.x, 22, q.y); sp.scale.set(S, S, 1); sp.material.opacity = 1 - kk; sp.material.rotation = -q.a;
+    }
   });
+  for (let i = nStar; i < STAR3.length; i++) STAR3[i].visible = PRIMING && i === 0;
   /* 총성 고리 — 소리가 닿는 거리. 소음기를 끼면 작다 */
   if (!NOISE3) { NOISE3 = []; const geo = new THREE.RingGeometry(0.985, 1, 96).rotateX(-Math.PI / 2); for (let i = 0; i < 3; i++) { const m = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: 0xffecc8, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide })); m.visible = false; m.frustumCulled = false; scene.add(m); NOISE3.push(m); } }
   NOISE3.forEach((m, i) => {
@@ -2239,7 +2254,7 @@ function updateTwist(g, near) {
   for (const [ob, o] of dyn.tw) if (!seen.has(ob)) { scene.remove(o); dyn.tw.delete(ob); }
 }
 /* 값싼 빛 모으기 — 매 프레임 후보(가로등 · 간판 · 불 · 출구)를 카메라 둘레 가까운 순으로 골라 시점 좌표로 넣는다 */
-let carry3 = null, SHOVE3 = null;
+let carry3 = null, SHOVE3 = null, STAR3 = null;
 /** 땅마다 발이 잠기는 깊이 — 물은 정강이, 진흙은 발목, 모래는 발등 */
 const SINK = [0, 1.6, 0, 6, 0, 3.2, 1.5, -7];      // 7 = 크레이터 테 위 — 솟은 흙에 올라선다
 /** 발 딛는 높이 — 개미지옥 안이면 깔때기 비탈의 깊이, 아니면 지형에 빠지는 만큼 */
@@ -2648,7 +2663,7 @@ R3D.unproject = (sx, sy) => {
 R3D.info = () => renderer ? { chunks: chunks.size, calls: renderer.info.render.calls, tris: renderer.info.render.triangles, programs: renderer.info.programs.length, level: PERF.level, ms: Math.round(PERF.ema), failed: R3D.failed } : null;
 /** 검사용 — 어둠 가리개 세기 · 발밑 고리(예전 플레이어 후광) 수 · 밀치기가 파동 셰이더인지 */
 R3D._probe = () => { let halo = 0; if (scene) scene.traverse(o => { if (o.material && o.material.fragmentShader && o.material.fragmentShader.includes('float core = (1.0 - smoothstep(0.0, 0.75, r))')) halo++; });
-  return { dark: grade ? grade.uniforms.uDarkK.value.x : 0, halo, shoveShader: !!(SHOVE3 && SHOVE3[0] && SHOVE3[0].material.isShaderMaterial) }; };
+  return { dark: grade ? grade.uniforms.uDarkK.value.x : 0, halo, shoveShader: !!(SHOVE3 && SHOVE3[0] && SHOVE3[0].material.isShaderMaterial && SHOVE3[0].material.uniforms.uHead), stars: STAR3 ? STAR3.length : 0 }; };
 R3D._dbg = () => ({ chunkSteps, CHAR, dyn, THREE, renderer, scene, camera, moon, hemi, spot, bloom, grade, MAT, CL, PERF, makeRig, blendRig, player: player3 });
 R3D.hide = () => { if (cv) cv.style.display = 'none'; };
 /** 판 준비 — '시작'을 누른 그 순간(브리핑 화면이 떠 있는 동안) 도시 · 둘레 덩어리 25 개 · 인물 · 첫 그림을 모두 마친다.

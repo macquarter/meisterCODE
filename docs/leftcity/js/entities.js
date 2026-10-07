@@ -238,8 +238,9 @@ class Player {
       if (!z.dead && !z.t.boss) {
         // 밀려나는 것이 눈에 보이게 — 순간이동 대신 0.28초 동안 미끄러지며(약 80) 뒤로 젖혀지고 팔을 허우적댄다
         const brute = z.type === 'brute' || z.type === 'charger';
-        z.kbV = (brute ? 140 : 380) * (front ? 1 : 0.85); z.kbA = a; z.shoved = brute ? 0.3 : 0.6; z.shoveA = a;
-        z.stagger = Math.max(z.stagger, brute ? 0.2 : 0.62);
+        // 덩치도 한 걸음은 물러나야 한다 — 예전(140 · 0.2초)은 밀려도 닿는 거리 안이라 곧바로 다시 붙었다
+        z.kbV = (brute ? 270 : 380) * (front ? 1 : 0.85); z.kbA = a; z.shoved = brute ? 0.45 : 0.6; z.shoveA = a;
+        z.stagger = Math.max(z.stagger, brute ? 0.5 : 0.62);
         for (let i = 0; i < 5; i++) { const pa = a + Math.PI + (Math.random() - 0.5) * 1.6, sp = 40 + Math.random() * 60;
           g.particles.push({ x: z.x, y: z.y, vx: Math.cos(pa) * sp, vy: Math.sin(pa) * sp, life: 0.6, max: 0.6, size: 6 + Math.random() * 5, col: '#8a8478', kind: 'smoke' }); }
         (g.ripples || (g.ripples = [])).push({ x: z.x, y: z.y, t: 0, max: 0.35, r: 22, shove: true });
@@ -523,6 +524,7 @@ class Zombie {
       return;
     }
     this.rageT -= dt;
+    if (this.stagger > 0) { this.stagger -= dt; this.phase += dt * 6; return; }   // 밀려나 비틀대는 동안은 붙잡지 못한다
     let target = Math.atan2(dy, dx);
     this.losT = (this.losT || 0) - dt;
     if (this.losT <= 0) { this.losT = 0.25; this.seen = d < 70 || g.world.los(this.x, this.y, p.x, p.y); }
@@ -643,6 +645,12 @@ class Zombie {
       if (Math.random() < dt * 14) g.particles.push({ x: this.x + (Math.random() - 0.5) * 10, y: this.y + (Math.random() - 0.5) * 10, vx: (Math.random() - 0.5) * 20, vy: -20 - Math.random() * 30, life: 0.5, max: 0.5, size: 2 + Math.random() * 2, col: Math.random() < 0.5 ? '#ffa030' : '#ff5a1a', kind: 'spark' });
       if (this.hp <= 0 && !this.dead) { this.hp = 0.5; this.hurt(1, this.face, g, 0, 'fire'); if (this.dead) return; }
     }
+    // 밀치기에 밀려 미끄러진다 — 빠르게 시작해 금세 멈춘다. 우는 것도 예외가 아니다(예전엔 우는 것만 밀치기를 무시해 붙으면 떼어 낼 수 없었다)
+    if (this.shoved > 0) this.shoved -= dt;
+    if (this.kbV > 1) {
+      g.world.slide(this, Math.cos(this.kbA) * this.kbV * dt, Math.sin(this.kbA) * this.kbV * dt);
+      this.kbV *= Math.pow(0.004, dt);
+    }
     if (this.t.weeper) { this.updateWeeper(dt, g, p, d, dx, dy); return; }
 
     // 감지: 소리 · 불빛 · 근접
@@ -664,11 +672,6 @@ class Zombie {
     }
 
     if (this.skeet > 0) this.skeet -= dt;
-    if (this.shoved > 0) this.shoved -= dt;
-    if (this.kbV > 1) {                                   // 밀치기에 밀려 미끄러진다 — 빠르게 시작해 금세 멈춘다
-      g.world.slide(this, Math.cos(this.kbA) * this.kbV * dt, Math.sin(this.kbA) * this.kbV * dt);
-      this.kbV *= Math.pow(0.004, dt);
-    }
     if (this.stagger > 0) { this.stagger -= dt; if (this.tonguePhase === 'pull') this.cutTongue(g, true); return; }
     if (this.t.leap && this.updateLeap(dt, g, p, d, dx, dy)) return;
     if (this.t.tongue && this.updateTongue(dt, g, p, d, dx, dy)) return;

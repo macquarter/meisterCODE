@@ -428,6 +428,8 @@ class Zombie {
       if (src === 'melee') { this.face += (Math.random() < 0.5 ? -1 : 1) * 2.2; this.stagger = Math.max(this.stagger, 0.9); this.aggro = true; if (front) return; }
       else if (front) {
         dmg *= ar.mul; this.aggro = true; this.flash = 0.05;
+        // 처음 막혔을 때 한 번 — 도움말을 꺼 둔 사람도 이것만은 알아야 한다
+        if (!g.shieldTold && src !== 'melee') { g.shieldTold = true; if (g.toast) g.toast(T('방패에 막혔다 — 밀쳐서 돌려세우고 등을 쏴라'), 3); }
         if (g.spawnSparks) g.spawnSparks(this.x + Math.cos(this.face) * 12, this.y + Math.sin(this.face) * 12, ang);
         SFX.pan(this.x - g.player.x); SFX.ric(Math.hypot(this.x - g.player.x, this.y - g.player.y)); SFX.pan(0);
         this.hp -= dmg; if (this.hp > 0) return;

@@ -515,6 +515,9 @@ const I18N = (() => {
     /* ── 설정 ── */
     '음량': 'Volume', '밝기': 'Brightness',
     '밤의 어둠 농도. 화면이 너무 어둡거나 밝은 곳에서 하면 조절하세요.': 'How dark the night is. Adjust if your screen is too dark or you\'re playing somewhere bright.',
+    '밤의 어둠 농도. 추천값(50)은 손전등 밖이 길 윤곽만 겨우 읽히는 어둠입니다. 화면이 너무 어둡거나 밝은 곳에서 하면 조절하세요.': 'How dark the night is. The recommended 50 leaves only the outline of the street readable outside your flashlight. Adjust if your screen is too dark or you\'re playing somewhere bright.',
+    '방패에 막혔다 — 밀쳐서 돌려세우고 등을 쏴라': 'Blocked by the shield — shove it around and shoot its back',
+    '추천 50': 'Rec. 50', '추천 80': 'Rec. 80', '추천 가까이': 'Rec.: Close',
     '터치 조준': 'Touch aim', '자동 조준': 'Auto-aim', '조준 스틱': 'Aim stick', '회전': 'Turn', '드래그': 'Drag',
     '3D 판 (실험)': '3D version (beta)', '2D 판': '2D version', '카메라 거리': 'Camera', '가까이': 'Close', '멀리': 'Far', '화질': 'Quality', '자동': 'Auto', '선명하게': 'Sharp', '가볍게': 'Light',
     '자동은 프레임이 떨어지면 먼저 바닥 · 벽의 재질 무늬를 끄고, 그래도 버거우면 그리는 해상도를 낮춘다. 선명하게는 무늬를 늘 켜 두고, 가볍게는 늘 끈다. 화면이 큰 기기(레티나 모니터·태블릿)에서 끊기면 가볍게로 두세요.':

@@ -15,7 +15,7 @@ const LEVELS = [
     objective: { type: 'escape' },
     twist: { type: 'crescendo', name: '지하철 셔터', at: 0.32, time: 25, every: 7, blocked: '지하철 셔터가 내려와 길이 막혔다 — 제어반을 가동하라', start: '셔터가 올라간다 — 경보에 무리가 몰려온다. 버텨라', brief: '변수: 길을 막은 지하철 셔터 — 제어반을 켜면 경보가 울린다. 셔터가 다 올라갈 때까지 버틸 것' },
     spawn: { initial: 6, rate: 0.22, max: 14 },
-    mix: { walker: 1, runner: 0, brute: 0, riot: 0.05 },
+    mix: { walker: 1, runner: 0, brute: 0 },          // 진압 경찰은 2장부터 — 권총 하나뿐인 첫 판에 정면 사격이 막히는 적은 가혹했다(봇 두 판 다 여기서 죽었다)
     own: ['pistol'], drops: ['smg'],
     startAmmo: { smg: 40, shell: 0 }, startNades: 2,
     supplies: { ammo: 3, shells: 0, medkit: 2, battery: 2, nade: 1 }

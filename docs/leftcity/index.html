@@ -373,11 +373,11 @@
           </div>
 
           <div class="set__row">
-            <div class="set__label">밝기 <b id="setBrightVal">50</b></div>
+            <div class="set__label">밝기 <b id="setBrightVal">50</b><button type="button" class="set__rec" data-rec="brightness" data-val="50">추천 50</button></div>
             <input type="range" id="setBright" min="0" max="100" step="5" value="50"
                    aria-label="밝기">
           </div>
-          <p class="set__note">밤의 어둠 농도. 화면이 너무 어둡거나 밝은 곳에서 하면 조절하세요.</p>
+          <p class="set__note">밤의 어둠 농도. 추천값(50)은 손전등 밖이 길 윤곽만 겨우 읽히는 어둠입니다. 화면이 너무 어둡거나 밝은 곳에서 하면 조절하세요.</p>
 
           <div class="set__row set__row--stack touch-only">
             <div class="set__label">터치 조준</div>
@@ -393,7 +393,7 @@
             어느 방식이든 왼쪽 화면 아무 데나 누르면 그 자리에 이동 스틱이 생긴다.</p>
 
           <div class="set__row set__row--stack">
-            <div class="set__label">카메라 거리</div>
+            <div class="set__label">카메라 거리<button type="button" class="set__rec" data-rec="cam" data-val="near">추천 가까이</button></div>
             <div class="seg" id="setCam">
               <button type="button" data-set="cam" data-val="near">가까이</button>
               <button type="button" data-set="cam" data-val="mid">보통</button>

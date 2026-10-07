@@ -1743,17 +1743,17 @@ function makeSign(sg) {
 
 /* ═══════════ 장면 · 빛 · 카메라 ═══════════ */
 const dyn = { props: new Map(), decor: new Map(), signs: new Map(), humans: new Map(), corpses: new Map(), pickups: new Map(), relays: new Map(), tw: new Map() };
-let pHalo = null, NOISE3 = null, ELITE3 = null, sparkGeo, sparks, player3 = null, splatMesh, dotMesh, particles, partGeo, tracerGeo, tracers, rain, rainGeo, exitRing, exitBeam, nadeMeshes = [];
+let NOISE3 = null, ELITE3 = null, sparkGeo, sparks, player3 = null, splatMesh, dotMesh, particles, partGeo, tracerGeo, tracers, rain, rainGeo, exitRing, exitBeam, nadeMeshes = [];
 const MAXP = 600, MAXDEC = 450, RAIN_N = 1400;
 
 /* ═══════════ 후처리 · 빛줄기 ═══════════
    장면을 HDR(반정밀도) 버퍼에 그리고 → 밝은 곳이 번지게(블룸) → 톤 매핑 · sRGB →
    마지막에 색 보정(어두운 곳은 청록, 밝은 곳은 따뜻하게) · 비네트 · 필름 그레인 · 가장자리 색 번짐 */
 const GradeShader = {
-  uniforms: { tDiffuse: { value: null }, uTime: { value: 0 }, uRes: { value: new THREE.Vector2(1, 1) }, uVig: { value: 0.55 }, uGrain: { value: 0.045 }, uLift: { value: 0 }, uSh: { value: new THREE.Vector3(0.82, 1.0, 1.14) }, uHi: { value: new THREE.Vector3(1.08, 1.0, 0.88) }, uExp: { value: 1.75 }, uHaze: { value: new THREE.Vector4(0, 0, 0, 0) } },
+  uniforms: { tDiffuse: { value: null }, uTime: { value: 0 }, uRes: { value: new THREE.Vector2(1, 1) }, uVig: { value: 0.55 }, uGrain: { value: 0.045 }, uLift: { value: 0 }, uSh: { value: new THREE.Vector3(0.82, 1.0, 1.14) }, uHi: { value: new THREE.Vector3(1.08, 1.0, 0.88) }, uExp: { value: 1.75 }, uHaze: { value: new THREE.Vector4(0, 0, 0, 0) }, uDarkP: { value: new THREE.Vector4(0.5, 0.5, 0.5, 0.5) }, uDarkK: { value: new THREE.Vector4(0, 0.1, 0.6, 1) } },
   vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
   // 톤 매핑(ACES) · sRGB 변환까지 이 한 번에 — 전체 화면 패스를 하나 줄인다
-  fragmentShader: `uniform sampler2D tDiffuse; uniform float uTime, uVig, uGrain, uLift, uExp; uniform vec2 uRes; uniform vec3 uSh, uHi; uniform vec4 uHaze; varying vec2 vUv;
+  fragmentShader: `uniform sampler2D tDiffuse; uniform float uTime, uVig, uGrain, uLift, uExp; uniform vec2 uRes; uniform vec3 uSh, uHi; uniform vec4 uHaze, uDarkP, uDarkK; varying vec2 vUv;
     float h(vec2 p){ return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
     vec3 rrt(vec3 v){ vec3 a = v * (v + 0.0245786) - 0.000090537; vec3 b = v * (0.983729 * v + 0.4329510) + 0.238081; return a / b; }
     vec3 aces(vec3 c){
@@ -1769,6 +1769,17 @@ const GradeShader = {
       float Lh = dot(c, vec3(0.2126, 0.7152, 0.0722));
       if (Lh > 0.22) { float e = Lh - 0.22; c *= (0.22 + e / (1.0 + e / 0.55)) / Lh; }
       c = srgb(aces(c));
+      // 밤 — 손전등 원뿔과 발밑 둘레만 보인다(2D 판과 같은 규칙). 원뿔 밖은 거의 까맣고, 가로등 · 불 · 붉은 눈처럼
+      // 스스로 빛나는 것만 어둠을 뚫는다. 손전등을 끄면 발밑만 남는다. uDarkP = 플레이어 · 빛 끝(화면 uv), uDarkK = 어둠 · 발밑 반경 · 원뿔 폭 · 가로세로비
+      if (uDarkK.x > 0.0) {
+        vec2 q = vec2(vUv.x * uDarkK.w, vUv.y), P = vec2(uDarkP.x * uDarkK.w, uDarkP.y), E = vec2(uDarkP.z * uDarkK.w, uDarkP.w);
+        vec2 v = q - P, ax = E - P; float LE = length(ax), cone = 0.0;
+        if (LE > 0.002) { vec2 dn = ax / LE; float al = dot(v, dn), pp = length(v - dn * al);
+          cone = step(0.0, al) * (1.0 - smoothstep(uDarkK.z * al * 0.7, uDarkK.z * al * 1.3 + 0.012, pp)) * (1.0 - smoothstep(LE * 0.62, LE * 1.04, al)); }
+        float nr = 1.0 - smoothstep(uDarkK.y * 0.3, uDarkK.y, length(v));
+        float glow = smoothstep(0.5, 0.92, max(c.r, max(c.g, c.b)));
+        c *= mix(1.0 - uDarkK.x, 1.0, max(max(cone, nr * 0.9), glow));
+      }
       float l = dot(c, vec3(0.299, 0.587, 0.114));
       c = mix(c, c * uSh, (1.0 - smoothstep(0.0, 0.4, l)) * 0.6);
       c = mix(c, c * uHi, smoothstep(0.45, 1.0, l) * 0.45);
@@ -2070,15 +2081,39 @@ function updateHazards(g, near) {
     const c = (r.shove ? 2.2 : 0.5) * (1 - k); HZ.wade.instanceColor.setXYZ(nw, c, c * 0.92, c * 0.8); nw++;
   }
   HZ.wade.count = nw;
-  // 밀치기 — 몸 앞으로 휘두르는 흰 부채꼴(맞히면 더 밝게)
-  if (!SHOVE3) { SHOVE3 = []; const geo = new THREE.RingGeometry(0.72, 1, 40).rotateX(-Math.PI / 2); /* 사방 충격파 */ for (let i = 0; i < 3; i++) { const m = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: 0xfff4e0, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide })); m.visible = false; m.frustumCulled = false; scene.add(m); SHOVE3.push(m); } }
+  // 밀치기 — 몸에서 사방으로 퍼지는 공기의 파동. 앞선 물결 셋이 일렁이며 번지고, 그 뒤로 잔물결이 남는다.
+  // 바라보는 쪽이 더 진하고, 맞히면 더 밝다(예전엔 납작한 흰 고리 하나라 '밀었다'는 느낌이 약했다)
+  if (!SHOVE3) {
+    SHOVE3 = [];
+    const geo = new THREE.PlaneGeometry(2, 2).rotateX(-Math.PI / 2);
+    const base = new THREE.ShaderMaterial({
+      uniforms: { uK: { value: 0 }, uA: { value: 0 }, uFwd: { value: 0 }, uT: { value: 0 } },
+      transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
+      vertexShader: 'varying vec2 vU; void main(){ vU = uv * 2.0 - 1.0; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+      fragmentShader: `uniform float uK, uA, uFwd, uT; varying vec2 vU;
+        void main(){
+          float r = length(vU), a = atan(vU.y, vU.x);
+          float rr = r + 0.022 * sin(a * 9.0 + uT * 18.0) * (1.0 - uK * 0.6) + 0.008 * sin(a * 23.0 - uT * 31.0);
+          float w = 0.0;
+          for (int i = 0; i < 3; i++) { float f = uK - float(i) * 0.17; if (f > 0.04) w += exp(-pow((rr - f) / (0.022 + 0.012 * float(i)), 2.0)) * (1.0 - float(i) * 0.34); }
+          float bk = uK - rr;
+          float trail = bk > 0.0 ? pow(0.5 + 0.5 * sin(bk * 70.0 - uT * 24.0), 6.0) * exp(-bk * 6.0) * 0.35 : 0.0;
+          float dirK = 0.5 + 0.5 * max(0.0, cos(a - uFwd));
+          vec3 col = mix(vec3(1.0, 0.95, 0.84), vec3(0.72, 0.86, 1.0), smoothstep(0.2, 1.0, r));
+          float edge = 1.0 - smoothstep(0.9, 1.0, r);
+          gl_FragColor = vec4(col * (w + trail) * dirK * uA * edge, 1.0);
+        }`
+    });
+    for (let i = 0; i < 3; i++) { const m = new THREE.Mesh(geo, base.clone()); m.visible = false; m.frustumCulled = false; m.renderOrder = 3; scene.add(m); SHOVE3.push(m); }
+  }
   SHOVE3.forEach((m, i) => {
     const sv = (g.shoves || [])[i];
     m.visible = !!sv;
-    if (!sv) return;
-    const k = sv.t / sv.max, R = 22 + k * 46;
-    m.position.set(sv.x, 6 + (1 - k) * 10, sv.y); m.rotation.set(0, -sv.a, 0); m.scale.set(R, 1, R);
-    m.material.opacity = Math.min(1, (sv.hits ? 0.95 : 0.55) * (1 - k) * (PK.fx || 1));
+    if (!sv) { if (PRIMING && !i) { m.visible = true; m.material.uniforms.uA.value = 0; m.position.set(g.player.x, 5, g.player.y); } return; }   // 판 시작 때 셰이더를 미리 엮는다(첫 밀치기에서 멈칫하지 않게)
+    const k = sv.t / sv.max, e = 1 - (1 - k) * (1 - k), U = m.material.uniforms;
+    m.position.set(sv.x, 5, sv.y); m.scale.set(84, 1, 84);
+    U.uK.value = 0.16 + 0.84 * e; U.uFwd.value = -sv.a; U.uT.value = g.time;
+    U.uA.value = Math.min(1.4, (sv.hits ? 1.0 : 0.65) * (1 - k * k) * (PK.fx || 1));
   });
   /* 총성 고리 — 소리가 닿는 거리. 소음기를 끼면 작다 */
   if (!NOISE3) { NOISE3 = []; const geo = new THREE.RingGeometry(0.985, 1, 96).rotateX(-Math.PI / 2); for (let i = 0; i < 3; i++) { const m = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: 0xffecc8, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide })); m.visible = false; m.frustumCulled = false; scene.add(m); NOISE3.push(m); } }
@@ -2408,7 +2443,7 @@ function init() {
   spotTarget = new THREE.Object3D();
   scene.add(spot, spotTarget); spot.target = spotTarget;
   muzzle = new THREE.PointLight(0xffc880, 0, 300, 0); scene.add(muzzle);
-  R3D._fill = new THREE.PointLight(0xb8c4d8, 0.9, 150, 0); scene.add(R3D._fill);   // 플레이어 둘레의 옅은 빛 — 인물이 어둠에 묻히지 않게
+  R3D._fill = new THREE.PointLight(0xb8c4d8, 1.6, 215, 0); scene.add(R3D._fill);   // 플레이어 둘레의 옅은 빛(2D 의 '주변 미광') — 하늘빛을 줄인 뒤로 나와 바로 곁의 것이 어둠에 묻히지 않게
   blast = new THREE.PointLight(0xffd090, 0, 520, 0); scene.add(blast);
 
 
@@ -2611,6 +2646,9 @@ R3D.unproject = (sx, sy) => {
   return ray.ray.intersectPlane(plane, hit) ? [hit.x, hit.z] : null;
 };
 R3D.info = () => renderer ? { chunks: chunks.size, calls: renderer.info.render.calls, tris: renderer.info.render.triangles, programs: renderer.info.programs.length, level: PERF.level, ms: Math.round(PERF.ema), failed: R3D.failed } : null;
+/** 검사용 — 어둠 가리개 세기 · 발밑 고리(예전 플레이어 후광) 수 · 밀치기가 파동 셰이더인지 */
+R3D._probe = () => { let halo = 0; if (scene) scene.traverse(o => { if (o.material && o.material.fragmentShader && o.material.fragmentShader.includes('float core = (1.0 - smoothstep(0.0, 0.75, r))')) halo++; });
+  return { dark: grade ? grade.uniforms.uDarkK.value.x : 0, halo, shoveShader: !!(SHOVE3 && SHOVE3[0] && SHOVE3[0].material.isShaderMaterial) }; };
 R3D._dbg = () => ({ chunkSteps, CHAR, dyn, THREE, renderer, scene, camera, moon, hemi, spot, bloom, grade, MAT, CL, PERF, makeRig, blendRig, player: player3 });
 R3D.hide = () => { if (cv) cv.style.display = 'none'; };
 /** 판 준비 — '시작'을 누른 그 순간(브리핑 화면이 떠 있는 동안) 도시 · 둘레 덩어리 25 개 · 인물 · 첫 그림을 모두 마친다.
@@ -2661,6 +2699,24 @@ function warmShaders() {
 }
 
 /* ═══════════ 매 프레임 ═══════════ */
+/** 밤의 어둠 가리개 — 화면에서 플레이어 · 손전등 끝 · 발밑 반경을 재서 색 보정 셰이더에 넘긴다.
+    밝기 50 에서 원뿔 밖은 원래 빛의 약 20% 만 남는다(밝기를 올리면 옅어진다). 번개가 치면 잠깐 다 보인다 */
+function darkMask(g) {
+  const p = g.player, v = window.G.view(), U = grade.uniforms;
+  const range = p.dead ? 0 : p.lightRange;
+  const [px, py] = R3D.project(p.x, p.y, 8);
+  const L = SETTINGS.flash ? g.lightning : g.lightning * 0.3;
+  const dark = Math.max(0, Math.min(0.97, 0.8 - (SETTINGS.brightness - 50) * 0.008)) * (1 - Math.min(1, L * 1.6));
+  let ex = px, ey = py;
+  if (range > 0) {
+    const reach = beamReach(g.world, p.x, p.y, Math.cos(p.angle), Math.sin(p.angle), range) + 40;
+    [ex, ey] = R3D.project(p.x + Math.cos(p.angle) * reach, p.y + Math.sin(p.angle) * reach, 0);
+  }
+  const [nx, ny] = R3D.project(p.x + 170, p.y, 8);
+  const asp = v.W / v.H;
+  U.uDarkP.value.set(px / v.W, 1 - py / v.H, ex / v.W, 1 - ey / v.H);
+  U.uDarkK.value.set(dark, Math.hypot((nx - px) / v.W * asp, (ny - py) / v.H), Math.tan(CONE_HALF) * 1.05, asp);
+}
 R3D.render = g => {
   try { draw3(g); } catch (e) { fail('init', e); }
 };
@@ -2740,6 +2796,7 @@ function draw3(g) {
   if (fx) {
     grade.uniforms.uTime.value = g.time;
     grade.uniforms.uLift.value = (SETTINGS.brightness - 50) / 50;
+    darkMask(g);
     bloom.strength = 0.5 + Math.min(1, g.lightning) * 0.4;
     composer.render();
   } else renderer.render(scene, camera);
@@ -3138,7 +3195,8 @@ function poseZombieRig(h, z, g, dt) {
   if (t.bloat && B.Spine1) { B.Spine1.scale.set(1.55, 1.15, 1.55); B.Spine2.scale.set(1 / 1.3, 1 / 1.05, 1 / 1.3); }
   // 눈 — 머리뼈 앞에 붉은 점 둘
   if (u.eyes) {
-    const on = z.aggro || (t.weeper && z.startle > 0.5);
+    // 가까이 온 것만(360 안) — 어둠 속 두 점이 '거기 뭔가 있다'만 알린다. 멀리서부터 위치를 다 알려 주는 표지판이었다
+    const p = g.player, on = (z.aggro || (t.weeper && z.startle > 0.5)) && Math.hypot(z.x - p.x, z.y - p.y) < 360;
     u.eyes.visible = on && !!B.Head;
     if (on && B.Head) { B.Head.getWorldPosition(bv); u.eyes.position.copy(bv).addScaledVector(fwd, 3.4 * h.scale.x).addScaledVector(YAX, 1.2 * h.scale.x); u.eyes.rotation.y = -face; u.eyes.scale.setScalar(h.scale.x); }
   }
@@ -3179,7 +3237,7 @@ function resetPeople() {
   for (const [, o] of dyn.corpses) scene.remove(o); dyn.corpses.clear();
   dropPlayer();
 }
-function dropPlayer() { if (pHalo) { scene.remove(pHalo); pHalo.geometry.dispose(); pHalo.material.dispose(); pHalo = null; } if (player3) scene.remove(player3); if (pGun) scene.remove(pGun); if (chestLamp) scene.remove(chestLamp); player3 = null; pGun = null; chestLamp = null; }
+function dropPlayer() { if (player3) scene.remove(player3); if (pGun) scene.remove(pGun); if (chestLamp) scene.remove(chestLamp); player3 = null; pGun = null; chestLamp = null; }
 /** 플레이어 — 군인 몸체, 두 손으로 총을 겨눈다. 총은 오른손 위치에 따로 둔다 */
 let pGun = null;
 function attachToBone(bone, obj) {
@@ -3577,7 +3635,8 @@ function updateHumans(g, p) {
       poseHuman(h, { ph, amp: aggro ? 1 : 0.55, arms, lean: t.boss ? 6 : t.speed > 100 ? 6.5 : 4.2, sway: Math.sin(ph) * (aggro ? 3 : 1.4), head: { tilt: (z.look ? (z.look.tilt || 0) * 0.08 : 0) + Math.sin(ph * 0.5 + z.x) * 0.18, nod: -0.25 } });
     }
     const eyes = h.userData.head.userData.eyes;
-    if (eyes) { const on = aggro || (t.weeper && z.startle > 0.5); eyes[0].visible = eyes[1].visible = on; }
+    // 붉은 눈은 가까이 온 것만 — 어둠 속 두 점이 '거기 뭔가 있다'만 알린다(멀리서부터 위치를 다 알려 주던 표지판이었다)
+    if (eyes) { const on = (aggro || (t.weeper && z.startle > 0.5)) && d < 360; eyes[0].visible = eyes[1].visible = on; }
     // 맞은 순간 하얗게 — 몸 전체를 잠깐 밝힌다
     setFlash(h, z.flash > 0);
     if (vis < 0.02 && d > 260) h.visible = h.visible && g.lightning > 0.05 ? true : h.visible;
@@ -3598,18 +3657,6 @@ function updateHumans(g, p) {
     carry3.position.set(p.x - Math.sin(a) * 13 - Math.cos(a) * 3, 15, p.y + Math.cos(a) * 13 - Math.sin(a) * 3);
     carry3.rotation.set(sw, -a, 0);
   } else if (carry3) carry3.visible = false;
-  // 플레이어 발밑의 옅은 고리 — 휴대폰 화면에서 어두운 옷의 내가 아스팔트에 묻혀 안 보였다. 감염체에는 없다
-  if (!pHalo) {
-    pHalo = new THREE.Mesh(new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2), new THREE.ShaderMaterial({
-      uniforms: { uA: { value: 0.3 } }, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
-      vertexShader: 'varying vec2 vU; void main(){ vU = uv * 2.0 - 1.0; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
-      fragmentShader: 'uniform float uA; varying vec2 vU; void main(){ float r = length(vU); float ring = smoothstep(0.7, 0.84, r) * (1.0 - smoothstep(0.86, 1.0, r)); float core = (1.0 - smoothstep(0.0, 0.75, r)) * 0.25; gl_FragColor = vec4(vec3(0.95, 0.85, 0.62) * (ring + core) * uA, 1.0); }'
-    }));
-    pHalo.renderOrder = 2; pHalo.frustumCulled = false; scene.add(pHalo);
-  }
-  pHalo.visible = !p.dead;
-  pHalo.position.set(p.x, groundY(g.world, p.x, p.y, p.terr) + 1.2, p.y); pHalo.scale.setScalar(50);
-  pHalo.material.uniforms.uA.value = 0.12 + (p.hp < 30 ? 0.2 * (0.5 + 0.5 * Math.sin(g.time * 7)) : 0);   // 체력이 바닥이면 고리가 숨 쉬듯 뛴다
   updateAllies3(g, dt, rigs);
   // 플레이어
   if (!player3 && rigs) { player3 = makePlayerRig(); player3.scale.setScalar(1.06 * CHAR_S); scene.add(player3); charLayer(player3); charLayer(pGun); charLayer(chestLamp); }
@@ -3964,8 +4011,9 @@ function updateLights(g, p, w) {
   }
   // 번개 — 하늘빛이 순간 밝아진다
   const L = SETTINGS.flash ? g.lightning : g.lightning * 0.3;
-  hemi.intensity = 0.6 + L * 3 + (SETTINGS.brightness - 50) * 0.01;
-  moon.intensity = 0.95 + L * 1.6;
+  // 하늘빛 · 달빛은 예전의 반쯤 — 어둠은 색 보정의 가리개가 맡고, 여기서는 발밑 둘레가 읽힐 만큼만 남긴다
+  hemi.intensity = 0.34 + L * 3 + (SETTINGS.brightness - 50) * 0.008;
+  moon.intensity = 0.5 + L * 1.8;
   // 서남쪽 높은 하늘 — 보이는 남쪽 벽면에 비스듬한 달빛, 그림자는 동북쪽 길로 눕는다. 그림자 지도의 칸에 맞춰 움직여 떨림을 막는다
   // 그림자 지도는 건물 · 소품 같은 멈춰 있는 것만 담는다(사람은 1 층이라 빠진다) — 그래서 매 프레임 그릴 까닭이 없다.
   // 예전엔 150 번 가까운 그리기 호출을 매 프레임 했다(느린 휴대폰에서 좀비가 없어도 끊기던 큰 몫)

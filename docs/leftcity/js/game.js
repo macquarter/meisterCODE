@@ -1952,7 +1952,7 @@ const G = {
       this.zombies.push(z); i++;
     }
     this.flowT = 0; this.hordeAt = null; this.casings = []; this.kickX = 0; this.kickY = 0;
-    this.freezeT = 0; this.lastStop = -9;
+    this.freezeT = 0; this.lastStop = -9; this.shieldTold = false;
     w.updateFlow(this.player.x, this.player.y);
     this.directorReset();
     this.anchorT = 0;
@@ -3397,17 +3397,8 @@ function render() {
     ctx.beginPath(); ctx.moveTo(b.px, b.py - GUN_LIFT); ctx.lineTo(b.x, b.y - GUN_LIFT); ctx.stroke();
   }
 
-  // 밀치기 — 앞쪽으로 휘두르는 흰 부채꼴. 맞히면 더 진하다
-  // 밀치기 — 사방으로 퍼지는 충격파(흰 고리 + 옅은 원판), 바라보는 쪽이 조금 더 진하다
-  if (g.shoves) for (const sv of g.shoves) {
-    const k = sv.t / sv.max, R1 = 22 + k * 44, al = (sv.hits ? 1 : 0.6) * (1 - k);
-    ctx.fillStyle = `rgba(255,248,230,${0.2 * al})`;
-    ctx.beginPath(); ctx.arc(sv.x, sv.y, R1, 0, 6.283); ctx.fill();
-    ctx.strokeStyle = `rgba(255,255,255,${0.75 * al})`; ctx.lineWidth = 3 * (1 - k) + 1;
-    ctx.beginPath(); ctx.arc(sv.x, sv.y, R1, 0, 6.283); ctx.stroke();
-    ctx.strokeStyle = `rgba(255,255,255,${0.9 * al})`; ctx.lineWidth = 4;
-    ctx.beginPath(); ctx.arc(sv.x, sv.y, R1, sv.a - 0.7, sv.a + 0.7); ctx.stroke();
-  }
+  // 밀치기 — 몸에서 사방으로 퍼지는 공기의 파동. 일렁이는 물결 셋이 번지고 뒤로 잔물결이 남는다. 바라보는 쪽이 진하다
+  if (g.shoves) for (const sv of g.shoves) drawShoveWave(sv, g.time);
   // 총성 — 소리가 닿는 거리까지 옅게 퍼지는 고리
   if (g.noiseRings) for (const nr of g.noiseRings) {
     const k = nr.t / nr.max, R = nr.R * (0.25 + 0.75 * Math.sqrt(k));
@@ -3448,6 +3439,32 @@ function render() {
   drawScreamCue(cam, g, p);
   drawHitDirs(cam, g, p, g.state === 'play' ? 1 / 60 : 0);
   drawCrosshair(g, p);
+}
+
+/** 밀치기 파동 — 세계 좌표(바닥 기울기 적용된 변환) 위에 그린다. 반지름이 각도마다 조금씩 일렁이는 고리 셋 + 잔물결 */
+function drawShoveWave(sv, time) {
+  const k = sv.t / sv.max, e = 1 - (1 - k) * (1 - k), fade = (sv.hits ? 1 : 0.65) * (1 - k * k), R0 = 14 + e * 70;
+  const ring = (R, amp, lw, al) => {
+    ctx.beginPath();
+    for (let i = 0; i <= 48; i++) {
+      const a = i / 48 * 6.2832, rr = R + amp * Math.sin(a * 9 + time * 18) + amp * 0.5 * Math.sin(a * 23 - time * 31);
+      const f = 0.45 + 0.55 * Math.max(0, Math.cos(a - sv.a));           // 바라보는 쪽이 더 진하다
+      const x = sv.x + Math.cos(a) * rr * (0.9 + 0.1 * f), y = sv.y + Math.sin(a) * rr * (0.9 + 0.1 * f);
+      i ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
+    }
+    ctx.strokeStyle = `rgba(255,246,226,${al})`; ctx.lineWidth = lw; ctx.stroke();
+  };
+  // 잔물결 — 파면 안쪽에 옅은 동심원 몇 겹
+  const gr = ctx.createRadialGradient(sv.x, sv.y, 0, sv.x, sv.y, R0);
+  for (let i = 0; i <= 6; i++) gr.addColorStop(i / 6, `rgba(220,236,255,${(i % 2 ? 0.1 : 0.02) * fade * (i / 6)})`);
+  ctx.fillStyle = gr; ctx.beginPath(); ctx.arc(sv.x, sv.y, R0, 0, 6.283); ctx.fill();
+  const amp = 3.2 * (1 - k);
+  ring(R0, amp, 3.4, 0.85 * fade);
+  if (R0 > 22) ring(R0 - 11, amp * 0.8, 2.2, 0.5 * fade);
+  if (R0 > 34) ring(R0 - 22, amp * 0.6, 1.4, 0.28 * fade);
+  // 앞쪽 파면 — 몸을 실어 내지른 방향
+  ctx.beginPath(); ctx.arc(sv.x, sv.y, R0 + 2, sv.a - 0.6, sv.a + 0.6);
+  ctx.strokeStyle = `rgba(255,255,255,${0.75 * fade})`; ctx.lineWidth = 4.5; ctx.stroke();
 }
 
 /** 3D 판 — 세계는 WebGL 캔버스에, 그 위 투명한 2D 캔버스에는 화면 표시만(조준선 · 피격 방향 · 무리 예고 · 담즙) */
@@ -5730,8 +5747,9 @@ function drawGrenade(gr) {
    아니라 도로와 건물 윤곽이 희미하게 보이는 밤이고, 손전등이 그 위를 하얗게 쓸고 지나간다.
    막의 기본 농도는 밝기 설정(0‒100)으로 조절한다. */
 function darkLevel(g) {
-  // 원작 예고편의 밤 — 불빛 밖도 거리 · 벽 · 사람 윤곽은 읽힌다. 눈만 보이는 깊은 어둠은 밝기를 낮춰서
-  const base = 0.66 - (SETTINGS.brightness - 50) * 0.0048;   // 0 → 0.9, 50 → 0.66, 100 → 0.42
+  // 손전등에 기댈 수밖에 없는 밤 — 불빛 밖은 길 · 벽 윤곽만 겨우 읽히고 사람은 묻힌다(rc.35 에서 0.66 → 0.78).
+  // 밝기 0 → 0.97, 50 → 0.78, 100 → 0.54
+  const base = 0.78 - (SETTINGS.brightness - 50) * 0.0048;
   return clamp(base - g.lightning * (SETTINGS.flash ? 0.72 : 0.25), 0.06, 0.985);
 }
 
@@ -6933,6 +6951,8 @@ const UI = {
     $('setDiffNote').textContent = `${T(SETTINGS.mod.name)} — ${T(SETTINGS.mod.note)}`;
     if ($('setContrast')) { $('setContrast').value = SETTINGS.get('contrast') ?? 80; $('setContrastVal').textContent = SETTINGS.get('contrast') ?? 80; }
     if ($('setView')) { $('setView').value = SETTINGS.get('view3d'); $('setViewVal').textContent = SETTINGS.get('view3d'); }
+    // 추천값 단추 — 지금 값이 추천값이면 눌린 상태(✓)로
+    for (const b of document.querySelectorAll('.set__rec')) b.setAttribute('aria-pressed', String(String(SETTINGS.get(b.dataset.rec)) === b.dataset.val));
     for (const b of document.querySelectorAll('.tog[data-set]'))
       b.setAttribute('aria-pressed', String(!!SETTINGS.get(b.dataset.set)));
     const n = Hints.seenCount;
@@ -7193,6 +7213,17 @@ $('setVolume').addEventListener('change', () => { SFX.init(); SFX.resume(); SFX.
 $('setBright').addEventListener('input', e => {
   SETTINGS.set('brightness', +e.target.value);
   $('setBrightVal').textContent = SETTINGS.brightness;
+});
+/* 추천값 — 밝기 · 시점 거리 · 카메라 거리. 슬라이더는 input 이벤트를 흘려 미리보기까지 그대로 따라오게 */
+document.addEventListener('click', e => {
+  const b = e.target.closest('.set__rec');
+  if (!b) return;
+  const k = b.dataset.rec, v = b.dataset.val;
+  SETTINGS.set(k, isNaN(+v) ? v : +v);
+  const sl = { brightness: 'setBright', view3d: 'setView' }[k];
+  if (sl && $(sl)) { $(sl).value = v; $(sl).dispatchEvent(new Event('input', { bubbles: true })); }
+  SFX.init(); SFX.resume(); SFX.click();
+  UI.syncSettings();
 });
 document.addEventListener('click', e => {
   const b = e.target.closest('[data-set]');

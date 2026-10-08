@@ -4068,6 +4068,7 @@ function updateRain(g, p) {
      아무 데서나 다시 떨어진다. 떨어지는 빠르기는 실제 지난 시간으로(예전엔 1/60 초 고정이라 느린 기기에서 비가 느렸다),
      한 줄기마다 조금씩 다르게 */
   const a = rainGeo.attributes.position.array, st = g.storm || 0, K = curWorld ? kitOf(curWorld) : KIT.seoul;
+  if (RAIN_KIND === 0) { const sk = 1 + 0.8 * (g.shower || 0); rain.material.uniforms.uRainCol.value.set(0.62 * sk, 0.7 * sk, 0.8 * sk); }   // 소나기 — 빗줄기가 짙어진다
   const now = performance.now() / 1000;                 // 실제 시간 — 게임 속도를 늦춰도 비는 제 빠르기로(멈춤 화면에서도 내린다)
   const dt = rainT < 0 ? 1 / 60 : Math.max(0, Math.min(0.1, now - rainT)); rainT = now; RAIN_CLOCK += dt;
   const [sx, sy] = RAIN_SEG[RAIN_KIND];

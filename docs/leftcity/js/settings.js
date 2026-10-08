@@ -22,7 +22,7 @@
 })();
 
 /** 제품 정보 — 이름 · 판. 출시 이름이 정해지면 여기와 index.html · manifest 를 함께 바꾼다 */
-const APP = { name: 'LEFT CITY', subtitle: '남겨진 도시', version: '1.0.0-rc.38' };
+const APP = { name: 'LEFT CITY', subtitle: '남겨진 도시', version: '1.0.0-rc.39' };
 const APP_VERSION = APP.version;
 
 /** 난이도 배수. 1 = 기준값(잔존) */
@@ -31,7 +31,7 @@ const DIFFICULTY = {
             hp: 0.78, dmg: 0.68, spawn: 0.78, max: 0.8, battery: 0.8, loot: 1.35, score: 0.8 },
   normal: { key: 'normal', name: '잔존',   note: '설계된 그대로의 난이도',
             hp: 1,    dmg: 1,    spawn: 1,    max: 1,   battery: 1,   loot: 1,    score: 1 },
-  hard:   { key: 'hard',   name: '절멸',   note: '물리면 독이 돌고, 쓰러진 것이 다시 일어나고, 체크포인트가 없다',
+  hard:   { key: 'hard',   name: '절멸',   note: '물리면 독이 돌고, 쓰러진 것이 다시 일어나고, 체크포인트는 한 번뿐',
             hp: 1.32, dmg: 1.45, spawn: 1.34, max: 1.3, battery: 1.25, loot: 0.68, score: 1.35 },
   // 돌파 — 가장 높은 단계. 하나하나는 약하지만 끝없이 몰려온다. 숨 고를 틈 없이 총을 쥐고 뚫고 나간다(탄 · 보급은 넉넉하다)
   rush:   { key: 'rush',   name: '돌파',   note: '쉴 틈 없이 몰려오는 무리를 뚫고 간다 — 탄은 넉넉하다',
@@ -46,13 +46,13 @@ const DIFFICULTY = {
    mag   탄창 버림 — 장전하면 탄창에 남은 탄을 버린다(세어 가며 쏴야 한다)
    regen 숨 고르기 — 5초 맞지 않으면 체력이 60% 까지 차오른다
    aids  보조 표시 — 피격 방향 · 무리 예고 · 비명 고리
-   cp    체크포인트 — 죽으면 고비마다 다시 */
-const RULE_DEF = { dens: [1, 2, 3], sense: [0, 1, 2], bite: [false, true], rise: [false, true], mag: [false, true], regen: [false, true], aids: [false, true], cp: [false, true] };
+   cp    체크포인트 0 없음 · 1 장마다 한 번(다시 하면 쓴 소모품은 돌아오지 않는다) · 2 켬 */
+const RULE_DEF = { dens: [1, 2, 3], sense: [0, 1, 2], bite: [false, true], rise: [false, true], mag: [false, true], regen: [false, true], aids: [false, true], cp: [0, 1, 2] };
 const RULE_PRESET = {
-  easy:   { dens: 1, sense: 0, bite: false, rise: false, mag: false, regen: true,  aids: true,  cp: true },
-  normal: { dens: 2, sense: 1, bite: false, rise: false, mag: false, regen: false, aids: true,  cp: true },
-  hard:   { dens: 3, sense: 2, bite: true,  rise: true,  mag: true,  regen: false, aids: false, cp: false },
-  rush:   { dens: 2, sense: 1, bite: false, rise: false, mag: false, regen: false, aids: true,  cp: false }
+  easy:   { dens: 1, sense: 0, bite: false, rise: false, mag: false, regen: true,  aids: true,  cp: 2 },
+  normal: { dens: 2, sense: 1, bite: false, rise: false, mag: false, regen: false, aids: true,  cp: 2 },
+  hard:   { dens: 3, sense: 2, bite: true,  rise: true,  mag: true,  regen: false, aids: false, cp: 1 },
+  rush:   { dens: 2, sense: 1, bite: false, rise: false, mag: false, regen: false, aids: true,  cp: 0 }
 };
 
 const AIM_MODES = ['auto', 'stick', 'turn', 'drag'];

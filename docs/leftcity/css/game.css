@@ -973,3 +973,20 @@ body.touch .ammo__slots span:not(.on){display:none}
 .seg--sm{flex:0 0 auto}
 .seg--sm button{padding:6px 9px;min-height:32px;font-size:12px}
 .gauge--health i.infected{background:linear-gradient(90deg,#3d5a14,#8bbf2f);animation:pulse 1.2s infinite}
+
+/* 소음 게이지 (rc.39) — 지금 내는 소리 · 쌓인 소음 열기(붉은 눈금이 끝에 닿으면 무리가 온다) */
+.gauge--noise[hidden]{display:none}
+.gauge--noise i{background:linear-gradient(90deg,#3a4660,#b8c8ec);transition:width .12s}
+.gauge--noise .gauge__track{position:relative}
+.gauge__heat{position:absolute;top:-3px;bottom:-3px;width:3px;margin-left:-1px;background:#d0402e;border-radius:1px;box-shadow:0 0 4px rgba(208,64,46,.8)}
+.gauge--noise.hot .gauge__label{color:#ff7a6e}
+.gauge--noise.hot .gauge__heat{animation:pulse .5s infinite}
+
+/* 빠른 장전 구간 (rc.39) — 장전 막대의 밝은 띠. 이 구간에서 한 번 더 누르면 바로 끝난다 */
+.ammo__reload{position:relative}
+.reload__sweet{position:absolute;top:-2px;bottom:-2px;left:45%;width:20%;background:rgba(255,226,140,.55);border-radius:1px;opacity:0;transition:opacity .1s}
+.ammo__reload.on .reload__sweet{opacity:1}
+.ammo__reload.tried .reload__sweet{opacity:.15}
+
+.set__link--danger{color:#ff8a7a;margin-top:10px}
+.set__link--danger:hover{color:#ffb0a4}

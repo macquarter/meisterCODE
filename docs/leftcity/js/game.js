@@ -1970,6 +1970,28 @@ const G = {
       const z = new Zombie(q.x, q.y, 'weeper'); z.face = wr() * 6.28;
       this.zombies.push(z); i++;
     }
+    // 지켜진 보급(rc.39) — 길에서 비켜난 곳에 잠든 무리가 둘러선 보급 상자. 지나쳐도 되고, 욕심내도 된다
+    this.stashes = 0; this.stashTotal = 0; this.woke = 0; this.stashSeen = false;
+    if (this.dormant && !C) {
+      const sr = makeRng(L.seed ^ 0x5a51 ^ (this.stage | 0)), want = 1 + this.rules.dens;
+      for (let i = 0, tries = 0; i < want && tries < 600; tries++) {
+        const idx = w.reach[Math.floor(sr() * w.reach.length)], q = w.tileCenter(idx), tx = idx % w.w, ty = (idx / w.w) | 0;
+        const te = w.toExit[idx];
+        if (te < w.maxDist * 0.15 || te > w.maxDist * 0.85 || w.roadNeighbours(tx, ty) < 5) continue;
+        if (Math.hypot(q.x - this.player.x, q.y - this.player.y) < 750) continue;
+        if (this.pickups.some(k => k.type === 'stash' && Math.hypot(k.x - q.x, k.y - q.y) < 1100)) continue;
+        this.pickups.push(new Pickup(q.x, q.y, 'stash'));
+        const n = 4 + Math.floor(sr() * 3);
+        for (let k = 0, kt = 0; k < n && kt < 30; kt++) {
+          const a = sr() * 6.283, r = 55 + sr() * 75, x = q.x + Math.cos(a) * r, y = q.y + Math.sin(a) * r;
+          if (w.hits(x, y, 14)) continue;
+          const z = new Zombie(x, y, this.pickType());
+          if (!z.dormantKind()) continue;
+          z.stand = true; z.face = Math.atan2(y - q.y, x - q.x) + (sr() - 0.5); z.guard = true; this.zombies.push(z); k++;
+        }
+        i++; this.stashTotal++;
+      }
+    }
     this.flowT = 0; this.hordeAt = null; this.casings = []; this.kickX = 0; this.kickY = 0;
     this.freezeT = 0; this.lastStop = -9; this.shieldTold = false;
     w.updateFlow(this.player.x, this.player.y);
@@ -2032,6 +2054,7 @@ const G = {
         v: 900 + Math.random() * 500, len: 12 + Math.random() * 16, a: 0.1 + Math.random() * 0.22 });
 
     if (C && C.rules && C.rules.boss) this.dropBoss(520, 900);
+    this.cpUsed = !!cp;                                   // 무결 판정 · '한 번' 규칙
     this.checkpoint = cp && cp.level === index ? cp : null;
     if (this.checkpoint) this.applyCheckpoint(this.checkpoint);
 
@@ -2052,12 +2075,19 @@ const G = {
     this.refreshHud(true);
   },
 
+  /** 무결(rc.39) — 절멸에서 체크포인트를 한 번도 쓰지 않고 깬 장. 결과 화면과 장 지도에 남는다 */
+  markFlawless() {
+    try { const k = 'aftermath.flawless', o = JSON.parse(localStorage.getItem(k) || '{}'); o[this.levelIndex + (this.stage === 0 ? 'a' : '')] = 1; localStorage.setItem(k, JSON.stringify(o)); } catch (e) { /* 사생활 보호 모드 */ }
+  },
   /* ── 규칙 (rc.38) — 숨 고르기 · 감염 · 되살아남 ── */
   ruleToast(k, msg) { if (this.ruleTold && !this.ruleTold[k]) { this.ruleTold[k] = true; this.toast(msg, 3.4); } },
   rulesTick(dt) {
     const p = this.player, R = this.rules;
     if (!R || p.dead) return;
     p.calmT = (p.calmT || 0) + dt;
+    if (!this.stashSeen && this.stashTotal) for (const k of this.pickups) if (k.type === 'stash' && !k.dead && Math.hypot(k.x - p.x, k.y - p.y) < 430) {
+      this.stashSeen = true; this.toast(T('잠든 무리가 보급을 지키고 있다 — 깨우지 않고 가져갈 수 있을까'), 3.4); break;
+    }
     // 숨 고르기 — 5초 맞지 않으면 60% 까지 차오른다(감염 중엔 안 된다)
     if (R.regen && p.calmT > 5 && !(p.infect > 0) && p.hp < p.hpMax * 0.6) p.hp = Math.min(p.hpMax * 0.6, p.hp + 4 * dt);
     // 감염 — 체력이 서서히 빠지고, 내버려 두면 조금씩 번진다. 구급킷으로만 낫는다
@@ -2105,6 +2135,13 @@ const G = {
     p.x = cp.x; p.y = cp.y;
     p.hp = Math.max(cp.hp, 60); p.battery = Math.max(cp.battery, 40); p.nades = Math.max(cp.nades, 1);
     p.ammo = Object.assign({}, cp.ammo); p.mag = Object.assign({}, cp.mag); p.owned = new Set(cp.owned);
+    // '한 번' 규칙(rc.39) — 다시 하는 것은 허락하되 공짜는 아니다: 쓴 소모품은 돌아오지 않고, 감염도 이어진다
+    const dk = this.deathKit; this.deathKit = null;
+    if (this.rules && this.rules.cp === 1 && dk) {
+      p.hp = Math.max(40, cp.hp); p.nades = Math.min(cp.nades, dk.nades);
+      for (const k in p.ammo) if (k in dk.ammo) p.ammo[k] = Math.min(p.ammo[k], dk.ammo[k]);
+      if (dk.infect > 0) p.infect = dk.infect;
+    }
     p.wpn = p.owned.has(cp.wpn) ? cp.wpn : 'pistol';
     Object.assign(this, { time: cp.time, kills: cp.kills, score: cp.score, shots: cp.shots, hits: cp.hits, notesFound: cp.notesFound });
     const ob = this.level.objective;
@@ -2801,7 +2838,7 @@ const G = {
     const N = this.noiseRings || (this.noiseRings = []);
     if (N.length && this.time - N[N.length - 1].at < 0.32) return;   // 연사는 고리 하나로
     if (N.length >= 3) N.shift();
-    N.push({ x, y, R: ZTYPES.walker.hear * (1 + loud * 1.6), t: 0, max: 0.75, at: this.time });
+    N.push({ x, y, R: ZTYPES.walker.hear * (this.sense ? this.sense.h : 1) * (1 + loud * 1.6) * (this.acou ? this.acou.shot : 1), t: 0, max: 0.75, at: this.time });
   },
   spawnSparks(x, y, ang) {
     for (let i = 0; i < 6; i++) {
@@ -3045,6 +3082,20 @@ const G = {
       if (a.t <= 0) { this.acids.splice(i, 1); continue; }
       if (!p.dead && Math.hypot(p.x - a.x, p.y - a.y) < a.r)
         acidDps = Math.max(acidDps, 10 * Math.min(1, a.t / a.max + 0.3));   // 식을수록 약해진다
+    }
+    // 소나기(rc.39) — 비 도시는 1분마다 한 번 비가 거세진다(3초에 짙어져 18초). 발소리가 묻히는 대신 불빛이 짧아진다
+    { const wx0 = w.theme.weather, rainy = !wx0 || wx0 === 'rain';
+      const c = (this.time - 25) % 60, prev = this.shower || 0;
+      this.shower = !rainy || this.time < 25 ? 0 : c < 3 ? c / 3 : c < 21 ? 1 : c < 24 ? 1 - (c - 21) / 3 : 0;
+      if (prev === 0 && this.shower > 0 && !this.survival) this.toast(T('비가 거세진다 — 발소리가 묻히지만 불빛이 짧아진다'), 3); }
+    // 소리의 환경(rc.39) — 빗소리 · 폭풍에 발소리가 묻히고, 골목 · 건물 사이에선 총성이 덜, 트인 대로에선 멀리 퍼진다
+    this.acouT = (this.acouT || 0) - dt;
+    if (this.acouT <= 0) {
+      this.acouT = 0.25;
+      let free = 0;
+      for (let i = -2; i <= 2; i++) for (let j = -2; j <= 2; j++) if ((i || j) && !w.solid(p.x + i * TILE, p.y + j * TILE)) free++;
+      const open = free / 24, mask = Math.max(this.shower || 0, this.storm || 0);
+      this.acou = { step: 1 - 0.45 * mask, shot: 0.6 + 0.6 * open, open };
     }
     // 폭풍 — 모래 폭풍 · 눈보라는 45초마다 한 번, 4초에 걸쳐 짙어져 12초 머물다 걷힌다
     const wx = w.theme.weather;
@@ -3513,6 +3564,7 @@ function render() {
   drawRain(g, cam, p);
   if (p.bile > 0) drawBile(p.bile);
   if (!g.rules || g.rules.aids) {                       // 보조 표시 규칙 — 끄면 소리와 어둠만으로 알아채야 한다
+    drawSoundCues(g, p, (x, y) => [x - cam.x, (y - cam.y) * TILT], 1, TILT);
     drawHordeCue(cam, g, p);
     drawScreamCue(cam, g, p);
     drawHitDirs(cam, g, p, g.state === 'play' ? 1 / 60 : 0);
@@ -3559,11 +3611,36 @@ function render3D(g, p) {
   if (p.bile > 0) drawBile(p.bile);
   if (g.lightning > 0.01) { ctx.fillStyle = `rgba(196,208,228,${g.lightning * (SETTINGS.flash ? 0.18 : 0.05)})`; ctx.fillRect(0, 0, W, H); }
   if (!g.rules || g.rules.aids) {
+    { const [ax] = R3.project(p.x, p.y, 0), [bx] = R3.project(p.x + 100, p.y, 0); drawSoundCues(g, p, (x, y) => R3.project(x, y, 0), (bx - ax) / 100, 0.8); }
     drawHordeCue3D(g, p);
     drawScreamCue3D(g, p);
     drawHitDirs(cam, g, p, g.state === 'play' ? 1 / 60 : 0);
   }
   drawCrosshair(g, p);
+}
+/** 소리 표시(rc.39) — 발밑의 발소리 고리(크기 = 걷는 것이 실제로 깨는 거리)와, 귀를 기울이는 것 머리 위의 '?'.
+    proj = 세계 → 화면, s = 화면 배율, ry = 세로 눌림 */
+function drawSoundCues(g, p, proj, s, ry) {
+  if (p.dead || !g.dormant) return;
+  const H = ZTYPES.walker.hear * (g.sense ? g.sense.h : 1), A = g.acou || { step: 1 };
+  if (p.noise > 0.05 && p.noise < 0.6) {
+    const R = H * p.noise * 1.6 * A.step * s, [x, y] = proj(p.x, p.y), k = Math.min(1, p.noise / Player.NOISE_SPRINT);
+    ctx.setLineDash([5, 6]); ctx.lineWidth = 1.5;
+    ctx.strokeStyle = `rgba(200,220,255,${0.12 + 0.3 * k})`;
+    ctx.beginPath(); ctx.ellipse(x, y, R, R * ry, 0, 0, 6.283); ctx.stroke();
+    ctx.setLineDash([]);
+  }
+  ctx.font = '700 15px Pretendard, sans-serif'; ctx.textAlign = 'center';
+  for (const z of g.zombies) {
+    if (z.dead || z.aggro) continue;
+    const a = Math.max(z.sus || 0, (z.litT || 0) / (g.sense ? g.sense.lit : 1.1));
+    if (a < 0.08 || Math.abs(z.x - p.x) > 800 || Math.abs(z.y - p.y) > 800) continue;
+    if (!(z.lit > 0.3) && Math.hypot(z.x - p.x, z.y - p.y) > 200) continue;   // 어둠 속의 것은 드러내지 않는다 — 보이는 것만 '?'
+    const [x, y] = proj(z.x, z.y);
+    ctx.fillStyle = `rgba(${255},${Math.round(210 - 150 * a)},${Math.round(90 - 60 * a)},${0.5 + 0.5 * a})`;
+    ctx.fillText(a > 0.66 ? '?!' : '?', x, y - 30 * Math.max(0.7, s) - 4);
+  }
+  ctx.textAlign = 'start';
 }
 /** 무리 예고 — 3D 판에서는 플레이어 화면 위치 둘레에 그 방향의 붉은 호 */
 function drawHordeCue3D(g, p) {
@@ -3705,6 +3782,7 @@ function drawCrosshair(g, p) {
     ctx.beginPath(); ctx.arc(x, y, r, 0, 6.283); ctx.stroke();
     ctx.strokeStyle = 'rgba(240,180,41,.95)';
     ctx.beginPath(); ctx.arc(x, y, r, -Math.PI / 2, -Math.PI / 2 + p.reloadProgress * 6.283); ctx.stroke();
+    if (!p.reloadTried) { const [sa, sb] = Player.ACTIVE; ctx.save(); ctx.strokeStyle = 'rgba(255,226,140,.9)'; ctx.lineWidth = 4; ctx.beginPath(); ctx.arc(x, y, r + 4, -Math.PI / 2 + sa * 6.283, -Math.PI / 2 + sb * 6.283); ctx.stroke(); ctx.restore(); }
   }
 
   if (g.hitMark > 0) {
@@ -6252,7 +6330,7 @@ function drawRain(g, cam, p) {
       const dx = cam.x + r.x - p.x, dy = cam.y + y2 / TILT - p.y, d = Math.hypot(dx, dy);
       if (d < range * 0.85 && d > 20 && (dx * ca + dy * sa) / d > cosH) { lit.moveTo(r.x, r.y); lit.lineTo(x2, y2); continue; }
     }
-    ctx.globalAlpha = r.a;
+    ctx.globalAlpha = Math.min(1, r.a * (1 + 0.8 * (g.shower || 0)));   // 소나기 — 빗줄기가 짙어진다
     ctx.moveTo(r.x, r.y); ctx.lineTo(x2, y2);
   }
   ctx.stroke();
@@ -6494,6 +6572,16 @@ G.refreshHud = function (force) {
   $('valHealth').textContent = Math.ceil(p.hp);
   $('valBattery').textContent = Math.ceil(p.battery);
   $('gaugeStam').style.width = (p.stam / p.stamMax * 100) + '%';
+  { const gn = $('gaugeNoise'); if (gn) {                // 소음 · 무리를 부르는 소음 열기(rc.39)
+      const box = gn.closest('.gauge'), on = this.dormant && (!this.rules || this.rules.aids);
+      box.hidden = !on;
+      if (on) {
+        const cap = Math.max(16, 26 - this.levelIndex * 0.6), heat = this.dir ? (this.dir.heat || 0) / cap : 0;
+        gn.style.width = Math.min(100, p.noise * 100) + '%';
+        $('gaugeHeat').style.left = Math.min(100, heat * 100) + '%';
+        box.classList.toggle('hot', heat > 0.7);
+      }
+    } }
   // 동료 — 이름과 체력 막대. 쓰러지면 회색으로 남는다
   { const sq = $('hudSquad'), A = G.allies || [];
     if (sq) {
@@ -6523,6 +6611,7 @@ G.refreshHud = function (force) {
   gun.classList.toggle('dry', inMag <= Math.max(1, magCap(wp) * 0.2));
   gun.classList.toggle('reloading', p.reloading);
   $('hudReloadBar').style.width = (p.reloadProgress * 100) + '%';
+  { const rb = $('hudReloadBar').parentElement; rb.classList.toggle('on', p.reloadT > 0); rb.classList.toggle('tried', !!p.reloadTried); }
   $('hudNades').textContent = p.nades;
   if (isTouch) {
     $('btnSprint').classList.toggle('on', input.sprintLatch || !!this.edgeOn);
@@ -7068,7 +7157,10 @@ const UI = {
     let pts = 0;
     pts += Math.min(34, acc * 45);                     // 명중률 (75% 에서 만점)
     pts += Math.max(0, 32 - taken / 6);                // 받은 피해 (192 이상이면 0점)
-    pts += Math.min(20, G.kills * 0.5);                // 처치 (40기에서 만점)
+    if (G.dormant && !G.survival) {                   // 잠든 도시(rc.39) — 처치보다 '얼마나 조용히' 지나갔나
+      pts += Math.min(10, G.kills * 0.4);
+      pts += Math.max(0, 12 - (G.woke | 0) * 0.6);     // 깨운 수 (0 이면 만점, 20 이면 0)
+    } else pts += Math.min(20, G.kills * 0.5);         // 처치 (40기에서 만점)
     // 속도 — 시간이 목표 자체인 모드에는 적용하지 않는다
     if (ob.type !== 'survive' && ob.type !== 'endless') {
       const par = ob.type === 'finale' ? 150 + ob.time : 90 + (G.goalsTotal || 1) * 45;
@@ -7112,7 +7204,9 @@ const UI = {
     if (!won && !G.survival) G.deaths[G.levelIndex] = (G.deaths[G.levelIndex] || 0) + 1;
     const easier = !won && !G.survival && (G.deaths[G.levelIndex] || 0) >= 2 && G.difficulty !== 'easy';
     const cb = s.querySelector('[data-act="checkpoint"]');
-    const hasCp = !won && !G.survival && G.checkpoint && G.checkpoint.level === G.levelIndex && (G.checkpoint.stage ?? 1) === G.stage;
+    const hasCp = !won && !G.survival && G.checkpoint && G.checkpoint.level === G.levelIndex && (G.checkpoint.stage ?? 1) === G.stage
+      && !(G.rules && G.rules.cp === 1 && G.cpUsed);       // '한 번' 규칙 — 이미 썼다
+    if (!won) G.deathKit = { nades: G.player.nades, ammo: Object.assign({}, G.player.ammo), infect: G.player.infect || 0 };
     cb.classList.toggle('hidden', !hasCp);
     if (hasCp) cb.textContent = T('체크포인트부터 — {name}', { name: G.checkpointName() });
     const eb = s.querySelector('[data-act="retryeasy"]');
@@ -7139,6 +7233,18 @@ const UI = {
       [T('점수'), `${G.score}`],
       [T('난이도'), T(DIFFICULTY[G.difficulty].name)]
     ];
+    // 숨은 기록(rc.39) — 고수의 흔적
+    if (G.dormant && !G.survival) {
+      rows.push([T('깨운 수'), `${G.woke | 0}`]);
+      if (G.stashTotal) rows.push([T('지켜진 보급'), `${G.stashes | 0} / ${G.stashTotal}`]);
+      if (G.perfects || G.execs || G.fastReloads) rows.push([T('완벽 밀치기 · 처형 · 빠른 장전'), `${G.perfects | 0} · ${G.execs | 0} · ${G.fastReloads | 0}`]);
+      const marks = [];
+      if (won && !(G.woke | 0)) marks.push(T('고요한 통과'));
+      if (won && G.player.dmgTaken < 1) marks.push(T('무피격'));
+      if (won && G.stashTotal && G.stashes >= G.stashTotal) marks.push(T('보급 독식'));
+      if (won && G.difficulty === 'hard' && !G.cpUsed) { marks.push(T('무결')); G.markFlawless(); }
+      if (marks.length) rows.push([T('숨은 기록'), marks.join(' · ')]);
+    }
     if (G.challenge) {
       const C = G.challenge, cr = G.chResult || {};
       rows.push([T('최대 연속'), T('{n}연속 · ×{m}', { n: G.comboMax, m: (1 + Math.min(Math.max(0, G.comboMax - 1), 8) * 0.25).toFixed(2).replace(/0$/, '') })]);
@@ -7227,6 +7333,23 @@ document.addEventListener('click', e => {
     case 'settings':
       UI.settingsFrom = G.state === 'pause' ? 'scrPause' : 'scrTitle';
       UI.syncSettings(); UI.show('scrSettings'); SetLive.open(); break;
+    case 'wipeall': {                                          // 데이터 초기화(rc.39) — 데모를 처음부터(인트로) 다시 보도록 저장값 · 캐시를 지운다
+      // 확인 — 데모 화면(iframe)에선 confirm 창이 막혀 있을 수 있어, 두 번 눌러 확인한다
+      const wb = btn;
+      if (wb && !wb.dataset.armed) {
+        wb.dataset.armed = '1'; wb.dataset.label = wb.textContent;
+        wb.textContent = T('한 번 더 누르면 모두 지우고 인트로부터 시작');
+        setTimeout(() => { if (wb.dataset.armed) { delete wb.dataset.armed; wb.textContent = wb.dataset.label; } }, 3500);
+        break;
+      }
+      try { for (const k of Object.keys(localStorage)) if (k.startsWith('aftermath')) localStorage.removeItem(k); } catch (e) { /* 막힌 저장소 */ }
+      try { sessionStorage.clear(); } catch (e) { /* 무시 */ }
+      const jobs = [];
+      try { if (navigator.serviceWorker) jobs.push(navigator.serviceWorker.getRegistrations().then(rs => Promise.all(rs.map(r => r.unregister())))); } catch (e) { /* 무시 */ }
+      try { if (window.caches) jobs.push(caches.keys().then(ks => Promise.all(ks.map(k => caches.delete(k))))); } catch (e) { /* 무시 */ }
+      Promise.all(jobs).catch(() => {}).then(() => location.reload());
+      break;
+    }
     case 'hintsreset':
       Hints.reset(); UI.syncSettings(); break;
     case 'setback':
@@ -7323,7 +7446,7 @@ const RULE_UI = [
   ['mag', '탄창 버림', '장전하면 남은 탄을 버린다'],
   ['regen', '숨 고르기', '5초 맞지 않으면 체력 60% 까지 회복'],
   ['aids', '보조 표시', '피격 방향 · 무리 예고 · 비명 고리'],
-  ['cp', '체크포인트', '죽으면 고비마다 다시']
+  ['cp', '체크포인트', '죽으면 고비부터 다시 — 한 번만이면 쓴 소모품은 돌아오지 않는다', [[0, '없음'], [1, '한 번'], [2, '켬']]]
 ];
 function renderRules() {
   const box = $('setRules'); if (!box) return;

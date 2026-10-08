@@ -153,8 +153,20 @@ class Player {
   get reloadProgress() { return this.reloadT > 0 ? 1 - this.reloadT / this.reloadSpan : 0; }
 
   /** 탄창 교체. auto = 빈 약실에서 자동으로 걸린 것이라 실패음을 내지 않는다 */
+  /** 빠른 장전(rc.39) — 장전 막대의 밝은 구간(진행 45‒65%)에서 한 번 더 누르면 바로 끝난다. 일찍 누르면 걸려서 0.45초 늦는다. 한 번만 */
+  static get ACTIVE() { return [0.45, 0.65]; }
+  activeReload(g) {
+    if (this.reloadTried) return false;
+    this.reloadTried = true;
+    const k = this.reloadProgress, [a, b] = Player.ACTIVE;
+    if (k >= a && k <= b) { this.finishReload(); this.activeOk = (this.activeOk | 0) + 1; if (g) { g.fastReloads = (g.fastReloads | 0) + 1; if (g.ruleToast) g.ruleToast('fastrl', T('빠른 장전 — 밝은 구간에서 한 번 더 누르면 바로 끝난다')); } return true; }
+    if (k < a) { this.reloadT += 0.45; this.reloadSpan += 0.45; this.jam = 0.45; SFX.dry(); }
+    return false;
+  }
   reload(g, auto) {
+    if (this.reloadT > 0 && !auto && !this.dead) return this.activeReload(g);
     if (this.dead || this.reloadT > 0) return false;
+    this.reloadTried = false; this.jam = 0;
     const w = this.weapon;
     if (this.magOf(w) >= magCap(w)) { if (!auto) SFX.click(); return false; }
     if (this.reserveOf(w) <= 0) {
@@ -244,6 +256,10 @@ class Player {
       if (d > 46 + PK.shove + z.r) continue;
       const a = Math.atan2(dy, dx);
       const front = Math.cos(a - this.angle) > 0.3;
+      // 처형(rc.39) — 완벽 밀치기로 넘어진 것을 한 번 더 밀치면 끝낸다
+      if (z.down > 0 && !z.t.boss) { z.hurt(z.hp + 1, a, g, 0, 'melee'); g.execs = (g.execs | 0) + 1; killed = true; g.freezeT = Math.max(g.freezeT || 0, 0.12); hits++; continue; }
+      // 완벽 밀치기(rc.39) — 붙은 지 0.35초 안(덤벼드는 순간) · 뛰어드는 것 · 돌진하는 것을 밀치면 넘어뜨린다
+      const perfect = !z.t.boss && ((z.biteAt >= 0 && g.time - z.biteAt < 0.35) || z.leapPhase === 'air' || z.chargePhase === 'dash');
       z.hurt(front ? 24 : 18, a, g, 0, 'melee');
       if (z.dead) killed = true;
       if (!z.dead && !z.t.boss) {
@@ -252,6 +268,11 @@ class Player {
         // 덩치도 한 걸음은 물러나야 한다 — 예전(140 · 0.2초)은 밀려도 닿는 거리 안이라 곧바로 다시 붙었다
         z.kbV = (brute ? 270 : 380) * (front ? 1 : 0.85); z.kbA = a; z.shoved = brute ? 0.45 : 0.6; z.shoveA = a;
         z.stagger = Math.max(z.stagger, brute ? 0.5 : 0.62);
+        if (perfect) {
+          z.down = 1.8; z.stagger = Math.max(z.stagger, 1.8); z.kbV *= 1.3; z.biteAt = -1;
+          g.perfects = (g.perfects | 0) + 1; g.freezeT = Math.max(g.freezeT || 0, 0.14);
+          if (g.ruleToast) g.ruleToast('perfect', T('완벽한 밀치기 — 넘어진 것을 한 번 더 밀치면 끝낸다')); else if (g.toast) g.toast(T('완벽한 밀치기'));
+        }
       }
       // 맞은 자리 — 섬광 하나와 밀린 쪽으로 튀는 흙먼지 · 불티 몇 점(가벼운 타격엔 3‒8 점이면 충분하다)
       const cx = z.x - Math.cos(a) * z.r * 0.8, cy = z.y - Math.sin(a) * z.r * 0.8;
@@ -295,7 +316,8 @@ class Player {
     if (!this.lightOn || this.battery <= 0) return 0;
     const low = this.battery < 22 ? 0.72 + Math.random() * 0.28 : 1;  // 저전력 깜빡임
     const storm = typeof G !== 'undefined' && G.storm ? 1 - 0.45 * G.storm : 1;   // 모래 폭풍 · 눈보라가 불빛을 삼킨다
-    return 430 * PK.lamp * low * (this.bile > 0 ? 0.7 : 1) * storm;       // 담즙에 눈이 흐려진다
+    const shower = typeof G !== 'undefined' && G.shower ? 1 - 0.18 * G.shower : 1;   // 소나기 — 빗줄기에 불빛이 짧아진다
+    return 430 * PK.lamp * low * (this.bile > 0 ? 0.7 : 1) * storm * shower;       // 담즙에 눈이 흐려진다
   }
 
   hurt(dmg) {
@@ -569,13 +591,19 @@ class Zombie {
   wakeCheck(dt, g, p, d) {
     if (p.dead) return false;
     if (d < this.r + p.r + 12) return true;                                     // 부딪힘
-    if (p.noise >= 0.6) {                                                       // 총성 — 화면의 총성 고리만큼 들린다(벽 너머는 60% 까지). 소음기를 끼면 고리도 깨우는 범위도 작다
-      const R = this.t.hear * (g.sense ? g.sense.h : 1) * (1 + p.noise * 1.6);
+    const H = this.t.hear * (g.sense ? g.sense.h : 1), A = g.acou || { step: 1, shot: 1 };
+    let heard = false;
+    if (p.noise >= 0.6) {                                                       // 총성 — 화면의 총성 고리만큼 들린다(벽 너머는 60% 까지). 소음기 · 골목은 작게, 대로는 멀리
+      const R = H * (1 + p.noise * 1.6) * A.shot;
       if (d < R && (d < R * 0.6 || g.world.los(this.x, this.y, p.x, p.y))) return true;
-    } else if (p.noise > 0.05) {                                                // 발소리 — 질주는 약 200, 걸음은 바로 곁. 보이는 곳에서만
-      const R = this.t.hear * (g.sense ? g.sense.h : 1) * p.noise * 1.6;
-      if (d < R && g.world.los(this.x, this.y, p.x, p.y)) return true;
+    } else if (p.noise > 0.05) {                                                // 발소리 — 질주는 약 200, 걸음은 바로 곁. 보이는 곳에서만. 빗소리에 묻힌다
+      const R = H * p.noise * 1.6 * A.step;
+      if (d < R && g.world.los(this.x, this.y, p.x, p.y)) heard = true;
     }
+    // 의심(rc.39) — 발소리는 바로 깨우지 않는다. 고개를 돌리고(머리 위 '?') 0.7초 남짓 귀를 기울이다 깬다. 그 사이 멈추면 가라앉는다
+    if (heard) this.sus = (this.sus || 0) + dt / 0.7;
+    else if (this.sus > 0) this.sus = Math.max(0, this.sus - dt * 0.8);
+    if (this.sus >= 1) return true;
     if (this.lit > 0.5) {                                                       // 불빛 — 비추는 동안 천천히 고개를 돌리다 깬다
       this.litT = (this.litT || 0) + dt * (d < 160 ? 1.8 : 1);
       if (this.litT > (g.sense ? g.sense.lit : 1.1)) return true;
@@ -585,7 +613,8 @@ class Zombie {
   }
   /** 깨어난다 — 비명과 함께 0.5초 몸을 일으키고, 곁에 서 있던 것들도 줄줄이 깬다 */
   wake(g, d, chain) {
-    this.aggro = true; this.wakeHold = 0.5; this.litT = 0;
+    this.aggro = true; this.wakeHold = 0.5; this.litT = 0; this.sus = 0;
+    g.woke = (g.woke | 0) + 1;                                               // 장 평가 — 깨운 수
     if (this.type === 'runner' || this.type === 'crawler') SFX.screech(d); else SFX.growl(d);
     if (!chain) return;
     for (const o of g.zombies) {
@@ -597,7 +626,7 @@ class Zombie {
   }
   /** 잠든 동안 — 서 있는 것은 제자리에서 흔들리고, 비추면 천천히 이쪽으로 돈다. 서성이는 것은 느리게 걷는다 */
   idle(dt, g, p, dx, dy) {
-    if (this.litT > 0.2) {
+    if (this.litT > 0.2 || this.sus > 0.05) {
       const want = Math.atan2(dy, dx), da = Math.atan2(Math.sin(want - this.face), Math.cos(want - this.face));
       this.face += Math.max(-1.6 * dt, Math.min(1.6 * dt, da));
       this.phase += dt * 1.5;
@@ -762,6 +791,7 @@ class Zombie {
     }
 
     if (this.skeet > 0) this.skeet -= dt;
+    if (this.down > 0) this.down -= dt;
     if (this.stagger > 0) { this.stagger -= dt; if (this.tonguePhase === 'pull') this.cutTongue(g, true); return; }
     if (this.t.leap && this.updateLeap(dt, g, p, d, dx, dy)) return;
     if (this.t.tongue && this.updateTongue(dt, g, p, d, dx, dy)) return;
@@ -924,6 +954,7 @@ class Zombie {
     if (this.t.bloat && this.aggro && d < this.r + p.r + 8 && !p.dead) { this.hurt(this.hp + 1, Math.atan2(dy, dx), g); return; }
 
     // 접촉 공격 — 붙잡힌 만큼 발이 묶인다 (다음 프레임 이동에 반영)
+    if (d < this.r + p.r + 3 && !p.dead) { if (!(this.biteAt >= 0)) this.biteAt = g.time; } else this.biteAt = -1;   // 덤벼든 순간(완벽 밀치기 창)
     if (d < this.r + p.r + 3 && !p.dead) {
       p.grabN = (p.grabN || 0) + (this.t.boss ? 0 : 1);
       // 여럿이 붙어도 피해는 덜 늘어난다 — 포위의 무서움은 피해보다 발이 묶이는 데서 온다
@@ -1226,7 +1257,8 @@ const PICKUPS = {
   note:        { label: '기록', col: '#e8e2d0', icon: 'note' },
   fuel:        { label: '연료통을 들었다', col: '#d0402e', icon: 'fuel' },   // 미션 변주 '연료 모으기' — 하나씩 날라 탈것에 넣는다
   gear:        { label: '장비', col: '#ffcf5a', icon: 'gear' },                  // 정예 · 그것이 떨어뜨리는 장비(rc.31)
-  cache:       { label: '정예의 짐', col: '#ffcf5a', icon: 'cache' }            // 장비를 다 모았으면 대신 탄 · 수류탄 · 총
+  cache:       { label: '정예의 짐', col: '#ffcf5a', icon: 'cache' },           // 장비를 다 모았으면 대신 탄 · 수류탄 · 총
+  stash:       { label: '지켜진 보급', col: '#ffcf5a', icon: 'cache' }          // rc.39 — 잠든 무리가 둘러선 곁길 보급. 깨우지 않고 가져갈 수 있을까
 };
 
 class Pickup {
@@ -1265,6 +1297,7 @@ class Pickup {
       case 'note':    g.onRecord(this); return;
       case 'gear':    g.onGear(this); return;
       case 'cache':   g.onCache(this); return;
+      case 'stash':   g.stashes = (g.stashes | 0) + 1; g.onCache(this); return;
     }
     g.toast(this.p.label);
   }

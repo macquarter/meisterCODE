@@ -75,6 +75,10 @@ html:not(.r3d-off) #view{background:transparent !important}
         <div class="gauge__label">기력</div>
         <div class="gauge__track"><i id="gaugeStam" style="width:100%"></i></div>
       </div>
+      <div class="gauge gauge--noise" hidden>
+        <div class="gauge__label">소음</div>
+        <div class="gauge__track"><i id="gaugeNoise" style="width:0%"></i><b class="gauge__heat" id="gaugeHeat" title="무리를 부르는 소음"></b></div>
+      </div>
       <div class="squad hidden" id="hudSquad" aria-label="동료"></div>
       <div class="ammo">
         <div class="ammo__slots" id="hudSlots"></div>
@@ -83,7 +87,7 @@ html:not(.r3d-off) #view{background:transparent !important}
           <div class="ammo__rounds"><b id="hudAmmo">30</b><em id="hudReserve">/ 120</em></div>
           <div class="ammo__pips" aria-hidden="true"><i id="hudPips"></i></div>
           <span id="hudWeapon">SMG</span>
-          <div class="ammo__reload"><i id="hudReloadBar" style="width:0%"></i></div>
+          <div class="ammo__reload"><b class="reload__sweet" aria-hidden="true"></b><i id="hudReloadBar" style="width:0%"></i></div>
         </div>
         <div class="ammo__nade"><svg class="ammo__nadeIcon" viewBox="0 0 20 24" aria-hidden="true"><path d="M8 2h5v3h3l1 2h-3v1.2A7.5 7.5 0 1 1 6 8.2V7H4l1-2h3z"/></svg><b id="hudNades">3</b><span>수류탄</span></div>
       </div>
@@ -519,6 +523,7 @@ html:not(.r3d-off) #view{background:transparent !important}
             빛에 민감하다면 꺼 두세요.</p>
         </div>
         <p class="note" data-i18n="diffNote">난이도는 <b>다음에 시작하는 챕터</b>부터 적용됩니다.</p>
+        <button type="button" class="set__link set__link--danger" data-act="wipeall" title="처음부터 — 인트로 · 진행 · 설정을 지우고 다시 시작">데이터 초기화 — 인트로부터 다시</button>
         <button class="btn btn--ghost" data-act="setback">돌아가기</button>
       </div>
     </section>

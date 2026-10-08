@@ -1750,10 +1750,10 @@ const MAXP = 600, MAXDEC = 450, RAIN_N = 1400;
    장면을 HDR(반정밀도) 버퍼에 그리고 → 밝은 곳이 번지게(블룸) → 톤 매핑 · sRGB →
    마지막에 색 보정(어두운 곳은 청록, 밝은 곳은 따뜻하게) · 비네트 · 필름 그레인 · 가장자리 색 번짐 */
 const GradeShader = {
-  uniforms: { tDiffuse: { value: null }, uTime: { value: 0 }, uRes: { value: new THREE.Vector2(1, 1) }, uVig: { value: 0.55 }, uGrain: { value: 0.045 }, uLift: { value: 0 }, uSh: { value: new THREE.Vector3(0.82, 1.0, 1.14) }, uHi: { value: new THREE.Vector3(1.08, 1.0, 0.88) }, uExp: { value: 1.75 }, uHaze: { value: new THREE.Vector4(0, 0, 0, 0) }, uDarkP: { value: new THREE.Vector4(0.5, 0.5, 0.5, 0.5) }, uDarkK: { value: new THREE.Vector4(0, 0.1, 0.6, 1) } },
+  uniforms: { tDiffuse: { value: null }, uTime: { value: 0 }, uRes: { value: new THREE.Vector2(1, 1) }, uVig: { value: 0.55 }, uGrain: { value: 0.045 }, uLift: { value: 0 }, uSh: { value: new THREE.Vector3(0.82, 1.0, 1.14) }, uHi: { value: new THREE.Vector3(1.08, 1.0, 0.88) }, uExp: { value: 1.75 }, uHaze: { value: new THREE.Vector4(0, 0, 0, 0) }, uDarkP: { value: new THREE.Vector4(0.5, 0.5, 0.5, 0.5) }, uDarkK: { value: new THREE.Vector4(0, 0.1, 0.6, 1) }, uDarkF: { value: new THREE.Vector4(0, 0, 0, 0) }, uDarkM: { value: new THREE.Vector2(0, 0) } },
   vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
   // 톤 매핑(ACES) · sRGB 변환까지 이 한 번에 — 전체 화면 패스를 하나 줄인다
-  fragmentShader: `uniform sampler2D tDiffuse; uniform float uTime, uVig, uGrain, uLift, uExp; uniform vec2 uRes; uniform vec3 uSh, uHi; uniform vec4 uHaze, uDarkP, uDarkK; varying vec2 vUv;
+  fragmentShader: `uniform sampler2D tDiffuse; uniform float uTime, uVig, uGrain, uLift, uExp; uniform vec2 uRes; uniform vec3 uSh, uHi; uniform vec4 uHaze, uDarkP, uDarkK, uDarkF; uniform vec2 uDarkM; varying vec2 vUv;
     float h(vec2 p){ return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
     vec3 rrt(vec3 v){ vec3 a = v * (v + 0.0245786) - 0.000090537; vec3 b = v * (0.983729 * v + 0.4329510) + 0.238081; return a / b; }
     vec3 aces(vec3 c){
@@ -1778,7 +1778,10 @@ const GradeShader = {
           cone = step(0.0, al) * (1.0 - smoothstep(uDarkK.z * al * 0.7, uDarkK.z * al * 1.3 + 0.012, pp)) * (1.0 - smoothstep(LE * 0.62, LE * 1.04, al)); }
         float nr = 1.0 - smoothstep(uDarkK.y * 0.3, uDarkK.y, length(v));
         float glow = smoothstep(0.5, 0.92, max(c.r, max(c.g, c.b)));
-        c *= mix(1.0 - uDarkK.x, 1.0, max(max(cone, nr * 0.9), glow));
+        // 총구 화염 · 폭발 섬광 — 쏠 때마다 둘레가 번쩍 드러난다(2D 의 어둠 막과 같은 규칙). uDarkM = 화염 반경 · 세기, uDarkF = 폭발 위치 · 반경 · 세기
+        float mz = uDarkM.y * (1.0 - smoothstep(uDarkM.x * 0.2, uDarkM.x, length(v)));
+        float fl = uDarkF.w * (1.0 - smoothstep(uDarkF.z * 0.15, uDarkF.z, length(q - vec2(uDarkF.x * uDarkK.w, uDarkF.y))));
+        c *= mix(1.0 - uDarkK.x, 1.0, max(max(max(cone, nr * 0.9), glow), max(mz, fl)));
       }
       float l = dot(c, vec3(0.299, 0.587, 0.114));
       c = mix(c, c * uSh, (1.0 - smoothstep(0.0, 0.4, l)) * 0.6);
@@ -2636,11 +2639,14 @@ function placeCamera(g) {
   if (Math.abs(camera.fov - f) > 0.01) { camera.fov = f; camera.updateProjectionMatrix(); }
   const vz = (R3D.zoom || 1) * VIEW.vz;
   const p = g.player, lead = 70 * Math.min(1, vz);
-  const tx = p.x + Math.cos(p.angle) * lead, tz = p.y + Math.sin(p.angle) * lead;
+  // 흔들림 · 반동 — 카메라와 바라보는 점을 함께 옮긴다(화면 전체가 밀린다 = 2D 와 같은 세기).
+  // 예전엔 카메라만 옮기고 바라보는 점은 그대로여서 화면 가운데(플레이어)가 거의 움직이지 않았다(2D 의 1/10)
+  const sh = g.shake > 0.1 && SETTINGS.shake ? g.shake : 0;
+  const ox = (Math.random() - 0.5) * sh + (g.kickX || 0), oz = (Math.random() - 0.5) * sh + (g.kickY || 0);
+  const tx = p.x + Math.cos(p.angle) * lead + ox, tz = p.y + Math.sin(p.angle) * lead + oz;
   camT.set(tx, 12, tz);
-  const sh = g.shake > 0.1 && SETTINGS.shake ? g.shake * 0.8 : 0;
   const D = DIST * Math.max(DOLLY_MIN, vz) * VIEW.dist;
-  camera.position.set(tx + (Math.random() - 0.5) * sh + (g.kickX || 0), D * Math.sin(PITCH), tz + D * Math.cos(PITCH) + (Math.random() - 0.5) * sh + (g.kickY || 0));
+  camera.position.set(tx, D * Math.sin(PITCH), tz + D * Math.cos(PITCH));
   camera.lookAt(camT);
   camera.updateMatrixWorld();
 }
@@ -2663,7 +2669,7 @@ R3D.unproject = (sx, sy) => {
 R3D.info = () => renderer ? { chunks: chunks.size, calls: renderer.info.render.calls, tris: renderer.info.render.triangles, programs: renderer.info.programs.length, level: PERF.level, ms: Math.round(PERF.ema), failed: R3D.failed } : null;
 /** 검사용 — 어둠 가리개 세기 · 발밑 고리(예전 플레이어 후광) 수 · 밀치기가 파동 셰이더인지 */
 R3D._probe = () => { let halo = 0; if (scene) scene.traverse(o => { if (o.material && o.material.fragmentShader && o.material.fragmentShader.includes('float core = (1.0 - smoothstep(0.0, 0.75, r))')) halo++; });
-  return { dark: grade ? grade.uniforms.uDarkK.value.x : 0, halo, shoveShader: !!(SHOVE3 && SHOVE3[0] && SHOVE3[0].material.isShaderMaterial && SHOVE3[0].material.uniforms.uHead), stars: STAR3 ? STAR3.length : 0 }; };
+  return { dark: grade ? grade.uniforms.uDarkK.value.x : 0, muzzleK: grade ? grade.uniforms.uDarkM.value.y : 0, flashK: grade ? grade.uniforms.uDarkF.value.w : 0, halo, shoveShader: !!(SHOVE3 && SHOVE3[0] && SHOVE3[0].material.isShaderMaterial && SHOVE3[0].material.uniforms.uHead), stars: STAR3 ? STAR3.length : 0 }; };
 R3D._dbg = () => ({ chunkSteps, CHAR, dyn, THREE, renderer, scene, camera, moon, hemi, spot, bloom, grade, MAT, CL, PERF, makeRig, blendRig, player: player3 });
 R3D.hide = () => { if (cv) cv.style.display = 'none'; };
 /** 판 준비 — '시작'을 누른 그 순간(브리핑 화면이 떠 있는 동안) 도시 · 둘레 덩어리 25 개 · 인물 · 첫 그림을 모두 마친다.
@@ -2731,6 +2737,16 @@ function darkMask(g) {
   const asp = v.W / v.H;
   U.uDarkP.value.set(px / v.W, 1 - py / v.H, ex / v.W, 1 - ey / v.H);
   U.uDarkK.value.set(dark, Math.hypot((nx - px) / v.W * asp, (ny - py) / v.H), Math.tan(CONE_HALF) * 1.05, asp);
+  // 총구 화염 — 반경 300(총구 빛과 같은 거리). 3D 는 발밑 둘레(170)가 이미 트여 있으니 2D(160)보다 넓혀야 쏠 때 둘레가 '번쩍' 드러난다
+  const [mx, my] = R3D.project(p.x + 300, p.y, 8);
+  U.uDarkM.value.set(Math.hypot((mx - px) / v.W * asp, (my - py) / v.H), p.muzzle > 0 && !p.dead ? 0.75 : 0);
+  // 폭발 섬광 — 지금 가장 센 것 하나
+  let best = null, bk = 0;
+  for (const f of g.flashes) { const k = 1 - f.t / f.life; if (k > bk) { bk = k; best = f; } }
+  if (best) {
+    const r = best.r * (0.5 + 0.5 * (1 - bk)), [fx, fy] = R3D.project(best.x, best.y, 8), [rx, ry] = R3D.project(best.x + r, best.y, 8);
+    U.uDarkF.value.set(fx / v.W, 1 - fy / v.H, Math.hypot((rx - fx) / v.W * asp, (ry - fy) / v.H), bk);
+  } else U.uDarkF.value.w = 0;
 }
 R3D.render = g => {
   try { draw3(g); } catch (e) { fail('init', e); }

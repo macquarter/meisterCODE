@@ -3514,6 +3514,7 @@ function render3D(g, p) {
   if (p.bile > 0) drawBile(p.bile);
   if (g.lightning > 0.01) { ctx.fillStyle = `rgba(196,208,228,${g.lightning * (SETTINGS.flash ? 0.18 : 0.05)})`; ctx.fillRect(0, 0, W, H); }
   drawHordeCue3D(g, p);
+  drawScreamCue3D(g, p);
   drawHitDirs(cam, g, p, g.state === 'play' ? 1 / 60 : 0);
   drawCrosshair(g, p);
 }
@@ -3528,6 +3529,18 @@ function drawHordeCue3D(g, p) {
   ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(sx, sy, 68, a - 0.24, a + 0.24); ctx.stroke();
 }
 
+/** 비명 예고 — 3D 판. 비명 지르는 것의 발밑에 좁혀 드는 주황 고리 두 겹(2D 와 같은 모양) */
+function drawScreamCue3D(g, p) {
+  for (const z of g.zombies) {
+    if (z.screamPhase !== 'wind' || z.dead) continue;
+    if (Math.hypot(z.x - p.x, z.y - p.y) > 760) continue;
+    const k = 1 - Math.max(0, z.windT) / z.t.scream.wind, [sx, sy] = R3.project(z.x, z.y, 0), [ex] = R3.project(z.x + 100, z.y, 0), s = (ex - sx) / 100;
+    ctx.strokeStyle = `rgba(255,140,60,${0.35 + k * 0.5})`; ctx.lineWidth = 2.5;
+    ctx.beginPath(); ctx.ellipse(sx, sy, (46 - k * 28) * s, (46 - k * 28) * s * 0.8, 0, 0, 6.283); ctx.stroke();
+    ctx.strokeStyle = `rgba(255,140,60,${0.15 + k * 0.2})`; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.ellipse(sx, sy, (70 - k * 30) * s, (70 - k * 30) * s * 0.8, 0, 0, 6.283); ctx.stroke();
+  }
+}
 /** 담즙 — 가장자리부터 녹색으로 번지고 흘러내린다 */
 function drawBile(t) {
   const k = Math.min(1, t / 2);

@@ -990,3 +990,9 @@ body.touch .ammo__slots span:not(.on){display:none}
 
 .set__link--danger{color:#ff8a7a;margin-top:10px}
 .set__link--danger:hover{color:#ffb0a4}
+/* 세로 터치 화면 — 소음 게이지는 새 줄을 만들지 않고 기력 막대 바로 밑의 얇은 띠로(버튼과 겹치지 않게) */
+@media (orientation:portrait), (min-height:521px){
+  body.touch .hud__bottom .gauge--noise{margin-top:-9px}
+  body.touch .hud__bottom .gauge--noise .gauge__label{display:none}
+  body.touch .hud__bottom .gauge--noise .gauge__track{height:3px}
+}

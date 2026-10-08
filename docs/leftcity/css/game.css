@@ -431,7 +431,7 @@ kbd{display:inline-block;min-width:30px;padding:5px 9px;font-family:var(--font);
 .screen--result h2{font-size:34px;letter-spacing:.2em;margin-bottom:8px}
 .screen--result.fail h2{color:var(--blood)}
 /* ── 설정 ─────────────────────────────────── */
-.set{display:grid;gap:4px;text-align:left;margin-bottom:20px}
+.set{display:grid;grid-template-columns:minmax(0,1fr);gap:4px;text-align:left;margin-bottom:20px}
 .set__row{display:flex;align-items:center;justify-content:space-between;gap:16px;
   padding:11px 2px;border-bottom:1px solid rgba(255,255,255,.06)}
 .set__row--stack{border-bottom:none;padding-bottom:6px}
@@ -962,3 +962,14 @@ body.ct #view,body.ct #view3d{filter:contrast(var(--ct,1))}
 .modal{z-index:40}                                                  /* 브리핑 · 메뉴 화면 위에도 뜨게(돌파 경고) */
 /* 휴대폰 — 무기 칸 목록은 지금 든 것만. 들고 다니는 총이 늘면 목록이 무전 글을 덮었다(바꾸기 단추로 돌린다) */
 body.touch .ammo__slots span:not(.on){display:none}
+
+/* 난이도 규칙 (rc.38) */
+.rules{display:flex;flex-direction:column;gap:6px;margin:4px 0 14px;max-width:100%;box-sizing:border-box;min-width:0}
+.rule{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 8px;box-sizing:border-box;max-width:100%;min-width:0;border-left:2px solid transparent;background:rgba(255,255,255,.025)}
+.rule--x{border-left-color:var(--amber)}
+.rule__t{display:flex;flex-direction:column;min-width:0;flex:1 1 auto}
+.rule__t b{font-weight:600;font-size:13px}
+.rule__t span{font-size:11px;opacity:.6;word-break:keep-all}
+.seg--sm{flex:0 0 auto}
+.seg--sm button{padding:6px 9px;min-height:32px;font-size:12px}
+.gauge--health i.infected{background:linear-gradient(90deg,#3d5a14,#8bbf2f);animation:pulse 1.2s infinite}

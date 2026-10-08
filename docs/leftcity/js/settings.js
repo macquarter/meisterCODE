@@ -22,20 +22,37 @@
 })();
 
 /** 제품 정보 — 이름 · 판. 출시 이름이 정해지면 여기와 index.html · manifest 를 함께 바꾼다 */
-const APP = { name: 'LEFT CITY', subtitle: '남겨진 도시', version: '1.0.0-rc.37' };
+const APP = { name: 'LEFT CITY', subtitle: '남겨진 도시', version: '1.0.0-rc.38' };
 const APP_VERSION = APP.version;
 
 /** 난이도 배수. 1 = 기준값(잔존) */
 const DIFFICULTY = {
-  easy:   { key: 'easy',   name: '생존자', note: '여유 있게 도시를 둘러본다',
+  easy:   { key: 'easy',   name: '생존자', note: '여유 있게 도시를 둘러본다 — 쉬면 체력이 돌아온다',
             hp: 0.78, dmg: 0.68, spawn: 0.78, max: 0.8, battery: 0.8, loot: 1.35, score: 0.8 },
   normal: { key: 'normal', name: '잔존',   note: '설계된 그대로의 난이도',
             hp: 1,    dmg: 1,    spawn: 1,    max: 1,   battery: 1,   loot: 1,    score: 1 },
-  hard:   { key: 'hard',   name: '절멸',   note: '탄도 배터리도 모자란다',
+  hard:   { key: 'hard',   name: '절멸',   note: '물리면 독이 돌고, 쓰러진 것이 다시 일어나고, 체크포인트가 없다',
             hp: 1.32, dmg: 1.45, spawn: 1.34, max: 1.3, battery: 1.25, loot: 0.68, score: 1.35 },
   // 돌파 — 가장 높은 단계. 하나하나는 약하지만 끝없이 몰려온다. 숨 고를 틈 없이 총을 쥐고 뚫고 나간다(탄 · 보급은 넉넉하다)
   rush:   { key: 'rush',   name: '돌파',   note: '쉴 틈 없이 몰려오는 무리를 뚫고 간다 — 탄은 넉넉하다',
             hp: 0.6,  dmg: 1.2,  spawn: 3.2,  max: 2.5, battery: 1,    loot: 2.4,  score: 2.2, rush: true, cap: 90 }
+};
+
+/* 규칙 (rc.38) — 난이도는 배수(mod)만이 아니라 '게임의 규칙'이 달라진다. 단계마다 기본 규칙이 있고, 하나씩 바꾸면 '사용자 지정'.
+   dens  거리 밀도 1 적당 · 2 많음 · 3 가득 — 길에 서 있는 것의 수(이야기 판)
+   sense 감각 0 둔함 · 1 보통 · 2 예민 — 소리 · 불빛에 깨는 거리와 빠르기, 줄줄이 깨는 범위
+   bite  감염 — 물리면 독이 돌아 체력이 서서히 빠진다. 구급킷으로만 낫는다
+   rise  되살아남 — 쓰러진 것 일부가 몇 초 뒤 다시 일어난다. 밀쳐 짓밟거나 폭발 · 불로 끝낸다
+   mag   탄창 버림 — 장전하면 탄창에 남은 탄을 버린다(세어 가며 쏴야 한다)
+   regen 숨 고르기 — 5초 맞지 않으면 체력이 60% 까지 차오른다
+   aids  보조 표시 — 피격 방향 · 무리 예고 · 비명 고리
+   cp    체크포인트 — 죽으면 고비마다 다시 */
+const RULE_DEF = { dens: [1, 2, 3], sense: [0, 1, 2], bite: [false, true], rise: [false, true], mag: [false, true], regen: [false, true], aids: [false, true], cp: [false, true] };
+const RULE_PRESET = {
+  easy:   { dens: 1, sense: 0, bite: false, rise: false, mag: false, regen: true,  aids: true,  cp: true },
+  normal: { dens: 2, sense: 1, bite: false, rise: false, mag: false, regen: false, aids: true,  cp: true },
+  hard:   { dens: 3, sense: 2, bite: true,  rise: true,  mag: true,  regen: false, aids: false, cp: false },
+  rush:   { dens: 2, sense: 1, bite: false, rise: false, mag: false, regen: false, aids: true,  cp: false }
 };
 
 const AIM_MODES = ['auto', 'stick', 'turn', 'drag'];
@@ -72,6 +89,7 @@ const SETTINGS = (() => {
     view3d: 80,            // 3D 시점 거리 0‒100: 100 = 가장 멀리(rc.16 의 크기) · 0 = 아주 가까이(인물이 약 2.7배). 추천 80 — 가로 화면에서 손전등 끝이 화면 끝에 닿는다
     tlayout: '',           // 터치 버튼 배치(JSON) — { L: 가로 화면, P: 세로 화면 } 각각 { 버튼: [x, y] } 화면 비율 좌표. 빈 값 = 기본
     cam: 'near',           // 카메라 거리: near = 가까이(원작 예고편 거리) · mid · far = 멀리(예전 거리)
+    rulesX: '',            // 규칙 덮어쓰기(JSON) — 난이도 기본 규칙에서 바꾼 것만. 난이도를 고르면 비운다
     lang: 'auto'           // auto = 브라우저 언어(한국어면 한국어, 아니면 영어) · ko · en
   };
 
@@ -125,6 +143,20 @@ const SETTINGS = (() => {
     get cam()        { return state.cam; },
     /** 현재 난이도의 배수 묶음 */
     get mod()        { return DIFFICULTY[state.difficulty]; },
+    /** 지금 규칙 — 난이도 기본 규칙 + 바꾼 것 */
+    get rules() {
+      const r = Object.assign({}, RULE_PRESET[state.difficulty] || RULE_PRESET.normal);
+      try { const x = JSON.parse(state.rulesX || '{}'); for (const k in x) if (k in RULE_DEF && RULE_DEF[k].includes(x[k])) r[k] = x[k]; } catch (e) { /* 손상 */ }
+      return r;
+    },
+    /** 규칙을 하나 바꾼다. 난이도 기본값과 같아지면 덮어쓰기에서 지운다 */
+    setRule(k, v) {
+      if (!(k in RULE_DEF) || !RULE_DEF[k].includes(v)) return;
+      let x = {}; try { x = JSON.parse(state.rulesX || '{}'); } catch (e) { x = {}; }
+      if ((RULE_PRESET[state.difficulty] || RULE_PRESET.normal)[k] === v) delete x[k]; else x[k] = v;
+      this.set('rulesX', Object.keys(x).length ? JSON.stringify(x) : '');
+    },
+    get rulesCustom() { return !!state.rulesX; },
 
     get(k) { return state[k]; },
     set(k, v) {
@@ -142,6 +174,7 @@ const SETTINGS = (() => {
       if (k === 'speed') v = Math.max(1, Math.min(3, Math.round(+v) || 3));
       if (k === 'aspect' && !['fill', 'wide'].includes(v)) return;
       if (typeof DEF[k] === 'boolean') v = !!v;
+      if (k === 'difficulty' && state.difficulty !== v && state.rulesX) { state.rulesX = ''; for (const fn of listeners) fn('rulesX', ''); }   // 난이도를 고르면 그 단계의 규칙으로
       if (state[k] === v) return;
       state[k] = v; save();
       for (const fn of listeners) fn(k, v);

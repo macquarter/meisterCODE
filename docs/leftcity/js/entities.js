@@ -161,6 +161,12 @@ class Player {
       if (!auto) { SFX.dry(); if (g) g.toast('예비 탄약이 없다'); }
       return false;
     }
+    // 탄창 버림 규칙 — 남은 탄을 탄창째 버린다(무한 권총은 그대로)
+    const R = (g || window.G || {}).rules;
+    if (R && R.mag && w.ammoKey && this.magOf(w) > 0) {
+      this.mag[w.key] = 0;
+      if (g && g.ruleToast) g.ruleToast('mag', T('탄창째 버렸다 — 남은 탄을 세어 가며 쏴라'));
+    }
     this.reloadKey = w.key;
     this.reloadSpan = w.reload * PK.reload;
     this.reloadT = w.reload * PK.reload;
@@ -227,6 +233,8 @@ class Player {
     this.cancelReload();
     this.cool = Math.max(this.cool, 0.22);
     SFX.melee();
+    // 되살아남 규칙 — 곁에 쓰러진 것은 짓밟아 끝낸다
+    if (g.rules && g.rules.rise) for (const c of g.corpses) if (c.rise > 0 && Math.hypot(c.x - this.x, c.y - this.y) < 70 + (PK.shove || 0)) { c.rise = 0; g.spawnBlood(c.x, c.y, Math.random() * 6.28, 10); }
     let hits = 0, killed = false;
     for (const z of g.zombies) {
       if (z.dead) continue;
@@ -297,6 +305,7 @@ class Player {
     this.dmgTaken += dmg;
     this.stress = (this.stress || 0) + dmg;                   // 연출가가 읽는 긴장도
     this.hurtFlash = Math.min(1, this.hurtFlash + dmg / 34);
+    this.calmT = 0;
     if (this.hp <= 0) { this.hp = 0; this.dead = true; SFX.death(); }
   }
 
@@ -471,7 +480,10 @@ class Zombie {
       const how = src === 'blast' ? 'blast' : src === 'melee' ? 'spin' : src === 'fire' || this.burn > 0 ? 'crumple'
         : knock >= 12 ? 'back' : dmg >= 60 ? 'head' : (Math.random() < 0.5 ? 'knees' : 'face');
       const push = how === 'blast' ? 52 : how === 'back' ? 28 : how === 'spin' ? 14 : 0;
-      g.corpses.push({ x: this.x, y: this.y, a: ang, type: this.type, age: 0, how, push, hazmat: !!(this.look && this.look.hazmat), top: this.look && this.look.top, pants: this.look && this.look.pants });   // 맞은 방향으로 쓰러진다
+      const cps = { x: this.x, y: this.y, a: ang, type: this.type, age: 0, how, push, hazmat: !!(this.look && this.look.hazmat), top: this.look && this.look.top, pants: this.look && this.look.pants };   // 맞은 방향으로 쓰러진다
+      // 되살아남 규칙 — 보통 감염체의 절반 가까이가 4‒9초 뒤 다시 일어난다(폭발 · 불 · 밀치기로 쓰러진 것, 정예, 이미 한 번 일어난 것은 그대로)
+      if (g.rules && g.rules.rise && this.dormantKind() && !this.elite && !this.risen && how !== 'blast' && how !== 'crumple' && how !== 'spin' && Math.random() < 0.45) cps.rise = 4 + Math.random() * 5;
+      g.corpses.push(cps);
       g.spawnBlood(this.x, this.y, ang, 16);
       if (g.splat) g.splat(this.x, this.y, ang, this.t.size || 12);   // 원작처럼 큰 핏자국이 남는다
       g.onKill(this);
@@ -558,15 +570,15 @@ class Zombie {
     if (p.dead) return false;
     if (d < this.r + p.r + 12) return true;                                     // 부딪힘
     if (p.noise >= 0.6) {                                                       // 총성 — 화면의 총성 고리만큼 들린다(벽 너머는 60% 까지). 소음기를 끼면 고리도 깨우는 범위도 작다
-      const R = this.t.hear * (1 + p.noise * 1.6);
+      const R = this.t.hear * (g.sense ? g.sense.h : 1) * (1 + p.noise * 1.6);
       if (d < R && (d < R * 0.6 || g.world.los(this.x, this.y, p.x, p.y))) return true;
     } else if (p.noise > 0.05) {                                                // 발소리 — 질주는 약 200, 걸음은 바로 곁. 보이는 곳에서만
-      const R = this.t.hear * p.noise * 1.6;
+      const R = this.t.hear * (g.sense ? g.sense.h : 1) * p.noise * 1.6;
       if (d < R && g.world.los(this.x, this.y, p.x, p.y)) return true;
     }
     if (this.lit > 0.5) {                                                       // 불빛 — 비추는 동안 천천히 고개를 돌리다 깬다
       this.litT = (this.litT || 0) + dt * (d < 160 ? 1.8 : 1);
-      if (this.litT > 1.1) return true;
+      if (this.litT > (g.sense ? g.sense.lit : 1.1)) return true;
     } else this.litT = Math.max(0, (this.litT || 0) - dt * 0.5);
     if (this.chainT > 0 && (this.chainT -= dt) <= 0) return true;
     return false;
@@ -579,7 +591,8 @@ class Zombie {
     for (const o of g.zombies) {
       if (o === this || o.dead || o.aggro || o.chainT > 0 || !o.dormantKind()) continue;
       const od = Math.hypot(o.x - this.x, o.y - this.y);
-      if (od < 170) o.chainT = 0.25 + od / 170 * 0.6 + Math.random() * 0.3;
+      const CR = g.sense ? g.sense.chain : 170;
+      if (od < CR) o.chainT = 0.25 + od / CR * 0.6 + Math.random() * 0.3;
     }
   }
   /** 잠든 동안 — 서 있는 것은 제자리에서 흔들리고, 비추면 천천히 이쪽으로 돈다. 서성이는 것은 느리게 걷는다 */
@@ -915,6 +928,10 @@ class Zombie {
       p.grabN = (p.grabN || 0) + (this.t.boss ? 0 : 1);
       // 여럿이 붙어도 피해는 덜 늘어난다 — 포위의 무서움은 피해보다 발이 묶이는 데서 온다
       p.hurt(this.t.dmg * (this.dmgK || 1) * SETTINGS.mod.dmg * dt / (1 + 0.3 * Math.max(0, (p.grabbed || 0) - 1)));
+      if (g.rules && g.rules.bite && !this.t.boss) {                    // 감염 규칙 — 물린 만큼 독이 돈다
+        if (!(p.infect > 0)) g.ruleToast('bite', T('물렸다 — 독이 돈다. 구급킷으로만 낫는다'));
+        p.infect = Math.min(1, (p.infect || 0) + dt * 0.3);
+      }
       g.hitFrom(this.x, this.y, this.type);
       g.shake = Math.min(10, g.shake + 14 * dt);
       const push = 46 * dt;
@@ -1230,7 +1247,7 @@ class Pickup {
     switch (this.type) {
       case 'ammo':    p.ammo.smg += Math.round(35 * PK.ammo); break;           // 결핍이 선택을 무겁게 한다 (RE)
       case 'shells':  p.ammo.shell += Math.round(8 * PK.ammo); break;
-      case 'medkit':  p.hp = Math.min(p.hpMax, p.hp + 40 * PK.med); break;
+      case 'medkit':  p.hp = Math.min(p.hpMax, p.hp + 40 * PK.med); p.infect = 0; break;
       case 'battery': p.battery = Math.min(100, p.battery + 55);
                       if (!p.lightOn) p.lightOn = true; break;
       case 'nade':    p.nades += 2; break;

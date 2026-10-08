@@ -1661,6 +1661,9 @@ function worldTransform(c, cam, s = DPR) { c.setTransform(s, 0, 0, s * TILT, -ca
 function screenTransform(c, cam) { c.setTransform(DPR, 0, 0, DPR, -cam.x * DPR, -cam.y * DPR * TILT); }
 
 const SPITTER_CAP = 2;
+/* 규칙(rc.38) — 거리 밀도(처음 서 있는 수 · 채워 넣는 상한)와 감각(듣는 거리 · 불빛에 깨는 시간 · 줄줄이 깨는 범위) */
+const DENS_INIT = [1.4, 2, 2.7], DENS_MAX = [1.15, 1.4, 1.75];
+const SENSE = [{ h: 0.7, lit: 1.9, chain: 120 }, { h: 1, lit: 1.1, chain: 170 }, { h: 1.35, lit: 0.6, chain: 240 }];
 const SURVIVAL_UNLOCK = PART1_END + 1;
 /** 도시 이름 카드에 쓰는 현지 표기 */
 const CITY_LOCAL = { seoul: '서울 SEOUL', base: '대피 기지 EVAC BASE', tokyo: '東京 TOKYO', bangkok: 'กรุงเทพฯ BANGKOK', singapore: '新加坡 SINGAPORE',
@@ -1822,6 +1825,8 @@ const G = {
     this.survival = index === 'survival' || !!C;          // 도전은 서바이벌의 흐름(무한 소환 · 보급 · 이야기 없음)을 같이 쓴다
     // 잠든 도시 — 이야기 판(돌파 제외)의 보통 감염체는 서 있다가 소리 · 부딪힘 · 오래 비춘 불빛에 깬다. 시간마다 오던 무리 대신 소음이 쌓이면 온다
     this.dormant = !this.survival && !SETTINGS.mod.rush;
+    // 규칙(rc.38) — 이 판 동안 고정. 도전은 저마다 규칙이 있어 밀도 · 감염 · 되살아남 · 탄창 버림은 끈다
+    { const R = Object.assign({}, SETTINGS.rules); if (C) Object.assign(R, { dens: 1, bite: false, rise: false, mag: false }); this.rules = R; this.sense = SENSE[R.sense] || SENSE[1]; this.ruleTold = {}; }
     this.levelIndex = this.survival ? -1 : index;
     // 오늘의 도시 — 정해진 도시 · 시드 · 변수
     this.daily = index === 'survival' && this.dailyNext ? this.dailyNext : null; this.dailyNext = null;
@@ -1941,8 +1946,16 @@ const G = {
     for (const id of ['cpMark', 'achMark']) { const el = $(id); if (el) el.classList.remove('show'); }
 
     // 초기 좀비
-    const initial = Math.max(2, Math.round(L.spawn.initial * SETTINGS.mod.max));
-    for (let i = 0; i < initial; i++) this.spawnZombie(560, 1600);
+    const initial = Math.max(2, Math.round(L.spawn.initial * SETTINGS.mod.max * (this.survival ? 1 : DENS_INIT[this.rules.dens - 1])));
+    for (let i = 0; i < initial;) {
+      const z = this.spawnZombie(560, 1600); i++;
+      // 무리 지어 서 있는 것 — 잠든 도시에서는 열에 넷꼴로 곁에 한둘을 더 세운다(한 마리를 깨우면 줄줄이 깬다)
+      if (z && this.dormant && Math.random() < 0.4) for (let k = Math.random() < 0.4 ? 2 : 1; k > 0 && i < initial; k--) {
+        const a = Math.random() * 6.283, r = 34 + Math.random() * 40, x = z.x + Math.cos(a) * r, y = z.y + Math.sin(a) * r;
+        if (this.world.hits(x, y, 14) || Math.hypot(x - this.player.x, y - this.player.y) < 520) continue;
+        const o = new Zombie(x, y, this.pickType()); o.face = z.face + (Math.random() - 0.5); this.zombies.push(o); i++;
+      }
+    }
     // 우는 것 — 가는 길 중간쯤, 시작점에서 멀찍이
     this.gas = [];
     const nWeep = C ? (C.weepers | 0) : this.survival ? 2 : (L.weepers | 0);
@@ -2039,11 +2052,39 @@ const G = {
     this.refreshHud(true);
   },
 
+  /* ── 규칙 (rc.38) — 숨 고르기 · 감염 · 되살아남 ── */
+  ruleToast(k, msg) { if (this.ruleTold && !this.ruleTold[k]) { this.ruleTold[k] = true; this.toast(msg, 3.4); } },
+  rulesTick(dt) {
+    const p = this.player, R = this.rules;
+    if (!R || p.dead) return;
+    p.calmT = (p.calmT || 0) + dt;
+    // 숨 고르기 — 5초 맞지 않으면 60% 까지 차오른다(감염 중엔 안 된다)
+    if (R.regen && p.calmT > 5 && !(p.infect > 0) && p.hp < p.hpMax * 0.6) p.hp = Math.min(p.hpMax * 0.6, p.hp + 4 * dt);
+    // 감염 — 체력이 서서히 빠지고, 내버려 두면 조금씩 번진다. 구급킷으로만 낫는다
+    if (p.infect > 0) {
+      p.infect = Math.min(1, p.infect + dt * 0.004);
+      p.hp -= (0.5 + 2.2 * p.infect) * dt;
+      if (p.hp <= 0) { p.hp = 0; p.dead = true; this.lastHurt = 'infect'; SFX.death(); }
+    }
+    // 되살아남 — 쓰러진 것 일부가 몇 초 뒤 다시 일어난다. 일어나기 직전엔 꿈틀거린다
+    if (R.rise) for (let i = this.corpses.length - 1; i >= 0; i--) {
+      const c = this.corpses[i];
+      if (!(c.rise > 0)) continue;
+      c.rise -= dt;
+      if (c.rise < 1.4) { c.a += Math.sin(this.time * 31 + i) * 0.04; if (!c.grr) { c.grr = true; SFX.growl(Math.hypot(c.x - p.x, c.y - p.y) + 200); } }
+      if (c.rise > 0) continue;
+      this.corpses.splice(i, 1);
+      const z = new Zombie(c.x, c.y, c.type); z.hp = Math.round(z.hpMax * 0.6); z.aggro = true; z.wakeHold = 0.7; z.face = Math.atan2(p.y - c.y, p.x - c.x); z.risen = true;
+      this.zombies.push(z);
+      this.ruleToast('rise', T('쓰러진 것이 다시 일어났다 — 쓰러진 것은 밀쳐 짓밟아 끝내라'));
+    }
+  },
+
   /* ── 체크포인트 ──────────────────────────────
      긴 장에서 한 번 죽었다고 처음부터 걷게 하지 않는다. 목표의 고비(상자 · 중계기 · 부두 · 길의 절반 …)마다
      지금 상태를 적어 두고, 사망 화면에서 그 자리부터 다시 할 수 있게 한다. 체력과 배터리는 조금 채워 준다. */
   makeCheckpoint(k, v) {
-    if (this.survival || this.player.dead || this.difficulty === 'rush') return;   // 돌파 — 부활 없음
+    if (this.survival || this.player.dead || this.difficulty === 'rush' || (this.rules && !this.rules.cp)) return;   // 돌파 — 부활 없음 · 체크포인트 없는 규칙
     const p = this.player;
     this.checkpoint = {
       level: this.levelIndex, stage: this.stage, label: { k, v: v || null },
@@ -2955,6 +2996,7 @@ const G = {
     else if (input.hasMouse) p.angle = Math.atan2(cam.y + input.my / TILT - p.y, cam.x + input.mx - p.x);   // 화면 → 세계 (기울기 되돌림)
 
     p.update(dt, this);
+    this.rulesTick(dt);
     this.anchorT = (this.anchorT || 0) - dt;
     if (this.anchorT <= 0) { this.anchorT = 0.25; this.reanchor(); }
 
@@ -3084,7 +3126,8 @@ const G = {
     // 캠페인의 자잘한 소환은 연출가가 압박을 맡은 만큼 줄인다
     const rate = sp.rate * this.waveScale * SETTINGS.mod.spawn * (this.survival ? 1 : 0.6) * (this.dmod && this.dmod.spawn || 1);
     const maxZ = Math.min(
-      Math.round((sp.max + (this.survival ? Math.floor(this.time / 20) : 0)) * SETTINGS.mod.max * (this.dmod && this.dmod.max || 1)), SETTINGS.mod.cap || 60);
+      Math.round((sp.max + (this.survival ? Math.floor(this.time / 20) : 0)) * SETTINGS.mod.max * (this.dmod && this.dmod.max || 1) * (this.survival ? 1 : DENS_MAX[this.rules.dens - 1])),
+      SETTINGS.mod.cap || (this.survival ? 60 : 56 + this.rules.dens * 4));
     if (this.spawnT <= 0 && this.zombies.length < maxZ) {
       this.spawnT = 1 / Math.max(0.05, rate);
       if (!this.dir || this.dir.phase === 'build' || this.dir.phase === 'sustain') this.spawnZombie(620, 1500);
@@ -3469,9 +3512,11 @@ function render() {
   drawGlow(cam, g, p, w);
   drawRain(g, cam, p);
   if (p.bile > 0) drawBile(p.bile);
-  drawHordeCue(cam, g, p);
-  drawScreamCue(cam, g, p);
-  drawHitDirs(cam, g, p, g.state === 'play' ? 1 / 60 : 0);
+  if (!g.rules || g.rules.aids) {                       // 보조 표시 규칙 — 끄면 소리와 어둠만으로 알아채야 한다
+    drawHordeCue(cam, g, p);
+    drawScreamCue(cam, g, p);
+    drawHitDirs(cam, g, p, g.state === 'play' ? 1 / 60 : 0);
+  }
   drawCrosshair(g, p);
 }
 
@@ -3513,9 +3558,11 @@ function render3D(g, p) {
   ctx.clearRect(0, 0, W, H);
   if (p.bile > 0) drawBile(p.bile);
   if (g.lightning > 0.01) { ctx.fillStyle = `rgba(196,208,228,${g.lightning * (SETTINGS.flash ? 0.18 : 0.05)})`; ctx.fillRect(0, 0, W, H); }
-  drawHordeCue3D(g, p);
-  drawScreamCue3D(g, p);
-  drawHitDirs(cam, g, p, g.state === 'play' ? 1 / 60 : 0);
+  if (!g.rules || g.rules.aids) {
+    drawHordeCue3D(g, p);
+    drawScreamCue3D(g, p);
+    drawHitDirs(cam, g, p, g.state === 'play' ? 1 / 60 : 0);
+  }
   drawCrosshair(g, p);
 }
 /** 무리 예고 — 3D 판에서는 플레이어 화면 위치 둘레에 그 방향의 붉은 호 */
@@ -6442,6 +6489,7 @@ G.refreshHud = function (force) {
   $('hudClock').textContent = `${String((t / 60) | 0).padStart(2, '0')}:${String(t % 60).padStart(2, '0')}`;
 
   $('gaugeHealth').style.width = (p.hp / p.hpMax * 100) + '%';
+  $('gaugeHealth').classList.toggle('infected', p.infect > 0);
   $('gaugeBattery').style.width = p.battery + '%';
   $('valHealth').textContent = Math.ceil(p.hp);
   $('valBattery').textContent = Math.ceil(p.battery);
@@ -6998,7 +7046,8 @@ const UI = {
       b.classList.toggle('on', b.dataset.val === String(SETTINGS.get(b.dataset.set)));
     $('setBright').value = SETTINGS.brightness;
     $('setBrightVal').textContent = SETTINGS.brightness;
-    $('setDiffNote').textContent = `${T(SETTINGS.mod.name)} — ${T(SETTINGS.mod.note)}`;
+    $('setDiffNote').textContent = `${T(SETTINGS.mod.name)} — ${T(SETTINGS.mod.note)}` + (SETTINGS.rulesCustom ? ' · ' + T('사용자 지정 규칙') : '');
+    renderRules();
     if ($('setContrast')) { $('setContrast').value = SETTINGS.get('contrast') ?? 80; $('setContrastVal').textContent = SETTINGS.get('contrast') ?? 80; }
     if ($('setView')) { $('setView').value = SETTINGS.get('view3d'); $('setViewVal').textContent = SETTINGS.get('view3d'); }
     // 추천값 단추 — 지금 값이 추천값이면 눌린 상태(✓)로
@@ -7118,6 +7167,7 @@ const UI = {
 
 /** 무엇에 쓰러졌는가에 따른 한 줄 요령 */
 const DEATH_TIP = {
+  infect: '물리면 독이 돈다 — 구급킷을 아껴 두고, 붙기 전에 밀쳐라.',
   spit:   '초록 고리가 보이면 옆으로 — 산은 서 있던 자리로 떨어진다.',
   acid:   '초록 웅덩이는 오래 서 있을수록 아프다. 지나가되 멈추지 말 것.',
   lava:   '붉게 빛나는 균열은 밟지 말 것. 대신 저것들을 그 위로 끌어들여라.',
@@ -7263,6 +7313,34 @@ $('setVolume').addEventListener('change', () => { SFX.init(); SFX.resume(); SFX.
 $('setBright').addEventListener('input', e => {
   SETTINGS.set('brightness', +e.target.value);
   $('setBrightVal').textContent = SETTINGS.brightness;
+});
+/* 규칙(rc.38) — 난이도 아래에 단계마다 다른 규칙을 펼쳐 보이고, 하나씩 바꿀 수 있다(바꾸면 '사용자 지정') */
+const RULE_UI = [
+  ['dens', '거리 밀도', '길에 서 있는 것의 수', [[1, '적당'], [2, '많음'], [3, '가득']]],
+  ['sense', '감각', '소리 · 불빛에 깨는 거리와 빠르기', [[0, '둔함'], [1, '보통'], [2, '예민']]],
+  ['bite', '감염', '물리면 독이 돈다 — 구급킷으로만 낫는다'],
+  ['rise', '되살아남', '쓰러진 것 일부가 다시 일어난다 — 밀쳐 짓밟아 끝낸다'],
+  ['mag', '탄창 버림', '장전하면 남은 탄을 버린다'],
+  ['regen', '숨 고르기', '5초 맞지 않으면 체력 60% 까지 회복'],
+  ['aids', '보조 표시', '피격 방향 · 무리 예고 · 비명 고리'],
+  ['cp', '체크포인트', '죽으면 고비마다 다시']
+];
+function renderRules() {
+  const box = $('setRules'); if (!box) return;
+  const R = SETTINGS.rules, P = RULE_PRESET[SETTINGS.difficulty] || RULE_PRESET.normal;
+  box.innerHTML = RULE_UI.map(([k, n, d, opts]) => {
+    const o = opts || [[false, '끔'], [true, '켬']];
+    return `<div class="rule${R[k] !== P[k] ? ' rule--x' : ''}"><div class="rule__t"><b>${T(n)}</b><span>${T(d)}</span></div><div class="seg seg--sm">` +
+      o.map(([v, l]) => `<button type="button" data-rule="${k}" data-rv="${v}" class="${R[k] === v ? 'on' : ''}">${T(l)}</button>`).join('') + '</div></div>';
+  }).join('');
+}
+document.addEventListener('click', e => {
+  const b = e.target.closest('[data-rule]');
+  if (!b) return;
+  const v = b.dataset.rv, val = v === 'true' ? true : v === 'false' ? false : +v;
+  SETTINGS.setRule(b.dataset.rule, val);
+  SFX.init(); SFX.resume(); SFX.click();
+  UI.syncSettings();
 });
 /* 추천값 — 밝기 · 시점 거리 · 카메라 거리. 슬라이더는 input 이벤트를 흘려 미리보기까지 그대로 따라오게 */
 document.addEventListener('click', e => {

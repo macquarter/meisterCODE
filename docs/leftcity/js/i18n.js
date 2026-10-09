@@ -247,6 +247,9 @@ const I18N = (() => {
 
     /* ── HUD ── */
     '처치': 'kills', '체력': 'Health', '배터리': 'Battery', '기력': 'Stamina', '수류탄': 'Grenades',
+    '회피': 'Dodge', '회피 — 판마다 세 번': 'Dodge — three per stage',
+    '둘러싸였다 — 회피로 세 걸음 홱 빠져나가라 (판마다 3번)': 'Surrounded — dodge three quick steps out (3 per stage)',
+    '회피 — 이동하는 쪽(멈춰 있으면 무리 반대쪽)으로 세 걸음 홱. 그동안 맞지 않는다 · 판마다 3번': 'Dodge — three quick steps the way you move (away from the crowd if standing). Untouchable while dodging · 3 per stage',
     '무기': 'Arms', '밀치기': 'Shove', '장전': 'Reload', '질주': 'Sprint', '손전등': 'Light', '사격': 'Fire',
     '그것': 'IT', '나': 'You', '조준': 'Aim',
     '탈출로를 찾아라': 'Find a way out',

@@ -187,6 +187,7 @@ function pressAction(act, e) {
     case 'nade':   p.throwNade(G); break;
     case 'reload': p.reload(G); break;
     case 'melee':  p.melee(G); break;
+    case 'dodge':  p.dodge(G, G.moveIn ? G.moveIn.x : 0, G.moveIn ? G.moveIn.y : 0); break;
     case 'cycle':  p.cycle(G); break;
     case 'light':  G.toggleLight(); break;
     default: if (WEAPON_OF[act]) p.select(WEAPON_OF[act], G);
@@ -281,10 +282,11 @@ function pollPad(dt) {
   if (G.state === 'play') {
     PAD.mx = ax; PAD.my = ay;
     // 화면 방향 → 세계 방향 (세로가 줄어든 만큼 되돌린다)
-    if (Math.hypot(rx, ry) > 0.35) { PAD.aim = Math.atan2(ry / TILT, rx); input.hasMouse = false; }
+    if (Math.hypot(rx, ry) > 0.35) { PAD.aim = screenAngle(rx, ry); input.hasMouse = false; }
     PAD.fire = btn(7); PAD.sprint = btn(6) || btn(10);
     if (down(5)) pressAction('nade');
     if (down(4)) pressAction('melee');
+    if (down(11)) pressAction('dodge');
     if (down(2)) pressAction('reload');
     if (down(3) || down(15)) pressAction('cycle');
     if (down(0)) pressAction('light');
@@ -397,7 +399,7 @@ const aimPad = bindPad($('padTurn'), (x, y, m, released) => {
     return;
   }
   if (aimTap && m > 0.25) aimTap.moved = true;
-  input.aimTouch = m > 0.25 ? Math.atan2(y / TILT, x) : input.aimTouch;     // 화면 방향 → 세계 방향
+  input.aimTouch = m > 0.25 ? screenAngle(x, y) : input.aimTouch;     // 화면 방향 → 세계 방향 (2D · 3D 모두 민 쪽 그대로 비춘다)
 }, () => SETTINGS.aim === 'turn');
 
 /* 화면 아무 데나 — 왼쪽 절반은 이동 스틱, 오른쪽 절반은 조준 스틱이 그 자리에 생긴다 */
@@ -503,6 +505,9 @@ $('arms').addEventListener('click', e => {
 });
 $('btnMelee').addEventListener('touchstart', e => {
   e.preventDefault(); if (G.state === 'play') G.player.melee(G);
+}, { passive: false });
+$('btnDodge').addEventListener('touchstart', e => {
+  e.preventDefault(); if (G.state === 'play') pressAction('dodge');
 }, { passive: false });
 $('btnReload').addEventListener('touchstart', e => {
   e.preventDefault(); if (G.state === 'play') G.player.reload(G);
@@ -613,7 +618,7 @@ if ($('setView')) $('setView').addEventListener('input', e => { SETTINGS.set('vi
 /* 버튼 배치 — 터치 버튼을 끌어 옮긴다. 자리는 화면 비율 좌표(가운데 점)로 가로 · 세로 화면을 따로 기억하고,
    기억이 없는 버튼은 CSS 의 기본 자리에 둔다. 스틱은 엄지가 닿는 곳에 생기므로 옮길 것이 없다 */
 const TLayout = {
-  ids: ['btnSwap', 'btnMelee', 'btnReload', 'btnSprint', 'btnLight', 'btnNade', 'btnFire'],
+  ids: ['btnSwap', 'btnMelee', 'btnDodge', 'btnReload', 'btnSprint', 'btnLight', 'btnNade', 'btnFire'],
   key: () => innerWidth >= innerHeight ? 'L' : 'P',
   load() { try { const o = JSON.parse(SETTINGS.get('tlayout') || '{}'); return o && typeof o === 'object' ? o : {}; } catch (e) { return {}; } },
   apply() {
@@ -936,6 +941,7 @@ const Hints = (() => {
       : [isTouch ? T('사격') : T('클릭'), T('사격 — 손전등이 비추는 쪽으로만 나간다')],
     reload:   () => [isTouch ? T('장전') : KEYBIND.labelOf('reload'), T('재장전 — 탄창이 비면 자동으로도 갈아 끼운다')],
     melee:    () => [isTouch ? T('밀치기') : KEYBIND.labelOf('melee') + T(' · 우클릭'), T('붙잡히면 발이 묶인다 — 밀쳐내고 빠져나가라')],
+    dodge:    () => [isTouch ? T('회피') : KEYBIND.labelOf('dodge'), T('둘러싸였다 — 회피로 세 걸음 홱 빠져나가라 (판마다 3번)')],
     weeper:   () => [T('우는 것'), T('울음소리가 들리면 불빛을 돌리고 멀리 돌아가라 — 깨우면 끝까지 쫓아온다')],
     bloater:  () => [T('부푼 것'), T('가까이서 터지면 담즙을 뒤집어쓴다 — 멀리서 쏴라')],
     bile:     () => [T('담즙'), T('냄새를 맡고 무리가 몰려온다 — 등을 벽에 대고 수류탄을 준비하라')],
@@ -969,7 +975,7 @@ const Hints = (() => {
     maw:      () => [T('구덩이 입'), T('깔때기 안의 것은 무엇이든 후려친다 — 감염체도. 무리를 둘레로 끌고 돌아라')]
   };
   // 지금 당장 알아야 하는 것은 줄 앞으로 끼워 넣는다
-  const URGENT = new Set(['sleeper', 'terr2', 'terr4', 'maw', 'bile', 'weeper', 'horde', 'melee', 'reload', 'nade', 'runner', 'brute', 'crawler', 'spitter', 'behemoth', 'screamer', 'leaper', 'charger', 'puller', 'riot']);
+  const URGENT = new Set(['sleeper', 'terr2', 'terr4', 'maw', 'bile', 'weeper', 'horde', 'melee', 'dodge', 'reload', 'nade', 'runner', 'brute', 'crawler', 'spitter', 'behemoth', 'screamer', 'leaper', 'charger', 'puller', 'riot']);
 
   const queue = [];
   let cur = null, t = 0, gap = 0;
@@ -1034,6 +1040,7 @@ const Hints = (() => {
           Math.hypot(g.boss.x - p.x, g.boss.y - p.y) < 700) push('behemoth');
       if (!seen.alarmcar && (g.frameNo || 0) % 20 === 0) for (const pr of g.world.props) if (pr.alarm && !pr.spent && Math.hypot(pr.x - p.x, pr.y - p.y) < 300) { push('alarmcar'); break; }
       if (adjacent) push('melee');
+      if ((p.grabbed || 0) >= 2 && p.dodges > 0) push('dodge');
       if (g.hordeAt) push('horde');
       if (p.bile > 0) push('bile');
       if (close >= 4 && p.nades > 0) push('nade');
@@ -1862,7 +1869,7 @@ const G = {
     this.hitDirs = [];
     this.zombies = []; this.bullets = []; this.grenades = []; this.pickups = [];
     this.spits = []; this.acids = [];
-    this.particles = []; this.splashes = []; this.decals = []; this.corpses = []; this.flashes = []; this.noiseRings = []; this.shoves = [];
+    this.particles = []; this.splashes = []; this.decals = []; this.corpses = []; this.flashes = []; this.noiseRings = []; this.shoves = []; this.dodgeFx = []; this.dodgesUsed = 0; this.dodgeSig = null;
     this.time = 0; this.shake = 0; this.kills = 0; this.score = 0; this.spitGapT = 0; this.fromCheckpoint = false;
     this.nonPistol = false; this.weeperWoke = false; this.screams = 0;
     this.shots = 0; this.hits = 0; this.hitMark = 0;
@@ -2387,6 +2394,7 @@ const G = {
     for (let i = R.length - 1; i >= 0; i--) if ((R[i].t += dt) >= R[i].max) R.splice(i, 1);
     if (this.beams) for (let i = this.beams.length - 1; i >= 0; i--) if ((this.beams[i].t += dt) >= this.beams[i].max) this.beams.splice(i, 1);
     if (this.shoves) for (let i = this.shoves.length - 1; i >= 0; i--) if ((this.shoves[i].t += dt) >= this.shoves[i].max) this.shoves.splice(i, 1);
+    if (this.dodgeFx) for (let i = this.dodgeFx.length - 1; i >= 0; i--) if ((this.dodgeFx[i].t += dt) >= 0.42) this.dodgeFx.splice(i, 1);
     if (this.noiseRings) for (let i = this.noiseRings.length - 1; i >= 0; i--) if ((this.noiseRings[i].t += dt) >= this.noiseRings[i].max) this.noiseRings.splice(i, 1);
     if (!w.terr) { p.terr = 0; return; }
     const fx = (e, moving, me) => {
@@ -2974,6 +2982,9 @@ const G = {
     if (KEYBIND.held('left', keys)) mx -= 1;
     if (KEYBIND.held('right', keys)) mx += 1;
     mx += input.moveX + PAD.mx; my += input.moveY + PAD.my;
+    // 3D(rc.40) — 원근 카메라는 바닥을 2D 보다 더 납작하게(약 0.72 대 0.87) 보여 줘서, 비스듬히 밀면 화면에서 2D 와 다른 쪽으로 걸었다.
+    // 화면에서 걷는 방향이 2D 와 같도록 세로 성분을 맞춘다(세기는 그대로)
+    if (R3 && (mx || my)) { const m0 = Math.hypot(mx, my), a = screenAngle(mx, my * TILT); mx = Math.cos(a) * m0; my = Math.sin(a) * m0; }
     const ml = Math.hypot(mx, my);
     if (ml > 1) { mx /= ml; my /= ml; }
 
@@ -2995,6 +3006,17 @@ const G = {
     p.grabbed = p.grabN || 0; p.grabN = 0;
     // 터치 — 붙잡히면 저절로 밀친다(밀치기 쿨다운마다 한 번). 두 엄지가 이동 · 조준에 묶여 있어도 빠져나올 수 있게
     if (isTouch && SETTINGS.get('autoShove') && p.grabbed > 0 && !p.dead && p.meleeCool <= 0) { p.melee(this); this.autoShoves = (this.autoShoves || 0) + 1; }
+    this.moveIn = { x: mx, y: my };
+    // 회피(rc.40) — 0.2초 동안 정한 쪽으로 세 걸음을 홱. 붙잡힘 · 절뚝임 · 지형에 늦춰지지 않는다
+    if (p.dodgeT > 0 && !p.dead) {
+      const v = Player.DODGE_V * Math.min(1, p.dodgeT / 0.06 + 0.35);          // 끝에서 살짝 멈칫
+      w.slide(p, Math.cos(p.dodgeA) * v * dt, Math.sin(p.dodgeA) * v * dt);
+      p.ivx = Math.cos(p.dodgeA) * v; p.ivy = Math.sin(p.dodgeA) * v;
+      p.walkPhase += dt * 16; p.stride = 1.25;
+      const fx = this.dodgeFx && this.dodgeFx[this.dodgeFx.length - 1];
+      if (fx) fx.trail = (fx.trail || []).concat([[p.x, p.y]]).slice(-8);
+      mx = my = 0;
+    }
     // 크게 다치면 절뚝인다 — "추격당하며 절뚝이며 안전지대로" (L4D)
     const limp = p.hp < 25 ? 0.8 : 1;
     // 지형 — 진흙 · 모래 더미 · 얕은 물은 발을 늦추고, 얼음판은 미끄러워 멈추려 해도 밀려간다
@@ -3358,6 +3380,29 @@ const G = {
   }
 };
 
+/** 바닥의 세로 축소 — 2D 는 TILT(0.87), 3D 는 카메라가 실제로 보여 주는 값(원근 탓에 약 0.72).
+    화면에서 민 방향 ↔ 세계 방향을 바꿀 때 쓴다 — 3D 에서도 조준 스틱을 민 쪽을 그대로 비추게(rc.40) */
+const VK = { t: 0, k: TILT };
+function floorK() {
+  if (!R3 || !G.player) return TILT;
+  const now = performance.now();
+  if (now - VK.t > 400) {
+    VK.t = now;
+    const p = G.player, a = R3.project(p.x, p.y, 0), b = R3.project(p.x + 100, p.y, 0), c = R3.project(p.x, p.y - 100, 0);
+    const sx = b[0] - a[0], sy = a[1] - c[1];
+    if (sx > 1 && sy > 1) VK.k = clamp(sy / sx, 0.4, 1);
+  }
+  return VK.k;
+}
+/** 화면에서 민 방향(sx, sy — 아래가 +) → 세계 각. 2D 는 기울기를 되돌리고, 3D 는 플레이어 화면 자리에서 그 방향으로
+    64px 떨어진 점을 바닥(가슴 높이)에 되비춰 잰다 — 원근 탓에 위아래가 더 납작한 만큼을 정확히 되돌린다 */
+function screenAngle(sx, sy) {
+  if (R3 && R3.unproject && G.player) {
+    const p = G.player, l = Math.hypot(sx, sy) || 1, [px, py] = R3.project(p.x, p.y, 20), q = R3.unproject(px + sx / l * 64, py + sy / l * 64);
+    if (q) return Math.atan2(q[1] - p.y, q[0] - p.x);
+  }
+  return Math.atan2(sy / floorK(), sx);
+}
 /** 플레이어를 놓을 화면 높이. 세로 터치 화면은 아래 40% 를 스틱·버튼이 덮어 위쪽(40%)에,
     가로 화면은 버튼이 양옆으로 비켜 있으니 가운데에 둔다 */
 function focusY() { return isTouch && H > W ? H * 0.40 : H / 2; }
@@ -3562,6 +3607,7 @@ function render() {
   drawDarkness(cam, g, p, w);
   drawGlow(cam, g, p, w);
   drawRain(g, cam, p);
+  drawDodgeFx(g, (x, y) => [x - cam.x, (y - cam.y) * TILT], 1, TILT);
   if (p.bile > 0) drawBile(p.bile);
   if (!g.rules || g.rules.aids) {                       // 보조 표시 규칙 — 끄면 소리와 어둠만으로 알아채야 한다
     drawSoundCues(g, p, (x, y) => [x - cam.x, (y - cam.y) * TILT], 1, TILT);
@@ -3610,6 +3656,7 @@ function render3D(g, p) {
   ctx.clearRect(0, 0, W, H);
   if (p.bile > 0) drawBile(p.bile);
   if (g.lightning > 0.01) { ctx.fillStyle = `rgba(196,208,228,${g.lightning * (SETTINGS.flash ? 0.18 : 0.05)})`; ctx.fillRect(0, 0, W, H); }
+  { const [ax] = R3.project(p.x, p.y, 0), [bx] = R3.project(p.x + 100, p.y, 0); drawDodgeFx(g, (x, y, h) => R3.project(x, y, h || 0), (bx - ax) / 100, 0.8); }
   if (!g.rules || g.rules.aids) {
     { const [ax] = R3.project(p.x, p.y, 0), [bx] = R3.project(p.x + 100, p.y, 0); drawSoundCues(g, p, (x, y) => R3.project(x, y, 0), (bx - ax) / 100, 0.8); }
     drawHordeCue3D(g, p);
@@ -3622,14 +3669,7 @@ function render3D(g, p) {
     proj = 세계 → 화면, s = 화면 배율, ry = 세로 눌림 */
 function drawSoundCues(g, p, proj, s, ry) {
   if (p.dead || !g.dormant) return;
-  const H = ZTYPES.walker.hear * (g.sense ? g.sense.h : 1), A = g.acou || { step: 1 };
-  if (p.noise > 0.05 && p.noise < 0.6) {
-    const R = H * p.noise * 1.6 * A.step * s, [x, y] = proj(p.x, p.y), k = Math.min(1, p.noise / Player.NOISE_SPRINT);
-    ctx.setLineDash([5, 6]); ctx.lineWidth = 1.5;
-    ctx.strokeStyle = `rgba(200,220,255,${0.12 + 0.3 * k})`;
-    ctx.beginPath(); ctx.ellipse(x, y, R, R * ry, 0, 0, 6.283); ctx.stroke();
-    ctx.setLineDash([]);
-  }
+  // 발소리 고리는 rc.40 에서 뺐다 — 화면이 어수선했다. 얼마나 시끄러운지는 소음 막대가 알려 준다
   ctx.font = '700 15px Pretendard, sans-serif'; ctx.textAlign = 'center';
   for (const z of g.zombies) {
     if (z.dead || z.aggro) continue;
@@ -3641,6 +3681,44 @@ function drawSoundCues(g, p, proj, s, ry) {
     ctx.fillText(a > 0.66 ? '?!' : '?', x, y - 30 * Math.max(0.7, s) - 4);
   }
   ctx.textAlign = 'start';
+}
+/** 회피 연출(rc.40) — 지나온 자리에 잔상 셋(몸통 윤곽이 엷어지며), 뒤로 뻗는 속도선, 박차고 나간 자리의 흙먼지.
+    화면 좌표에 그리므로 2D · 3D 가 같은 모양이다. proj = 세계 → 화면, s = 화면 배율, ry = 바닥의 세로 축소 */
+function drawDodgeFx(g, proj, s, ry) {
+  if (!g.dodgeFx || !g.dodgeFx.length) return;
+  ctx.save(); ctx.lineCap = 'round';
+  for (const fx of g.dodgeFx) {
+    const k = fx.t / 0.42, ca = Math.cos(fx.a), sa = Math.sin(fx.a), tr = fx.trail || [];
+    // 흙먼지 — 출발점에서 뒤로 퍼진다
+    const [ox, oy] = proj(fx.x, fx.y);
+    for (let i = 0; i < 5; i++) {
+      const sp = (i - 2) * 0.5, d = (10 + 34 * k) * s, r = (5 + 9 * k) * s;
+      const px = ox - (ca * Math.cos(sp) - sa * Math.sin(sp)) * d, py = oy - (sa * Math.cos(sp) + ca * Math.sin(sp)) * d * ry;
+      ctx.fillStyle = `rgba(150,140,124,${0.28 * (1 - k)})`;
+      ctx.beginPath(); ctx.ellipse(px, py, r, r * ry, 0, 0, 6.283); ctx.fill();
+    }
+    // 잔상 — 지나온 자리의 몸통(어깨 · 머리 윤곽)
+    for (let i = 0; i < tr.length - 1; i += 2) {
+      const [gx, gy] = proj(tr[i][0], tr[i][1], 20), a = (0.34 - 0.1 * (tr.length - 1 - i) / 2) * (1 - k);
+      if (a <= 0) continue;
+      ctx.fillStyle = `rgba(150,200,226,${a})`;
+      ctx.beginPath(); ctx.ellipse(gx, gy, 13 * s, 9 * s, fx.a, 0, 6.283); ctx.fill();
+      ctx.beginPath(); ctx.arc(gx + ca * 2 * s, gy - 12 * s, 6 * s, 0, 6.283); ctx.fill();
+    }
+    // 속도선 — 끝 자리에서 뒤로
+    if (k < 0.7 && tr.length) {
+      const [ex, ey] = proj(tr[tr.length - 1][0], tr[tr.length - 1][1], 20), L = (70 - 50 * k) * s;
+      ctx.strokeStyle = `rgba(220,236,246,${0.55 * (1 - k / 0.7)})`; ctx.lineWidth = 2;
+      for (const off of [-11, -4, 4, 11]) {
+        const nx = -sa * off * s, ny = ca * off * s * ry, st = (16 + Math.abs(off)) * s;
+        ctx.beginPath();
+        ctx.moveTo(ex - ca * st + nx, ey - sa * st * ry + ny);
+        ctx.lineTo(ex - ca * (st + L) + nx, ey - sa * (st + L) * ry + ny);
+        ctx.stroke();
+      }
+    }
+  }
+  ctx.restore();
 }
 /** 무리 예고 — 3D 판에서는 플레이어 화면 위치 둘레에 그 방향의 붉은 호 */
 function drawHordeCue3D(g, p) {
@@ -6613,11 +6691,17 @@ G.refreshHud = function (force) {
   $('hudReloadBar').style.width = (p.reloadProgress * 100) + '%';
   { const rb = $('hudReloadBar').parentElement; rb.classList.toggle('on', p.reloadT > 0); rb.classList.toggle('tried', !!p.reloadTried); }
   $('hudNades').textContent = p.nades;
+  if (this.dodgeSig !== p.dodges) {                    // 회피 남은 횟수 — 점 셋(쓴 것은 흐리게)
+    this.dodgeSig = p.dodges;
+    for (const sel of ['#hudDodge i', '#btnDodge .tbtn__pips i']) document.querySelectorAll(sel).forEach((el, i) => el.classList.toggle('used', i >= p.dodges));
+    $('btnDodge').classList.toggle('dim', p.dodges <= 0);
+  }
   if (isTouch) {
     $('btnSprint').classList.toggle('on', input.sprintLatch || !!this.edgeOn);
     // 밀치기 버튼 — 손이 닿는 거리에 감염체가 있으면 커지고 맥박친다
     { let reach = false; for (const z of this.zombies) if (!z.dead && Math.abs(z.x - p.x) < 70 && Math.abs(z.y - p.y) < 70 && Math.hypot(z.x - p.x, z.y - p.y) < 42 + z.r + p.r) { reach = true; break; }
-      $('btnMelee').classList.toggle('ready', reach); }
+      $('btnMelee').classList.toggle('ready', reach);
+      $('btnDodge').classList.toggle('ready', p.dodges > 0 && (p.grabbed || 0) >= 2); }
     $('btnSprint').classList.toggle('dim', p.winded);
     $('btnLight').classList.toggle('off', !p.lightOn || p.battery <= 0);
   }
@@ -6700,6 +6784,7 @@ const UI = {
       [k('arms'), T('무기 고르기 — 고르는 동안 시간이 멈춘다')],
       [k('reload'), T('재장전 (약실이 비면 자동 장전)')],
       [k('melee') + T('<kbd>우클릭</kbd>'), T('근접 밀치기 — 달라붙은 적을 떼어낸다')],
+      [k('dodge'), T('회피 — 이동하는 쪽(멈춰 있으면 무리 반대쪽)으로 세 걸음 홱. 그동안 맞지 않는다 · 판마다 3번')],
       [k('nade'), T('수류탄 투척')],
       [k('light'), T('손전등 on / off (배터리 절약)')],
       [k('sprint'), T('전력 질주 (기력 소모 — 바닥나면 숨이 찬다)')],
@@ -7135,8 +7220,7 @@ const UI = {
       b.classList.toggle('on', b.dataset.val === String(SETTINGS.get(b.dataset.set)));
     $('setBright').value = SETTINGS.brightness;
     $('setBrightVal').textContent = SETTINGS.brightness;
-    $('setDiffNote').textContent = `${T(SETTINGS.mod.name)} — ${T(SETTINGS.mod.note)}` + (SETTINGS.rulesCustom ? ' · ' + T('사용자 지정 규칙') : '');
-    renderRules();
+    $('setDiffNote').textContent = `${T(SETTINGS.mod.name)} — ${T(SETTINGS.mod.note)}`;   // 규칙은 난이도가 정한다(rc.40) — 따로 고를 것이 없다
     if ($('setContrast')) { $('setContrast').value = SETTINGS.get('contrast') ?? 80; $('setContrastVal').textContent = SETTINGS.get('contrast') ?? 80; }
     if ($('setView')) { $('setView').value = SETTINGS.get('view3d'); $('setViewVal').textContent = SETTINGS.get('view3d'); }
     // 추천값 단추 — 지금 값이 추천값이면 눌린 상태(✓)로
@@ -7437,34 +7521,6 @@ $('setBright').addEventListener('input', e => {
   SETTINGS.set('brightness', +e.target.value);
   $('setBrightVal').textContent = SETTINGS.brightness;
 });
-/* 규칙(rc.38) — 난이도 아래에 단계마다 다른 규칙을 펼쳐 보이고, 하나씩 바꿀 수 있다(바꾸면 '사용자 지정') */
-const RULE_UI = [
-  ['dens', '거리 밀도', '길에 서 있는 것의 수', [[1, '적당'], [2, '많음'], [3, '가득']]],
-  ['sense', '감각', '소리 · 불빛에 깨는 거리와 빠르기', [[0, '둔함'], [1, '보통'], [2, '예민']]],
-  ['bite', '감염', '물리면 독이 돈다 — 구급킷으로만 낫는다'],
-  ['rise', '되살아남', '쓰러진 것 일부가 다시 일어난다 — 밀쳐 짓밟아 끝낸다'],
-  ['mag', '탄창 버림', '장전하면 남은 탄을 버린다'],
-  ['regen', '숨 고르기', '5초 맞지 않으면 체력 60% 까지 회복'],
-  ['aids', '보조 표시', '피격 방향 · 무리 예고 · 비명 고리'],
-  ['cp', '체크포인트', '죽으면 고비부터 다시 — 한 번만이면 쓴 소모품은 돌아오지 않는다', [[0, '없음'], [1, '한 번'], [2, '켬']]]
-];
-function renderRules() {
-  const box = $('setRules'); if (!box) return;
-  const R = SETTINGS.rules, P = RULE_PRESET[SETTINGS.difficulty] || RULE_PRESET.normal;
-  box.innerHTML = RULE_UI.map(([k, n, d, opts]) => {
-    const o = opts || [[false, '끔'], [true, '켬']];
-    return `<div class="rule${R[k] !== P[k] ? ' rule--x' : ''}"><div class="rule__t"><b>${T(n)}</b><span>${T(d)}</span></div><div class="seg seg--sm">` +
-      o.map(([v, l]) => `<button type="button" data-rule="${k}" data-rv="${v}" class="${R[k] === v ? 'on' : ''}">${T(l)}</button>`).join('') + '</div></div>';
-  }).join('');
-}
-document.addEventListener('click', e => {
-  const b = e.target.closest('[data-rule]');
-  if (!b) return;
-  const v = b.dataset.rv, val = v === 'true' ? true : v === 'false' ? false : +v;
-  SETTINGS.setRule(b.dataset.rule, val);
-  SFX.init(); SFX.resume(); SFX.click();
-  UI.syncSettings();
-});
 /* 추천값 — 밝기 · 시점 거리 · 카메라 거리. 슬라이더는 input 이벤트를 흘려 미리보기까지 그대로 따라오게 */
 document.addEventListener('click', e => {
   const b = e.target.closest('.set__rec');
@@ -7630,6 +7686,9 @@ G.buzz = buzz;
 G.darkLevel = () => darkLevel(G);
 /** 3D 판이 읽는 화면 정보 — 논리 화면 크기 · 확대 · 기울기 없는 원래 손전등 원뿔 반각 */
 G.view = () => ({ W, H, ZOOM, DPR });
+G.floorK = () => floorK();                           // 검사용 — 화면 ↔ 세계 방향의 세로 축소
+G.screenAngle = (x, y) => screenAngle(x, y);
+G.input = input;
 G.tex = TEX;
 window.G = G; window.LC_INPUT = input;   // 자동 점검(프레임 단위 동작 확인)이 입력을 넣을 때 쓴다
 window.UI = UI;

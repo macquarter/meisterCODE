@@ -134,6 +134,8 @@ class Player {
     this.hurtFlash = 0; this.muzzle = 0;
     this.walkPhase = 0; this.sprinting = false;
     this.noise = 0;              // 최근 총성 — 좀비를 부른다
+    this.dodges = Player.DODGES; // 회피(rc.40) — 판마다 세 번
+    this.dodgeT = 0; this.iframe = 0; this.dodgeA = 0;
     this.dead = false;
   }
 
@@ -232,6 +234,34 @@ class Player {
     return this.sprinting;
   }
 
+  /** 회피(rc.40) — 몰렸을 때 세 걸음을 홱 빠져나간다. 판마다 세 번.
+      (mx, my) = 이동 입력 방향. 손을 놓고 있으면 가장 붙은 무리의 반대쪽으로, 아무도 없으면 뒤로.
+      빠져나가는 동안(0.2초 + 0.08초)은 물리지도 붙잡히지도 않고 혀 · 덮침 · 돌진 · 침이 비껴간다 */
+  dodge(g, mx = 0, my = 0) {
+    if (this.dead || this.dodgeT > 0 || (this.dodges | 0) <= 0) return false;
+    let a;
+    if (Math.hypot(mx, my) > 0.2) a = Math.atan2(my, mx);
+    else {
+      let sx = 0, sy = 0;
+      for (const z of g.zombies) {
+        if (z.dead) continue;
+        const dx = z.x - this.x, dy = z.y - this.y, d = Math.hypot(dx, dy);
+        if (d < 150 && d > 0.1) { const k = 1 / d; sx += dx * k; sy += dy * k; }
+      }
+      a = Math.hypot(sx, sy) > 0.01 ? Math.atan2(-sy, -sx) : this.angle + Math.PI;
+    }
+    this.dodges--; this.dodgeA = a;
+    this.dodgeT = Player.DODGE_T; this.iframe = Player.DODGE_T + 0.08;
+    this.noise = Math.max(this.noise, 0.2);
+    // 감긴 혀는 끊긴다
+    for (const z of g.zombies) if (!z.dead && z.tonguePhase === 'pull') z.cutTongue(g, true);
+    (g.dodgeFx || (g.dodgeFx = [])).push({ x: this.x, y: this.y, a, t: 0 });
+    g.dodgesUsed = (g.dodgesUsed | 0) + 1;
+    if (SFX.dodge) SFX.dodge();
+    if (g.onDodge) g.onDodge(this);
+    return true;
+  }
+
   /** 근접 밀치기 — 탄이 없거나 몰렸을 때의 마지막 수단 */
   melee(g) {
     if (this.dead || this.meleeCool > 0) return false;
@@ -321,7 +351,7 @@ class Player {
   }
 
   hurt(dmg) {
-    if (this.dead) return;
+    if (this.dead || this.iframe > 0) return;                  // 회피 중 — 맞지 않는다
     dmg *= PK.armor;                                          // 방탄 조끼
     this.hp -= dmg;
     this.dmgTaken += dmg;
@@ -401,6 +431,7 @@ class Player {
     this.muzzle = Math.max(0, this.muzzle - dt);
     this.meleeCool = Math.max(0, this.meleeCool - dt);
     this.meleeAnim = Math.max(0, this.meleeAnim - dt);
+    this.dodgeT = Math.max(0, this.dodgeT - dt); this.iframe = Math.max(0, this.iframe - dt);
     this.dryT = Math.max(0, this.dryT - dt);
     if (this.reloadT > 0) {
       this.reloadT -= dt;
@@ -426,6 +457,9 @@ class Player {
 Player.WIND_CLEAR = 45;     // 숨이 돌아오는 기력 문턱
 Player.NOISE_SPRINT = 0.38; // 질주 중 발소리 (청각 범위 ×1.6)
 Player.NOISE_WALK = 0.1;    // 걸을 때 (×1.16)
+Player.DODGES = 3;          // 판마다 회피 횟수
+Player.DODGE_T = 0.2;       // 회피 시간(초) — 이동 거리 = DODGE_V × DODGE_T ≈ 세 걸음
+Player.DODGE_V = 540;
 
 class Zombie {
   constructor(x, y, type) {
@@ -666,7 +700,7 @@ class Zombie {
       const st = L.speed * dt, nx = Math.cos(this.leapDir) * st, ny = Math.sin(this.leapDir) * st;
       if (g.world.hits(this.x + nx, this.y + ny, this.r)) { this.leapPhase = ''; this.leapT = L.cool; this.stagger = 0.5; SFX.slam(d * 1.6); return true; }
       this.x += nx; this.y += ny; this.phase += dt * 6;
-      if (!p.dead && Math.hypot(p.x - this.x, p.y - this.y) < this.r + p.r + 6) {
+      if (!p.dead && !(p.iframe > 0) && Math.hypot(p.x - this.x, p.y - this.y) < this.r + p.r + 6) {
         // 덮쳐서 넘어뜨리듯 밀어낸다 — 붙잡지는 않는다. 저것은 튕겨 나가 잠깐 멍하다
         p.hurt(L.dmg * SETTINGS.mod.dmg);
         g.hitFrom(this.x, this.y, 'leaper');
@@ -705,7 +739,7 @@ class Zombie {
       this.tongueLen += T0.speed * dt;
       const tx = this.x + Math.cos(this.tongueDir) * this.tongueLen, ty = this.y + Math.sin(this.tongueDir) * this.tongueLen;
       this.tipX = tx; this.tipY = ty;
-      if (!p.dead && Math.hypot(p.x - tx, p.y - ty) < p.r + 9) {
+      if (!p.dead && !(p.iframe > 0) && Math.hypot(p.x - tx, p.y - ty) < p.r + 9) {
         this.tonguePhase = 'pull'; this.pullT = T0.pull;
         p.hurt(T0.dmg * SETTINGS.mod.dmg); g.hitFrom(this.x, this.y, 'puller');
         p.slowT = Math.max(p.slowT || 0, T0.slow);
@@ -838,7 +872,7 @@ class Zombie {
           const ox = o.x - this.x, oy = o.y - this.y, od = Math.hypot(ox, oy);
           if (od < this.r + o.r + 4 && od > 0) { const side = Math.sign(-Math.sin(this.chargeDir) * ox + Math.cos(this.chargeDir) * oy) || 1; g.world.slide(o, -Math.sin(this.chargeDir) * side * 26, Math.cos(this.chargeDir) * side * 26); o.stagger = Math.max(o.stagger, 0.5); }
         }
-        if (!p.dead && Math.hypot(p.x - this.x, p.y - this.y) < this.r + p.r + 4) {
+        if (!p.dead && !(p.iframe > 0) && Math.hypot(p.x - this.x, p.y - this.y) < this.r + p.r + 4) {
           p.hurt(ch.dmg * SETTINGS.mod.dmg);
           g.hitFrom(this.x, this.y, 'charge');
           // 비스듬히 쳐낸다 — 가는 길에서 밀려나며 붙들려 가지는 않는다
@@ -955,7 +989,7 @@ class Zombie {
 
     // 접촉 공격 — 붙잡힌 만큼 발이 묶인다 (다음 프레임 이동에 반영)
     if (d < this.r + p.r + 3 && !p.dead) { if (!(this.biteAt >= 0)) this.biteAt = g.time; } else this.biteAt = -1;   // 덤벼든 순간(완벽 밀치기 창)
-    if (d < this.r + p.r + 3 && !p.dead) {
+    if (d < this.r + p.r + 3 && !p.dead && !(p.iframe > 0)) {          // 회피 중에는 붙잡히지도 밀리지도 않는다
       p.grabN = (p.grabN || 0) + (this.t.boss ? 0 : 1);
       // 여럿이 붙어도 피해는 덜 늘어난다 — 포위의 무서움은 피해보다 발이 묶이는 데서 온다
       p.hurt(this.t.dmg * (this.dmgK || 1) * SETTINGS.mod.dmg * dt / (1 + 0.3 * Math.max(0, (p.grabbed || 0) - 1)));
@@ -1211,7 +1245,7 @@ class Spit {
     this.dead = true;
     const p = g.player;
     // 떨어진 자리에 아직 서 있었다면 직격
-    if (!p.dead && Math.hypot(p.x - this.x, p.y - this.y) < p.r + 16) {
+    if (!p.dead && !(p.iframe > 0) && Math.hypot(p.x - this.x, p.y - this.y) < p.r + 16) {
       p.hurt(this.sp.dmg * SETTINGS.mod.dmg);
       g.hitFrom(this.x0, this.y0, 'spit');
       SFX.hurt();

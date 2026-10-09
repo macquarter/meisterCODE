@@ -2582,7 +2582,7 @@ function applyFocus(SW, SH) {
   if (!camera) return;
   SW = SW || (window.STAGE && window.STAGE.w) || innerWidth; SH = SH || (window.STAGE && window.STAGE.h) || innerHeight;
   const touch = matchMedia && matchMedia('(pointer: coarse)').matches;
-  const [fx, fy] = VIEW.focus || [0.5, touch && SW < SH ? 0.42 : 0.5];
+  const [fx, fy] = VIEW.focus || [0.5, touch && SW < SH ? 0.40 : 0.5];
   if (fx !== 0.5 || fy !== 0.5) camera.setViewOffset(SW, SH, SW * (0.5 - fx), SH * (0.5 - fy), SW, SH); else camera.clearViewOffset();
   camera.updateProjectionMatrix();
 }

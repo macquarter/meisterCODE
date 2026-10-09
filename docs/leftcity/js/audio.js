@@ -362,6 +362,7 @@ const SFX = (() => {
     reloadDone(){ burst(0.06, 2700, 3.2, 0.13, 'bandpass', 0.05);
                   setTimeout(() => tone(640, 0.05, 0.05, 'triangle'), 55); },
     melee()     { burst(0.14, 520, 1.1, 0.18, 'lowpass', 0.11); tone(112, 0.09, 0.1, 'sine', 52); },
+    dodge()     { burst(0.2, 1400, 0.8, 0.16, 'bandpass', 0.16); burst(0.08, 260, 1, 0.12, 'lowpass', 0.06); },   // 회피 — 옷깃이 휙 + 발 구름
     meleeHit(d) { burst(0.22, 300, 0.8, 0.26 * near(d), 'lowpass', 0.18);
                   tone(84, 0.14, 0.15 * near(d), 'sine', 38); },
     /**

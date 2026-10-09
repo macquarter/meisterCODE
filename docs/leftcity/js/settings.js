@@ -22,7 +22,7 @@
 })();
 
 /** 제품 정보 — 이름 · 판. 출시 이름이 정해지면 여기와 index.html · manifest 를 함께 바꾼다 */
-const APP = { name: 'LEFT CITY', subtitle: '남겨진 도시', version: '1.0.0-rc.39' };
+const APP = { name: 'LEFT CITY', subtitle: '남겨진 도시', version: '1.0.0-rc.40' };
 const APP_VERSION = APP.version;
 
 /** 난이도 배수. 1 = 기준값(잔존) */
@@ -89,7 +89,6 @@ const SETTINGS = (() => {
     view3d: 80,            // 3D 시점 거리 0‒100: 100 = 가장 멀리(rc.16 의 크기) · 0 = 아주 가까이(인물이 약 2.7배). 추천 80 — 가로 화면에서 손전등 끝이 화면 끝에 닿는다
     tlayout: '',           // 터치 버튼 배치(JSON) — { L: 가로 화면, P: 세로 화면 } 각각 { 버튼: [x, y] } 화면 비율 좌표. 빈 값 = 기본
     cam: 'near',           // 카메라 거리: near = 가까이(원작 예고편 거리) · mid · far = 멀리(예전 거리)
-    rulesX: '',            // 규칙 덮어쓰기(JSON) — 난이도 기본 규칙에서 바꾼 것만. 난이도를 고르면 비운다
     lang: 'auto'           // auto = 브라우저 언어(한국어면 한국어, 아니면 영어) · ko · en
   };
 
@@ -143,20 +142,8 @@ const SETTINGS = (() => {
     get cam()        { return state.cam; },
     /** 현재 난이도의 배수 묶음 */
     get mod()        { return DIFFICULTY[state.difficulty]; },
-    /** 지금 규칙 — 난이도 기본 규칙 + 바꾼 것 */
-    get rules() {
-      const r = Object.assign({}, RULE_PRESET[state.difficulty] || RULE_PRESET.normal);
-      try { const x = JSON.parse(state.rulesX || '{}'); for (const k in x) if (k in RULE_DEF && RULE_DEF[k].includes(x[k])) r[k] = x[k]; } catch (e) { /* 손상 */ }
-      return r;
-    },
-    /** 규칙을 하나 바꾼다. 난이도 기본값과 같아지면 덮어쓰기에서 지운다 */
-    setRule(k, v) {
-      if (!(k in RULE_DEF) || !RULE_DEF[k].includes(v)) return;
-      let x = {}; try { x = JSON.parse(state.rulesX || '{}'); } catch (e) { x = {}; }
-      if ((RULE_PRESET[state.difficulty] || RULE_PRESET.normal)[k] === v) delete x[k]; else x[k] = v;
-      this.set('rulesX', Object.keys(x).length ? JSON.stringify(x) : '');
-    },
-    get rulesCustom() { return !!state.rulesX; },
+    /** 지금 규칙 — 난이도가 정한다(rc.40: 규칙을 하나씩 고르는 판은 뺐다 — 고를 것이 너무 많으면 헷갈린다) */
+    get rules() { return Object.assign({}, RULE_PRESET[state.difficulty] || RULE_PRESET.normal); },
 
     get(k) { return state[k]; },
     set(k, v) {
@@ -174,7 +161,6 @@ const SETTINGS = (() => {
       if (k === 'speed') v = Math.max(1, Math.min(3, Math.round(+v) || 3));
       if (k === 'aspect' && !['fill', 'wide'].includes(v)) return;
       if (typeof DEF[k] === 'boolean') v = !!v;
-      if (k === 'difficulty' && state.difficulty !== v && state.rulesX) { state.rulesX = ''; for (const fn of listeners) fn('rulesX', ''); }   // 난이도를 고르면 그 단계의 규칙으로
       if (state[k] === v) return;
       state[k] = v; save();
       for (const fn of listeners) fn(k, v);
@@ -201,6 +187,7 @@ const KEYBIND = (() => {
     { id: 'fire',   name: '사격',            def: 'Space',  hold: true },
     { id: 'reload', name: '재장전',          def: 'KeyR' },
     { id: 'melee',  name: '밀치기',          def: 'KeyE' },
+    { id: 'dodge',  name: '회피',            def: 'KeyC' },
     { id: 'nade',   name: '수류탄',          def: 'KeyG' },
     { id: 'light',  name: '손전등 켜고 끄기', def: 'KeyF' },
     { id: 'arms',   name: '무기 고르기',      def: 'Tab' },

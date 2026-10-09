@@ -282,6 +282,19 @@ body.touch #hint{top:calc(150px + env(safe-area-inset-top));font-size:12px}
   width:52px;height:52px;font-size:10px}
 .tbtn--melee{right:calc(116px + env(safe-area-inset-right));bottom:calc(262px + env(safe-area-inset-bottom));
   width:52px;height:52px;font-size:9px}
+/* 회피(rc.40) — 무기 버튼 위. 남은 횟수는 버튼 아래 점 셋 */
+.tbtn--dodge{right:calc(26px + env(safe-area-inset-right));bottom:calc(322px + env(safe-area-inset-bottom));
+  width:52px;height:52px;border-color:rgba(150,200,226,.5)}
+.tbtn__pips{position:absolute;left:50%;bottom:-9px;transform:translateX(-50%);display:flex;gap:3px;pointer-events:none}
+.tbtn__pips i{width:6px;height:6px;border-radius:50%;background:rgba(150,200,226,.9);box-shadow:0 0 0 1px rgba(0,0,0,.5)}
+.tbtn__pips i.used{background:rgba(255,255,255,.14)}
+.tbtn--dodge.dim{opacity:.35}
+#touch #btnDodge.ready{box-shadow:0 0 0 2px rgba(150,200,226,.85),0 0 16px rgba(120,190,226,.55)}
+/* 데스크톱 HUD — 수류탄 옆 회피 점 셋 */
+.ammo__dodge{display:flex;flex-direction:column;align-items:center;gap:3px;font-size:10px;letter-spacing:.14em;color:var(--fog)}
+.ammo__dodge i{width:7px;height:7px;border-radius:50%;background:#96c8e2;display:block}
+.ammo__dodge i.used{background:rgba(255,255,255,.14)}
+body.touch .ammo__dodge{display:none}
 /* 왼쪽 줄: 장전 · 질주 · 손전등. 오른쪽 밀치기 버튼과 360px 폭까지 겹치지 않는다 */
 .tbtn--reload{left:calc(22px + env(safe-area-inset-left));bottom:calc(258px + env(safe-area-inset-bottom));
   width:48px;height:48px;font-size:10px}
@@ -528,6 +541,7 @@ body.touch .hud__meter{bottom:calc(20px + env(safe-area-inset-bottom))}
   .tbtn--nade{right:calc(160px + env(safe-area-inset-right));bottom:calc(18px + env(safe-area-inset-bottom))}
   .tbtn--swap{right:calc(164px + env(safe-area-inset-right));bottom:calc(84px + env(safe-area-inset-bottom))}
   .tbtn--melee{right:calc(96px + env(safe-area-inset-right));bottom:calc(156px + env(safe-area-inset-bottom))}
+  .tbtn--dodge{right:calc(162px + env(safe-area-inset-right));bottom:calc(156px + env(safe-area-inset-bottom))}   /* 밀치기 왼쪽 — 낮은 가로 화면에서 탄약 HUD 와 겹치지 않게 */
   .tbtn--fire{right:calc(26px + env(safe-area-inset-right));bottom:calc(152px + env(safe-area-inset-bottom));
     width:60px;height:60px}
   .tbtn--reload{left:calc(160px + env(safe-area-inset-left));bottom:calc(18px + env(safe-area-inset-bottom))}
@@ -963,15 +977,6 @@ body.ct #view,body.ct #view3d{filter:contrast(var(--ct,1))}
 /* 휴대폰 — 무기 칸 목록은 지금 든 것만. 들고 다니는 총이 늘면 목록이 무전 글을 덮었다(바꾸기 단추로 돌린다) */
 body.touch .ammo__slots span:not(.on){display:none}
 
-/* 난이도 규칙 (rc.38) */
-.rules{display:flex;flex-direction:column;gap:6px;margin:4px 0 14px;max-width:100%;box-sizing:border-box;min-width:0}
-.rule{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 8px;box-sizing:border-box;max-width:100%;min-width:0;border-left:2px solid transparent;background:rgba(255,255,255,.025)}
-.rule--x{border-left-color:var(--amber)}
-.rule__t{display:flex;flex-direction:column;min-width:0;flex:1 1 auto}
-.rule__t b{font-weight:600;font-size:13px}
-.rule__t span{font-size:11px;opacity:.6;word-break:keep-all}
-.seg--sm{flex:0 0 auto}
-.seg--sm button{padding:6px 9px;min-height:32px;font-size:12px}
 .gauge--health i.infected{background:linear-gradient(90deg,#3d5a14,#8bbf2f);animation:pulse 1.2s infinite}
 
 /* 소음 게이지 (rc.39) — 지금 내는 소리 · 쌓인 소음 열기(붉은 눈금이 끝에 닿으면 무리가 온다) */

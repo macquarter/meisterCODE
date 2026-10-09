@@ -1059,3 +1059,58 @@ body.touch .ammo__slots span:not(.on){display:none}
 .chapter--paid .chapter__no::after{content:'★';margin-left:4px;color:#f0b429;font-size:11px}
 .paygate .set__link{display:block;margin:4px auto 12px}
 .paygate>.btn--ghost{display:block;width:100%}
+
+/* ══ rc.43 UI 다듬기 ══ */
+/* 1) 주 버튼은 타이틀의 '시작'과 같은 무게 — 어두운 테두리만 있어 눈에 띄지 않았다 */
+.btn--primary{background:linear-gradient(180deg,#8e2219,#5e140f);border-color:rgba(220,70,58,.75);color:#fff;font-weight:700;
+  box-shadow:0 6px 22px rgba(201,53,43,.2)}
+.btn--primary:hover{background:linear-gradient(180deg,#a32a20,#6e1812);border-color:#dc463a}
+.btn{border-radius:10px}
+.btn--ghost{background:transparent}
+
+/* 2) 브리핑 — 목표를 읽기 쉬운 카드로, '출격'은 늘 화면 안에 */
+.brief__goals{text-align:left;max-width:520px;margin-left:auto;margin-right:auto;padding:12px 14px;gap:7px;
+  border:1px solid rgba(255,255,255,.08);border-radius:12px;background:rgba(255,255,255,.025)}
+.brief__goals li{display:flex;gap:8px;align-items:baseline;line-height:1.55;font-size:13px}
+.brief__goals li::before{content:"";flex:0 0 7px;height:7px;border-radius:2px;background:var(--amber);transform:translateY(-1px)}
+.brief__goals li.brief__twist::before{background:#f0b429;border-radius:50%}
+.brief__goals li.brief__kit::before{background:#8d8778}
+.brief__goals li.brief__kit{color:#b8b2a2;font-size:12.5px}
+.brief__goals li.brief__side::before{background:#7ee08f;border-radius:50%}
+.brief__twist{margin-top:4px;padding-top:7px;border-top:1px dashed rgba(255,255,255,.08)}
+.brief__text{text-align:left;max-width:560px;margin-left:auto;margin-right:auto;line-height:1.85}
+@media not all and (orientation:landscape) and (max-height:520px){
+  .screen--brief .screen__inner{padding-bottom:110px}
+  .screen--brief .screen__actions{position:fixed;left:0;right:0;bottom:0;z-index:5;flex-direction:row;justify-content:center;gap:10px;
+    padding:14px max(16px,env(safe-area-inset-left)) max(14px,env(safe-area-inset-bottom));
+    background:linear-gradient(180deg,rgba(4,5,8,0),rgba(4,5,8,.92) 30%,rgba(4,5,8,.98))}
+  .screen--brief .screen__actions .btn{margin:0;width:auto;flex:0 1 220px;min-height:50px}
+  .screen--brief .screen__actions .btn--primary{flex-basis:260px;font-size:15px;letter-spacing:.2em}
+  .screen--brief .screen__actions .btn--ghost{order:-1;flex:0 0 auto;padding-left:16px;padding-right:16px}
+}
+
+/* 3) 일시정지 · 결과(세로 화면) — 할 일(버튼)을 먼저, 숫자는 아래에 두 줄 칸으로 */
+@media (orientation:portrait){
+  .screen--pause .screen__inner,.screen--result .screen__inner{display:flex;flex-direction:column;align-items:center}
+  .screen--pause .screen__side{order:2;width:100%;align-items:center}
+  .screen--pause .pause__tools{order:3}
+  .screen--pause .result__stats{order:4;margin-top:18px}
+  .screen--pause .screen__actions .btn,.screen--result .screen__actions .btn{width:min(320px,100%)}
+  .screen--pause .screen__actions .btn--primary,.screen--result .screen__actions .btn--primary{min-height:52px;font-size:15px}
+  .screen--result .screen__side{order:3;width:100%;align-items:center;margin-bottom:6px}
+  .screen--result .result__xp{order:4;width:100%}
+  .screen--result .result__stats{order:5}
+  .result__stats{grid-template-columns:1fr 1fr;gap:6px 16px;font-size:12.5px;width:100%}
+  .result__stats>div{padding:6px 0}
+}
+
+/* 4) 무전 자막이 탄약 · 게이지를 가리지 않게 */
+@media (orientation:portrait){ body.touch .radio{top:calc(146px + env(safe-area-inset-top));left:max(14px,env(safe-area-inset-left));max-width:calc(100vw - 28px)} }
+@media (orientation:landscape) and (max-height:520px){ body.touch .radio{top:calc(96px + env(safe-area-inset-top));max-width:min(360px,calc(100vw - 420px))} }
+
+/* 5) 타이틀 — 기록이 없으면 '⏱ —' 대신 비운다 */
+.record.is-empty{visibility:hidden}
+/* 브리핑 안쪽 판은 움직이지 않고 나타나기만 — transform 이 남으면 고정 단추 줄이 화면이 아니라 판에 붙는다 */
+@keyframes briefFade{from{opacity:0}}
+@media not all and (orientation:landscape) and (max-height:520px){ .screen--brief .screen__inner{animation:briefFade .35s ease both;transform:none} }
+@media (orientation:portrait){ body.touch .radio.show ~ #hint{margin-top:84px} }

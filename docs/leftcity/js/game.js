@@ -1028,7 +1028,7 @@ const Hints = (() => {
     maw:      () => [T('구덩이 입'), T('깔때기 안의 것은 무엇이든 후려친다 — 감염체도. 무리를 둘레로 끌고 돌아라')]
   };
   // 지금 당장 알아야 하는 것은 줄 앞으로 끼워 넣는다
-  const URGENT = new Set(['sleeper', 'terr2', 'terr4', 'maw', 'bile', 'weeper', 'horde', 'melee', 'dodge', 'reload', 'nade', 'runner', 'brute', 'crawler', 'spitter', 'behemoth', 'screamer', 'leaper', 'charger', 'puller', 'riot']);
+  const URGENT = new Set(['terr2', 'terr4', 'maw', 'bile', 'weeper', 'horde', 'melee', 'dodge', 'reload', 'nade', 'runner', 'brute', 'crawler', 'spitter', 'behemoth', 'screamer', 'leaper', 'charger', 'puller', 'riot']);
 
   const queue = [];
   let cur = null, t = 0, gap = 0;
@@ -6973,6 +6973,7 @@ const UI = {
     SFX.menuMusic(true);
     const b = G.bestSurvival();
     $('bestSurvival').textContent = b ? T('{m}분 {s}초', { m: Math.floor(b / 60), s: b % 60 }) : '—';
+    $('recordChip').classList.toggle('is-empty', !b);
     $('recordChip').title = T('서바이벌 최고 기록');
     /* 타이틀 — 글자 대신 아이콘. 큰 버튼 하나(이어서 할 곳까지 보여 준다) · 모드 넷 · 도구 넷.
        잠긴 모드는 자물쇠와 진행 숫자만 두고, 여는 조건은 툴팁 · 화면 낭독기로 */
@@ -7463,6 +7464,9 @@ const UI = {
       && !(G.rules && G.rules.cp === 1 && G.cpUsed);       // '한 번' 규칙 — 이미 썼다
     if (!won) G.deathKit = { nades: G.player.nades, ammo: Object.assign({}, G.player.ammo), infect: G.player.infect || 0 };
     cb.classList.toggle('hidden', !hasCp);
+    // 졌을 때는 '다시 도전'(체크포인트가 있으면 그것)을 주 버튼으로 — 이겼을 때는 '다음'이 주 버튼
+    s.querySelector('[data-act="restart"]').classList.toggle('btn--primary', !won && !hasCp);
+    cb.classList.toggle('btn--primary', !won && hasCp);
     if (hasCp) cb.textContent = T('체크포인트부터 — {name}', { name: G.checkpointName() });
     const eb = s.querySelector('[data-act="retryeasy"]');
     eb.classList.toggle('hidden', !easier);

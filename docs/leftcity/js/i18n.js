@@ -576,6 +576,7 @@ const I18N = (() => {
     '결제를 취소했다.': 'Purchase cancelled.', '스토어에 연결하지 못했다. 잠시 뒤 다시 해 주세요.': 'Could not reach the store. Please try again shortly.', '복원할 구매가 없다.': 'No purchase to restore.',
     '웹 체험판입니다 — 앱스토어 · 플레이스토어의 LEFT CITY 에서 정식판을 열 수 있다. 같은 기기라면 진행은 그대로 이어진다.': 'This is the web trial — unlock the full game in LEFT CITY on the App Store or Google Play. On the same device your progress carries over.',
     '정식판': 'Full game', '여기부터 정식판 — 1‒3장은 무료': 'Full game from here — chapters 1‒3 are free',
+    '출격': 'Deploy', '다시 도전': 'Try again',
     '터치 버튼 크기': 'Touch button size', '작게': 'Small', '보통': 'Normal', '크게': 'Large', '진동': 'Vibration',
     '생존자': 'Survivor', '절멸': 'Extinction',
     '여유 있게 도시를 둘러본다': 'Take your time and look around the city',

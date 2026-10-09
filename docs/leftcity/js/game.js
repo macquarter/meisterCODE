@@ -447,6 +447,8 @@ addEventListener('touchstart', e => {
   }
 }, { capture: true, passive: true });
 
+/** 가만히 있는(쫓아오지 않는) 감염체를 자동 조준 · 자동 사격이 건드리는 거리 — 이보다 멀면 조용히 지나칠 수 있다 */
+const IDLE_NEAR = 70;
 /** 자동 조준의 표적 — 불빛을 받으면 깨는 '우는 것'은 일부러 비추지 않는다.
     가까운 순, 지금 보는 쪽이면 조금 더 우선. 벽 너머는 고르지 않는다 */
 function autoAimTarget(g, wide) {
@@ -455,12 +457,43 @@ function autoAimTarget(g, wide) {
   for (const z of g.zombies) {
     if (z.dead || (z.t.weeper && !z.rage)) continue;
     const dx = z.x - p.x, dy = z.y - p.y, d = Math.hypot(dx, dy);
-    if (d > R || (!z.aggro && d > (g.dormant ? 70 : 220))) continue;   // 잠든 도시: 서 있는 것은 바로 곁이 아니면 겨누지 않는다
+    if (d > R || (!z.aggro && d > (wide ? 220 : IDLE_NEAR))) continue;   // 가만히 있는 것은 바로 곁이 아니면 겨누지 않는다(톡 쳐서 고를 때만 예외)
     const da = Math.abs(Math.atan2(Math.sin(Math.atan2(dy, dx) - p.angle), Math.cos(Math.atan2(dy, dx) - p.angle)));
     const sc = d + da * 70 - (z.aggro ? 60 : 0);
     if (sc < bs && w.los(p.x, p.y, z.x, z.y)) { bs = sc; best = z; }
   }
   return best;
+}
+/** 조준 보정(rc.43)의 허용 각 — 스틱 · 패드는 넓게, 마우스는 좁게. 난이도가 세기를 정한다(생존자 1 · 잔존 0.8 · 절멸 0.45) */
+function assistCone(g) {
+  const k = (g.rules && g.rules.assist !== undefined ? g.rules.assist : 0.8) * (g.challenge ? 0.6 : 1);
+  const stick = input.aimTouch !== null || PAD.aim !== null || isTouch || !input.hasMouse;
+  return (stick ? 0.30 : 0.13) * k;
+}
+/** 겨눈 쪽(ang) 가까이의 적 — 가까울수록 몸이 커 보이니 그만큼 허용을 넓힌다. 잠든 '우는 것'은 붙지 않는다 */
+function assistTarget(g, ang, cone, aggroOnly) {
+  if (cone <= 0) return null;
+  const p = g.player, R = p.fireRange();
+  let best = null, bs = Infinity;
+  for (const z of g.zombies) {
+    if (z.dead || (z.t.weeper && !z.rage) || (aggroOnly && !z.aggro)) continue;
+    const dx = z.x - p.x, dy = z.y - p.y, d = Math.hypot(dx, dy);
+    if (d > R || d < 1) continue;
+    const da = Math.abs(Math.atan2(Math.sin(Math.atan2(dy, dx) - ang), Math.cos(Math.atan2(dy, dx) - ang)));
+    if (da > cone + Math.atan2(z.r, d)) continue;
+    const sc = da * 260 + d * 0.35 - (z.aggro ? 30 : 0);
+    if (sc < bs && g.world.los(p.x, p.y, z.x, z.y)) { bs = sc; best = z; }
+  }
+  return best;
+}
+/** 스틱으로 겨눌 때 — 겨눈 쪽 가까이에 쫓아오는 적이 있으면 손전등이 그쪽으로 반쯤 붙는다(놓치지 않게) */
+function stickyAim(g, p, ang, dt) {
+  g.stickT = (g.stickT || 0) - dt;
+  if (g.stickT <= 0) { g.stickT = 0.08; g.stickZ = assistTarget(g, ang, assistCone(g) * 0.8, true); }   // 가만히 있는 것에는 붙지 않는다 — 불빛이 깨운다
+  const z = g.stickZ && !g.stickZ.dead ? g.stickZ : null;
+  if (!z) return;
+  const want = Math.atan2(z.y - p.y, z.x - p.x);
+  p.angle = ang + Math.atan2(Math.sin(want - ang), Math.cos(want - ang)) * 0.55;
 }
 /** 그것과 싸우는 중인가 — 무리는 보스전 동안 오지 않는다 */
 function bossFightNow(g) { const p = g.player; return !!(g.boss && !g.boss.dead && g.boss.aggro && Math.hypot(g.boss.x - p.x, g.boss.y - p.y) < 900); }
@@ -982,7 +1015,7 @@ const Hints = (() => {
     leaper:   () => [T('덮치는 것'), T('웅크리면 곧 날아든다 — 옆으로 비키거나, 날아오는 순간 쏘면 떨어진다')],
     charger:  () => [T('들이받는 것'), T('땅을 긁으면 돌진한다 — 옆으로 비켜 벽에 박게 하라')],
     puller:   () => [T('휘감는 것'), T('기침 소리 뒤에 혀가 날아온다 — 옆으로 비키거나 그것을 쏴서 끊어라')],
-    sleeper:  () => [T('서 있는 것'), T('저절로 쏘지 않는다 — 오래 비추거나 부딪히거나 총성을 들으면 깬다. 지나칠지 쏠지 정하라')],
+    sleeper:  () => [T('가만히 있는 것'), T('저절로 쏘지 않는다 — 조용히 지나치거나 직접 쏴라. 오래 비추거나 부딪히거나 총성을 들으면 깬다')],
     riot:     () => [T('진압 경찰'), T('방패가 총알을 막는다 — 석궁 · 매그넘 · 경기관총은 뚫는다. 아니면 밀쳐 돌려세우고 등을 쏴라')],
     // 2부의 땅 — 처음 밟는 순간
     terr1:    () => [T('모래 더미'), T('발이 빠져 느려진다 — 감염체도 마찬가지')],
@@ -1052,7 +1085,7 @@ const Hints = (() => {
         if (z.aggro && d < 320) close++;
         if (z.lit > 0.5 && z.type !== 'walker' && !z.t.weeper) push(z.type);
         if (z.t.weeper && d < 560) push('weeper');
-        if (g.dormant && !z.aggro && z.lit > 0.5 && d < 320 && z.dormantKind()) push('sleeper');
+        if (!z.aggro && z.lit > 0.5 && d < 320 && d > IDLE_NEAR && !z.t.weeper && (SETTINGS.autofire || autoAimOn())) push('sleeper');
         if (z.screamPhase === 'wind') push('screamer');
         if (z.leapPhase === 'crouch' || z.tonguePhase === 'wind' || z.chargePhase === 'wind') push(z.type);
       }
@@ -1544,11 +1577,12 @@ const Radio = {
   },
   /** 처음 불린 열쇠면 true */
   cue(key) {
-    if (this.fired[key] || G.survival || G.levelIndex < 0 || G.stage === 0) return false;   // 무전은 본편 미션에서만
+    if (this.fired[key] || G.survival || G.challenge || G.levelIndex < 0) return false;
     this.fired[key] = true;
-    const ch = STORY.chapters[G.levelIndex], lines = ch && ch.radio[key];
+    // A(진입) 미션은 radioA(rc.43) — 1‒3장에 '왜 가는가'를 첫 1분 안에. A 에서는 무전이 체크포인트를 만들지 않는다
+    const ch = STORY.chapters[G.levelIndex], set = ch && (G.stage === 0 ? ch.radioA : ch.radio), lines = set && set[key];
     if (lines) for (const l of lines) this.q.push({ spk: l[0], text: [l[1], l[2]] });
-    return true;
+    return G.stage !== 0;
   },
   /** 기록은 대사보다 앞에 끼운다 — 지금 보이는 대사는 짧게 끊는다 */
   showRecord(rec, fresh) {
@@ -1692,6 +1726,30 @@ const SPITTER_CAP = 2;
 const DENS_INIT = [1.4, 2, 2.7], DENS_MAX = [1.15, 1.4, 1.75];
 const SENSE = [{ h: 0.7, lit: 1.9, chain: 120 }, { h: 1, lit: 1.1, chain: 170 }, { h: 1.35, lit: 0.6, chain: 240 }];
 const SURVIVAL_UNLOCK = PART1_END + 1;
+/* 체험판 · 정식판(rc.43) — 1‒3장(여섯 미션)은 무료, 4장 방콕부터는 정식판. 결제는 앱 껍데기(스토어 빌드)가 맡는다:
+   window.LeftCityStore = { price(): Promise<string>, purchase(): Promise<boolean>, restore(): Promise<boolean> }
+   웹에는 결제가 없다 — 스토어로 안내만 한다. 데모 아티팩트(LC_DEMO_UNLOCK)는 결제 없이 열어 볼 수 있다 */
+const FREE_CHAPTERS = 3;
+const Full = {
+  KEY: 'aftermath.full',
+  owned() { try { return localStorage.getItem(this.KEY) === '1'; } catch (e) { return false; } },
+  grant() { try { localStorage.setItem(this.KEY, '1'); } catch (e) { /* 사생활 보호 모드 — 이번 판만 */ } this.mem = true; },
+  open(i) { return i < FREE_CHAPTERS || this.owned() || !!this.mem; },
+  store() { return window.LeftCityStore || null; },
+  async price() { const s = this.store(); try { return s && s.price ? await s.price() : ''; } catch (e) { return ''; } },
+  async buy() {
+    const s = this.store();
+    if (s && s.purchase) { try { if (await s.purchase()) { this.grant(); return 'ok'; } return 'cancel'; } catch (e) { return 'error'; } }
+    if (window.LC_DEMO_UNLOCK) { this.grant(); return 'demo'; }
+    return 'web';
+  },
+  async restore() {
+    const s = this.store();
+    if (s && s.restore) { try { if (await s.restore()) { this.grant(); return 'ok'; } return 'none'; } catch (e) { return 'error'; } }
+    return this.owned() ? 'ok' : 'web';
+  }
+};
+window.LC_FULL = Full;
 /** 도시 이름 카드에 쓰는 현지 표기 */
 const CITY_LOCAL = { seoul: '서울 SEOUL', base: '대피 기지 EVAC BASE', tokyo: '東京 TOKYO', bangkok: 'กรุงเทพฯ BANGKOK', singapore: '新加坡 SINGAPORE',
   varanasi: 'वाराणसी VARANASI', cairo: 'القاهرة CAIRO', venice: 'VENEZIA', reykjavik: 'REYKJAVÍK', antarctic: 'ANTARCTICA', istanbul: 'İSTANBUL', rio: 'RIO DE JANEIRO', mars: 'MARS · 화성', moscow: 'МОСКВА MOSCOW', nairobi: 'NAIROBI' };
@@ -2756,6 +2814,7 @@ const G = {
   storyCues(ob) {
     if (this.survival || this.player.dead) return;
     if (this.time > 1.2) Radio.cue('start');
+    if (this.time > 45) Radio.cue('t45');            // 길어지면 한 번 더 — 이야기가 끊기지 않게(rc.43)
     const w = this.world, p = this.player;
     if (ob.type === 'escape') {
       const d = w.toExit[w.idx(Math.floor(p.x / TILE), Math.floor(p.y / TILE))];
@@ -3104,9 +3163,14 @@ const G = {
       input.dragTurn = 0;
     }
     input.manualHoldT = (input.manualHoldT || 0) - dt;
-    if (input.aimTouch !== null) p.angle = input.aimTouch;
-    else if (PAD.aim !== null) p.angle = PAD.aim;
+    const stickAim = input.aimTouch !== null ? input.aimTouch : PAD.aim;
+    if (stickAim !== null) { p.angle = stickAim; if (!p.dead) stickyAim(this, p, stickAim, dt); this.aimIdle = 0; }
     else if (autoAimOn() && !p.dead) { if (input.manualHoldT <= 0) autoFace(this, p, mx, my, dt); }
+    else if (!p.dead && (isTouch ? SETTINGS.aim === 'stick' : PAD.connected && !input.hasMouse) && (mx || my)) {
+      // 조준 스틱을 놓고 걷기만 하면(1.2초 뒤) 손전등이 걷는 쪽으로 천천히 돈다 — 한 손으로도 앞을 본다
+      this.aimIdle = (this.aimIdle || 0) + dt;
+      if (this.aimIdle > 1.2) { const want = Math.atan2(my, mx), d = Math.atan2(Math.sin(want - p.angle), Math.cos(want - p.angle)); p.angle += clamp(d, -4 * dt, 4 * dt); }
+    }
     else if (input.hasMouse && R3) { const q = R3.unproject(input.mx, input.my); if (q) p.angle = Math.atan2(q[1] - p.y, q[0] - p.x); }
     else if (input.hasMouse) p.angle = Math.atan2(cam.y + input.my / TILT - p.y, cam.x + input.mx - p.x);   // 화면 → 세계 (기울기 되돌림)
 
@@ -3135,7 +3199,9 @@ const G = {
     if (!p.dead) {
       const manual = input.firing || KEYBIND.held('fire', keys) || PAD.fire;
       // 원작: 불빛을 적에게 비추면 사격은 저절로 된다. 불빛 안의 표적을 향해 쏜다
-      const tgt = !manual && SETTINGS.autofire ? this.autoTarget() : null;
+      let tgt = !manual && SETTINGS.autofire ? this.autoTarget() : null;
+      // 조준 보정(rc.43) — 직접 쏠 때도 겨눈 쪽 가까이의 적에게 총알이 붙는다(세기는 난이도). 자동 조준 없이도 맞힌다
+      if (manual && !tgt && p.cool <= 0) tgt = assistTarget(this, p.angle, assistCone(this));
       if (p.cool <= 0 && (manual || tgt))
         p.fire(this, tgt ? Math.atan2(tgt.y - p.y, tgt.x - p.x) : undefined);
     }
@@ -3391,7 +3457,7 @@ const G = {
     for (const z of this.zombies) {
       if (z.t.weeper && !z.rage) continue;          // 우는 것은 자동으로 쏘지 않는다 — 깨울지는 플레이어가 정한다
       const d = Math.hypot(z.x - p.x, z.y - p.y);
-      if (this.dormant && !z.aggro && d > 70) continue;   // 서 있는 것도 마찬가지 — 쏘면 총성이 곁의 것까지 깨운다. 지나칠지 쏠지는 플레이어 몫
+      if (!z.aggro && d > IDLE_NEAR) continue;   // 가만히 있는 것은 쏘지 않는다(rc.43) — 총성이 곁의 것까지 깨운다. 지나칠지 쏠지는 플레이어 몫
       if (d > range || d > bd) continue;
       const a = Math.atan2(z.y - p.y, z.x - p.x);
       let da = Math.abs(((a - p.angle + Math.PI * 3) % (Math.PI * 2)) - Math.PI);
@@ -6914,7 +6980,7 @@ const UI = {
     const prog = G.progress(), next = Math.min(prog, LEVELS.length - 1), L = LEVELS[next];
     const ck = L && L.city, city = ck && CITY_LOCAL[ck] ? (I18N.lang === 'en' ? CITY_LOCAL[ck].replace(/[가-힣·]+\s*/g, '').trim() : CITY_LOCAL[ck]) : '';
     $('playLabel').textContent = prog > 0 ? T('이어하기') : T('시작');
-    $('playSub').textContent = `CH ${next + 1}-${G.stageDone(next) ? 'B' : 'A'}${city ? ' · ' + city : ''}`;
+    $('playSub').textContent = `CH ${next + 1}-${G.stageDone(next) ? 'B' : 'A'}${city ? ' · ' + city : ''}${Full.open(next) ? '' : ' · ' + T('정식판')}`;
     $('btnPlay').setAttribute('aria-label', `${$('playLabel').textContent} — CHAPTER ${next + 1}`);
     const lock = (btn, chip, open, n, t, why) => {
       btn.disabled = !open; chip.hidden = open;
@@ -6947,7 +7013,12 @@ const UI = {
         list.appendChild(hd);
       }
       const el = document.createElement('div');
-      el.className = 'chapter' + (locked ? ' chapter--locked' : '');
+      el.className = 'chapter' + (locked ? ' chapter--locked' : '') + (Full.open(i) ? '' : ' chapter--paid');
+      if (i === FREE_CHAPTERS && !Full.open(i)) {
+        const pw = document.createElement('div');
+        pw.className = 'chapters__paywall'; pw.textContent = T('여기부터 정식판 — 1‒3장은 무료');
+        list.appendChild(pw);
+      }
       if (!locked) { el.tabIndex = 0; el.setAttribute('role', 'button'); el.addEventListener('keydown', e => { if (e.code === 'Enter' || e.code === 'Space') { e.preventDefault(); el.click(); } }); }
       const best = grades[i] | 0;
       const mark = locked ? T('잠김')
@@ -7033,20 +7104,33 @@ const UI = {
     box.classList.toggle('up', up > 0);
     if (up) SFX.objective();
   },
+  /** 메뉴 위에 잠깐 뜨는 한 줄(rc.43) — 판 안의 토스트는 HUD 와 함께 숨어 있어서 따로 둔다 */
+  toastMenu(msg, ms = 1900) {
+    const el = $('mtoast'); if (!el) return;
+    el.textContent = msg; el.classList.add('show');
+    clearTimeout(this._mtT); this._mtT = setTimeout(() => el.classList.remove('show'), ms);
+  },
   /** 생존자 — 레벨 · 특성 아홉 가지(3단계) · 평생 기록 */
   showRank() {
     const R = Rank.get(), L = Rank.level(), pts = Rank.points();
     $('rankHead').textContent = `Lv ${L.lv}` + (L.need ? ` · ${L.into.toLocaleString()} / ${L.need.toLocaleString()} XP` : ' · MAX');
     $('rankBarFill').style.width = L.need ? `${Math.round(L.into / L.need * 100)}%` : '100%';
-    $('rankNote').textContent = pts ? T('특성 점수 {p}점을 쓸 수 있다. 단계마다 필요한 레벨이 있다(1 · 6 · 12).', { p: pts })
-      : L.need ? T('특성 점수 0점 — Lv {n}까지 {x} XP 남았다. 판을 끝내면 점수 · 임무 · 도감으로 경험치를 얻는다.', { n: L.lv + 1, x: (L.need - L.into).toLocaleString() })
-      : T('최고 레벨 — 모든 특성 점수를 받았다.');
-    $('perkList').innerHTML = PERKS.map(k => {
-      const r = R.perks[k.id] | 0, can = Rank.canBuy(k.id), lock = r < 3 && L.lv < PERK_REQ[r];
-      return `<div class="perk${r ? ' perk--on' : ''}"><b>${LT(k.n)}</b><span>${LT(k.d)}</span>` +
-        `<i class="perk__pips">${'●'.repeat(r)}${'○'.repeat(3 - r)}</i>` +
-        `<button class="perk__btn" data-act="perk" data-id="${k.id}"${can ? '' : ' disabled'}>${r >= 3 ? 'MAX' : lock ? `Lv ${PERK_REQ[r]}` : '+'}</button></div>`;
-    }).join('');
+    // rc.43 — 쓸 수 있는 점수를 크게, 특성은 무리(생존 · 사격 · 장비)로, 카드마다 '지금 → 다음' 효과와 막힌 이유를 글로
+    const nextTxt = L.need ? T('다음 점수까지 {x} XP — 판을 끝내면 점수 · 임무 · 도감으로 쌓인다', { x: (L.need - L.into).toLocaleString() }) : T('최고 레벨 — 모든 특성 점수를 받았다.');
+    $('rankNote').innerHTML = `<span class="rankpts${pts ? ' rankpts--on' : ''}"><b>${pts}</b>${T('특성 점수')}</span><span class="rankpts__how">${pts ? T('아래 카드를 눌러 찍는다 · 언제든 무료로 다시 찍을 수 있다') : nextTxt}</span>`;
+    const eff = (k, r) => r ? LT(k.d).replace(/(\d+(?:\.\d+)?)/g, n => String(+(n * r).toFixed(1))) : T('효과 없음');
+    const GROUPS = [[T('생존'), ['hp', 'med', 'stam']], [T('사격'), ['aim', 'reload', 'ammo']], [T('장비'), ['battery', 'shove', 'nade']]];
+    $('perkList').innerHTML = GROUPS.map(([gn, ids]) => `<h4 class="perks__group">${gn}</h4>` + ids.map(id => {
+      const k = PERKS.find(q => q.id === id); if (!k) return '';
+      const r = R.perks[k.id] | 0, can = Rank.canBuy(k.id), max = r >= 3, lock = !max && L.lv < PERK_REQ[r];
+      const why = max ? T('최대 단계') : lock ? T('Lv {n}부터', { n: PERK_REQ[r] }) : pts ? T('+ 찍기') : T('점수 필요');
+      return `<button type="button" class="perk${r ? ' perk--on' : ''}${can ? ' perk--can' : ''}${max ? ' perk--max' : ''}" data-act="perk" data-id="${k.id}"${can ? '' : ' aria-disabled="true"'}>` +
+        `<b>${LT(k.n)}</b><em class="perk__lv">${r}/3</em>` +
+        `<span class="perk__now">${eff(k, r)}</span>` +
+        (max ? '' : `<span class="perk__next">→ ${eff(k, r + 1)}</span>`) +
+        `<i class="perk__pips">${'●'.repeat(r)}${'○'.repeat(3 - r)}</i><span class="perk__cta">${why}</span></button>`;
+    }).join('')).join('');
+    $('perkReset').hidden = !Rank.spent();
     const st = (() => { try { return JSON.parse(localStorage.getItem('aftermath.stats') || '{}') || {}; } catch (e) { return {}; } })();
     const h = Math.floor((R.life.time | 0) / 3600), m = Math.floor((R.life.time | 0) % 3600 / 60), d = Daily.rec();
     const rows = [[T('출격'), T('{n}회', { n: R.life.runs | 0 })], [T('플레이 시간'), h ? T('{h}시간 {m}분', { h, m }) : T('{m}분', { m })],
@@ -7147,7 +7231,33 @@ const UI = {
     }
     this.show('scrCity');
   },
+  /** 정식판 안내(rc.43) — 3장 끝의 매달린 이야기를 이어서 보여 주고, 무엇이 더 있는지 · 값 · 구매 · 복원 */
+  showUnlock(i) {
+    this.unlockAt = i;
+    $('unlockTease').textContent = LT(STORY.paywall.tease);
+    $('unlockMsg').textContent = '';
+    const b = $('unlockBuy'); b.disabled = false;
+    b.textContent = T('정식판 열기');
+    Full.price().then(p => { if (p) b.textContent = T('정식판 열기 — {p}', { p }); });
+    this.show('scrUnlock');
+  },
+  async buyFull(restore) {
+    const b = $('unlockBuy'), m = $('unlockMsg'); b.disabled = true;
+    m.textContent = restore ? T('구매 기록을 확인하는 중…') : T('스토어에 연결하는 중…');
+    const r = restore ? await Full.restore() : await Full.buy();
+    b.disabled = false;
+    if (r === 'ok' || r === 'demo') {
+      SFX.objective();
+      m.textContent = r === 'demo' ? T('데모 — 결제 없이 정식판을 열었다') : T('정식판이 열렸다. 고맙습니다.');
+      const i = this.unlockAt ?? FREE_CHAPTERS;
+      setTimeout(() => { if (!$('scrUnlock').classList.contains('hidden')) this.brief(i); }, 900);
+    } else m.textContent = {
+      cancel: T('결제를 취소했다.'), error: T('스토어에 연결하지 못했다. 잠시 뒤 다시 해 주세요.'), none: T('복원할 구매가 없다.'),
+      web: T('웹 체험판입니다 — 앱스토어 · 플레이스토어의 LEFT CITY 에서 정식판을 열 수 있다. 같은 기기라면 진행은 그대로 이어진다.')
+    }[r] || '';
+  },
   brief(i, st) {
+    if (!Full.open(i)) { this.showUnlock(i); return; }      // 4장부터는 정식판(rc.43)
     if (st === undefined) st = G.stageDone(i) ? 1 : 0;      // 따로 고르지 않으면 아직 못 끝낸 쪽
     if (st === 1 && !G.stageDone(i)) st = 0;
     G.pendingLevel = i; G.pendingStage = st;
@@ -7333,16 +7443,16 @@ const UI = {
       nextBtn.textContent = T('1부 엔딩 보기');
     } else if (won && !G.survival && G.levelIndex + 1 < LEVELS.length) {
       nextBtn.classList.remove('hidden');
-      nextBtn.textContent = T('다음 챕터 — {name}', { name: T(LEVELS[G.levelIndex + 1].name) });
+      nextBtn.textContent = T('다음 챕터 — {name}', { name: T(LEVELS[G.levelIndex + 1].name) }) + (Full.open(G.levelIndex + 1) ? '' : ' · ' + T('정식판'));
     } else if (won && !G.survival) {
       nextBtn.classList.remove('hidden');
       nextBtn.textContent = T('엔딩 보기');
     } else nextBtn.classList.add('hidden');
 
-    const story = !G.survival && G.stage !== 0 && STORY.chapters[G.levelIndex];
+    const sch = !G.survival && !G.challenge && STORY.chapters[G.levelIndex], story = sch && (G.stage !== 0 ? sch.outro : sch.outroA);
     $('resultSub').textContent = G.challenge ? UI.medalLine()
       : won
-      ? (G.survival ? T('도시는 여전히 그대로다.') : story ? LT(story.outro) : T('숨을 고를 시간은 짧다.'))
+      ? (G.survival ? T('도시는 여전히 그대로다.') : story ? LT(story) : T('숨을 고를 시간은 짧다.'))
       : T('불빛이 꺼졌다. ') + T(DEATH_TIP[G.lastHurt] || DEATH_TIP.crowd);
 
     // 같은 챕터에서 두 번 넘게 쓰러지면 한 단계 쉬운 난이도로 다시 할 수 있게 권한다 (강요하지 않는다)
@@ -7453,8 +7563,21 @@ document.addEventListener('click', e => {
     case 'journal': UI.showJournal(); break;
     case 'codex':   UI.showCodex(); break;
     case 'rank':    UI.showRank(); break;
-    case 'perk':    if (Rank.buy(btn.dataset.id)) { SFX.objective(); UI.showRank(); } else SFX.dry(); break;
-    case 'perkreset': Rank.reset(); SFX.click(); UI.showRank(); break;
+    case 'perk': {
+      const id = btn.dataset.id, k = PERKS.find(q => q.id === id);
+      if (Rank.buy(id)) {
+        SFX.objective(); const y = $('scrRank').querySelector('.screen__inner'), top = y ? y.scrollTop : 0; UI.showRank(); if (y) y.scrollTop = top;
+        const el = $('perkList').querySelector(`[data-id="${id}"]`); if (el) { el.classList.add('perk--pop'); setTimeout(() => el.classList.remove('perk--pop'), 600); }
+        UI.toastMenu && UI.toastMenu(T('{n} {r}단계', { n: LT(k.n), r: Rank.get().perks[id] }));
+      } else {
+        SFX.dry();
+        const r = Rank.get().perks[id] | 0, L = Rank.level();
+        const msg = r >= 3 ? T('이미 최대 단계다') : L.lv < PERK_REQ[r] ? T('{r}단계는 Lv {n}부터 찍을 수 있다', { r: r + 1, n: PERK_REQ[r] }) : T('특성 점수가 없다 — 판을 끝내 레벨을 올리자');
+        UI.toastMenu && UI.toastMenu(msg);
+      }
+      break;
+    }
+    case 'perkreset': { const n = Rank.spent(); Rank.reset(); SFX.click(); UI.showRank(); UI.toastMenu(T('특성 점수 {n}점을 돌려받았다', { n })); break; }
     case 'daily':   UI.rushGate(() => { G.dailyNext = Daily.info(); G.start('survival'); }); break;
     case 'chapters': UI.buildChapters(); UI.show('scrChapters'); break;
     case 'survival': if (G.survivalOpen()) UI.showCities(); break;
@@ -7552,6 +7675,8 @@ document.addEventListener('click', e => {
       else UI.showEnding(2);
       break;
     case 'part2': { const n = PART1_END + 1; UI.journeyThen(n, () => UI.brief(n)); break; }
+    case 'buyfull': UI.buyFull(false); break;
+    case 'restorefull': UI.buyFull(true); break;
   }
 });
 
@@ -7592,6 +7717,23 @@ document.addEventListener('click', e => {
   if (sl && $(sl)) { $(sl).value = v; $(sl).dispatchEvent(new Event('input', { bubbles: true })); }
   SFX.init(); SFX.resume(); SFX.click();
   UI.syncSettings();
+});
+/* 설정 탭(rc.43) — 스물다섯 줄을 한 화면에 늘어놓지 않는다. 기본(난이도 · 속도 · 소리) · 조작 · 화면. 마지막 탭은 기억한다 */
+const SetTabs = {
+  cur() { try { return localStorage.getItem('aftermath.settab') || 'basic'; } catch (e) { return 'basic'; } },
+  go(t) {
+    const scr = $('scrSettings'); if (!scr || !['basic', 'ctrl', 'view'].includes(t)) return;
+    scr.dataset.tab = t;
+    for (const b of document.querySelectorAll('#setTabs [data-tab]')) { b.classList.toggle('on', b.dataset.tab === t); b.setAttribute('aria-selected', String(b.dataset.tab === t)); }
+    try { localStorage.setItem('aftermath.settab', t); } catch (e) { /* 사생활 보호 모드 */ }
+  }
+};
+SetTabs.go(SetTabs.cur());
+document.addEventListener('click', e => {
+  const t = e.target.closest('#setTabs [data-tab]');
+  if (!t) return;
+  SFX.click(); SetTabs.go(t.dataset.tab);
+  const inner = $('scrSettings').querySelector('.screen__inner'); if (inner) inner.scrollTop = 0;
 });
 document.addEventListener('click', e => {
   const b = e.target.closest('[data-set]');
@@ -7749,6 +7891,7 @@ G.darkLevel = () => darkLevel(G);
 G.view = () => ({ W, H, ZOOM, DPR });
 G.floorK = () => floorK();                           // 검사용 — 화면 ↔ 세계 방향의 세로 축소
 G.screenAngle = (x, y) => screenAngle(x, y);
+G.assistTarget = (a, c) => assistTarget(G, a, c); G.assistCone = () => assistCone(G);   // 검사용 — 조준 보정
 G.input = input;
 G.tex = TEX;
 window.G = G; window.LC_INPUT = input;   // 자동 점검(프레임 단위 동작 확인)이 입력을 넣을 때 쓴다

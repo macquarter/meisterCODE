@@ -167,6 +167,7 @@ html:not(.r3d-off) #view{background:transparent !important}
 
   </div>
 
+  <div id="mtoast" role="status" aria-live="polite"></div>
   <!-- ══════════ SCREENS ══════════ -->
   <div id="screens">
 
@@ -253,12 +254,12 @@ html:not(.r3d-off) #view{background:transparent !important}
         <div class="rankbar"><i id="rankBarFill"></i></div>
         <p class="note" id="rankNote"></p>
         <div class="perks" id="perkList"></div>
+        <button type="button" class="set__link" data-act="perkreset" id="perkReset">찍은 특성 모두 되돌리기 (무료)</button>
         <h3 class="rank__sub">장비 <small id="gearCount" data-noi18n></small></h3>
         <p class="note">정예 감염체 · 그것을 쓰러뜨리면 떨어뜨린다. 두 칸까지 낀다 — 누르면 끼고 뺀다.</p>
         <div class="gears" id="gearList"></div>
         <h3 class="rank__sub">평생 기록</h3>
         <dl class="result__stats lifestats" id="lifeStats"></dl>
-        <button class="btn" data-act="perkreset">특성 초기화 (무료)</button>
         <button class="btn btn--ghost" data-act="back">돌아가기</button>
       </div>
     </section>
@@ -299,6 +300,24 @@ html:not(.r3d-off) #view{background:transparent !important}
             <button class="btn btn--ghost" data-act="back">돌아가기</button>
           </div>
         </div>
+      </div>
+    </section>
+
+    <section class="screen screen--list screen--unlock hidden" id="scrUnlock">
+      <div class="screen__inner paygate">
+        <p class="paygate__kicker">체험판의 끝 · 1–3장</p>
+        <h2 class="paygate__title">이야기는 방콕으로 이어진다</h2>
+        <p class="paygate__tease" id="unlockTease"></p>
+        <ul class="paygate__list">
+          <li><b>9개 챕터 · 18개 미션</b>방콕의 다리, 싱가포르의 새벽호, 그리고 2부 — 바라나시에서 남극까지</li>
+          <li><b>유나를 찾아서</b>1부 엔딩과 2부 엔딩, 두 개의 결말</li>
+          <li><b>서바이벌 13개 도시 + 화성</b>이야기를 마친 뒤의 끝없는 밤</li>
+          <li><b>한 번 결제</b>광고 없음 · 기기 안 진행 그대로 이어서</li>
+        </ul>
+        <button type="button" class="btn btn--primary paygate__buy" data-act="buyfull" id="unlockBuy">정식판 열기</button>
+        <p class="paygate__msg" id="unlockMsg" role="status" aria-live="polite"></p>
+        <button type="button" class="set__link" data-act="restorefull">구매 복원</button>
+        <button class="btn btn--ghost" data-act="back">나중에</button>
       </div>
     </section>
 
@@ -362,166 +381,170 @@ html:not(.r3d-off) #view{background:transparent !important}
       <div class="screen__inner">
         <h2>설정</h2>
         <div class="set">
-          <div class="set__row set__row--stack">
-            <div class="set__label" data-noi18n>언어 · Language</div>
-            <div class="seg" id="setLang" data-noi18n>
-              <button type="button" data-set="lang" data-val="auto">Auto</button>
-              <button type="button" data-set="lang" data-val="ko">한국어</button>
-              <button type="button" data-set="lang" data-val="en">English</button>
+          <div class="seg settabs" id="setTabs" role="tablist">
+            <button type="button" data-tab="basic" role="tab">기본</button>
+            <button type="button" data-tab="ctrl" role="tab">조작</button>
+            <button type="button" data-tab="view" role="tab">화면</button>
+          </div>
+          <div class="set__tab" data-tab="basic">
+            <div class="set__row set__row--stack">
+              <div class="set__label">난이도</div>
+              <div class="seg" id="setDiff">
+                <button type="button" data-set="difficulty" data-val="easy">생존자</button>
+                <button type="button" data-set="difficulty" data-val="normal">잔존</button>
+                <button type="button" data-set="difficulty" data-val="hard">절멸</button>
+                <button type="button" data-set="difficulty" data-val="rush">돌파</button>
+              </div>
+            </div>
+            <p class="set__note" id="setDiffNote"></p>
+            <div class="set__row set__row--stack">
+              <div class="set__label">게임 속도</div>
+              <div class="seg" id="setSpeed">
+                <button type="button" data-set="speed" data-val="1">느리게</button>
+                <button type="button" data-set="speed" data-val="2">조금 느리게</button>
+                <button type="button" data-set="speed" data-val="3">보통</button>
+              </div>
+            </div>
+            <p class="set__note">느리게 하면 감염체도, 나도 그만큼 느려진다. 직접 조준이 처음이라면 '조금 느리게'로.</p>
+            <div class="set__row">
+              <div class="set__label">자동 사격</div>
+              <button type="button" class="tog" data-set="autofire" aria-pressed="true"><i></i></button>
+            </div>
+            <p class="set__note">불빛에 들어온, 쫓아오는 감염체만 저절로 쏜다 — 가만히 있는 것은 조용히 지나칠 수 있다. 직접 쏠 때도 겨눈 쪽 가까이의 적에게 총알이 붙는다(조준 보정 — 난이도가 낮을수록 넉넉하게).</p>
+            <div class="set__row">
+              <div class="set__label">음량 <b id="setVolVal">55</b></div>
+              <input type="range" id="setVolume" min="0" max="100" step="5" value="55"
+                     aria-label="음량">
+            </div>
+            <div class="set__row">
+              <div class="set__label">음악</div>
+              <button type="button" class="tog" data-set="music" aria-pressed="true"><i></i></button>
+            </div>
+            <div class="set__row">
+              <div class="set__label">도움말</div>
+              <button type="button" class="tog" data-set="hints" aria-pressed="true"><i></i></button>
+            </div>
+            <button type="button" class="set__link" id="hintsReset" data-act="hintsreset">처음부터 다시 보기</button>
+            <div class="set__row set__row--stack">
+              <div class="set__label" data-noi18n>언어 · Language</div>
+              <div class="seg" id="setLang" data-noi18n>
+                <button type="button" data-set="lang" data-val="auto">Auto</button>
+                <button type="button" data-set="lang" data-val="ko">한국어</button>
+                <button type="button" data-set="lang" data-val="en">English</button>
+              </div>
             </div>
           </div>
-          <div class="set__row set__row--stack set__view">
-            <div class="set__label">시점 거리 <b id="setViewVal">80</b><button type="button" class="set__rec" data-rec="view3d" data-val="80">추천 80</button></div>
-            <div class="viewctl">
-              <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="8" r="3.4"/><path d="M5 21c.8-4 3.6-6.4 7-6.4s6.2 2.4 7 6.4"/></svg>
-              <input type="range" id="setView" min="0" max="100" step="1" value="80" aria-label="시점 거리">
-              <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="10" r="1.6"/><path d="M10 15.5c.4-1.2 1.1-1.8 2-1.8s1.6.6 2 1.8M3 7l3-3M21 7l-3-3M3 17l3 3M21 17l-3 3"/></svg>
+          <div class="set__tab" data-tab="ctrl">
+            <div class="set__row set__row--stack touch-only">
+              <div class="set__label">터치 조준</div>
+              <div class="seg" id="setAim">
+                <button type="button" data-set="aim" data-val="auto">자동 조준</button>
+                <button type="button" data-set="aim" data-val="stick">조준 스틱</button>
+                <button type="button" data-set="aim" data-val="turn">회전</button>
+                <button type="button" data-set="aim" data-val="drag">드래그</button>
+              </div>
             </div>
-            <p class="set__note set__viewnote" id="setViewNote">끄는 대로 화면이 바로 바뀝니다</p>
-          </div>
-          <div class="set__row set__row--stack">
-            <div class="set__label">게임 속도</div>
-            <div class="seg" id="setSpeed" data-noi18n>
-              <button type="button" data-set="speed" data-val="1">1x</button>
-              <button type="button" data-set="speed" data-val="2">2x</button>
-              <button type="button" data-set="speed" data-val="3">3x</button>
+            <p class="set__note touch-only" data-i18n="aimNote"><b>자동 조준</b>(기본) — 손전등이 가까운 적을, 없으면 걷는 쪽을 저절로 비춘다. 오른쪽 화면을 끌면 그 방향을 곧바로 비추고, 톡 치면 가장 가까운 적으로 돌린다.
+              <b>조준 스틱</b>은 민 방향을 바로 비추는 트윈 스틱. <b>회전</b>은 좌우로 민 만큼 천천히 돈다(고전 방식).
+              어느 방식이든 왼쪽 화면 아무 데나 누르면 그 자리에 이동 스틱이 생긴다.</p>
+            <div class="set__row set__row--stack desk-only">
+              <div class="set__label">손전등 방향</div>
+              <div class="seg" id="setDeskAim">
+                <button type="button" data-set="deskAim" data-val="mouse">마우스</button>
+                <button type="button" data-set="deskAim" data-val="auto">자동 조준</button>
+              </div>
             </div>
-          </div>
-          <div class="set__row">
-            <div class="set__label">음량 <b id="setVolVal">55</b></div>
-            <input type="range" id="setVolume" min="0" max="100" step="5" value="55"
-                   aria-label="음량">
-          </div>
-
-          <div class="set__row">
-            <div class="set__label">밝기 <b id="setBrightVal">50</b><button type="button" class="set__rec" data-rec="brightness" data-val="50">추천 50</button></div>
-            <input type="range" id="setBright" min="0" max="100" step="5" value="50"
-                   aria-label="밝기">
-          </div>
-          <p class="set__note">밤의 어둠 농도. 추천값(50)은 손전등 밖이 길 윤곽만 겨우 읽히는 어둠입니다. 화면이 너무 어둡거나 밝은 곳에서 하면 조절하세요.</p>
-
-          <div class="set__row set__row--stack touch-only">
-            <div class="set__label">터치 조준</div>
-            <div class="seg" id="setAim">
-              <button type="button" data-set="aim" data-val="auto">자동 조준</button>
-              <button type="button" data-set="aim" data-val="stick">조준 스틱</button>
-              <button type="button" data-set="aim" data-val="turn">회전</button>
-              <button type="button" data-set="aim" data-val="drag">드래그</button>
+            <p class="set__note desk-only">자동 조준은 손전등이 가까운 적, 없으면 걷는 쪽을 저절로 비춘다 — 키보드만으로도 할 수 있다.</p>
+            <div class="set__row desk-only">
+              <div class="set__label">키 설정</div>
+              <button type="button" class="set__btn" data-act="keymap">바꾸기 →</button>
             </div>
-          </div>
-          <p class="set__note touch-only" data-i18n="aimNote"><b>자동 조준</b>(기본) — 손전등이 가까운 적을, 없으면 걷는 쪽을 저절로 비춘다. 오른쪽 화면을 끌면 그 방향을 곧바로 비추고, 톡 치면 가장 가까운 적으로 돌린다.
-            <b>조준 스틱</b>은 민 방향을 바로 비추는 트윈 스틱. <b>회전</b>은 좌우로 민 만큼 천천히 돈다(고전 방식).
-            어느 방식이든 왼쪽 화면 아무 데나 누르면 그 자리에 이동 스틱이 생긴다.</p>
-
-          <div class="set__row set__row--stack">
-            <div class="set__label">화면 비율</div>
-            <div class="seg" id="setAspect">
-              <button type="button" data-set="aspect" data-val="fill">꽉 채우기</button>
-              <button type="button" data-set="aspect" data-val="wide">16:9</button>
+            <div class="set__row set__row--stack touch-only">
+              <div class="set__label">터치 버튼 크기</div>
+              <div class="seg" id="setTouchSize">
+                <button type="button" data-set="touchSize" data-val="small">작게</button>
+                <button type="button" data-set="touchSize" data-val="normal">보통</button>
+                <button type="button" data-set="touchSize" data-val="large">크게</button>
+              </div>
             </div>
-          </div>
-          <div class="set__row set__row--stack">
-            <div class="set__label">화질</div>
-            <div class="seg" id="setQuality">
-              <button type="button" data-set="quality" data-val="auto">자동</button>
-              <button type="button" data-set="quality" data-val="high">선명하게</button>
-              <button type="button" data-set="quality" data-val="low">가볍게</button>
+            <div class="set__row touch-only">
+              <div class="set__label">버튼 배치</div>
+              <button type="button" class="set__btn" data-act="layout">편집 →</button>
+            </div>
+            <div class="set__row touch-only">
+              <div class="set__label">스틱 밖으로 끌어내면 질주</div>
+              <button type="button" class="tog" data-set="edgeSprint" aria-pressed="true"><i></i></button>
+            </div>
+            <div class="set__row touch-only">
+              <div class="set__label">오른쪽 두 번 톡톡 = 밀치기</div>
+              <button type="button" class="tog" data-set="tapShove" aria-pressed="true"><i></i></button>
+            </div>
+            <div class="set__row touch-only">
+              <div class="set__label">붙잡히면 자동 밀치기</div>
+              <button type="button" class="tog" data-set="autoShove" aria-pressed="true"><i></i></button>
+            </div>
+            <div class="set__row touch-only">
+              <div class="set__label">진동</div>
+              <button type="button" class="tog" data-set="haptics" aria-pressed="true"><i></i></button>
             </div>
           </div>
-          <div class="set__row set__row--stack">
-            <div class="set__label">화면 대비 <b id="setContrastVal">80</b></div>
-            <div class="viewctl">
-              <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="8"/><path d="M12 4v16" stroke-width="1.2"/></svg>
-              <input type="range" id="setContrast" min="30" max="100" step="1" value="80" aria-label="화면 대비">
-              <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="8"/><path d="M12 4a8 8 0 0 1 0 16z" fill="currentColor" stroke="none"/></svg>
+          <div class="set__tab" data-tab="view">
+            <div class="set__row">
+              <div class="set__label">밝기 <b id="setBrightVal">50</b><button type="button" class="set__rec" data-rec="brightness" data-val="50">추천 50</button></div>
+              <input type="range" id="setBright" min="0" max="100" step="5" value="50"
+                     aria-label="밝기">
+            </div>
+            <p class="set__note">밤의 어둠 농도. 추천값(50)은 손전등 밖이 길 윤곽만 겨우 읽히는 어둠입니다. 화면이 너무 어둡거나 밝은 곳에서 하면 조절하세요.</p>
+            <div class="set__row set__row--stack set__view">
+              <div class="set__label">시점 거리 <b id="setViewVal">80</b><button type="button" class="set__rec" data-rec="view3d" data-val="80">추천 80</button></div>
+              <div class="viewctl">
+                <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="8" r="3.4"/><path d="M5 21c.8-4 3.6-6.4 7-6.4s6.2 2.4 7 6.4"/></svg>
+                <input type="range" id="setView" min="0" max="100" step="1" value="80" aria-label="시점 거리">
+                <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="10" r="1.6"/><path d="M10 15.5c.4-1.2 1.1-1.8 2-1.8s1.6.6 2 1.8M3 7l3-3M21 7l-3-3M3 17l3 3M21 17l-3 3"/></svg>
+              </div>
+              <p class="set__note set__viewnote" id="setViewNote">끄는 대로 화면이 바로 바뀝니다</p>
+            </div>
+            <div class="set__row set__row--stack">
+              <div class="set__label">화면 비율</div>
+              <div class="seg" id="setAspect">
+                <button type="button" data-set="aspect" data-val="fill">꽉 채우기</button>
+                <button type="button" data-set="aspect" data-val="wide">16:9</button>
+              </div>
+            </div>
+            <div class="set__row set__row--stack">
+              <div class="set__label">화질</div>
+              <div class="seg" id="setQuality">
+                <button type="button" data-set="quality" data-val="auto">자동</button>
+                <button type="button" data-set="quality" data-val="high">선명하게</button>
+                <button type="button" data-set="quality" data-val="low">가볍게</button>
+              </div>
+            </div>
+            <p class="set__note">자동은 프레임이 떨어지면 먼저 바닥 · 벽의 재질 무늬를 끄고, 그래도 버거우면 그리는 해상도를 낮춘다.
+              선명하게는 무늬를 늘 켜 두고, 가볍게는 늘 끈다. 화면이 큰 기기(레티나 모니터·태블릿)에서 끊기면 가볍게로 두세요.</p>
+            <div class="set__row set__row--stack">
+              <div class="set__label">화면 대비 <b id="setContrastVal">80</b></div>
+              <div class="viewctl">
+                <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="8"/><path d="M12 4v16" stroke-width="1.2"/></svg>
+                <input type="range" id="setContrast" min="30" max="100" step="1" value="80" aria-label="화면 대비">
+                <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="8"/><path d="M12 4a8 8 0 0 1 0 16z" fill="currentColor" stroke="none"/></svg>
+              </div>
+            </div>
+            <p class="set__note">80 이 기본 화면입니다. 높이면 밝은 곳과 어두운 곳의 차이가 커지고, 낮추면 부드러워집니다.</p>
+            <div class="set__row">
+              <div class="set__label">화면 흔들림</div>
+              <button type="button" class="tog" data-set="shake" aria-pressed="true"><i></i></button>
+            </div>
+            <div class="set__row">
+              <div class="set__label">섬광 효과</div>
+              <button type="button" class="tog" data-set="flash" aria-pressed="true"><i></i></button>
+            </div>
+            <p class="set__note">섬광을 끄면 피격 플래시와 번개가 크게 약해진다.
+              빛에 민감하다면 꺼 두세요.</p>
+            <div class="set__row">
+              <div class="set__label">FPS 표시</div>
+              <button type="button" class="tog" data-set="fps" aria-pressed="false"><i></i></button>
             </div>
           </div>
-          <p class="set__note">80 이 기본 화면입니다. 높이면 밝은 곳과 어두운 곳의 차이가 커지고, 낮추면 부드러워집니다.</p>
-          <p class="set__note">자동은 프레임이 떨어지면 먼저 바닥 · 벽의 재질 무늬를 끄고, 그래도 버거우면 그리는 해상도를 낮춘다.
-            선명하게는 무늬를 늘 켜 두고, 가볍게는 늘 끈다. 화면이 큰 기기(레티나 모니터·태블릿)에서 끊기면 가볍게로 두세요.</p>
-          <div class="set__row">
-            <div class="set__label">FPS 표시</div>
-            <button type="button" class="tog" data-set="fps" aria-pressed="false"><i></i></button>
-          </div>
-
-          <div class="set__row set__row--stack desk-only">
-            <div class="set__label">손전등 방향</div>
-            <div class="seg" id="setDeskAim">
-              <button type="button" data-set="deskAim" data-val="mouse">마우스</button>
-              <button type="button" data-set="deskAim" data-val="auto">자동 조준</button>
-            </div>
-          </div>
-          <p class="set__note desk-only">자동 조준은 손전등이 가까운 적, 없으면 걷는 쪽을 저절로 비춘다 — 키보드만으로도 할 수 있다.</p>
-
-          <div class="set__row set__row--stack touch-only">
-            <div class="set__label">터치 버튼 크기</div>
-            <div class="seg" id="setTouchSize">
-              <button type="button" data-set="touchSize" data-val="small">작게</button>
-              <button type="button" data-set="touchSize" data-val="normal">보통</button>
-              <button type="button" data-set="touchSize" data-val="large">크게</button>
-            </div>
-          </div>
-          <div class="set__row touch-only">
-            <div class="set__label">버튼 배치</div>
-            <button type="button" class="set__btn" data-act="layout">편집 →</button>
-          </div>
-          <div class="set__row touch-only">
-            <div class="set__label">진동</div>
-            <button type="button" class="tog" data-set="haptics" aria-pressed="true"><i></i></button>
-          </div>
-          <div class="set__row touch-only">
-            <div class="set__label">스틱 밖으로 끌어내면 질주</div>
-            <button type="button" class="tog" data-set="edgeSprint" aria-pressed="true"><i></i></button>
-          </div>
-          <div class="set__row touch-only">
-            <div class="set__label">오른쪽 두 번 톡톡 = 밀치기</div>
-            <button type="button" class="tog" data-set="tapShove" aria-pressed="true"><i></i></button>
-          </div>
-          <div class="set__row touch-only">
-            <div class="set__label">붙잡히면 자동 밀치기</div>
-            <button type="button" class="tog" data-set="autoShove" aria-pressed="true"><i></i></button>
-          </div>
-
-          <div class="set__row set__row--stack">
-            <div class="set__label">난이도</div>
-            <div class="seg" id="setDiff">
-              <button type="button" data-set="difficulty" data-val="easy">생존자</button>
-              <button type="button" data-set="difficulty" data-val="normal">잔존</button>
-              <button type="button" data-set="difficulty" data-val="hard">절멸</button>
-              <button type="button" data-set="difficulty" data-val="rush">돌파</button>
-            </div>
-          </div>
-          <p class="set__note" id="setDiffNote"></p>
-
-          <div class="set__row desk-only">
-            <div class="set__label">키 설정</div>
-            <button type="button" class="set__btn" data-act="keymap">바꾸기 →</button>
-          </div>
-
-          <div class="set__row">
-            <div class="set__label">도움말</div>
-            <button type="button" class="tog" data-set="hints" aria-pressed="true"><i></i></button>
-          </div>
-          <button type="button" class="set__link" id="hintsReset" data-act="hintsreset">처음부터 다시 보기</button>
-
-          <div class="set__row">
-            <div class="set__label">자동 사격</div>
-            <button type="button" class="tog" data-set="autofire" aria-pressed="true"><i></i></button>
-          </div>
-          <div class="set__row">
-            <div class="set__label">음악</div>
-            <button type="button" class="tog" data-set="music" aria-pressed="true"><i></i></button>
-          </div>
-          <div class="set__row">
-            <div class="set__label">화면 흔들림</div>
-            <button type="button" class="tog" data-set="shake" aria-pressed="true"><i></i></button>
-          </div>
-          <div class="set__row">
-            <div class="set__label">섬광 효과</div>
-            <button type="button" class="tog" data-set="flash" aria-pressed="true"><i></i></button>
-          </div>
-          <p class="set__note">섬광을 끄면 피격 플래시와 번개가 크게 약해진다.
-            빛에 민감하다면 꺼 두세요.</p>
         </div>
         <p class="note" data-i18n="diffNote">난이도는 <b>다음에 시작하는 챕터</b>부터 적용됩니다.</p>
         <button type="button" class="set__link set__link--danger" data-act="wipeall" title="처음부터 — 인트로 · 진행 · 설정을 지우고 다시 시작">데이터 초기화 — 인트로부터 다시</button>

@@ -17,7 +17,14 @@ const STORY = {
     doha: { name: ['도하', 'Doha'], col: '#efe6d4' },
     haru: { name: ['하루', 'Haru'], col: '#7fd1ff' },
     nok:  { name: ['녹', 'Nok'], col: '#ffb86b' },
-    may:  { name: ['메이', 'May'], col: '#9be7a0' }
+    may:  { name: ['메이', 'May'], col: '#9be7a0' },
+    yuna: { name: ['유나 · 음성 메시지', 'Yuna · voicemail'], col: '#f4a6c8' }
+  },
+
+  /** 체험판의 끝(rc.43) — 3장 뒤, 정식판 안내 화면의 매달린 이야기 */
+  paywall: {
+    tease: ['방콕, 짜오프라야강. 다리 건너 진료소의 불빛 아래에 유나가 있을지도 모른다. 그런데 다리 앞에 무언가가 서 있다 — 며칠째, 사람 소리를 기다리며.',
+            'Bangkok, on the Chao Phraya. Yuna may be under the clinic lights across the bridge. But something stands at the foot of it — has stood there for days, waiting for a human sound.']
   },
 
   /** 첫 전역 시작 때 한 번 — 카드 넉 장 */
@@ -25,6 +32,7 @@ const STORY = {
     ['대피는 아홉 시간 만에 끝났다.', 'The evacuation took nine hours.'],
     ['버스와 배와 비행기가 도시를 떠났다.\n남은 사람을 세는 사람은 없었다.', 'Buses, boats and planes left the city.\nNo one stayed behind to count who was left.'],
     ['그날 밤 도하는 지하 서버실에 마지막 택배를 내려놓고\n계단을 올라왔다.', 'That night Doha dropped the last parcel in a basement server room\nand climbed the stairs.'],
+    ['휴대폰에는 동생 유나의 부재중 전화가\n열한 통 와 있었다.', 'His phone showed eleven missed calls\nfrom his sister, Yuna.'],
     ['도시는 이미 떠난 뒤였다.', 'The city had already gone.']
   ],
 
@@ -53,37 +61,66 @@ const STORY = {
     { // 1 첫 번째 밤 — 서울
       radio: {
         start: [['pa', '…시민 여러분은 광화문 집결지로 이동하십시오. 반복합니다. 시민 여러분은…', '…all citizens proceed to the Gwanghwamun rally point. Repeat. All citizens…']],
-        mid: [['doha', '누구 없어요? …이거 녹음이잖아.', 'Anyone there? …It\'s a recording.']],
+        mid: [['doha', '누구 없어요? …이거 녹음이잖아.', 'Anyone there? …It\'s a recording.'],
+              ['doha', '9번 채널. …유나야, 듣고 있으면 아무 말이라도 해.', 'Channel 9. …Yuna, if you can hear this, say something.']],
+        t45: [['doha', '버스가 남쪽 항구로 갔다고 했지. 남쪽… 얼마나 남쪽인데.', 'She said the bus went to a port down south. South… how far south.']],
         done: [['pa', '…마지막 수송은 스물두 시에 출발합니다…', '…the final transport departs at twenty-two hundred…'],
                ['doha', '지금이 몇 신데.', 'And what time is it now.'],
                ['haru', '…여기는 하루. 이 주파수 듣는 사람 있으면, 아무 말이라도 해.', '…This is Haru. If anyone\'s on this frequency, say something. Anything.']]
       },
-      outro: ['안뜰은 비어 있었다. 그때 무전기 9번 채널이 지직거렸다 — 도쿄의 하루라고 했다. 한강 하구 대피 기지에 김 선장의 배가 한 척 남았다고.', 'The courtyard was empty. Then channel 9 crackled — a voice called Haru, in Tokyo. One boat was left, Captain Kim\'s, at the evac base on the Han estuary.']
+      outro: ['안뜰은 비어 있었다. 그때 무전기 9번 채널 — 유나가 말한 그 채널이 지직거렸다. 도쿄의 하루라고 했다. 한강 하구 대피 기지에 김 선장의 배가 한 척 남았다고.', 'The courtyard was empty. Then channel 9 — the channel Yuna had named — crackled. A voice called Haru, in Tokyo. One boat was left, Captain Kim\'s, at the evac base on the Han estuary.'],
+      // A(진입) 미션의 무전 · 마무리 — 첫 1분 안에 '왜 가는가'를 준다
+      radioA: {
+        start: [['yuna', '오빠, 왜 전화 안 받아. 학교에서 버스 태워 준대, 남쪽 항구로. 오빠도 꼭 와. 무전기 9번 채널, 알지? 꼭—', 'Why aren\'t you picking up? School\'s putting us on a bus. To a port down south. You have to come too. Radio channel 9, remember? Promise—'],
+                ['doha', '…유나야.', '…Yuna.']],
+        mid: [['doha', '구급 가방 하나. 하나만 더. 그리고 9번 채널.', 'One med bag. One more. Then channel 9.']],
+        t45: [['pa', '…지하 상가에 계신 시민께서는 즉시 지상으로 이동하십시오…', '…citizens in the underground arcade, proceed to street level immediately…']],
+        done: [['doha', '올라가자. 집결지는 광화문이랬지.', 'Up we go. The rally point was Gwanghwamun.']]
+      },
+      outroA: ['계단 끝에서 빗소리가 들렸다. 도하는 무전기를 9번 채널에 맞췄다. 잡음뿐이었다. 아직은.', 'Rain at the top of the stairs. Doha tuned the radio to channel 9. Only static. For now.']
     },
     { // 4 마지막 수송 — 한강 하구의 대피 기지
       radio: {
         start: [['haru', '김 선장이 기지 부두에 배를 댔대. 기름을 넣으려면 연료고를 열어야 해. 출입 카드가 막사 어딘가에 있을 거야.', 'Captain Kim tied up at the base pier. To refuel you need the depot open. The key cards should be somewhere in the barracks.']],
         mid: [['doha', '여기 군인들… 다 저것들이에요. 철모를 쓴 채로.', 'The soldiers here… they\'re all like that. Still wearing their helmets.'],
               ['haru', '대피를 끝까지 돌리던 사람들이야. …눈 마주치지 마. 그냥 지나가.', 'They kept the evacuation running to the end. …Don\'t look at their faces. Just keep moving.']],
+        t45: [['haru', '명단 찾았어. 한유나 — 남부 항만에서 화물선에 탔대. 동남아를 돌아 싱가포르까지 가는 배야.', 'Found the roster. Han Yuna — boarded a freighter at the southern port. It runs through Southeast Asia, all the way to Singapore.'],
+              ['doha', '싱가포르. …기다려.', 'Singapore. …Wait for me.']],
         done: [['haru', '카드 다 모았으면 본영 헬기장으로. 거기서 연료고가 열려. 김 선장이 시동 걸고 있어.', 'If you have all the cards, go to the helipad at headquarters. The depot opens from there. Kim\'s starting the engine.']]
       },
+      radioA: {
+        start: [['pa', '검문소 7 기록. 21시 12분 — 학생 수송 버스 세 대 통과. 행선지 남부 항만.', 'Checkpoint 7 log. 21:12 — three student transport buses passed. Destination: southern port.'],
+                ['doha', '학생 버스… 유나네 학교다.', 'Student buses… that\'s Yuna\'s school.'],
+                ['haru', '차단기 제어가 아직 살아 있어. 올라갈 때까지만 버텨.', 'The barrier control still works. Just hold until it lifts.']],
+        mid: [['haru', '절반 왔어. 도하, 그 유나라는 애… 남쪽으로 간 배 명단을 뒤져 볼게.', 'Halfway. Doha, this Yuna… I\'ll dig through the lists of ships that went south.']],
+        done: [['doha', '열린다. 간다.', 'It\'s lifting. Moving.']]
+      },
+      outroA: ['차단기 아래로 바퀴 자국 세 줄이 남쪽으로 이어져 있었다.', 'Under the barrier, three sets of tire tracks ran south.'],
       outro: ['연료고 문이 열렸다. 기지 게시판의 마지막 공지는 손글씨였다 — "22시 수송 취소. 남은 인원은 각자 남쪽으로."', 'The depot door opened. The last notice on the base board was handwritten: "22:00 transport cancelled. Everyone left, head south on your own."']
     },
     { // 7 거대한 것
       radio: {
         start: [['haru', '도착했구나. 진짜로 왔어. …미안, 반가워서. 타워 주변만 비워 줘. 내가 안테나를 걸면 내 목소리가 남쪽 끝까지 닿아.', 'You made it. You actually came. …Sorry, I\'m just glad. Clear the area around the tower. If I can hang the antenna up top, my voice reaches all the way south.']],
         mid: [['haru', '큰 거 조심해! 붙지 말고, 돌면서 쏴.', 'Watch the big one! Don\'t let it close in. Circle and shoot.']],
-        done: [['haru', '안테나 걸었어. …도하, 나는 여기 남을게. 누군가는 계속 말해야 하잖아.', 'Antenna\'s up. …Doha, I\'m staying. Someone has to keep talking.']]
+        done: [['haru', '안테나 걸었어. …도하, 나는 여기 남을게. 누군가는 계속 말해야 하잖아.', 'Antenna\'s up. …Doha, I\'m staying. Someone has to keep talking.'],
+               ['haru', '…잠깐. 방콕에서 누가 9번 채널로 부르고 있어. 진료소래. 그 뒤에서 — 여자애가 네 이름을 불러.', '…Wait. Someone in Bangkok is calling on channel 9. A clinic. And behind them — a girl is calling your name.']]
       },
-      outro: ['화물선이 부두를 떠났다. 무전기 속 하루의 목소리가 작아지다가, 다시 또렷해졌다. "들려? 계속 말할게."', 'The freighter left the dock. Haru\'s voice faded on the radio, then came back clear. "Hear me? I\'ll keep talking."']
+      outro: ['화물선이 부두를 떠났다. 무전기 속 하루의 목소리가 작아지다가, 다시 또렷해졌다. "방콕이야, 도하. 강 건너 진료소. 그런데… 다리 앞에 뭔가 서 있대."', 'The freighter left the dock. Haru\'s voice faded on the radio, then came back clear. "It\'s Bangkok, Doha. A clinic across the river. But… they say something is standing at the bridge."'],
+      radioA: {
+        start: [['haru', '여기는 하루. …진짜 목소리로 듣는 건 처음이네. 골목 중계기 둘만 살려 줘. 그러면 남쪽 배들한테 직접 물어볼 수 있어.', 'This is Haru. …First time hearing you for real. Just bring the two alley relays back. Then I can ask the southern ships myself.']],
+        mid: [['haru', '하나 살았어! …남쪽 화물선 하나가 응답해. 학생들을 태웠대.', 'One\'s up! …A freighter down south is answering. Says it took on students.']],
+        done: [['haru', '둘 다 살았어. 그 배, 방콕에 들렀다가 싱가포르로 간대. …도하, 이제 타워야.', 'Both live. That ship called at Bangkok, then on to Singapore. …Doha, now the tower.']]
+      },
+      outroA: ['전광판 하나가 다시 켜졌다. 아무도 보지 않는 광고가 빗속에서 돌아갔다.', 'One billboard flickered back on. An ad no one would watch played on in the rain.']
     },
     { // 9 기다리는 것
       radio: {
         start: [['nok', '하루가 말한 서울 사람? 저는 녹, 강 건너 진료소 간호사예요. 그게 다리를 막고 있어요. 며칠째 움직이질 않아요 — 소리를 기다리는 것 같아요.', 'The one from Seoul Haru told me about? I\'m Nok, a nurse at the clinic across the river. That thing is blocking the bridge. It hasn\'t moved in days — like it\'s waiting for a sound.']],
         mid: [['nok', '흔들려요! 조금만 더!', 'It\'s staggering! A little more!']],
-        done: [['nok', '건너와요! 빨리!', 'Come across! Hurry!']]
+        done: [['nok', '건너와요! 빨리!', 'Come across! Hurry!'],
+               ['nok', '유나요? 열흘 전에 여기 있었어요. 열이 내리자마자 싱가포르 가는 배에 태웠어요. 내내 오빠 얘기만 했어요.', 'Yuna? She was here ten days ago. The moment her fever broke we put her on a boat to Singapore. She talked about her brother the whole time.']]
       },
-      outro: ['진료소에는 열두 명이 있었다. 녹이 지도를 펼쳤다. 남쪽 끝 싱가포르, 새벽호. 사흘 뒤 마지막으로 떠난다.', 'Twelve people were at the clinic. Nok spread out a map. The far south: Singapore, the ship Dawn. It leaves for the last time in three days.']
+      outro: ['진료소에는 열두 명이 있었다. 침대 머리맡 벽에 연필 글씨가 남아 있었다 — "오빠, 새벽호에서 기다릴게." 녹이 지도를 펼쳤다. 남쪽 끝 싱가포르, 새벽호. 사흘 뒤 마지막으로 떠난다.', 'Twelve people were at the clinic. Above one bed, pencil on the wall: "I\'ll wait for you on the Dawn." Nok spread out a map. The far south: Singapore, the ship Dawn. It leaves for the last time in three days.']
     },
     { // 11 새벽호
       radio: {
@@ -91,9 +128,10 @@ const STORY = {
         hold: [['may', '보입니다. 접안까지 60초. 갑판에서 보급품을 던질게요. 그 자리를 지켜요.', 'I see you. Sixty seconds to dock. We\'re throwing supplies down from the deck. Hold that position.'],
                ['haru', '도하, 거의 다 왔어. 끝까지 말할게.', 'Doha, you\'re almost there. I\'ll talk you all the way in.']],
         boss: [['nok', '뭔가 큰 게 와요—!', 'Something big is coming—!']],
-        done: [['may', '현문 내렸습니다! 올라와요!', 'Gangway\'s down! Get aboard!']]
+        done: [['may', '현문 내렸습니다! 올라와요!', 'Gangway\'s down! Get aboard!'],
+               ['may', '…갑판에 아까부터 아이 하나가 서 있어요. 당신 이름을 불러요.', '…There\'s a girl who\'s been standing on deck all this time. She\'s calling your name.']]
       },
-      outro: ['현문이 올라가고, 새벽호는 해가 뜨기 전에 항구를 떠났다.', 'The gangway rose, and the Dawn left port before sunrise.']
+      outro: ['현문 끝에서 유나가 뛰어왔다. 현문이 올라가고, 새벽호는 해가 뜨기 전에 항구를 떠났다.', 'Yuna came running down the gangway. Then the gangway rose, and the Dawn left port before sunrise.']
     },
     /* ── 2부: 새벽호의 항해 ── */
     { // 12 강가의 계단 — 바라나시
@@ -162,6 +200,7 @@ const STORY = {
     title: ['남겨진 도시', 'Left City'],
     text: [
       ['갑판에서 돌아보니 도시는 여전히 불이 꺼진 채였다. 서울도, 도쿄도, 방콕도 — 모두 그렇게 남겨졌다.', 'From the deck, the city was still dark. Seoul, Tokyo, Bangkok — all of them left behind like that.'],
+      ['유나는 도하의 소매를 붙든 채 잠들어 있었다.', 'Yuna had fallen asleep holding on to Doha\'s sleeve.'],
       ['무전기에서 익숙한 잡음이 났다. "…여기는 하루. 들리면, 아무 말이라도 해."', 'The radio crackled, familiar. "…This is Haru. If you can hear me, say something."'],
       ['도하는 송신 버튼을 눌렀다. "들려. 아직 여기 있어."', 'Doha pressed the button. "I hear you. I\'m still here."']
     ]
@@ -284,6 +323,8 @@ const STORY = {
       text: ['D+0 21:40. 수송 차량 일곱 대 중 두 대 귀환. 집결지 인원 통제 불가. 정문 폐쇄 명령 — 거부함.', 'D+0 21:40. Two of seven transports returned. Rally point beyond control. Ordered to close the gate. Refused.'] },
     { id: 'cbb', ch: 1, title: ['철망의 인식표', 'Tags on the fence'],
       text: ['이름이 새겨진 인식표 열한 개가 철망에 묶여 있다. 그 아래 분필 글씨 — "먼저 간다. 미안하다."', 'Eleven name tags tied to the fence. Below them, in chalk: "Going ahead. Sorry."'] },
+    { id: 'cbc', ch: 1, title: ['수송 명단', 'Transport roster'],
+      text: ['학생 수송 3호차 → 남부 항만. 38명. 스물두 번째 줄 — 한유나(2학년 3반). 비고: 화물선 연계, 남쪽 경유 싱가포르.', 'Student transport no. 3 → southern port. 38 aboard. Line twenty-two — Han Yuna (Year 2, Class 3). Note: freighter connection, via the south to Singapore.'] },
     { id: 'c4a', ch: 2, title: ['하루의 교신 일지', 'Haru\'s radio log'],
       text: ['D+11. 오늘 교신 4명. 오사카 1, 나고야 2, 요코하마 1. 서울은 아직 0.', 'D+11. Four contacts today. Osaka 1, Nagoya 2, Yokohama 1. Seoul still 0.'] },
     { id: 'c4b', ch: 2, title: ['셔터의 낙서', 'Graffiti on a shutter'],

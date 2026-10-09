@@ -22,7 +22,7 @@
 })();
 
 /** 제품 정보 — 이름 · 판. 출시 이름이 정해지면 여기와 index.html · manifest 를 함께 바꾼다 */
-const APP = { name: 'LEFT CITY', subtitle: '남겨진 도시', version: '1.0.0-rc.42' };
+const APP = { name: 'LEFT CITY', subtitle: '남겨진 도시', version: '1.0.0-rc.43' };
 const APP_VERSION = APP.version;
 
 /** 난이도 배수. 1 = 기준값(잔존) */
@@ -49,10 +49,10 @@ const DIFFICULTY = {
    cp    체크포인트 0 없음 · 1 장마다 한 번(다시 하면 쓴 소모품은 돌아오지 않는다) · 2 켬 */
 const RULE_DEF = { dens: [1, 2, 3], sense: [0, 1, 2], bite: [false, true], rise: [false, true], mag: [false, true], regen: [false, true], aids: [false, true], cp: [0, 1, 2] };
 const RULE_PRESET = {
-  easy:   { dens: 1, sense: 0, bite: false, rise: false, mag: false, regen: true,  aids: true,  cp: 2 },
-  normal: { dens: 2, sense: 1, bite: false, rise: false, mag: false, regen: false, aids: true,  cp: 2 },
-  hard:   { dens: 3, sense: 2, bite: true,  rise: true,  mag: true,  regen: false, aids: false, cp: 1 },
-  rush:   { dens: 2, sense: 1, bite: false, rise: false, mag: false, regen: false, aids: true,  cp: 0 }
+  easy:   { dens: 1, sense: 0, bite: false, rise: false, mag: false, regen: true,  aids: true,  cp: 2, assist: 1 },
+  normal: { dens: 2, sense: 1, bite: false, rise: false, mag: false, regen: false, aids: true,  cp: 2, assist: 0.8 },
+  hard:   { dens: 3, sense: 2, bite: true,  rise: true,  mag: true,  regen: false, aids: false, cp: 1, assist: 0.45 },
+  rush:   { dens: 2, sense: 1, bite: false, rise: false, mag: false, regen: false, aids: true,  cp: 0, assist: 0.6 }
 };
 
 const AIM_MODES = ['auto', 'stick', 'turn', 'drag'];

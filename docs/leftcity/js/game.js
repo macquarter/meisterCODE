@@ -2683,7 +2683,7 @@ const G = {
       near.push([Math.hypot(dx, dy), z]);
     }
     near.sort((a, b) => a[0] - b[0]);
-    for (let i = 0; i < Math.min(4, near.length); i++) {
+    for (let i = 0; i < Math.min(SFX.touchLite ? 2 : 4, near.length); i++) {   // 휴대폰은 가까운 둘만(rc.44)
       const [d, z] = near[i], st = Math.floor((z.phase || 0) / Math.PI);
       if (st === z.stepN) continue;
       z.stepN = st;

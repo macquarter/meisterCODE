@@ -2537,7 +2537,7 @@ function prof(k, t0) { const d = performance.now() - t0, e = PROF[k] || (PROF[k]
     대신 MSAA → 그림자 → 빛 번짐(후처리) 순으로 덜어 낸다. '선명하게'는 기기 배율 2 까지 */
 const PR_CAP = [1.5, 1.25, 1.0, 1.0];
 /** 휴대폰 · 태블릿 — 화면이 촘촘해 1.25 로도 선명하고, 후처리(HDR · 빛 번짐)를 칠할 화소가 3 할 준다 */
-const PR_CAP_TOUCH = [1.25, 1.1, 1.0, 1.0];
+const PR_CAP_TOUCH = [1.25, 1.1, 1.0, 1.0, 0.85, 0.72];   // rc.44 — 휴대폰은 두 단계 더(그리는 해상도만 낮춘다 — 셰이더는 그대로)
 function perfStep(now) {
   const dt = now - PERF.last;
   PERF.last = now;
@@ -2546,7 +2546,8 @@ function perfStep(now) {
   // 준비 끊김만으로 화질을 내렸고, 화질을 내리는 일이 다시 셰이더를 전부 엮어 끊김이 이어졌다.
   // 꾸준히 느린 기기(프레임마다 40ms 넘게)는 그대로 내려간다
   PERF.ema += (Math.min(dt, 120) - PERF.ema) * 0.05;
-  if (SETTINGS.quality === 'high' || PERF.level >= 3 || document.hidden || now < PERF.calm) return;
+  const maxLv = matchMedia && matchMedia('(pointer: coarse)').matches ? 5 : 3;
+  if (SETTINGS.quality === 'high' || PERF.level >= maxLv || document.hidden || now < PERF.calm) return;
   // 36ms(약 28fps) 아래로 2.5초 머물면 한 단계 — 예전 42ms 는 20fps 대까지 버텨 휴대폰에서 끊김이 그대로 보였다
   if (now - PERF.since > 2500 && PERF.ema > 36) {
     PERF.level++; PERF.since = now; PERF.ema = 30;
@@ -3625,6 +3626,15 @@ function updateHumans(g, p) {
   const dt = lastHT < 0 ? 0 : Math.max(0, Math.min(0.1, g.time - lastHT)); lastHT = g.time;
   const rigs = CHAR.ready;
   let fresh = 0;
+  // 무리가 달려들 때(rc.44) — 그림자는 가까운 몇만, 동작은 가까운 몇만 매 프레임. 나머지는 격 프레임으로.
+  // 예전엔 320 안의 모두가 그림자 지도에 두 번 더 그려지고 매 프레임 뼈대를 풀어 휴대폰이 10fps 대로 떨어졌다
+  const TOUCH3 = matchMedia && matchMedia('(pointer: coarse)').matches;
+  const nCast = PERF.level >= 3 ? 2 : TOUCH3 ? 4 : 8, nPose = TOUCH3 ? (PERF.level >= 3 ? 5 : 8) : 14;
+  const dl = [];
+  for (const z of g.zombies) if (!z.dead) dl.push((z.x - p.x) * (z.x - p.x) + (z.y - p.y) * (z.y - p.y));
+  dl.sort((a, b) => a - b);
+  const castR2 = dl.length > nCast ? Math.min(dl[nCast - 1], 320 * 320) : 320 * 320, poseR2 = dl.length > nPose ? dl[nPose - 1] : Infinity;
+  const odd = (g.frameNo || 0) & 1;
   for (const z of g.zombies) {
     if (z.dead) continue;
     seen.add(z);
@@ -3637,7 +3647,7 @@ function updateHumans(g, p) {
       const t0 = performance.now();
       if (rigs) { h = zombieRig(z); h.scale.setScalar(S * CHAR_S); prof('zrig', t0); }
       else { h = makeHuman(zombieLook(z)); h.scale.setScalar(S * 1.25 * CHAR_S); }
-      charLayer(h); dyn.humans.set(z, h); scene.add(h);
+      charLayer(h); dyn.humans.set(z, h); scene.add(h); h.userData.par = dyn.humans.size & 1;
     }
     const d = Math.hypot(z.x - p.x, z.y - p.y);
     const vis = Math.max(z.lit, Math.min(1, Math.max(0, (180 - d) / 60)), g.lightning * 1.4, z.t.boss ? 0.5 : 0);
@@ -3649,10 +3659,10 @@ function updateHumans(g, p) {
     const t = z.t, ph = z.phase, aggro = !!z.aggro;
     if (h.userData.rig) {
       // 멀리 있는 것은 동작을 덜 자주 갱신한다
-      const far = d > 700;
-      if (h.visible && (!far || (g.frameNo || 0) % 3 === 0)) poseZombieRig(h, z, g, far ? dt * 3 : dt);
+      const far = d > 700, d2 = d * d, half = !far && d2 > poseR2;
+      if (h.visible && (far ? (g.frameNo || 0) % 3 === 0 : !half || (h.userData.par | 0) === odd)) poseZombieRig(h, z, g, far ? dt * 3 : half ? dt * 2 : dt);
       // 그림자는 가까운 것만 — 뼈대 모형을 그림자 지도에 두 번 더 그리는 값이 크다
-      const cs = d < 320;
+      const cs = d2 <= castR2;
       if (h.userData.cs !== cs) { h.userData.cs = cs; for (const m of h.userData.meshes) m.castShadow = cs; }
       setFlash(h, z.flash > 0);
       continue;

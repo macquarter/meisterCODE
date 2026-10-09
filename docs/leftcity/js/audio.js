@@ -11,8 +11,11 @@ const SFX = (() => {
   /* 한 번에 울리는 짧은 소리(노이즈 · 톤)의 수 — 휴대폰에서 연사 · 피격 · 무리 소리가 겹쳐 노드가 수백 개로 불면
      오디오 스레드가 버티지 못해 소리가 통째로 끊겼다. 넘치면 작은 소리부터 버린다 */
   const TOUCH = typeof matchMedia !== 'undefined' && matchMedia('(pointer: coarse)').matches;
-  const ONESHOT_CAP = TOUCH ? 22 : 40;
+  const ONESHOT_CAP = TOUCH ? 16 : 40;
   let oneshots = 0;
+  /* 내 총성 · 폭발처럼 놓치면 안 되는 소리(rc.44) — 상한을 넘어도 낸다. 휴대폰에서 무리가 달려들면 발소리 · 그르렁이
+     상한을 채워 정작 총소리가 빠지던 것을 막는다 */
+  let PRIO = false;
   const gateT = {};
   /** 같은 소리가 ms 안에 다시 오면 건너뛴다(연사 · 관통탄 피격음이 한 프레임에 몇 겹씩 쌓이지 않게) */
   function gate(key, ms) { const now = ctx ? ctx.currentTime * 1000 : 0; if (now - (gateT[key] || -1e9) < ms) return false; gateT[key] = now; return true; }
@@ -32,7 +35,9 @@ const SFX = (() => {
     const AC = window.AudioContext || window.webkitAudioContext;
     if (!AC) { enabled = false; return; }
     // 휴대폰은 버퍼를 조금 넉넉히('balanced') — 3D 렌더로 CPU 가 바쁠 때 오디오가 비지 않게(지연은 수십 ms 늘 뿐)
-    try { ctx = new AC({ latencyHint: TOUCH ? 'balanced' : 'interactive' }); } catch (e) { ctx = new AC(); }
+    // rc.44 — 휴대폰은 'playback'(버퍼를 가장 넉넉히). 3D 렌더가 GPU · CPU 를 다 쓰면 오디오 스레드가 제때 채우지 못해
+    // 소리가 '나다가 안 나는'(통째로 비는) 일이 있었다. 지연은 100ms 안팎 늘지만 끊기지 않는 쪽이 낫다
+    try { ctx = new AC({ latencyHint: TOUCH ? 'playback' : 'interactive' }); } catch (e) { ctx = new AC(); }
     // iOS 16.4+ — 게임 소리는 '주변음'으로: 무음 스위치를 따르고, 듣던 음악을 끊지 않고 섞인다(앱 심사 지침의 게임 오디오 관례)
     try { if (navigator.audioSession) navigator.audioSession.type = 'ambient'; } catch (e) { /* 무시 */ }
     master = ctx.createGain();
@@ -82,7 +87,7 @@ const SFX = (() => {
   function buildSpace() {
     try {
       revIn = ctx.createGain(); revIn.gain.value = 1;
-      const conv = ctx.createConvolver(); conv.buffer = makeIR(TOUCH ? 1.7 : 2.4);
+      const conv = ctx.createConvolver(); conv.buffer = makeIR(TOUCH ? 0.9 : 2.4);   // 휴대폰은 짧게(rc.44) — 긴 잔향 합성이 오디오 스레드를 가장 많이 먹는다
       revOut = ctx.createGain(); revOut.gain.value = 0.35;
       revIn.connect(conv); conv.connect(revOut); revOut.connect(master);
       const dl = ctx.createDelay(0.5); dl.delayTime.value = 0.11;
@@ -159,9 +164,11 @@ const SFX = (() => {
      그 사이에 나는 소리를 좌우로 벌린다. 화면 왼쪽의 감염체는 왼쪽 귀에서 들린다 */
   let srcPan = 0, SEND = 0;
   /** 소리를 내보낸다 — 자리(거리 · 벽 · 뒤)에 따라 먹먹하게 · 좌우로, 큰 소리는 메아리로도(SEND) */
-  function outTo(node, send) {
+  function outTo(node, send, gain) {
     const sp = spatial();
     let n = node;
+    // 휴대폰 — 작은 소리는 거리 필터 · 좌우 · 메아리 없이 곧장(rc.44). 한 소리에 노드 서넛씩 붙던 것을 줄인다
+    if (TOUCH && gain !== undefined && gain < 0.06 && !PRIO) { n.connect(master); return; }
     if (sp && sp.lp < 16000) { const f = ctx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = sp.lp; f.Q.value = 0.5; n.connect(f); n = f; }
     const pan = sp ? sp.pan : srcPan;
     if (pan && ctx.createStereoPanner) { const p = ctx.createStereoPanner(); p.pan.value = pan; n.connect(p); n = p; }
@@ -176,7 +183,7 @@ const SFX = (() => {
   function burst(dur, freq, q, gain, type = 'lowpass', decay, delay = 0) {
     if (!enabled || !ctx) return;
     if (!(gain > SILENT)) return;
-    if (oneshots >= ONESHOT_CAP && gain < 0.3) return;          // 넘치면 작은 소리부터 버린다
+    if (oneshots >= ONESHOT_CAP && gain < 0.3 && !PRIO) return;          // 넘치면 작은 소리부터 버린다(내 총성은 예외)
     oneshots++;
     const src = ctx.createBufferSource();
     src.onended = () => { oneshots = Math.max(0, oneshots - 1); };
@@ -188,7 +195,7 @@ const SFX = (() => {
     const t = ctx.currentTime + delay;
     g.gain.setValueAtTime(0.0001, ctx.currentTime); g.gain.setValueAtTime(gain, t);
     g.gain.exponentialRampToValueAtTime(0.0001, t + (decay || dur));
-    src.connect(f); f.connect(g); outTo(g);
+    src.connect(f); f.connect(g); outTo(g, undefined, gain);
     src.start(t); src.stop(t + dur + 0.05);
   }
 
@@ -196,7 +203,7 @@ const SFX = (() => {
   function tone(freq, dur, gain, type = 'sine', slideTo, delay = 0) {
     if (!enabled || !ctx) return;
     if (!(gain > SILENT)) return;        // 들리지도 않는 소리에 노드를 만들지 않는다
-    if (oneshots >= ONESHOT_CAP && gain < 0.3) return;
+    if (oneshots >= ONESHOT_CAP && gain < 0.3 && !PRIO) return;
     oneshots++;
     const o = ctx.createOscillator();
     o.onended = () => { oneshots = Math.max(0, oneshots - 1); };
@@ -208,7 +215,7 @@ const SFX = (() => {
     g.gain.setValueAtTime(0.0001, t);
     g.gain.exponentialRampToValueAtTime(gain, t + 0.012);
     g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-    o.connect(g); outTo(g);
+    o.connect(g); outTo(g, undefined, gain);
     o.start(t); o.stop(t + dur + 0.03);
   }
 
@@ -221,7 +228,7 @@ const SFX = (() => {
   function voice(o) {
     if (!enabled || !ctx) return;
     const gain = o.gain || 0.1;
-    if (!(gain > SILENT) || voices >= 8) return;          // 한꺼번에 여덟 목소리까지 — 무리 속에서 소리가 뭉개지지 않게
+    if (!(gain > SILENT) || voices >= (TOUCH ? 4 : 8)) return;   // 휴대폰은 넷까지(목소리 하나가 노드 열댓 개)          // 한꺼번에 여덟 목소리까지 — 무리 속에서 소리가 뭉개지지 않게
     voices++;
     const t = ctx.currentTime + (o.delay || 0), dur = o.dur || 0.6, f0 = o.f0 || 110, f1 = o.f1 || f0 * 0.7;
     const size = o.size || 1, v0 = VOWEL[o.vowel || 'uh'], v1 = VOWEL[o.to || o.vowel || 'uh'];
@@ -533,6 +540,9 @@ const SFX = (() => {
     },
     get state() { return ctx ? ctx.state : 'none'; },
     get oneshots() { return oneshots; },
+    /** fn 안의 소리는 상한을 넘어도 낸다(내 총성 · 가까운 폭발) */
+    prio(fn) { const was = PRIO; PRIO = true; try { fn(); } finally { PRIO = was; } },
+    get touchLite() { return TOUCH; },
     get rainOn() { return !!rainSrc; },
     get droneOn() { return !!drone; },
 

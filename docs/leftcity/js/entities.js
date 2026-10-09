@@ -402,7 +402,7 @@ class Player {
     g.recoil(base, w.kick);                                   // 카메라가 반동 방향으로 튄다
     if (!w.flame && !w.launcher && !w.silent) g.ejectCasing(this.x, this.y, base, w.key);   // 탄피는 바닥에 남는다
     if (w.pellets > 1) g.world.slide(this, -Math.cos(base) * 6, -Math.sin(base) * 6);   // 산탄의 밀림
-    SFX[w.sfx]();
+    SFX.prio(() => SFX[w.sfx]());                        // 내 총성은 무리 소리에 밀리지 않는다(rc.44)
     return true;
   }
 
@@ -1189,7 +1189,7 @@ class Grenade {
     if (g.buzz && Math.hypot(this.x - g.player.x, this.y - g.player.y) < 420) g.buzz(70);
     g.shake = 24;
     { const p = g.player, d = Math.hypot(this.x - p.x, this.y - p.y);
-      SFX.at(this.x, this.y, () => SFX.explode(d));
+      SFX.prio(() => SFX.at(this.x, this.y, () => SFX.explode(d)));
       if (d < 190 && !p.dead) SFX.ring(1 - d / 190); }                 // 곁에서 터지면 귀가 먹먹하게 운다
     for (let i = 0; i < 40; i++) {
       const a = Math.random() * 6.283, sp = 90 + Math.random() * 440;

@@ -27,6 +27,7 @@ function fail(why, e) {
   if (R3D.failed) return;
   R3D.ok = false;
   R3D.failed = why + (e ? ' — ' + String(e && e.message || e).slice(0, 160) : '');
+  R3D.stack = e && e.stack ? String(e.stack).slice(0, 600) : '';
   try { console.warn('[LEFT CITY 3D] 2D 로 전환:', R3D.failed); } catch (_) { /* 무시 */ }
   try { if (cv) cv.remove(); } catch (_) { /* 무시 */ }
   try { if (renderer) renderer.dispose(); } catch (_) { /* 무시 */ }
@@ -310,6 +311,15 @@ function makeTextures() {
     for (let i = 0; i < 6; i++) { x.rotate(Math.PI / 3 + (i % 2) * 0.2); const g = x.createLinearGradient(0, 0, 30, 0); g.addColorStop(0, 'rgba(255,255,255,1)'); g.addColorStop(1, 'rgba(255,255,255,0)'); x.fillStyle = g; x.beginPath(); x.moveTo(0, -3 + (i % 2)); x.lineTo(i % 2 ? 22 : 31, 0); x.lineTo(0, 3 - (i % 2)); x.fill(); }
     const g = x.createRadialGradient(0, 0, 0, 0, 0, 14); g.addColorStop(0, 'rgba(255,255,255,1)'); g.addColorStop(1, 'rgba(255,255,255,0)'); x.fillStyle = g; x.fillRect(-14, -14, 28, 28);
   }, false);
+  // 실내 벽(rc.45) — 창 없는 타일 · 미장 벽. 불 켜진 창 무늬(외벽)를 쓰면 지하에 창이 떠 보였다
+  TEX.inwall = canvasTex(512, 384, (x, W, H) => {
+    const r = rng(41);
+    x.fillStyle = '#d4d2cc'; x.fillRect(0, 0, W, H);
+    for (let i = 0; i < 1400; i++) { x.fillStyle = r() < 0.5 ? 'rgba(255,255,255,.05)' : 'rgba(0,0,0,.07)'; x.fillRect(r() * W, r() * H, 3, 3); }
+    x.fillStyle = 'rgba(0,0,0,.10)'; for (let k = 0; k < W; k += 32) x.fillRect(k, 0, 1.5, H); for (let k = 0; k < H; k += 24) x.fillRect(0, k, W, 1.5);
+    for (let k = 0; k < H; k += 192) { x.fillStyle = 'rgba(30,34,38,.55)'; x.fillRect(0, k + 150, W, 42); x.fillStyle = 'rgba(0,0,0,.35)'; x.fillRect(0, k + 148, W, 3); }
+    for (let i = 0; i < 26; i++) { const sx = r() * W, sy = r() * H; x.fillStyle = 'rgba(40,30,20,.12)'; x.fillRect(sx, sy, 2 + r() * 3, 20 + r() * 70); }
+  });
   TEX.dot = canvasTex(32, 32, (x) => { const g = x.createRadialGradient(16, 16, 0, 16, 16, 15); g.addColorStop(0, 'rgba(60,8,6,1)'); g.addColorStop(0.7, 'rgba(60,8,6,.8)'); g.addColorStop(1, 'rgba(60,8,6,0)'); x.fillStyle = g; x.fillRect(0, 0, 32, 32); }, false);
   TEX.glow = canvasTex(64, 64, (x) => { const g = x.createRadialGradient(32, 32, 0, 32, 32, 31); g.addColorStop(0, 'rgba(255,255,255,1)'); g.addColorStop(0.35, 'rgba(255,255,255,.45)'); g.addColorStop(1, 'rgba(255,255,255,0)'); x.fillStyle = g; x.fillRect(0, 0, 64, 64); }, false);
   TEX.fence = canvasTex(64, 64, (x) => { x.clearRect(0, 0, 64, 64); x.strokeStyle = 'rgba(200,205,208,.9)'; x.lineWidth = 1.5; for (let k = -64; k < 128; k += 12) { x.beginPath(); x.moveTo(k, 0); x.lineTo(k + 64, 64); x.stroke(); x.beginPath(); x.moveTo(k + 64, 0); x.lineTo(k, 64); x.stroke(); } });
@@ -410,6 +420,7 @@ function makeMaterials() {
   // 건물이 플레이어를 가리면 그 둘레를 체크무늬로 뚫어 비친다 (원작처럼 플레이어가 벽 뒤로 사라지지 않게)
   makeFacadeMats(std);
   AWN.forEach((c, i) => { ALIAS['awning' + i][1] = lin(c, 1.1); });
+  MAT.inwall = std({ map: TEX.inwall, normalMap: normalFrom(TEX.inwall.image, 1.2), vertexColors: true, roughness: 0.8, envMapIntensity: 0.3 });
   MAT.detail = std({ vertexColors: true, roughness: 0.62, metalness: 0.25, map: TEX.roofSet.map });
   MAT.awning = std({ vertexColors: true, map: TEX.stripe, roughness: 0.75, side: THREE.DoubleSide });
   MAT.glow = new THREE.MeshBasicMaterial({ vertexColors: true });
@@ -426,7 +437,7 @@ function makeMaterials() {
   MAT.lensOn = std({ color: 0xfff0d8, emissive: 0xffb868, emissiveIntensity: 4 });
   MAT.lensFlick = std({ color: 0xfff0d8, emissive: 0xffb868, emissiveIntensity: 7 });
   MAT.lensOff = std({ color: 0x3a3a38, roughness: 0.3 });
-  const SEE_K = ['detail', 'awning', 'shopLit', 'cross', 'rust', ...FACADE_STYLES.map(st => 'f_' + st), 'brick', 'stucco', 'shop', 'roof', 'parapet', 'stone', 'rooftop', 'ledge', 'metal', 'fan', 'door', 'skyOff', 'skyOn', 'solar', ...AWN.map((_, i) => 'awning' + i)];
+  const SEE_K = ['detail', 'awning', 'shopLit', 'cross', 'rust', ...FACADE_STYLES.map(st => 'f_' + st), 'brick', 'stucco', 'inwall', 'shop', 'roof', 'parapet', 'stone', 'rooftop', 'ledge', 'metal', 'fan', 'door', 'skyOff', 'skyOn', 'solar', ...AWN.map((_, i) => 'awning' + i)];
   for (const k in MAT) if (MAT[k].isMeshStandardMaterial) enhance(MAT[k], SEE_K.includes(k));
 }
 /* 값싼 빛 — 가로등 · 네온 간판 · 불 · 출구처럼 수십 개의 작은 빛은 진짜 점광원 대신
@@ -476,6 +487,7 @@ function seeThrough(m) { enhance(m, true); }
 
 /* ═══════════ 세계 덩어리 — 바닥 · 건물 ═══════════ */
 function bh(w, x, y) {
+  if (w.indoor) return w.indoor === 'subway' ? 64 : 56;    // 실내 벽(rc.45) — 사람 키 넘게만. 카메라가 위에서 방 안을 내려다본다
   const i = w.idx(x, y);
   const l = w.lot[i] || (((i % w.w) >> 2) * 31 + ((i / w.w | 0) >> 2) * 17 + 1);
   const base = BLD_H3 * (0.8 + ((Math.imul(l, 2654435761) >>> 0) % 6) * 0.1) * 480 * HMUL;
@@ -672,6 +684,17 @@ function* chunkSteps(w, cx, cy) {
       if (deco(x, y + 1) === D_WATER) floorQuad(Cp, X0, Z1 - 5, X1, Z1, ey, 100);
       if (deco(x - 1, y) === D_WATER) floorQuad(Cp, X0, Z0, X0 + 5, Z1, ey, 100);
       if (deco(x + 1, y) === D_WATER) floorQuad(Cp, X1 - 5, Z0, X1, Z1, ey, 100);
+    }
+    if (d === D_BUILDING && w.indoor) {
+      // 실내 벽(rc.45) — 간판 · 상점 · 난간 · 옥상 설비 없이 콘크리트(지하철) · 미장(건물) 벽과 어두운 윗면만
+      const h = bh(w, x, y), wc = col(w.indoor === 'subway' ? '#8a949a' : '#a49a88', 1), K = 'inwall';
+      floorQuad(get('roof'), X0, Z0, X1, Z1, h, 300, col('#0e1013', 1));
+      for (const [dx, dy, ax, az, bx, bz, n] of [[0, 1, X0, Z1, X1, Z1, [0, 0, 1]], [0, -1, X1, Z0, X0, Z0, [0, 0, -1]], [1, 0, X1, Z1, X1, Z0, [1, 0, 0]], [-1, 0, X0, Z0, X0, Z1, [-1, 0, 0]]]) {
+        if (isB(x + dx, y + dy)) continue;
+        const uu = dx === 0 ? (dy > 0 ? X0 : -X1) : (dx > 0 ? -Z1 : Z0);
+        wallQuad(get(K), ax, az, bx, bz, 0, h, n, wc, uu);
+      }
+      continue;
     }
     if (d === D_BUILDING) {
       const h = bh(w, x, y), LS = lotStyle(w, x, y), wc = col(LS.color, LS.k), brick = LS.brick;
@@ -2064,7 +2087,7 @@ function updateHazards(g, near) {
     if (nt >= 6) break;
     const len = g.world.ray(b.x, b.y, b.dir, b.len);
     dm.compose(dpos.set(b.x, 4.6, b.y), dq.setFromAxisAngle(UPY, -b.dir), dsc.set(len, 1, b.w));
-    HZ.tele.setMatrixAt(nt, dm); HZ.tele.instanceColor.setXYZ(nt, b.locked ? 0.75 : 0.32 + Math.sin(g.time * 22) * 0.14, 0, 0); nt++;
+    HZ.tele.setMatrixAt(nt, dm); if (b.search) HZ.tele.instanceColor.setXYZ(nt, b.locked ? 0.6 : 0.2, b.locked ? 0.05 : 0.23, b.locked ? 0.03 : 0.28); else HZ.tele.instanceColor.setXYZ(nt, b.locked ? 0.75 : 0.32 + Math.sin(g.time * 22) * 0.14, 0, 0); nt++;
   }
   for (const z of g.zombies) {
     if (ntg >= 4 || z.dead || !z.tonguePhase || z.tonguePhase === 'wind' || !(z.tongueLen > 2)) continue;
@@ -2616,6 +2639,7 @@ function applyKit(w) {
   MAT.plaza.color.setRGB(...(K.plaza || K.side || [1, 1, 1]));
   MAT.water.emissive.setHex(w.theme.canals ? 0x08222a : 0x03090c);
   RAIN_KIND = w.theme.weather === 'sandstorm' ? 2 : (w.theme.weather === 'snow' || w.theme.weather === 'blizzard') ? 1 : 0;
+  if (rain) rain.visible = !w.indoor;                       // 실내엔 비가 없다(rc.45)
   rain.material.uniforms.uRainCol.value.set(...[[0.62, 0.7, 0.8], [1.6, 1.65, 1.75], [1.1, 0.82, 0.5]][RAIN_KIND]);
   resetRain();
 }

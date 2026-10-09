@@ -18,7 +18,34 @@ const STORY = {
     haru: { name: ['하루', 'Haru'], col: '#7fd1ff' },
     nok:  { name: ['녹', 'Nok'], col: '#ffb86b' },
     may:  { name: ['메이', 'May'], col: '#9be7a0' },
-    yuna: { name: ['유나 · 음성 메시지', 'Yuna · voicemail'], col: '#f4a6c8' }
+    yuna: { name: ['유나 · 음성 메시지', 'Yuna · voicemail'], col: '#f4a6c8' },
+    zone: { name: ['정화 구역 방송', 'Clean Zone broadcast'], col: '#d0d6dc' }
+  },
+
+  /** 네 부(rc.45) — 부가 바뀔 때마다 제목 카드와 두세 줄로 다음 이야기에 끌어들인다.
+      1부 서울 · 기지 · 도쿄(무료) → 2부 방콕 · 싱가포르(유나) → 3부 새벽호의 항해 → 4부 정화 구역(비극) */
+  parts: [
+    { n: 1, from: 0, to: 2, title: ['1부 — 남겨진 도시', 'Part 1 — Left City'],
+      open: [['대피가 끝난 도시에서, 동생의 마지막 음성 메시지 하나를 붙잡고.', 'In a city the evacuation has left behind, holding on to one last voicemail from his sister.']] },
+    { n: 2, from: 3, to: 4, title: ['2부 — 새벽호', 'Part 2 — The Dawn'],
+      open: [['방콕의 진료소에서 누군가 도하의 이름을 불렀다.', 'At a clinic in Bangkok, someone called Doha\'s name.'],
+             ['다리 앞에는 그것이 서 있다. 며칠째, 사람 소리를 기다리며.', 'At the bridge stands that thing. For days now, waiting for a human sound.']] },
+    { n: 3, from: 5, to: 8, title: ['3부 — 항해', 'Part 3 — The Voyage'],
+      open: [['새벽호에는 삼백열한 명과, 이제 유나가 있다.', 'The Dawn carries three hundred and eleven people, and now Yuna.'],
+             ['약 · 연료 · 부품 · 신호. 남쪽 끝까지 가려면 항구마다 하나씩 구해야 한다.', 'Medicine, fuel, parts, a signal. To reach the far south, every port must give up one of them.']] },
+    { n: 4, from: 9, to: 11, title: ['4부 — 정화 구역', 'Part 4 — The Clean Zone'],
+      open: [['남극에는 아직 없다고 했다. 감염도 — 그리고 사람도.', 'They said it hadn\'t reached Antarctica yet. Not the infection — and not people, either.'],
+             ['쇄빙선의 무전기에서 매일 같은 방송이 흘러나왔다. "정화 구역은 여러분을 기다립니다."', 'Every day the icebreaker\'s radio played the same broadcast: "The Clean Zone is waiting for you."'],
+             ['유나의 열은 내리지 않았다.', 'Yuna\'s fever would not break.']] }
+  ],
+  /** 부의 끝 — 2부(싱가포르) · 3부(베네치아) · 4부(남극). 1부의 끝은 정식판 안내가 맡는다 */
+  endings: {
+    3: { kicker: ['3부 에필로그', 'Part 3 Epilogue'], title: ['북쪽 바다', 'The Northern Sea'],
+      text: [
+        ['종탑의 종이 한 번 울렸다. 레이캬비크에서 응답이 왔다 — 남극으로 가는 쇄빙선이 있다고.', 'The bell rang once. Reykjavik answered — an icebreaker was heading for Antarctica.'],
+        ['메이는 웃었고, 녹은 상자를 셌고, 하루는 밤새 떠들었다.', 'May smiled, Nok counted crates, and Haru talked all night.'],
+        ['그날 밤, 유나가 처음으로 열이 났다.', 'That night, Yuna ran a fever for the first time.']
+      ] }
   },
 
   /** 체험판의 끝(rc.43) — 3장 뒤, 정식판 안내 화면의 매달린 이야기 */
@@ -169,35 +196,60 @@ const STORY = {
     },
     { // 15 불의 땅 — 레이캬비크
       radio: {
-        start: [['may', '쇄빙선이 교회 아래 부두에서 기다려요. 용암 지대를 지나와요. 붉은 금은 밟지 말고.', 'The icebreaker is waiting at the pier below the church. Come through the lava field. Don\'t step on the red cracks.']],
-        mid: [['nok', '절반 왔어요! 저것들은 열을 몰라요. 금 쪽으로 끌어들이면서 와요.', 'Halfway! They don\'t feel the heat. Lead them over the cracks as you come.']],
-        done: [['may', '보여요! 교회 앞으로!', 'I see you! To the church!']]
+        start: [['zone', '정화 구역 방송입니다. 남쪽으로 오십시오. 증상이 없는 분은 모두 받아 드립니다.', 'This is the Clean Zone. Come south. Everyone without symptoms is welcome.'],
+                ['may', '…증상이 없는 분은, 이래요. 도하, 유나 이마 아직 뜨거워요?', '…Everyone without symptoms, it says. Doha, is Yuna\'s forehead still hot?']],
+        mid: [['nok', '해열제는 다 썼어요. 부두 검사대에서 체온을 재요. …방법을 찾아볼게요.', 'We\'re out of fever pills. They take temperatures at the pier checkpoint. …I\'ll find a way.']],
+        t45: [['zone', '선별을 시작합니다. 손목의 번호를 확인하십시오.', 'Sorting begins. Check the number on your wrist.']],
+        done: [['may', '교회 앞! 줄 서지 말고 뒤쪽 화물칸으로 와요.', 'At the church! Don\'t join the line — come to the rear hold.']]
       },
-      outro: ['간헐천이 다시 솟았다. 김이 걷히자 쇄빙선의 붉은 뱃머리가 보였다.', 'The geyser went up again. As the steam cleared, the icebreaker\'s red bow came into view.']
+      outro: ['줄 맨 앞의 노인이 체온계 앞에서 멈췄다. 경비원이 노인의 손목에 붉은 선을 그었다. 노인은 배에 타지 못했다. 유나는 도하의 외투 안에서 숨을 죽였다.', 'The old man at the head of the line stopped at the thermometer. A guard drew a red line on his wrist. He did not board. Inside Doha\'s coat, Yuna held her breath.'],
+      radioA: {
+        start: [['may', '발전소 중계기를 살리면 정화 구역 주파수를 엿들을 수 있대요. 저 사람들이 뭘 하는지 알아야 해요.', 'If we bring the plant\'s relays back we can listen in on the Clean Zone. We need to know what they\'re doing.']],
+        mid: [['zone', '…증상이 있는 분은 보호 시설로 이송됩니다. 가족과의 연락은—', '…Those with symptoms will be transferred to a protective facility. Contact with family will—']],
+        done: [['doha', '이송. …돌아온 사람은 없겠지.', 'Transferred. …No one ever came back, I bet.']]
+      },
+      outroA: ['중계기에서 흘러나온 명단은 이름이 아니라 번호였다.', 'The list coming out of the relay was not names. It was numbers.']
     },
     { // 15+ 열대의 폭우 — 리우데자네이루
       radio: {
-        start: [['may', '급유선이 오는 중이에요. 90초. 케이블카로 언덕에 올라가서 구세주상 아래에서 버텨요.', 'The tanker is on its way. Ninety seconds. Take the cable car up and hold under the statue.']],
-        mid: [['haru', '도하, 들려? 비 소리 때문에 네 목소리가 반밖에 안 들려. 그래도 말할게.', 'Doha, hear me? The rain eats half your voice. I\'ll keep talking anyway.']],
-        done: [['nok', '급유 끝! 언덕을 내려와요 — 남쪽으로 가요!', 'Fueled! Come down the hill — we\'re heading south!']]
+        start: [['haru', '…여기는 하루. 이 주파수 듣는 사람 있으면, 아무 말이라도 해.', '…This is Haru. If anyone\'s on this frequency, say something. Anything.'],
+                ['doha', '하루? …하루, 나야. 들려?', 'Haru? …Haru, it\'s me. Can you hear me?'],
+                ['haru', '…여기는 하루. 이 주파수 듣는 사람 있으면, 아무 말이라도 해.', '…This is Haru. If anyone\'s on this frequency, say something. Anything.']],
+        mid: [['may', '도하… 그 방송, 도쿄에서 오는 게 아니에요. 정화 구역 송신탑이에요.', 'Doha… that broadcast isn\'t coming from Tokyo. It\'s the Clean Zone\'s tower.']],
+        t45: [['haru', '…여기는 하루. 이 주파수 듣는 사람 있으면— 아무 말이라도 해.', '…This is Haru. If anyone\'s on this frequency— say something. Anything.']],
+        done: [['nok', '급유 끝! …도하, 하루는요?', 'Fueled! …Doha, what about Haru?'],
+               ['doha', '……가자.', '……Let\'s go.']]
       },
-      outro: ['비가 그치자 해변의 파도 무늬가 다시 보였다. 두 팔을 벌린 조각 아래로, 쇄빙선이 마지막 바다로 뱃머리를 돌렸다.', 'When the rain stopped, the wave pattern on the promenade showed again. Under the open arms of the statue, the icebreaker turned toward the last sea.']
+      outro: ['녹음이었다. 도쿄 타워의 안테나는 석 달 전에 꺼졌다. 정화 구역은 하루의 목소리로 사람들을 남쪽으로 불러 모으고 있었다.', 'It was a recording. The antenna on Tokyo Tower had gone dark three months ago. The Clean Zone was using Haru\'s voice to call people south.'],
+      radioA: {
+        start: [['nok', '언덕 진료소 세 곳에 구급 가방이 있어요. 유나 해열제가 필요해요.', 'There are med bags in three clinics up the hill. Yuna needs fever medicine.']],
+        mid: [['haru', '…여기는 하루. 이 주파수 듣는 사람 있으면, 아무 말이라도 해.', '…This is Haru. If anyone\'s on this frequency, say something. Anything.'],
+              ['doha', '…하루? 왜 같은 말만 해.', '…Haru? Why do you keep saying the same thing?']],
+        done: [['nok', '됐어요. 빨리 내려와요.', 'That\'s enough. Come down, quick.']]
+      },
+      outroA: ['해열제를 먹은 유나가 잠들었다. 무전기에서는 하루의 같은 문장이 계속 흘렀다.', 'Yuna fell asleep after the medicine. On the radio, Haru\'s same sentence kept playing.']
     },
     { // 16 마지막 기지 — 남극
       radio: {
-        start: [['pa', '…본 기지는 격리 중입니다. 외부인은 헬기장에서 대기하십시오…', '…This station is under quarantine. Visitors wait at the helipad…'],
-                ['doha', '여기까지 따라왔구나.', 'You followed us all the way here.']],
-        hold: [['haru', '헬기 이륙 확인! 70초. 도하, 끝까지 말할게 — 이번에도.', 'Helicopter\'s up! Seventy seconds. Doha, I\'ll talk you all the way in — like last time.']],
-        boss: [['nok', '얼음 밑에서 뭔가 올라와요—!', 'Something\'s coming up from under the ice—!']],
-        done: [['may', '헬기 착륙! 올라타요!', 'Helicopter\'s down! Get on!']]
+        start: [['zone', '회수 대상 17번. 보호자는 대상을 인계하십시오. 저항하면 정화합니다.', 'Retrieval subject 17. Guardians must hand over the subject. Resistance will be cleansed.'],
+                ['doha', '17번… 유나야.', 'Number 17… Yuna.']],
+        hold: [['nok', '헬기 시동 걸었어요! 70초! …도하, 유나 숨이 약해요.', 'The helicopter\'s running! Seventy seconds! …Doha, Yuna\'s breathing is weak.']],
+        boss: [['zone', '정화 절차를 개시합니다. 울타리 밖의 모든 생명체는—', 'Cleansing procedure initiated. All life outside the fence—']],
+        done: [['may', '올라타요! 지금! …자리가, 하나 모자라요.', 'Get on! Now! …We\'re one seat short.']]
       },
-      outro: ['헬기가 떠오르자 기지의 불빛이 하나씩 작아졌다. 아래로는 끝없는 얼음뿐이었다.', 'As the helicopter rose, the station lights shrank one by one. Below there was nothing but ice.']
+      outro: ['헬기는 떠올랐다. 자리는 하나가 모자랐다. 도하는 유나의 손을 녹의 손에 쥐여 주고, 문을 닫았다.', 'The helicopter rose. There was one seat too few. Doha put Yuna\'s hand into Nok\'s, and shut the door.'],
+      radioA: {
+        start: [['zone', '접근하는 선박은 정지하십시오. 검역 절차를 따르십시오.', 'Approaching vessel, stop. Follow quarantine procedure.']],
+        mid: [['may', '활주로 등이 반쯤 켜졌어요. 저 탑 위에 사람이 있어요 — 총을 든.', 'The runway lights are half up. There\'s someone on that tower — with a rifle.']],
+        done: [['zone', '검역 대상 확인. 17번을 인계하십시오.', 'Quarantine subject confirmed. Hand over number 17.']]
+      },
+      outroA: ['활주로 끝 철망에 사람 키만 한 글씨가 적혀 있었다 — "돌아가라".', 'On the fence at the end of the runway, letters as tall as a person: "GO BACK".']
     }
   ],
 
   epilogue: {
-    kicker: ['에필로그', 'Epilogue'],
-    title: ['남겨진 도시', 'Left City'],
+    kicker: ['2부 에필로그', 'Part 2 Epilogue'],
+    title: ['새벽호', 'The Dawn'],
     text: [
       ['갑판에서 돌아보니 도시는 여전히 불이 꺼진 채였다. 서울도, 도쿄도, 방콕도 — 모두 그렇게 남겨졌다.', 'From the deck, the city was still dark. Seoul, Tokyo, Bangkok — all of them left behind like that.'],
       ['유나는 도하의 소매를 붙든 채 잠들어 있었다.', 'Yuna had fallen asleep holding on to Doha\'s sleeve.'],
@@ -208,15 +260,17 @@ const STORY = {
 
   /** 2부 끝 */
   epilogue2: {
-    kicker: ['2부 에필로그', 'Part 2 Epilogue'],
-    title: ['새벽', 'Dawn'],
+    kicker: ['4부 에필로그', 'Part 4 Epilogue'],
+    title: ['남겨진 사람', 'The One Left Behind'],
     text: [
-      ['쇄빙선 갑판 위로 해가 떴다. 이 계절의 남극에는 밤이 오지 않는다고 했다.', 'The sun came up over the icebreaker\'s deck. Down here, they said, this season had no night.'],
-      ['기지의 연구원들은 녹의 상자를 열어 보고 한참 말이 없었다. 그리고 실험실의 불을 켰다.', 'The station\'s researchers opened Nok\'s crates and said nothing for a long time. Then they switched on the lab lights.'],
-      ['무전기가 울렸다. "…여기는 하루. 들리면, 아무 말이라도 해."', 'The radio crackled. "…This is Haru. If you can hear me, say something."'],
-      ['도하는 송신 버튼을 눌렀다. "들려. 밤이 끝났어."', 'Doha pressed the button. "I hear you. The night is over."']
+      ['헬기의 불빛이 눈보라 속으로 사라졌다. 얼음 위에는 도하 혼자 남았다.', 'The helicopter\'s light vanished into the blizzard. On the ice, Doha was alone.'],
+      ['울타리 너머 탑에서 방송이 흘러나왔다. "…여기는 하루. 이 주파수 듣는 사람 있으면, 아무 말이라도 해."', 'From the tower beyond the fence, the broadcast played on. "…This is Haru. If anyone\'s on this frequency, say something. Anything."'],
+      ['도하는 송신 버튼을 눌렀다. 아무도 듣지 않는다는 것을 알면서.', 'Doha pressed the button, knowing no one was listening.'],
+      ['"들려. 나 아직 여기 있어."', '"I hear you. I\'m still here."'],
+      ['남겨진 도시는, 마지막에 사람이었다.', 'In the end, what was left behind was a person.']
     ]
   },
+
 
   /** 도전 과제 — [제목, 설명] 한·영 */
   /* 좀비 도감 — 『좀비 서바이벌 가이드』 같은 현장 기록 문체. 마주치면(불빛에 비추거나 쓰러뜨리면) 열린다.
@@ -370,17 +424,17 @@ const STORY = {
       text: ['손님 없음. 물만 오름. 노는 문 옆에 두고 간다.', 'No passengers. Only the water rising. Left the oar by the door.'] },
     { id: 'c14b', ch: 8, title: ['종탑 관리 기록', 'Bell tower log'],
       text: ['중계기 점검 완료. 배터리 72시간. 그 뒤로는 종을 칠 것.', 'Relay checked. Battery: 72 hours. After that, ring the bell.'] },
-    { id: 'c15a', ch: 9, title: ['온천 수영장 명부', 'Hot-pool sign-in sheet'],
-      text: ['오늘 입장 0명. 물은 여전히 따뜻함.', 'Visitors today: 0. The water is still warm.'] },
-    { id: 'c15b', ch: 9, title: ['쇄빙선 화물 목록', 'Icebreaker manifest'],
-      text: ['연료 · 식량 · 연구 장비 · 승객 40명. 행선지: 남극 반도 연구 기지.', 'Fuel · food · research gear · 40 passengers. Destination: Antarctic Peninsula research station.'] },
-    { id: 'c18a', ch: 10, title: ['해변 구조대 일지', 'Lifeguard log'],
-      text: ['04:10 파도 높음. 04:30 사람들이 언덕으로 감. 05:00 나도 감. 구조대 깃발은 내리지 않았다.', '04:10 high surf. 04:30 people heading up the hill. 05:00 me too. Left the lifeguard flag up.'] },
-    { id: 'c18b', ch: 10, title: ['케이블카 표', 'Cable car ticket'],
-      text: ['편도. 날짜가 지워졌다. 뒷면에 아이 글씨 — "위에서는 다 보여."', 'One way. The date is smudged. On the back, in a child\'s hand — "You can see everything from up there."'] },
-    { id: 'c16a', ch: 11, title: ['기지 격리 수칙', 'Station quarantine rules'],
-      text: ['외부인은 헬기장에서 48시간 대기. 증상이 없으면 입실. 예외 없음.', 'Visitors wait 48 hours at the helipad. No symptoms, then you may enter. No exceptions.'] },
+    { id: 'c15a', ch: 9, title: ['선별 명부', 'Sorting roster'],
+      text: ['증상 없음 — 승선. 미열 — 대기. 기침 — 회수. 대기 칸의 이름은 모두 줄이 그어져 있다.', 'No symptoms — board. Low fever — wait. Cough — retrieve. Every name in the "wait" column has been struck through.'] },
+    { id: 'c15b', ch: 9, title: ['정화 구역 전단', 'Clean Zone flyer'],
+      text: ['식량 · 전기 · 의료가 있습니다. 단, 감염 의심자는 보호 시설로 이송됩니다.', 'food, power, medicine. Suspected carriers will be transferred to a protective facility.'] },
+    { id: 'c18a', ch: 10, title: ['송출 일지', 'Broadcast log'],
+      text: ['송출원: 정화 구역 송신탑. 음성: 하루(녹음). 반복 주기 41초. 효과: 남하 인원 +38%.', 'source: Clean Zone tower. Voice: Haru (recorded). Loop: 41 s. Effect: southbound arrivals +38%.'] },
+    { id: 'c18b', ch: 10, title: ['방파제의 낙서', 'Breakwater graffiti'],
+      text: ['"하루는 죽었다. 남쪽으로 가지 마."', '"Haru is dead. Don\'t go south."'] },
+    { id: 'c16a', ch: 11, title: ['회수 명단', 'Retrieval list'],
+      text: ['17. 한유나. 반응: 양성(항체 보유). 처리: 연구 이관. 보호자: 해당 없음.', '17. Han Yuna. Response: positive (antibodies). Disposition: transfer to research. Guardian: none.'] },
     { id: 'c16b', ch: 11, title: ['연구원의 메모', 'Researcher\'s note'],
-      text: ['샘플 17번 반응 있음. 더 필요하다. 누가 와 줄까.', 'Sample 17 is responding. We need more. Will anyone come?'] }
+      text: ['샘플 17번 반응 있음. 더 필요하다. 방송을 계속 내보낼 것.', 'Sample 17 is responding. We need more. Keep the broadcast running.'] }
   ]
 };

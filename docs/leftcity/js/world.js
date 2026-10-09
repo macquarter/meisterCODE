@@ -48,6 +48,9 @@ class World {
     this.lot = new Uint16Array(N);     // 건물 필지 번호 — 지붕 색을 필지마다 다르게
     this.landmarks = []; this.signs = []; this.props = []; this.decor = [];
 
+    // 지하철 · 건물 안(rc.45) — 도시 대신 터널 · 승강장 · 대합실, 또는 복도 · 방. 벽은 낮고 비는 내리지 않는다
+    this.indoor = opts.map === 'subway' || opts.map === 'interior' ? opts.map : null;
+    if (this.indoor) { this.layoutIndoor(rng, blocks, this.indoor); this.pickEndpoints(); this.indexProps(); this.buildShapes(); this.terr = new Uint8Array(this.w * this.h); this.terrain = null; return; }
     this.layout(rng, blocks, opts);
     this.connectLandmarks();
     this.placeProps(rng, blocks);
@@ -426,6 +429,81 @@ class World {
       const h = ((x * 7919 + y * 104729) >>> 0);
       this.signs.push({ x, y, side, text: T.signs[h % T.signs.length], col: T.signCols[(h >> 3) % T.signCols.length], ph: (h % 100) / 16 });
     }
+  }
+
+  /**
+   * 실내 지도(rc.45).
+   * subway — 동서로 달리는 선로 터널 셋(3칸), 터널 옆 승강장(2칸), 승강장을 잇는 남북 환승 통로와 대합실.
+   *          선로 위엔 멈춘 전동차(화차 모형)가 길을 막아 승강장으로 돌아가게 한다.
+   * interior — 건물 한 층: 격자 복도(2칸) 사이를 방으로 나누고, 방마다 문 한두 개. 큰 홀 몇 개.
+   * 둘 다 지도는 원환 그대로 이어 붙는다. 벽 = 건물 칸(낮게 그린다), 바닥 = 광장 칸(타일) / 선로 = 아스팔트 칸
+   */
+  layoutIndoor(rng, blocks, kind) {
+    const W = this.w, H = this.h;
+    const floor = (x, y, w, h, deco) => { for (let yy = y; yy < y + h; yy++) for (let xx = x; xx < x + w; xx++) { const i = this.idx(xx, yy); this.grid[i] = T_ROAD; this.deco[i] = deco; } };
+    let lot = 1;
+    if (kind === 'subway') {
+      const n = 3, gap = Math.floor(H / n);
+      const tunnels = [];
+      for (let k = 0; k < n; k++) {
+        const y = k * gap + 4 + Math.floor(rng() * (gap - 12));
+        floor(0, y, W, 3, D_ASPHALT);                       // 선로
+        for (let x = 0; x < W; x++) this.dirm[this.idx(x, y + 1)] = 2;
+        tunnels.push(y);
+        // 승강장 — 터널 한쪽(번갈아 위 · 아래)에 14‒20칸 길이로 두세 곳
+        for (let s0 = Math.floor(rng() * 12); s0 < W - 20; s0 += 30 + Math.floor(rng() * 14)) {
+          const len = 14 + Math.floor(rng() * 7), up = (k + (s0 > W / 2 ? 1 : 0)) % 2 === 0;
+          floor(s0, up ? y - 2 : y + 3, len, 2, D_PLAZA);
+        }
+      }
+      // 환승 통로 — 남북으로 2칸, 대합실(넓은 방)을 지나 위아래 터널을 잇는다
+      for (let x = 6 + Math.floor(rng() * 8); x < W - 6; x += 16 + Math.floor(rng() * 10)) {
+        floor(x, 0, 2, H, D_PLAZA);
+        if (rng() < 0.6) { const hy = Math.floor(rng() * (H - 12)), hw = 8 + Math.floor(rng() * 5), hh = 6 + Math.floor(rng() * 4); floor(x - Math.floor(hw / 2), hy, hw, hh, D_PLAZA); }
+      }
+      // 멈춘 전동차 — 선로 가운데 줄에 4‒6칸. 양옆 1칸만 남아 비집고 지나가거나 승강장으로 돈다
+      this.props = [];
+      for (const y of tunnels) for (let x0 = 8 + Math.floor(rng() * 20); x0 < W - 10; x0 += 26 + Math.floor(rng() * 18)) {
+        const len = 4 + Math.floor(rng() * 3), tiles = [];
+        for (let i = 0; i < len; i++) { const ix = this.idx(x0 + i, y + 1); if (this.grid[ix] !== T_ROAD) { tiles.length = 0; break; } tiles.push([x0 + i, y + 1]); }
+        if (tiles.length < 3) continue;
+        for (const [tx, ty] of tiles) { const i = this.idx(tx, ty); this.grid[i] = T_WALL; this.deco[i] = D_PROP; }
+        this.props.push({ x: (x0 + tiles.length / 2) * TILE, y: (y + 1.5) * TILE, kind: 'wagon', a: 0, tiles, col: ['#5a6a72', '#6a5a4a', '#4a5a6a'][(rng() * 3) | 0], w: tiles.length * TILE - 10, h: 34 });
+      }
+    } else {
+      // 복도 격자 — 9‒12칸마다 2칸 복도
+      const xs = [], ys = [];
+      for (let x = 1 + Math.floor(rng() * 4); x < W - 4; x += 9 + Math.floor(rng() * 4)) { xs.push(x); floor(x, 0, 2, H, D_PLAZA); }
+      for (let y = 1 + Math.floor(rng() * 4); y < H - 4; y += 9 + Math.floor(rng() * 4)) { ys.push(y); floor(0, y, W, 2, D_PLAZA); }
+      xs.push(W + xs[0]); ys.push(H + ys[0]);
+      for (let i = 0; i + 1 < xs.length; i++) for (let j = 0; j + 1 < ys.length; j++) {
+        const bx = xs[i] + 2, by = ys[j] + 2, bw = xs[i + 1] - bx, bh = ys[j + 1] - by;
+        if (bw < 4 || bh < 4) continue;
+        if (rng() < 0.12) { floor(bx, by, bw, bh, D_PLAZA); continue; }          // 홀 · 로비
+        // 방 — 블록을 벽 1칸으로 두세 개로 가르고, 방마다 복도 쪽 문 하나(가끔 둘)
+        const split = bw >= bh ? 'v' : 'h', parts = 1 + Math.floor(rng() * 2);
+        const rooms = [];
+        if (parts === 1) rooms.push([bx + 1, by + 1, bw - 2, bh - 2]);
+        else if (split === 'v') { const c = Math.floor(bw / 2); rooms.push([bx + 1, by + 1, c - 1, bh - 2], [bx + c + 1, by + 1, bw - c - 2, bh - 2]); }
+        else { const c = Math.floor(bh / 2); rooms.push([bx + 1, by + 1, bw - 2, c - 1], [bx + 1, by + c + 1, bw - 2, bh - c - 2]); }
+        for (const [rx, ry, rw, rh] of rooms) {
+          if (rw < 1 || rh < 1) continue;
+          floor(rx, ry, rw, rh, D_PLAZA);
+          const doors = rng() < 0.35 ? 2 : 1;
+          for (let d = 0; d < doors; d++) {
+            const side = (Math.floor(rng() * 4) + d * 2) % 4;
+            if (side === 0) floor(rx + Math.floor(rng() * rw), ry - 1, 1, 1, D_PLAZA);
+            else if (side === 1) floor(rx + Math.floor(rng() * rw), ry + rh, 1, 1, D_PLAZA);
+            else if (side === 2) floor(rx - 1, ry + Math.floor(rng() * rh), 1, 1, D_PLAZA);
+            else floor(rx + rw, ry + Math.floor(rng() * rh), 1, 1, D_PLAZA);
+          }
+        }
+      }
+      this.props = [];
+    }
+    // 벽 칸에 필지 번호(벽 색 · 높이 계산용)
+    for (let i = 0; i < W * H; i++) if (this.grid[i] === T_WALL && this.deco[i] === D_BUILDING) this.lot[i] = 1 + ((i * 2654435761) >>> 28);
+    this.vlines = []; this.hlines = []; this.blocks = [];
   }
 
   /** 필지 나누기 — 큰 땅은 둘로 쪼개고, 가끔 사이에 1칸 골목을 낸다 */

@@ -8,6 +8,7 @@
 const LEVELS = [
   {
     name: '첫 번째 밤',
+    part: 1,
     brief: '서울. 대피 방송이 끝난 지 아홉 시간. 야간 배송을 마치고 지하에서 올라왔을 때 도시는 이미 떠난 뒤였다. ' +
            '광화문 안뜰이 마지막 구조 집결지라고 했다. 가진 건 권총 한 자루와 손전등뿐이다.',
     goals: ['광화문 안뜰까지 이동', '감염체가 떨어뜨린 무기를 주울 것'],
@@ -22,6 +23,7 @@ const LEVELS = [
   },
   {
     name: '마지막 수송',
+    part: 1,
     brief: '김 선장의 어선이 한강 하구의 대피 기지에 닿았다. 바다를 건너기엔 기름이 모자라고, 기지의 연료고는 잠겨 있다. ' +
            '출입 카드 세 장이 막사와 창고에 흩어져 있다. 대피를 지휘하던 곳이다 — 무엇이 이곳을 끝냈는지는 곧 보게 된다.',
     goals: ['출입 카드 3장 확보', '본영 헬기장으로 이동'],
@@ -36,6 +38,7 @@ const LEVELS = [
   },
   {
     name: '거대한 것',
+    part: 1,
     brief: '출항 전에 할 일이 하나 남았다. 하루의 목소리가 남쪽까지 닿으려면 도쿄 타워에 안테나를 걸어야 한다. ' +
            '공원 관리소 무전의 마지막 단어는 "크다"였다. 탄창 하나로는 멈추지 않는 개체가 이 구역을 돌아다닌다.',
     goals: ['감염체 30기 소탕', '집결지로 이동'],
@@ -50,6 +53,7 @@ const LEVELS = [
   },
   {
     name: '기다리는 것',
+    part: 2,
     brief: '짜오프라야강 건너 왓 아룬 쪽에 진료소의 불빛이 보인다. 진짜 사람의 불빛이다. ' +
            '그런데 다리 앞에 무언가가 서 있다. 저것은 걷지 않는다 — 기다리고 있다.',
     goals: ['그것을 쓰러뜨리고 다리를 건너라'],
@@ -65,6 +69,7 @@ const LEVELS = [
   },
   {
     name: '새벽호',
+    part: 2,
     brief: '새벽 네 시. 3번 부두까지는 도시 하나를 가로질러야 한다. 배가 접안하는 동안 부두를 지키고, ' +
            '현문이 내려오면 그때 오른다. 이 도시의 모든 것이 소리를 듣고 몰려올 것이다.',
     goals: ['3번 부두로 이동', '접안할 때까지 부두를 지킬 것', '현문으로 승선'],
@@ -81,7 +86,7 @@ const LEVELS = [
   /* ── 2부: 새벽호의 항해 — 지역마다 땅과 날씨가 다르다 ── */
   {
     name: '강가의 계단',
-    part: 2,
+    part: 3,
     brief: '새벽호는 서쪽으로 뱃머리를 돌렸다. 녹의 진료소에 약이 떨어졌다. 바라나시의 병원 창고에 항바이러스제가 남아 있다는 교신. ' +
            '우기의 골목은 진흙탕이다 — 발이 빠지면 느려지고, 저것들도 느려진다.',
     goals: ['약품 상자 4개 확보', '강가의 계단 연못으로 이동'],
@@ -96,7 +101,7 @@ const LEVELS = [
   },
   {
     name: '모래 폭풍',
-    part: 2,
+    part: 3,
     brief: '수에즈로 가는 연료를 채우려면 카이로의 저장고 문을 열어야 한다. 원격 개방까지 100초 — 모래 폭풍이 몰려오는 중이다. ' +
            '폭풍이 지나가는 동안 손전등은 반밖에 닿지 않는다. 모래 더미를 밟으면 발이 묶인다.',
     goals: ['100초 생존', '피라미드 아래 집결지로 이동'],
@@ -111,7 +116,7 @@ const LEVELS = [
   },
   {
     name: '두 대륙 사이',
-    part: 2,
+    part: 3,
     brief: '이스탄불. 새벽호의 기관이 수에즈를 지나며 망가졌다. 갈라타 부두 정비창에 부품이 남아 있다는 교신 — 보스포루스를 건너기 전에 챙겨야 한다. ' +
            '비 온 뒤 언덕의 돌길에는 진흙이 고였다. 발이 빠지면 느려지고, 저것들도 느려진다.',
     goals: ['기관 부품 3개 확보', '아야 소피아 앞마당으로 이동'],
@@ -126,7 +131,7 @@ const LEVELS = [
   },
   {
     name: '잠긴 도시',
-    part: 2,
+    part: 3,
     brief: '지중해. 베네치아의 비상 종탑 중계기 셋이 아직 살아 있다면, 북쪽 바다의 생존자들과 이어진다. ' +
            '조수가 골목까지 들어왔다. 얕은 물은 모두의 발을 늦춘다 — 내 발도, 저것들의 발도.',
     goals: ['중계기 3대 가동 — 켜질 때까지 곁에 머물 것', '가동 후 광장으로 이동'],
@@ -140,10 +145,10 @@ const LEVELS = [
     supplies: { ammo: 9, shells: 4, rounds: 2, medkit: 4, battery: 3, nade: 3 }
   },
   {
-    name: '불의 땅',
-    part: 2,
-    brief: '레이캬비크. 남쪽으로 가는 쇄빙선이 교회 아래 부두에서 기다린다. 도시는 갈라진 땅 위에 있다 — ' +
-           '붉게 빛나는 금은 밟지 말 것. 저것들은 모른다. 쫓아오는 것들을 그 위로 끌어들이며 건너라.',
+    name: '선별',
+    part: 4,
+    brief: '레이캬비크. 남극으로 가는 쇄빙선은 떠나기 전 부두에서 "선별"을 한다. 손목에 번호를 쓴 사람들이 줄을 섰다. ' +
+           '유나의 열은 내리지 않았다. 교회 앞까지 — 붉게 빛나는 금은 밟지 말고, 쫓아오는 것들을 그 위로 끌어들이며 건너라.',
     goals: ['용암 지대를 지나 교회 앞 집결지까지'],
     seed: 14713, weepers: 1, blocks: 9, city: 'reykjavik', landmarks: ['hallgrim', 'geyser', 'gasstation'], goal: 'hallgrim',
     objective: { type: 'escape' },
@@ -155,10 +160,10 @@ const LEVELS = [
     supplies: { ammo: 9, shells: 5, rounds: 3, medkit: 4, battery: 4, nade: 4 }
   },
   {
-    name: '열대의 폭우',
-    part: 2,
-    brief: '리우데자네이루. 쇄빙선이 남극으로 가기 전 마지막 연료를 넣는 항구다. 급유선이 오기까지 90초 — 언덕 위 구세주상 아래에서 버텨야 한다. ' +
-           '폭우가 해변의 모래를 길까지 밀어 올렸다. 모래 더미를 밟으면 발이 묶인다.',
+    name: '빈 목소리',
+    part: 4,
+    brief: '리우데자네이루. 마지막 급유 — 언덕 위 구세주상 아래에서 90초를 버티면 된다. ' +
+           '그런데 오늘 아침부터 하루의 방송이 이상하다. 같은 말을, 같은 자리에서 끊으며 되풀이한다.',
     goals: ['90초 생존', '구세주상 아래 집결지로 이동'],
     seed: 17929, weepers: 1, blocks: 9, city: 'rio', landmarks: ['redeemer', 'copacabana', 'gasstation'], goal: 'redeemer',
     objective: { type: 'survive', time: 90 },
@@ -170,10 +175,10 @@ const LEVELS = [
     supplies: { ammo: 10, shells: 5, rounds: 3, medkit: 5, battery: 4, nade: 4 }
   },
   {
-    name: '마지막 기지',
-    part: 2,
-    brief: '남극. 감염이 닿지 않은 마지막 곳이라던 연구 기지는 조용했다. 헬기장까지 가서, 헬기가 내릴 때까지 버텨라. ' +
-           '얼음판 위에서는 멈추려 해도 미끄러진다 — 눈보라가 오면 불빛도 삼켜진다. 그리고 얼음 밑에서 무언가 올라온다.',
+    name: '정화 구역',
+    part: 4,
+    brief: '남극. 약속된 마지막 피난처의 문은 열려 있지 않았다 — 철망과 감시탑, 그리고 "회수 대상" 명단. 맨 위에 유나의 이름이 있다. ' +
+           '헬기장까지 가서 헬기를 띄워라. 얼음판은 미끄럽고, 눈보라는 불빛을 삼키고, 얼음 밑에서 무언가 올라온다.',
     goals: ['헬기장으로 이동', '헬기가 내릴 때까지 헬기장을 지킬 것', '헬기에 탑승'],
     seed: 15821, weepers: 1, blocks: 9, city: 'antarctic', landmarks: ['station', 'icebreaker'], goal: 'station',
     approach: 60,
@@ -189,27 +194,27 @@ const LEVELS = [
 /* 장마다 두 미션 — A(진입): 같은 도시의 다른 구역에서 목표가 다른 짧은 판, B(본편): 위의 이야기 미션.
    A 를 마쳐야 B 가 열리고, B 를 마치면 다음 장으로. A 의 지도 · 목표 · 변수는 본편과 겹치지 않게 골랐다 */
 const STAGE_A = [
-  { name: '지하 상가', brief: '지하에서 올라오기 전에 챙길 것이 있다. 무너진 상가 어딘가에 구급 가방 두 개가 남아 있을 것이다. 휴대폰에는 동생 유나의 음성 메시지가 하나 — 아직 듣지 못했다.',
+  { name: '지하 상가', map: 'subway', brief: '지하에서 올라오기 전에 챙길 것이 있다. 무너진 상가 어딘가에 구급 가방 두 개가 남아 있을 것이다. 휴대폰에는 동생 유나의 음성 메시지가 하나 — 아직 듣지 못했다.',
     goals: ['구급 가방 2개 확보', '지상 출구로 이동'], objective: { type: 'collect', count: 2, item: '구급 가방' }, blocks: 7, spawnK: 0.7 },
   { name: '검문소의 밤', brief: '기지로 가는 길목의 검문소. 유나의 학교 버스도 이 길을 지났을까. 차단기가 올라갈 때까지 초소를 지켜야 한다.',
     goals: ['75초 버티기', '열린 차단문으로 이동'], objective: { type: 'survive', time: 75 }, blocks: 8 },
-  { name: '시부야 뒷골목', brief: '하루의 방송을 남쪽으로 이으려면 골목의 비상 중계기 두 대부터 살려야 한다.',
+  { name: '시부야 방송국', map: 'interior', brief: '하루의 방송을 남쪽으로 이으려면 방송국 건물 안 비상 중계기 두 대부터 살려야 한다. 복도마다 잠든 것들 — 감시등에 걸리면 경보가 울린다.',
     goals: ['중계기 2대 가동', '집결지로 이동'], objective: { type: 'signal', count: 2, hold: 5 }, blocks: 8 },
   { name: '수상 시장', brief: '배를 띄울 연료가 없다. 물 위 시장의 창고에 연료통이 남아 있다.',
     goals: ['연료통 3개 확보', '선착장으로 이동'], objective: { type: 'collect', count: 3, item: '연료통' }, blocks: 8,
     twist: { type: 'airdrop', at: 35, brief: '변수: 보급 투하 — 붉은 섬광이 떨어진 곳을 60초 안에 열면 장비를 얻는다(선택)' } },
-  { name: '항만 창고', brief: '부두로 가는 창고 거리가 감염체로 막혔다. 길을 쓸어 내야 새벽호가 닿을 수 있다.',
+  { name: 'MRT 터널', map: 'subway', brief: '부두로 가는 지상길은 무리로 막혔다. 멈춘 지하철 터널을 따라 간다 — 길을 쓸어 내야 새벽호가 닿을 수 있다.',
     goals: ['감염체 25기 소탕', '집결지로 이동'], objective: { type: 'purge', count: 25 }, blocks: 8 },
   { name: '가트의 계단', brief: '강가의 계단을 따라 약품 창고가 있는 구역까지 내려가야 한다. 연기 너머로 길을 찾을 것.',
     goals: ['약품 창고 구역으로 탈출'], objective: { type: 'escape' }, blocks: 8 },
   { name: '칸 엘 칼릴리', brief: '모래 폭풍 전에 물을 챙겨야 한다. 시장 골목에 물통 세 개가 흩어져 있다.',
     goals: ['물통 3개 확보', '집결지로 이동'], objective: { type: 'collect', count: 3, item: '물통' }, blocks: 8 },
-  { name: '그랜드 바자르', brief: '지붕 덮인 시장이 무리의 둥지가 됐다. 기관 부품을 찾으러 가려면 먼저 이곳을 비워야 한다.',
+  { name: '그랜드 바자르', map: 'interior', brief: '지붕 덮인 시장이 무리의 둥지가 됐다. 기관 부품을 찾으러 가려면 먼저 이곳을 비워야 한다.',
     goals: ['감염체 30기 소탕', '집결지로 이동'], objective: { type: 'purge', count: 30 }, blocks: 8,
     twist: { type: 'airdrop', at: 30, brief: '변수: 보급 투하 — 붉은 섬광이 떨어진 곳을 60초 안에 열면 장비를 얻는다(선택)' } },
   { name: '리알토 다리', brief: '물이 차오르기 전에 다리를 건너 광장 쪽 구역으로 넘어가야 한다.',
     goals: ['다리 건너 구역으로 탈출'], objective: { type: 'escape' }, blocks: 8 },
-  { name: '지열 발전소', brief: '발전소의 중계기 두 대를 살리면 섬 전체에 경보 방송을 띄울 수 있다.',
+  { name: '지열 발전소', map: 'interior', brief: '발전소 안의 중계기 두 대를 살리면 정화 구역의 주파수를 엿들을 수 있다. 통제실 감시등은 아직 돌고 있다.',
     goals: ['중계기 2대 가동', '집결지로 이동'], objective: { type: 'signal', count: 2, hold: 6 }, blocks: 8 },
   { name: '언덕의 계단', brief: '언덕 마을의 진료소 세 곳에 구급 가방이 남아 있다. 폭우가 오기 전에.',
     goals: ['구급 가방 3개 확보', '집결지로 이동'], objective: { type: 'collect', count: 3, item: '구급 가방' }, blocks: 8 },
@@ -221,7 +226,7 @@ function stageLevel(i) {
   const L = LEVELS[i], A = STAGE_A[i], k = A.spawnK || 0.85;
   return Object.assign({}, L, {
     name: A.name, brief: A.brief, goals: A.goals, objective: A.objective, twist: A.twist || null,
-    seed: (L.seed * 7 + 101) % 99991, blocks: A.blocks || L.blocks, landmarks: [], goal: undefined, stage: 0,
+    seed: (L.seed * 7 + 101) % 99991, blocks: A.blocks || L.blocks, landmarks: [], goal: undefined, stage: 0, map: A.map || undefined,
     spawn: { initial: Math.round(L.spawn.initial * k), rate: L.spawn.rate * k, max: Math.round(L.spawn.max * k) }
   });
 }

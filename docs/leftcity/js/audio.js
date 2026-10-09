@@ -408,6 +408,7 @@ const SFX = (() => {
     /** 빗소리 루프 시작 */
     rain(on) {
       if (!enabled || !ctx) return;
+      if (on && weather === 'indoor') return;                  // 실내 — 빗소리 대신 고요(rc.45)
       if (on && !rainSrc) {
         rainSrc = ctx.createBufferSource();
         rainSrc.buffer = rainBuf || noiseBuf; rainSrc.loop = true;

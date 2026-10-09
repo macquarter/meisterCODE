@@ -161,10 +161,27 @@ const THEMES = {
     roofs: ['#2a2e33', '#7a2a24', '#2a3a4a', '#33373c'],
     streetDecor: ['bin', 'bike']
   },
+  /* 실내(rc.45) — 지하철 역사 · 건물 한 층. 비 · 번개 없음, 벽은 낮은 콘크리트 · 타일. 간판 대신 안내판 몇 개 */
+  subway: {
+    key: 'subway', name: '지하철', river: null, weather: 'indoor', indoor: true,
+    signs: ['출구', 'EXIT', '승강장', '비상구', '환승', 'B2'], signCols: ['#ffd54f', '#4fc3f7', '#81c784'],
+    carCols: ['#5a6a72'], busCol: '#5a6a72', small: null,
+    walls: [['#3c4248', 0], ['#454b50', 0], ['#3a3f44', 0], ['#4a4a44', 0]],
+    roofs: ['#15181c', '#17191d', '#14171b'],
+    streetDecor: []
+  },
+  interior: {
+    key: 'interior', name: '건물 안', river: null, weather: 'indoor', indoor: true,
+    signs: ['비상구', 'EXIT', '3F', '통제실', '계단', 'B1'], signCols: ['#7ee08f', '#ffffff'],
+    carCols: ['#4a4a4a'], busCol: '#4a4a4a', small: null,
+    walls: [['#4e4a44', 0], ['#46484c', 0], ['#504840', 0], ['#3e4246', 0]],
+    roofs: ['#16171a', '#18181b', '#151619'],
+    streetDecor: []
+  },
   /* 남극 연구 기지 — 기둥 위의 조립식 동, 레이더 돔, 연료 탱크. 얼음판은 미끄럽고 눈보라가 시야를 지운다 */
   antarctic: {
     key: 'antarctic', street: 'snow', name: '남극 기지', river: null, terrain: 'ice', weather: 'blizzard',
-    signs: ['LAB', 'MESS', 'GARAGE', 'MED', 'COMMS', 'FUEL', 'DORM 1', 'DORM 2', 'STORES', 'WORKSHOP'],
+    signs: ['CLEAN ZONE', 'QUARANTINE', 'LAB', 'MED', '정화 구역', '검역', '회수', '진입 금지', 'GRADE A', 'COMMS'],   // 4부 — 피난처가 아니라 검역소(rc.45)
     signCols: ['#ffffff', '#ff8a65', '#80d8ff', '#fff176', '#a5d6a7', '#ef9a9a'],
     carCols: ['#e8641a', '#c8201a', '#e0b83a', '#c9ccd1', '#2f4a63', '#e8641a'],     // 주황 · 빨강 설상차
     busCol: '#c8201a', small: null,

@@ -22,7 +22,7 @@
 })();
 
 /** 제품 정보 — 이름 · 판. 출시 이름이 정해지면 여기와 index.html · manifest 를 함께 바꾼다 */
-const APP = { name: 'LEFT CITY', subtitle: '남겨진 도시', version: '1.0.0-rc.44' };
+const APP = { name: 'LEFT CITY', subtitle: '남겨진 도시', version: '1.0.0-rc.45' };
 const APP_VERSION = APP.version;
 
 /** 난이도 배수. 1 = 기준값(잔존) */
@@ -65,7 +65,7 @@ const SETTINGS = (() => {
   const KEY = 'aftermath.settings';
   const DEF = {
     volume: 55,            // 0‒100
-    brightness: 50,        // 0‒100, 밤의 어둠 농도 (원작 1.1 업데이트의 밝기 조절)
+    brightness: 35,        // 0‒100 (rc.45 추천 35), 밤의 어둠 농도 (원작 1.1 업데이트의 밝기 조절)
     difficulty: 'normal',
     flash: true,           // 피격 섬광 · 번개 · 총구 화염
     shake: true,           // 화면 흔들림
@@ -86,7 +86,7 @@ const SETTINGS = (() => {
     aspect: 'fill',        // 화면 비율: fill = 창을 꽉 채운다(어떤 비율이든) · wide = 16:9 띠(레터박스)
     speed: 3,              // 게임 속도 1 · 2 · 3배 — 3 이 rc.21 까지의 빠르기(처음 정한 균형). 낮추면 모든 것이 그만큼 느리게
     contrast: 80,          // 화면 대비 30‒100: 80 = 기본(필터 없음). 100 = 1.25배 · 30 = 0.38배
-    view3d: 80,            // 3D 시점 거리 0‒100: 100 = 가장 멀리(rc.16 의 크기) · 0 = 아주 가까이(인물이 약 2.7배). 추천 80 — 가로 화면에서 손전등 끝이 화면 끝에 닿는다
+    view3d: 60,            // (rc.45 추천 60) 3D 시점 거리 0‒100: 100 = 가장 멀리(rc.16 의 크기) · 0 = 아주 가까이(인물이 약 2.7배). 추천 80 — 가로 화면에서 손전등 끝이 화면 끝에 닿는다
     tlayout: '',           // 터치 버튼 배치(JSON) — { L: 가로 화면, P: 세로 화면 } 각각 { 버튼: [x, y] } 화면 비율 좌표. 빈 값 = 기본
     cam: 'near',           // 카메라 거리: near = 가까이(원작 예고편 거리) · mid · far = 멀리(예전 거리)
     lang: 'auto'           // auto = 브라우저 언어(한국어면 한국어, 아니면 영어) · ko · en

@@ -41,7 +41,11 @@ const SFX = (() => {
     // 일시정지에서는 소리를 낮추고 먹먹하게(문 너머로 듣는 것처럼) — 멈춘 화면 위로 빗소리 · 음악이 그대로 쏟아지지 않게
     duckF = ctx.createBiquadFilter(); duckF.type = 'lowpass'; duckF.frequency.value = 20000; duckF.Q.value = 0.5;
     master.connect(duckF); duckF.connect(lim); lim.connect(ctx.destination);
+    // 귀 울림(rc.41) — 가까운 폭발 뒤 2초 남짓 모든 소리가 먹먹했다가 돌아온다(일시정지의 먹먹함과 따로)
+    ringF = ctx.createBiquadFilter(); ringF.type = 'lowpass'; ringF.frequency.value = 20000; ringF.Q.value = 0.4;
+    master.disconnect(); master.connect(ringF); ringF.connect(duckF);
     noiseBuf = makeNoise(2.0);
+    buildSpace();
     rainBuf = makeRain(7.0);
     // 앱 전환 · 알림창 · 전화로 오디오가 멈췄다가 돌아오면 다시 깨운다(예전엔 다음 터치 전까지 빗소리 · 효과음이 멈춰 있었다)
     const wake = () => resume();
@@ -50,6 +54,64 @@ const SFX = (() => {
     window.addEventListener('focus', wake);
     for (const ev of ['touchend', 'pointerdown', 'keydown']) window.addEventListener(ev, wake, { capture: true, passive: true });
     ctx.onstatechange = () => { if (ctx.state !== 'running' && !document.hidden) setTimeout(wake, 250); };
+  }
+
+  /* ── 공간(rc.41) — 도시의 메아리 ───────────────
+     예전엔 모든 소리가 마른(dry) 소리였다 — 골목에서 쏘든 대로에서 쏘든 똑같이. 이제 큰 소리는 두 갈래 메아리로 보낸다:
+       잔향(convolver) — 넓은 길일수록 길고 크게 굴러간다(건물 사이를 오가는 꼬리)
+       되울림(slapback) — 좁은 골목일수록 벽에서 '탁' 하고 짧게 되돌아온다
+     눈은 소리를 먹고(잔향 줄임), 화성은 공기가 엷다. 길이 얼마나 트였는지는 게임이 0.25초마다 알려 준다(space) */
+  let revIn = null, revOut = null, slapOut = null, ringF = null;
+  const SPACE = { open: 0.5, damp: 1, wet: 1 };
+  function makeIR(sec) {
+    const sr = ctx.sampleRate, len = Math.floor(sr * sec), buf = ctx.createBuffer(2, len, sr);
+    for (let c = 0; c < 2; c++) {
+      const d = buf.getChannelData(c); let lp = 0;
+      for (let i = 0; i < len; i++) {
+        const t = i / sr, k = Math.min(0.92, 0.25 + t * 0.55);          // 뒤로 갈수록 높은 소리가 먼저 사라진다
+        lp = lp * k + (Math.random() * 2 - 1) * (1 - k);
+        d[i] = lp * Math.exp(-t * 2.4) * (t < 0.012 ? t / 0.012 : 1) * 2.2;
+      }
+      // 이른 반사 — 건물 벽 몇 개
+      for (const [ms, a] of [[23, 0.5], [41, 0.35], [67, 0.28], [97, 0.2]]) { const j = Math.floor(sr * (ms + c * 3) / 1000); if (j < len) d[j] += a * (c ? -1 : 1); }
+    }
+    return buf;
+  }
+  function buildSpace() {
+    try {
+      revIn = ctx.createGain(); revIn.gain.value = 1;
+      const conv = ctx.createConvolver(); conv.buffer = makeIR(TOUCH ? 1.7 : 2.4);
+      revOut = ctx.createGain(); revOut.gain.value = 0.35;
+      revIn.connect(conv); conv.connect(revOut); revOut.connect(master);
+      const dl = ctx.createDelay(0.5); dl.delayTime.value = 0.11;
+      const fb = ctx.createGain(); fb.gain.value = 0.3;
+      const df = ctx.createBiquadFilter(); df.type = 'lowpass'; df.frequency.value = 2600;
+      slapOut = ctx.createGain(); slapOut.gain.value = 0.2;
+      revIn.connect(dl); dl.connect(df); df.connect(fb); fb.connect(dl); df.connect(slapOut); slapOut.connect(master);
+    } catch (e) { revIn = null; }
+  }
+  function applySpace() {
+    if (!revOut || !ctx) return;
+    const t = ctx.currentTime, o = SPACE.open, d = SPACE.damp;
+    revOut.gain.setTargetAtTime((0.18 + 0.42 * o) * d, t, 0.4);
+    slapOut.gain.setTargetAtTime(0.34 * (1 - o) * d, t, 0.4);
+  }
+
+  /* ── 소리의 자리(rc.41) — 듣는 이(플레이어)와 소리 난 곳 ───────
+     거리 — 멀수록 작아질 뿐 아니라 높은 소리가 먼저 빠져 둔해진다(공기가 먹는다)
+     벽 — 사이에 건물이 있으면 한 번 더 먹먹하게(벽 너머의 그르렁)
+     뒤 — 손전등이 보지 않는 등 뒤의 소리는 살짝 어둡게(헤드폰에서 '뒤'를 알아채게)
+     먼 소리일수록 메아리가 더 많이 섞인다 */
+  let LIS = null, SRC = null;
+  function spatial() {
+    if (!SRC || !LIS) return null;
+    if (SRC.c) return SRC.c;
+    const dx = SRC.x - LIS.x, dy = SRC.y - LIS.y, d = Math.hypot(dx, dy);
+    let lp = 18000 * Math.exp(-d / 700);
+    if (d > 60 && LIS.los && !LIS.los(SRC.x, SRC.y)) lp *= 0.32;
+    if (d > 40 && Math.cos(Math.atan2(dy, dx) - LIS.a) < -0.35) lp *= 0.6;
+    SRC.c = { pan: Math.max(-0.85, Math.min(0.85, dx / 420)), lp: Math.max(380, lp), wet: Math.min(0.5, d / 1600) };
+    return SRC.c;
   }
 
   function resume() { if (ctx && ctx.state !== 'running' && ctx.state !== 'closed') { try { const r = ctx.resume(); if (r && r.catch) r.catch(() => {}); } catch (e) { /* 무시 */ } } }
@@ -93,16 +155,23 @@ const SFX = (() => {
 
   /* 헤드폰 입체 음향 (원작의 '3D audio') — 게임이 소리 나는 곳의 가로 위치를 pan() 으로 알려 주면
      그 사이에 나는 소리를 좌우로 벌린다. 화면 왼쪽의 감염체는 왼쪽 귀에서 들린다 */
-  let srcPan = 0;
-  function outTo(node) {
-    if (srcPan && ctx.createStereoPanner) {
-      const sp = ctx.createStereoPanner(); sp.pan.value = srcPan;
-      node.connect(sp); sp.connect(master);
-    } else node.connect(master);
+  let srcPan = 0, SEND = 0;
+  /** 소리를 내보낸다 — 자리(거리 · 벽 · 뒤)에 따라 먹먹하게 · 좌우로, 큰 소리는 메아리로도(SEND) */
+  function outTo(node, send) {
+    const sp = spatial();
+    let n = node;
+    if (sp && sp.lp < 16000) { const f = ctx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = sp.lp; f.Q.value = 0.5; n.connect(f); n = f; }
+    const pan = sp ? sp.pan : srcPan;
+    if (pan && ctx.createStereoPanner) { const p = ctx.createStereoPanner(); p.pan.value = pan; n.connect(p); n = p; }
+    n.connect(master);
+    const w = ((send === undefined ? SEND : send) + (sp && (send || SEND) ? sp.wet : 0)) * SPACE.wet;
+    if (w > 0.02 && revIn) { const g = ctx.createGain(); g.gain.value = Math.min(1.2, w); n.connect(g); g.connect(revIn); }
   }
+  /** fn 안에서 나는 소리를 메아리로 k 만큼 보낸다 */
+  function wet(k, fn) { const was = SEND; SEND = k; try { fn(); } finally { SEND = was; } }
 
   /** 노이즈 한 번 재생 (타격감·폭발·발소리용) */
-  function burst(dur, freq, q, gain, type = 'lowpass', decay) {
+  function burst(dur, freq, q, gain, type = 'lowpass', decay, delay = 0) {
     if (!enabled || !ctx) return;
     if (!(gain > SILENT)) return;
     if (oneshots >= ONESHOT_CAP && gain < 0.3) return;          // 넘치면 작은 소리부터 버린다
@@ -114,15 +183,15 @@ const SFX = (() => {
     const f = ctx.createBiquadFilter();
     f.type = type; f.frequency.value = freq; f.Q.value = q;
     const g = ctx.createGain();
-    const t = ctx.currentTime;
-    g.gain.setValueAtTime(gain, t);
+    const t = ctx.currentTime + delay;
+    g.gain.setValueAtTime(0.0001, ctx.currentTime); g.gain.setValueAtTime(gain, t);
     g.gain.exponentialRampToValueAtTime(0.0001, t + (decay || dur));
     src.connect(f); f.connect(g); outTo(g);
     src.start(t); src.stop(t + dur + 0.05);
   }
 
   /** 사인/톱니 톤 (짐승 울음·UI음) */
-  function tone(freq, dur, gain, type = 'sine', slideTo) {
+  function tone(freq, dur, gain, type = 'sine', slideTo, delay = 0) {
     if (!enabled || !ctx) return;
     if (!(gain > SILENT)) return;        // 들리지도 않는 소리에 노드를 만들지 않는다
     if (oneshots >= ONESHOT_CAP && gain < 0.3) return;
@@ -130,7 +199,7 @@ const SFX = (() => {
     const o = ctx.createOscillator();
     o.onended = () => { oneshots = Math.max(0, oneshots - 1); };
     const g = ctx.createGain();
-    const t = ctx.currentTime;
+    const t = ctx.currentTime + delay;
     o.type = type;
     o.frequency.setValueAtTime(freq, t);
     if (slideTo) o.frequency.exponentialRampToValueAtTime(Math.max(20, slideTo), t + dur);
@@ -189,7 +258,7 @@ const SFX = (() => {
     env.gain.exponentialRampToValueAtTime(gain, t + att);
     env.gain.setValueAtTime(gain, t + Math.max(att, dur * (o.hold || 0.45)));
     env.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-    outTo(env);
+    outTo(env, o.send);
     src.onended = () => { voices = Math.max(0, voices - 1); };
     try { for (const n of [src, ns, fl, ...jit]) { n.start(t); n.stop(t + dur + 0.06); } } catch (e) { voices = Math.max(0, voices - 1); }
   }
@@ -299,7 +368,32 @@ const SFX = (() => {
   return {
     init, resume,
     /** 이어서 나는 소리의 출처 — 플레이어 기준 가로 거리(px). 0 이면 가운데 */
-    pan(dx) { srcPan = dx ? Math.max(-0.85, Math.min(0.85, dx / 420)) : 0; },
+    pan(dx) { SRC = null; srcPan = dx ? Math.max(-0.85, Math.min(0.85, dx / 420)) : 0; },
+    /** 듣는 이 — 플레이어 자리 · 바라보는 쪽 · 벽 판정(x, y → 보이는가). 매 프레임 */
+    listen(x, y, a, los) { LIS = { x, y, a, los }; },
+    /** 이어서 나는 소리의 자리. null 이면 가운데(플레이어 자신의 소리) */
+    src(x, y) { srcPan = 0; SRC = x === null || x === undefined ? null : { x, y, c: null }; },
+    /** (x, y) 에서 나는 소리 — fn 안에서만, 끝나면 앞의 자리로 되돌린다(감염체 갱신 중에 다른 것의 소리가 끼어도 섞이지 않게) */
+    at(x, y, fn) { const kS = SRC, kP = srcPan; SRC = { x, y, c: null }; srcPan = 0; try { fn(); } finally { SRC = kS; srcPan = kP; } },
+    /** 길이 얼마나 트였나(0 골목 ‒ 1 대로) · 날씨 — 메아리의 길이와 되울림 */
+    space(open, wx) {
+      const damp = wx === 'snow' || wx === 'blizzard' ? 0.55 : wx === 'sandstorm' ? 0.7 : 1;
+      if (Math.abs(open - SPACE.open) < 0.04 && damp === SPACE.damp) return;
+      SPACE.open = open; SPACE.damp = damp; applySpace();
+    },
+    /** 검사용 — (x, y) 에서 난 소리가 어떻게 들리는가(좌우 · 먹먹함 · 메아리) */
+    _spatial(x, y) { const k = SRC; SRC = { x, y, c: null }; const r = spatial(); SRC = k; return r; },
+    get spaceState() { return { open: SPACE.open, damp: SPACE.damp, rev: revOut ? +revOut.gain.value.toFixed(3) : null, slap: slapOut ? +slapOut.gain.value.toFixed(3) : null, ok: !!revIn }; },
+    /** 귀 울림 — 가까운 폭발. k 0‒1: 높은 삐 소리 + 모든 소리가 먹먹했다가 2초에 걸쳐 돌아온다 */
+    ring(k) {
+      if (!enabled || !ctx || !ringF || k <= 0.05) return;
+      const t = ctx.currentTime, keep = SRC; SRC = null;
+      tone(3900 + Math.random() * 400, 2.4 * k + 0.6, 0.035 * k, 'sine');
+      SRC = keep;
+      ringF.frequency.cancelScheduledValues(t); ringF.frequency.setValueAtTime(Math.max(500, 2400 - 1900 * k), t);
+      ringF.frequency.setTargetAtTime(20000, t + 0.5 + 1.2 * k, 0.6);
+      this.ringing = t + 2 + k;
+    },
     get ready() { return !!ctx; },
 
     /** 빗소리 루프 시작 */
@@ -343,17 +437,29 @@ const SFX = (() => {
       rainGain.gain.setTargetAtTime(W[2] * (1 + k * 1.8), t, 0.5);
       rainNodes.lp.frequency.setTargetAtTime(W[1] * (1 + k * 1.2), t, 0.5);
     },
-    shot()      { if (!gate('shot', 45)) return; burst(0.16, 1500, 1.1, 0.34, 'lowpass', 0.11); tone(150, 0.1, 0.2, 'sine', 48); },
-    shotgun()   { burst(0.42, 850, 0.8, 0.55, 'lowpass', 0.34); tone(96, 0.26, 0.3, 'sine', 34);
-                  setTimeout(() => burst(0.1, 3000, 2.5, 0.06, 'bandpass', 0.09), 260); },
-    rifle()     { burst(0.5, 2200, 0.9, 0.5, 'lowpass', 0.2); tone(70, 0.3, 0.34, 'sine', 30);
-                  setTimeout(() => burst(0.9, 600, 0.6, 0.1, 'lowpass', 0.7), 60);      // 골목에 울리는 꼬리
-                  setTimeout(() => burst(0.06, 2400, 3, 0.07, 'bandpass', 0.05), 520); },  // 노리쇠
-    pistol()    { burst(0.13, 1100, 1.0, 0.22, 'lowpass', 0.09); tone(120, 0.08, 0.13, 'sine', 44); },
+    /* 총성(rc.41) — 세 겹: 터지는 '딱'(고역 순간음) · 몸통(중저역) · 가슴을 치는 저음. 몸통은 도시의 메아리로 보낸다
+       (넓은 길은 길게 굴러가고, 골목은 벽에서 '탁' 되돌아온다) */
+    shot()      { if (!gate('shot', 45)) return;
+                  burst(0.025, 5200, 0.7, 0.16, 'highpass', 0.018);
+                  wet(0.55, () => burst(0.16, 1500, 1.1, 0.34, 'lowpass', 0.11)); tone(150, 0.1, 0.2, 'sine', 48); },
+    shotgun()   { burst(0.03, 4200, 0.7, 0.24, 'highpass', 0.025);
+                  wet(0.85, () => burst(0.42, 850, 0.8, 0.55, 'lowpass', 0.34)); tone(96, 0.26, 0.3, 'sine', 34);
+                  burst(0.07, 1500, 3, 0.07, 'bandpass', 0.06, 0.26); burst(0.08, 900, 3, 0.07, 'bandpass', 0.07, 0.36); },   // 펌프 — 철컥 · 착
+    rifle()     { burst(0.03, 6000, 0.7, 0.24, 'highpass', 0.022);
+                  wet(0.9, () => burst(0.5, 2200, 0.9, 0.5, 'lowpass', 0.2)); tone(70, 0.3, 0.34, 'sine', 30);
+                  burst(0.9, 600, 0.6, 0.1, 'lowpass', 0.7, 0.06);                   // 골목에 울리는 꼬리
+                  burst(0.06, 2400, 3, 0.07, 'bandpass', 0.05, 0.52); },             // 노리쇠
+    pistol()    { burst(0.02, 5600, 0.7, 0.12, 'highpass', 0.015);
+                  wet(0.45, () => burst(0.13, 1100, 1.0, 0.22, 'lowpass', 0.09)); tone(120, 0.08, 0.13, 'sine', 44); },
     dry()       { burst(0.05, 3200, 3, 0.1, 'bandpass', 0.04); },
     hitFlesh(d) { if (!gate('flesh', 40)) return; burst(0.1, 420, 0.9, 0.2 * near(d), 'lowpass', 0.08); },
     hitWall(d)  { if (!gate('wall', 40)) return; burst(0.07, 2600, 2.4, 0.14 * near(d), 'bandpass', 0.06); },
-    explode()   { burst(0.9, 260, 0.7, 0.62, 'lowpass', 0.75); tone(74, 0.55, 0.34, 'sine', 26); },
+    /** 폭발 — 거리 d(없으면 바로 곁). 가까우면 크고 날카롭게, 멀면 둔한 쿵과 긴 메아리 */
+    explode(d = 0) {
+      const n = Math.max(0.25, 1 - d / 1300);
+      wet(1.0, () => { burst(0.9, 260, 0.7, 0.62 * n, 'lowpass', 0.75); tone(74, 0.55, 0.34 * n, 'sine', 26); });
+      if (d < 500) { burst(0.05, 3800, 0.6, 0.2 * n, 'highpass', 0.04); burst(0.6, 2600, 0.7, 0.05 * n, 'highpass', 0.5, 0.15); }   // 파편 · 유리 비
+    },
     nadeThrow() { burst(0.12, 900, 1.2, 0.1, 'bandpass', 0.1); },
 
     /* 장전 · 근접 — 금속성 짧은 클릭과 둔탁한 타격 */
@@ -434,23 +540,65 @@ const SFX = (() => {
       else      { burst(0.03, 4200, 4, 0.035, 'bandpass', 0.025); }
     },
 
-    /* 발소리 — 젖은 아스팔트와 마른 보도를 구분한다 */
-    /* 땅마다: 1 모래(사각) · 2 얼음(뽀득) · 3 물(첨벙) · 4 용암 겉껍질(바삭) · 5 진흙(철벅). 눈 도시의 보도는 눈 밟는 소리 */
+    /* 발소리(rc.41) — 땅마다 다른 결. 1 모래(사각) · 2 얼음(뽀득 · 미끄덩) · 3 물(첨벙 + 물방울) · 4 용암 겉껍질(바삭) · 5 진흙(철벅 · 빨아들임).
+       눈 도시는 눈 다지는 '뽀드득'(잘게 부서지는 알갱이 여럿), 젖은 길은 찰박, 마른 보도는 뒤꿈치 · 앞꿈치 두 번 */
     step(sprint, wet, terr, wx) {
-      const g = (sprint ? 0.055 : 0.032) * (wet ? 1.35 : 1);
-      if (terr === 3) { burst(0.22, 1300, 0.9, g * 1.9, 'bandpass', 0.18); burst(0.08, 3400, 2, g * 0.7, 'bandpass', 0.06); }
-      else if (terr === 5) { burst(0.18, 380, 1.2, g * 1.8, 'lowpass', 0.14); tone(90, 0.06, g * 0.4, 'sine', 60); }
-      else if (terr === 1) burst(0.14, 1800, 0.6, g * 1.1, 'highpass', 0.12);
-      else if (terr === 2) { burst(0.05, 4200, 3, g * 1.2, 'bandpass', 0.04); burst(0.05, 2800, 3, g * 0.8, 'bandpass', 0.04); }
-      else if (terr === 4) burst(0.09, 2200, 1.6, g * 1.2, 'bandpass', 0.07);
-      else if (wx === 'snow' || wx === 'blizzard') burst(0.11, 2400, 1.3, g * 1.1, 'bandpass', 0.09);
-      else if (wet) burst(0.13, 2600, 1.4, g, 'bandpass', 0.1);
-      else     burst(0.08, 900, 1.1, g, 'lowpass', 0.06);
+      const g = (sprint ? 0.055 : 0.032) * (wet ? 1.35 : 1), keep = SRC; SRC = null;
+      const r = () => Math.random();
+      if (terr === 3) {                                                         // 물 — 몸통 첨벙 + 퐁 + 흩어지는 물방울
+        burst(0.26, 1100, 0.7, g * 2.2, 'bandpass', 0.22); tone(260 + r() * 60, 0.09, g * 0.7, 'sine', 120);
+        for (let k = 0; k < (sprint ? 5 : 3); k++) tone(1500 + r() * 2200, 0.04, g * 0.28, 'sine', 900 + r() * 600, 0.05 + r() * 0.18);
+      } else if (terr === 5) {                                                  // 진흙 — 철벅, 발을 빼며 쪽
+        burst(0.18, 380, 1.2, g * 1.8, 'lowpass', 0.14); tone(140, 0.08, g * 0.5, 'sine', 70);
+        burst(0.1, 700, 2, g * 0.8, 'bandpass', 0.08, 0.12);
+      } else if (terr === 1) { burst(0.14, 1800, 0.6, g * 1.1, 'highpass', 0.12); burst(0.08, 2600, 0.8, g * 0.4, 'highpass', 0.07, 0.05); }
+      else if (terr === 2) { burst(0.05, 4200, 3, g * 1.2, 'bandpass', 0.04); burst(0.05, 2800, 3, g * 0.8, 'bandpass', 0.04, 0.03); if (r() < 0.25) tone(1800, 0.06, g * 0.25, 'sine', 2600); }
+      else if (terr === 4) { burst(0.09, 2200, 1.6, g * 1.2, 'bandpass', 0.07); burst(0.05, 3400, 2, g * 0.6, 'bandpass', 0.04, 0.04); }
+      else if (wx === 'snow' || wx === 'blizzard') {                            // 눈 — 뽀드득: 알갱이 너덧이 잘게 부서진다 + 다져지는 둔한 소리
+        burst(0.1, 320, 0.9, g * 0.9, 'lowpass', 0.08);
+        for (let k = 0; k < 5; k++) burst(0.03, 2200 + r() * 3200, 2.2, g * (0.6 + r() * 0.5), 'bandpass', 0.02, k * 0.016 + r() * 0.01);
+      }
+      else if (wet) { burst(0.13, 2600, 1.4, g, 'bandpass', 0.1); burst(0.06, 4200, 2, g * 0.35, 'bandpass', 0.05, 0.03); tone(1900 + r() * 900, 0.03, g * 0.15, 'sine', 1200, 0.05); }
+      else { burst(0.06, 900, 1.1, g, 'lowpass', 0.05); burst(0.05, 1500, 1.4, g * 0.55, 'bandpass', 0.04, 0.035); }
+      SRC = keep;
+    },
+    /** 감염체 발소리 — kind: drag(질질 끌며 걷는 것) · run(뛰는 것 · 기는 것) · heavy(큰 것 · 그것). n = 가까움 0‒1.
+        자리는 먼저 src() 로. 물이면 첨벙, 눈이면 뽀드득이 섞인다 */
+    zstep(kind, terr, wx, n) {
+      if (!enabled || !ctx || n <= 0.03 || !gate('zs' + kind, 55)) return;
+      const r = Math.random();
+      if (kind === 'heavy') { tone(52, 0.22, 0.16 * n, 'sine', 30); burst(0.22, 260, 0.8, 0.14 * n, 'lowpass', 0.2); }
+      else if (kind === 'run') { burst(0.07, 520, 1, 0.1 * n, 'lowpass', 0.06); burst(0.04, 1600, 1.5, 0.04 * n, 'bandpass', 0.03, 0.02); }
+      else { burst(0.3, 600 + r * 300, 0.7, 0.07 * n, 'lowpass', 0.28); burst(0.08, 380, 1, 0.05 * n, 'lowpass', 0.07, 0.04); }   // 끌리는 발 + 툭
+      if (terr === 3) { burst(0.2, 1100, 0.7, 0.1 * n, 'bandpass', 0.18); tone(1700 + r * 1500, 0.04, 0.03 * n, 'sine', 900, 0.08); }
+      else if (wx === 'snow' || wx === 'blizzard') for (let k = 0; k < 3; k++) burst(0.03, 2400 + Math.random() * 2400, 2, 0.04 * n, 'bandpass', 0.02, k * 0.02);
+    },
+    /** 탄피 — 0.3‒0.5초 뒤 바닥에 떨어져 튄다. 땅이 받는 소리: 보도(쨍 · 짱) · 물(퐁) · 눈 · 진흙(소리 없음에 가까운 퍽) */
+    casing(shell, terr, wx) {
+      if (!enabled || !ctx || !gate('cas', 70)) return;
+      const keep = SRC; SRC = null; const d0 = 0.3 + Math.random() * 0.2;
+      if (terr === 3) tone(1500 + Math.random() * 500, 0.05, 0.02, 'sine', 700, d0);
+      else if (terr === 5 || terr === 1 || wx === 'snow' || wx === 'blizzard') burst(0.04, 500, 1, 0.012, 'lowpass', 0.03, d0);
+      else if (shell) { burst(0.05, 1300, 3, 0.03, 'bandpass', 0.04, d0); burst(0.04, 1100, 3, 0.015, 'bandpass', 0.03, d0 + 0.11); }
+      else { const f = 3300 + Math.random() * 1600; tone(f, 0.06, 0.022, 'sine', f * 0.98, d0); tone(f * 1.07, 0.04, 0.012, 'sine', f, d0 + 0.09); tone(f * 1.1, 0.03, 0.007, 'sine', f, d0 + 0.15); }
+      SRC = keep;
+    },
+    /** 먼 도시의 소리 — 어둠 너머 어딘가(자리는 먼저 src). 비명 · 총성 · 쇠 부딪힘 · 유리 · 신음 · 개. 멀어서 둔하고 메아리가 많다 */
+    distant(kind) {
+      if (!enabled || !ctx) return;
+      wet(1.1, () => {
+        if (kind === 'scream') voice({ f0: 520 + Math.random() * 180, f1: 760, dur: 1.1, gain: 0.07, vowel: 'a', to: 'ae', size: 1.15, rasp: 0.7, shake: 1.5, fryAmt: 0.25, attack: 0.05, hold: 0.6, send: 1.1 });
+        else if (kind === 'shots') { const m = 2 + (Math.random() * 3 | 0); for (let k = 0; k < m; k++) burst(0.12, 900, 1, 0.07, 'lowpass', 0.1, k * (0.16 + Math.random() * 0.2)); }
+        else if (kind === 'clang') { const f = 300 + Math.random() * 400; tone(f, 1.2, 0.03, 'triangle', f * 0.97); tone(f * 2.76, 0.8, 0.012, 'sine', f * 2.7); burst(0.08, 1800, 2, 0.04, 'bandpass', 0.06); }
+        else if (kind === 'glass') { burst(0.04, 4200, 1, 0.05, 'highpass', 0.03); for (let k = 0; k < 6; k++) tone(3000 + Math.random() * 3500, 0.07, 0.008, 'sine', 2500, 0.03 + Math.random() * 0.4); }
+        else if (kind === 'moan') { for (let k = 0; k < 3; k++) voice({ delay: k * 0.4 + Math.random() * 0.3, f0: 90 + Math.random() * 40, f1: 60, dur: 1.2, gain: 0.08, vowel: 'o', to: 'u', size: 0.85, rasp: 0.8, fryAmt: 0.5, send: 1.1 }); }
+        else if (kind === 'dog') { for (let k = 0; k < 2; k++) voice({ delay: k * 0.32, f0: 420, f1: 300, dur: 0.18, gain: 0.07, vowel: 'a', to: 'o', size: 1.3, rasp: 0.6, fryAmt: 0.2, attack: 0.01, hold: 0.3, send: 1.1 }); }
+      });
     },
 
     /* 그것 — 포효 · 돌진 · 벽 충돌 */
     roar(d)     { const n = Math.max(0.35, near(d));
-                  voice({ f0: 70, f1: 42, dur: 1.6, gain: 0.5 * n, vowel: 'a', to: 'o', size: 0.62, rasp: 0.9, fry: 22, fryAmt: 0.55, attack: 0.12, hold: 0.55 });
+                  voice({ send: 0.7, f0: 70, f1: 42, dur: 1.6, gain: 0.5 * n, vowel: 'a', to: 'o', size: 0.62, rasp: 0.9, fry: 22, fryAmt: 0.55, attack: 0.12, hold: 0.55 });
                   tone(46, 1.4, 0.22 * n, 'sine', 30);                     // 가슴을 울리는 저음
                   burst(1.4, 240, 0.7, 0.26 * n, 'lowpass', 1.3); },
     charge(d)   { const n = Math.max(0.3, near(d));
@@ -479,7 +627,7 @@ const SFX = (() => {
       const keep = srcPan; srcPan = Math.max(-0.9, Math.min(0.9, Math.cos(rel) * 0.9));
       for (let i = 0; i < 5; i++) {
         const f0 = 220 + Math.random() * 200;
-        voice({ delay: i * 0.12 + Math.random() * 0.15, f0, f1: f0 * 0.5, dur: 0.8 + Math.random() * 0.4, gain: 0.12 * n, vowel: ['a', 'ae', 'o'][i % 3], to: 'uh', rasp: 0.8, size: 0.9 + Math.random() * 0.2, fryAmt: 0.45 });
+        voice({ send: 0.6, delay: i * 0.12 + Math.random() * 0.15, f0, f1: f0 * 0.5, dur: 0.8 + Math.random() * 0.4, gain: 0.12 * n, vowel: ['a', 'ae', 'o'][i % 3], to: 'uh', rasp: 0.8, size: 0.9 + Math.random() * 0.2, fryAmt: 0.45 });
       }
       srcPan = keep;
       burst(1.6, 140, 0.7, 0.3 * n, 'lowpass', 1.5);              // 수많은 발이 구르는 땅울림
@@ -497,7 +645,7 @@ const SFX = (() => {
     /** 우는 것이 깨어날 때 — 찢어지는 비명 */
     wail(d) {
       const n = Math.max(0.5, near(d));
-      voice({ f0: 520, f1: 980, dur: 1.2, gain: 0.32 * n, vowel: 'a', to: 'ae', size: 1.2, rasp: 0.8, shake: 1.6, fryAmt: 0.3, attack: 0.04, hold: 0.6, bright: 4200 });
+      voice({ send: 0.7, f0: 520, f1: 980, dur: 1.2, gain: 0.32 * n, vowel: 'a', to: 'ae', size: 1.2, rasp: 0.8, shake: 1.6, fryAmt: 0.3, attack: 0.04, hold: 0.6, bright: 4200 });
       burst(0.9, 2400, 0.8, 0.14 * n, 'bandpass', 0.85);
     },
     /** 비명 지르는 것 — 숨을 길게 들이켜는 소리 (예고) */
@@ -509,7 +657,7 @@ const SFX = (() => {
     /** 비명 — 높고 길게 찢어지는 소리 */
     scream(d) {
       const n = Math.max(0.55, near(d));
-      voice({ f0: 640, f1: 900, dur: 1.4, gain: 0.32 * n, vowel: 'ae', to: 'a', size: 1.12, rasp: 0.95, shake: 1.4, fryAmt: 0.35, attack: 0.03, hold: 0.7, bright: 4600 });
+      voice({ send: 0.8, f0: 640, f1: 900, dur: 1.4, gain: 0.32 * n, vowel: 'ae', to: 'a', size: 1.12, rasp: 0.95, shake: 1.4, fryAmt: 0.35, attack: 0.03, hold: 0.7, bright: 4600 });
       burst(1.2, 3000, 0.7, 0.16 * n, 'bandpass', 1.1);
     },
     /** 덮치는 것 — 웅크릴 때 이 사이로 새는 쉿 소리(예고), 날아들 때 짧은 괴성 */
@@ -540,11 +688,12 @@ const SFX = (() => {
                   voiceAt(n, { f0: 62, f1: 44, dur: 1.2, gain: 0.34, vowel: 'o', to: 'u', size: 1.9, rasp: 1.5, fryAmt: 0.9, attack: 0.08 });
                   burst(1.0, 300, 0.7, 0.12 * n, 'lowpass', 0.9); },
     /** 늘어난 무기 — 매그넘 · 석궁 · 화염방사기 · 유탄 · 레일건 */
-    magnum()  { burst(0.32, 1400, 0.7, 0.42, 'lowpass', 0.3); tone(80, 0.25, 0.22, 'sine', 40); burst(0.6, 600, 0.8, 0.1, 'lowpass', 0.55); },
+    magnum()  { burst(0.03, 5200, 0.7, 0.22, 'highpass', 0.02);
+                wet(0.95, () => burst(0.32, 1400, 0.7, 0.42, 'lowpass', 0.3)); tone(80, 0.25, 0.22, 'sine', 40); burst(0.6, 600, 0.8, 0.1, 'lowpass', 0.55); },
     bow()     { burst(0.08, 2600, 1.8, 0.12, 'bandpass', 0.07); tone(190, 0.16, 0.05, 'triangle', 120); },
     flame()   { burst(0.12, 700, 0.6, 0.07, 'lowpass', 0.12); },
-    launch()  { burst(0.22, 400, 0.8, 0.3, 'lowpass', 0.2); tone(120, 0.18, 0.12, 'sine', 70); },
-    rail()    { tone(240, 0.5, 0.12, 'sine', 3200); tone(3600, 0.35, 0.05, 'sine', 200); burst(0.4, 3000, 1.1, 0.2, 'bandpass', 0.35); },
+    launch()  { wet(0.5, () => burst(0.22, 400, 0.8, 0.3, 'lowpass', 0.2)); tone(120, 0.18, 0.12, 'sine', 70); },
+    rail()    { tone(240, 0.5, 0.12, 'sine', 3200); tone(3600, 0.35, 0.05, 'sine', 200); wet(0.7, () => burst(0.4, 3000, 1.1, 0.2, 'bandpass', 0.35)); },
     /** 방패에 총알이 튕기는 소리 */
     ric(d)    { const n = near(d); if (n <= 0.02) return;
                 tone(2400 + Math.random() * 900, 0.12, 0.05 * n, 'sine', 1300 + Math.random() * 400);
@@ -578,11 +727,11 @@ const SFX = (() => {
     /* 감염체 — 목이 막힌 듯 낮게 그르렁 · 뛰는 것은 쉰 비명 · 쓰러질 때 숨이 빠지는 소리. 매번 높이 · 모음 · 길이가 다르다 */
     growl(d)  { const n = near(d); if (n <= 0.02) return;
                 const f0 = 85 + Math.random() * 45;
-                voiceAt(n, { f0, f1: f0 * (0.55 + Math.random() * 0.2), dur: 0.6 + Math.random() * 0.5, gain: 0.36, vowel: ['uh', 'o', 'a'][Math.random() * 3 | 0], to: 'u', size: 0.82 + Math.random() * 0.15, rasp: 0.75, fryAmt: 0.5, attack: 0.08 });
+                voiceAt(n, { send: 0.3, f0, f1: f0 * (0.55 + Math.random() * 0.2), dur: 0.6 + Math.random() * 0.5, gain: 0.36, vowel: ['uh', 'o', 'a'][Math.random() * 3 | 0], to: 'u', size: 0.82 + Math.random() * 0.15, rasp: 0.75, fryAmt: 0.5, attack: 0.08 });
                 burst(0.42, 300, 0.8, 0.04 * n, 'lowpass', 0.4); },
     screech(d){ const n = near(d); if (n <= 0.02) return;
                 const f0 = 300 + Math.random() * 140;
-                voiceAt(n, { f0, f1: f0 * 0.55, dur: 0.4 + Math.random() * 0.2, gain: 0.3, vowel: 'a', to: 'uh', rasp: 1.0, fryAmt: 0.4, attack: 0.02, bright: 4200 }); },
+                voiceAt(n, { send: 0.35, f0, f1: f0 * 0.55, dur: 0.4 + Math.random() * 0.2, gain: 0.3, vowel: 'a', to: 'uh', rasp: 1.0, fryAmt: 0.4, attack: 0.02, bright: 4200 }); },
     zombieDie(d){ const n = near(d); burst(0.34, 500, 0.7, 0.14 * n, 'lowpass', 0.3);
                   voiceAt(n, { f0: 120 + Math.random() * 30, f1: 55, dur: 0.5, gain: 0.28, vowel: 'o', to: 'u', size: 0.85, rasp: 0.85, fryAmt: 0.6, attack: 0.02, hold: 0.2 }); },
 
@@ -606,7 +755,7 @@ const SFX = (() => {
     objective() { tone(520, 0.16, 0.16, 'triangle'); setTimeout(() => tone(780, 0.2, 0.15, 'triangle'), 110);
                   setTimeout(() => tone(1040, 0.3, 0.13, 'triangle'), 230); },
     win()       { [523, 659, 784, 1046].forEach((f, i) => setTimeout(() => tone(f, 0.42, 0.15, 'triangle'), i * 150)); },
-    thunder()   { burst(2.0, 190, 0.6, 0.34, 'lowpass', 1.9); tone(48, 1.4, 0.14, 'sine', 22); },
+    thunder()   { const keep = SRC; SRC = null; wet(0.6, () => burst(2.0, 190, 0.6, 0.34, 'lowpass', 1.9)); tone(48, 1.4, 0.14, 'sine', 22); SRC = keep; },
     click()     { burst(0.04, 2400, 2, 0.08, 'bandpass', 0.035); },
     beep()      { tone(880, 0.08, 0.1, 'triangle'); },
     /** 적이 가까울수록 강해지는 심장박동 — 트레일러의 마지막 장면 */

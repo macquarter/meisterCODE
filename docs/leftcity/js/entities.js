@@ -505,7 +505,7 @@ class Zombie {
         // 처음 막혔을 때 한 번 — 도움말을 꺼 둔 사람도 이것만은 알아야 한다
         if (!g.shieldTold && src !== 'melee') { g.shieldTold = true; if (g.toast) g.toast(T('방패에 막혔다 — 밀쳐서 돌려세우고 등을 쏴라'), 3); }
         if (g.spawnSparks) g.spawnSparks(this.x + Math.cos(this.face) * 12, this.y + Math.sin(this.face) * 12, ang);
-        SFX.pan(this.x - g.player.x); SFX.ric(Math.hypot(this.x - g.player.x, this.y - g.player.y)); SFX.pan(0);
+        SFX.at(this.x, this.y, () => SFX.ric(Math.hypot(this.x - g.player.x, this.y - g.player.y)));
         this.hp -= dmg; if (this.hp > 0) return;
         dmg = 0;
       }
@@ -545,9 +545,7 @@ class Zombie {
       g.onKill(this);
       if (this.t.bloat) g.bloaterBurst(this);
       if (this.t.tongue && g.smokeCloud) g.smokeCloud(this.x, this.y);
-      SFX.pan(this.x - g.player.x);
-      SFX.zombieDie(Math.hypot(this.x - g.player.x, this.y - g.player.y));
-      SFX.pan(0);
+      SFX.at(this.x, this.y, () => SFX.zombieDie(Math.hypot(this.x - g.player.x, this.y - g.player.y)));
     }
   }
 
@@ -1154,7 +1152,7 @@ class Ally {
     }
     // 동료의 총성도 무리를 깨운다(소리는 플레이어 것보다 작게 친다)
     for (const z of g.zombies) if (!z.aggro && !z.t.weeper && Math.hypot(z.x - this.x, z.y - this.y) < 420) z.aggro = true;
-    SFX.pan(this.x - p.x); (SFX[W.sfx] || SFX.shot).call(SFX); SFX.pan(0);
+    SFX.at(this.x, this.y, () => (SFX[W.sfx] || SFX.shot).call(SFX));
   }
 }
 
@@ -1190,7 +1188,9 @@ class Grenade {
     g.flashes.push({ x: this.x, y: this.y, t: 0, life: 0.5, r: R * 2.1, burst: Math.random() * 6.283 });
     if (g.buzz && Math.hypot(this.x - g.player.x, this.y - g.player.y) < 420) g.buzz(70);
     g.shake = 24;
-    SFX.explode();
+    { const p = g.player, d = Math.hypot(this.x - p.x, this.y - p.y);
+      SFX.at(this.x, this.y, () => SFX.explode(d));
+      if (d < 190 && !p.dead) SFX.ring(1 - d / 190); }                 // 곁에서 터지면 귀가 먹먹하게 운다
     for (let i = 0; i < 40; i++) {
       const a = Math.random() * 6.283, sp = 90 + Math.random() * 440;
       g.particles.push({ x: this.x, y: this.y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp,

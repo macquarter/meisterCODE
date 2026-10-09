@@ -814,7 +814,7 @@ const Twist = {
       } else if (tw.phase === 'run') {
         tw.left -= dt; o.prog = 1 - tw.left / (tw.time || 25);
         tw.alarmT -= dt;
-        if (tw.alarmT <= 0) { tw.alarmT = 6; SFX.pan(o.x - p.x); SFX.alarm(Math.hypot(o.x - p.x, o.y - p.y)); SFX.pan(0); }
+        if (tw.alarmT <= 0) { tw.alarmT = 6; SFX.at(o.x, o.y, () => SFX.alarm(Math.hypot(o.x - p.x, o.y - p.y))); }
         tw.waveT -= dt;
         if (tw.waveT <= 0) tw.waveT = g.callHorde(g.hordeSize() + 1, o) ? (tw.every || 7) : 1;
         if (D && D.phase !== 'build') { D.phase = 'build'; D.t = 0; }                       // 경보가 울리는 동안은 숨 고르기 없음
@@ -856,7 +856,7 @@ const Twist = {
         tw.obj = { kind: 'crate', x: q.x, y: q.y, fall: 1, done: false, lost: false };
         g.twObjs.push(tw.obj);
         tw.phase = 'fall'; tw.left = tw.window || 60;
-        SFX.pan(q.x - p.x); SFX.horn(); SFX.pan(0);
+        SFX.at(q.x, q.y, () => SFX.horn());
         g.toast(T('보급 투하 — 붉은 섬광이 떨어진 곳(선택)'), 3);
       } else if (tw.phase === 'fall' || tw.phase === 'wait') {
         const o = tw.obj;
@@ -2483,9 +2483,7 @@ const G = {
   triggerAlarm(pr) {
     if (!pr || !pr.alarm || pr.ringing || pr.spent) return;
     pr.ringing = 7; pr.spent = true;                             // 한 번 울리면 배터리가 다 닳는다
-    SFX.pan(pr.x - this.player.x);
-    SFX.alarm(Math.hypot(pr.x - this.player.x, pr.y - this.player.y));
-    SFX.pan(0);
+    SFX.at(pr.x, pr.y, () => SFX.alarm(Math.hypot(pr.x - this.player.x, pr.y - this.player.y)));
     this.toast(T('경보가 울린다 — 무리가 몰려온다'));
     // 숨 고르기 중이어도 경보는 무리를 부른다
     this.callHorde(this.hordeSize() + 2, pr);
@@ -2592,12 +2590,50 @@ const G = {
     this.kickX = (this.kickX || 0) - Math.cos(ang) * kick * 1.6;
     this.kickY = (this.kickY || 0) - Math.sin(ang) * kick * 1.6;
   },
+  /** 감염체 발소리(rc.41) — 가까운 것(300 안) 가운데 가장 가까운 넷만. 걸음은 몸짓(phase)이 반 바퀴 돌 때마다.
+      걷는 것은 발을 질질 끌고, 뛰는 것 · 기는 것은 빠르게 툭툭, 큰 것은 땅이 울린다. 물 · 눈 위에선 그 소리가 섞인다 */
+  zombieSteps(dt) {
+    const p = this.player, w = this.world;
+    if (p.dead) return;
+    const near = [];
+    for (const z of this.zombies) {
+      if (z.dead || z.dormant) continue;
+      const dx = z.x - p.x, dy = z.y - p.y;
+      if (Math.abs(dx) > 300 || Math.abs(dy) > 300) continue;
+      const moved = Math.hypot(z.x - (z.sx ?? z.x), z.y - (z.sy ?? z.y)); z.sx = z.x; z.sy = z.y;
+      if (moved < 0.15) continue;
+      near.push([Math.hypot(dx, dy), z]);
+    }
+    near.sort((a, b) => a[0] - b[0]);
+    for (let i = 0; i < Math.min(4, near.length); i++) {
+      const [d, z] = near[i], st = Math.floor((z.phase || 0) / Math.PI);
+      if (st === z.stepN) continue;
+      z.stepN = st;
+      if (d > 300) continue;
+      const kind = z.t.boss || z.type === 'brute' || z.type === 'behemoth' || z.type === 'charger' ? 'heavy' : z.type === 'runner' || z.type === 'crawler' || z.type === 'leaper' || z.aggro && z.t.speed > 70 ? 'run' : 'drag';
+      SFX.at(z.x, z.y, () => SFX.zstep(kind, w.terrAt(z.x, z.y), w.theme.weather, Math.max(0, 1 - d / 300) * (z.aggro ? 1 : 0.6)));
+    }
+  },
+  /** 먼 도시(rc.41) — 12‒26초마다 어둠 너머 어딘가에서: 비명 · 총성 · 쇠 소리 · 유리 · 신음 · 개. 싸움 한복판 · 보스전 · 화성에서는 쉰다(화성은 신음 · 쇠 소리만) */
+  distantSounds(dt) {
+    this.farT = (this.farT ?? 8 + Math.random() * 6) - dt;
+    if (this.farT > 0) return;
+    this.farT = 12 + Math.random() * 14;
+    const p = this.player;
+    if (p.dead || bossFightNow(this) || (this.dir && this.dir.intensity > 70)) return;
+    const mars = this.world.theme.key === 'mars';
+    const kinds = mars ? ['moan', 'clang'] : ['scream', 'shots', 'clang', 'glass', 'moan', 'dog', 'moan', 'clang'];
+    const k = kinds[Math.random() * kinds.length | 0], a = Math.random() * 6.283, r = 900 + Math.random() * 600;
+    SFX.at(p.x + Math.cos(a) * r, p.y + Math.sin(a) * r, () => SFX.distant(k));
+    this.farLast = k;
+  },
   /** 탄피 — 튀어나가 굴러가다 멈추고, 판이 끝날 때까지 남는다 */
   ejectCasing(x, y, ang, key) {
     const side = ang + Math.PI / 2 + (Math.random() - 0.5) * 0.6, sp = 90 + Math.random() * 70;
     this.casings.push({ x: x + Math.cos(ang) * 8, y: y + Math.sin(ang) * 8,
       vx: Math.cos(side) * sp, vy: Math.sin(side) * sp, a: Math.random() * 6.28, spin: (Math.random() - 0.5) * 30,
       t: 0.5, shell: key === 'shotgun' });
+    if (this.world) SFX.casing(key === 'shotgun', this.world.terrAt(x, y), this.world.theme.weather);   // 바닥에 떨어져 튀는 소리(rc.41)
     if (this.casings.length > 220) this.casings.shift();
   },
   /** 짧은 정지 — 처치의 무게. 연사로 화면이 끊기지 않게 간격을 둔다 */
@@ -2741,7 +2777,7 @@ const G = {
     if (z.t.boss) {
       this.boss = null;
       this.shake = Math.min(26, this.shake + 20);
-      SFX.explode();
+      SFX.at(z.x, z.y, () => SFX.explode(Math.hypot(z.x - this.player.x, z.y - this.player.y)));
       if (this.level.objective.type === 'endless') { if (!this.challenge) this.toast(T('그것을 쓰러뜨렸다')); }
       else if (this.level.objective.type === 'boss' && !this.exitOpen) this.openExit(T('그것이 쓰러졌다 — 다리가 열렸다'));
       else this.toast(T('그것을 쓰러뜨렸다'));
@@ -3085,15 +3121,19 @@ const G = {
     }
 
     /* 엔티티 */
-    for (const z of this.zombies) if (!z.dead) { SFX.pan(z.x - p.x); z.update(dt, this); }
-    SFX.pan(0);
+    SFX.listen(p.x, p.y, p.angle, (x, y) => w.los(p.x, p.y, x, y));
+    for (const z of this.zombies) if (!z.dead) { SFX.src(z.x, z.y); z.update(dt, this); }
+    SFX.src(null);
+    this.zombieSteps(dt);
+    this.distantSounds(dt);
     this.updateRally(dt);
     for (const a of this.allies) a.update(dt, this);
     this.separate(dt);
-    for (const b of this.bullets) b.update(dt, this);
+    for (const b of this.bullets) { SFX.src(b.x, b.y); b.update(dt, this); }   // 맞은 자리에서 소리가 난다(벽 너머면 먹먹하게)
+    SFX.src(null);
     for (const gr of this.grenades) gr.update(dt, this);
-    for (const sp of this.spits) { SFX.pan(sp.x - p.x); sp.update(dt, this); }
-    SFX.pan(0);
+    for (const sp of this.spits) { SFX.src(sp.x, sp.y); sp.update(dt, this); }
+    SFX.src(null);
 
     // 산 웅덩이 — 밟고 있으면 계속 닳는다.
     // 겹친 웅덩이는 더하지 않고 가장 진한 쪽만 적용한다. 더하면 두 겹에 들어선 순간 즉사한다.
@@ -3118,6 +3158,7 @@ const G = {
       for (let i = -2; i <= 2; i++) for (let j = -2; j <= 2; j++) if ((i || j) && !w.solid(p.x + i * TILE, p.y + j * TILE)) free++;
       const open = free / 24, mask = Math.max(this.shower || 0, this.storm || 0);
       this.acou = { step: 1 - 0.45 * mask, shot: 0.6 + 0.6 * open, open };
+      SFX.space(open, w.theme.weather);                     // 메아리(rc.41) — 대로는 길게 굴러가고, 골목은 벽에서 '탁' 되돌아온다
     }
     // 폭풍 — 모래 폭풍 · 눈보라는 45초마다 한 번, 4초에 걸쳐 짙어져 12초 머물다 걷힌다
     const wx = w.theme.weather;

@@ -2411,7 +2411,11 @@ function init() {
   cv.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;display:block';
   const stage = document.getElementById('stage');
   stage.insertBefore(cv, stage.firstChild);
-  cv.addEventListener('webglcontextlost', e => { e.preventDefault(); fail('lost'); });
+  // 그리기 문맥을 잃으면(rc.42) — iOS 는 앱을 내리거나 메모리가 빠듯하면 WebGL 을 거둬 갔다가 돌려준다. 예전엔 곧바로 2D 로 넘어가 버렸다.
+  // 이제 기다린다: 돌아오면 three.js 가 셰이더 · 버퍼를 다시 올린다. 화면에 보이는 채로 6초가 지나도 안 돌아오면 그때 2D 로
+  cv.addEventListener('webglcontextlost', e => { e.preventDefault(); R3D.lost = performance.now(); R3D.lostN = (R3D.lostN | 0) + 1; });
+  cv.addEventListener('webglcontextrestored', () => { R3D.lost = 0; PERF.calm = performance.now() + 4000; });
+  document.addEventListener('visibilitychange', () => { if (!document.hidden && R3D.lost) R3D.lost = performance.now(); });
   renderer = new THREE.WebGLRenderer({ canvas: cv, antialias: SETTINGS.quality === 'low', powerPreference: 'high-performance' });   // 후처리 버퍼가 MSAA 를 하므로 화면 버퍼에는 필요 없다
   // 셰이더가 이 기기에서 안 엮이면(빛 · 균일 변수 한도 등) 검은 화면 대신 2D 로
   renderer.debug.onShaderError = (gl, prog, vs, fs) => {
@@ -2749,6 +2753,7 @@ function darkMask(g) {
   } else U.uDarkF.value.w = 0;
 }
 R3D.render = g => {
+  if (R3D.lost) { if (!document.hidden && performance.now() - R3D.lost > 6000) fail('lost'); return; }
   try { draw3(g); } catch (e) { fail('init', e); }
 };
 function draw3(g) {

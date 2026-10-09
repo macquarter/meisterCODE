@@ -265,6 +265,26 @@ function padBack() {
   const b = scr && scr.querySelector('[data-act=back],[data-act=setback],[data-act=keyback],[data-act=storyskip]');
   if (b) b.click();
 }
+/* 휴대폰 '뒤로'(rc.42) — 안드로이드의 뒤로 단추 · 제스처, iOS 의 가장자리 밀기. 예전엔 판 도중에 누르면 앱이 그대로 닫혔다.
+   기록(history)에 한 칸을 걸어 두고, 뒤로 오면: 판 중이면 멈춤 · 창이 떠 있으면 닫기 · 하위 화면이면 이전 화면.
+   타이틀에서는 걸지 않는다 — 거기서 뒤로는 앱을 나간다 */
+const BackKey = {
+  armed: false,
+  sig() { const s = document.querySelector('.screen:not(.hidden)'); return (s ? s.id : '') + '|' + G.state + '|' + document.querySelectorAll('.modal:not(.hidden)').length; },
+  atTitle() { const s = document.querySelector('.screen:not(.hidden)'); return G.state !== 'play' && G.state !== 'pause' && G.state !== 'arms' && G.state !== 'map' && (!s || s.id === 'scrTitle') && !document.querySelector('.modal:not(.hidden)'); },
+  arm() { if (this.armed || this.atTitle()) return; try { history.pushState({ lc: 1 }, ''); this.armed = true; } catch (e) { /* 막힌 환경 */ } }
+};
+addEventListener('popstate', () => {
+  BackKey.armed = false;
+  const before = BackKey.sig();
+  if (G.state === 'play') G.togglePause(); else padBack();
+  if (BackKey.sig() !== before) BackKey.arm();
+});
+for (const ev of ['pointerdown', 'keydown', 'touchend']) addEventListener(ev, () => setTimeout(() => BackKey.arm(), 0), { capture: true, passive: true });
+/* iOS — 두 손가락 오므리기(확대) · 두 번 톡(확대) · 길게 누르기(메뉴)가 게임 화면을 흔들지 않게 */
+for (const ev of ['gesturestart', 'gesturechange']) document.addEventListener(ev, e => e.preventDefault(), { passive: false });
+document.addEventListener('dblclick', e => { if (!e.target.closest('input, textarea')) e.preventDefault(); }, { passive: false });
+document.addEventListener('contextmenu', e => { if (!e.target.closest('input, textarea, a')) e.preventDefault(); });
 function pollPad(dt) {
   const list = navigator.getGamepads ? navigator.getGamepads() : [];
   let gp = null;

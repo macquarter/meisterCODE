@@ -24,6 +24,8 @@ body{
   font-family:var(--font); color:var(--bone);
   -webkit-user-select:none; user-select:none;
   -webkit-tap-highlight-color:transparent;
+  -webkit-touch-callout:none;          /* iOS — 길게 눌러도 복사 · 저장 메뉴가 뜨지 않게 */
+  -webkit-text-size-adjust:100%; text-size-adjust:100%;   /* 가로로 돌렸을 때 iOS 가 글자를 멋대로 키우지 않게 */
   touch-action:none;
   /* 한국어는 낱말 중간에서 줄을 바꾸지 않는다('구 / 급 가방' · '빠져나가 / 라'). 너무 긴 낱말만 어쩔 수 없이 끊는다 */
   word-break:keep-all; overflow-wrap:break-word;
@@ -808,6 +810,19 @@ body.tl-edit #touch .tbtn.dragging{cursor:grabbing;background:rgba(240,180,41,.2
 }
 /* 좁은 세로 화면 — 모드 넷을 둘씩 */
 @media (max-width:360px){ .modes{grid-template-columns:repeat(3,1fr)} }
+/* 짧은 세로 화면(rc.42) — 아이폰 SE 1세대(568) · 작은 안드로이드에서 설정 · 조작 · 정보가 화면 밖으로 밀렸다 */
+@media (orientation:portrait) and (max-height:700px){
+  .screen--title .screen__inner.title{gap:12px}
+  .title__brand .tagline{margin:10px 0 0;font-size:12.5px}
+  .play{padding:11px 18px}
+  .mode{padding:9px 2px 7px;gap:5px}
+  .mode svg{width:22px;height:22px}
+  .title__menu{gap:9px}
+  .util svg{padding:8px}
+}
+@media (orientation:portrait) and (max-height:600px){
+  .title__brand .tagline{display:none}
+}
 
 /* ── 설정 — 3D 판: 오른쪽 판(세로 화면은 아래 판), 나머지는 실제 3D 화면을 그대로 보여 준다 ── */
 .screen--settings.live{background:none;padding:0;justify-content:flex-end;align-items:stretch;overflow:hidden}

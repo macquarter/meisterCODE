@@ -33,6 +33,8 @@ const SFX = (() => {
     if (!AC) { enabled = false; return; }
     // 휴대폰은 버퍼를 조금 넉넉히('balanced') — 3D 렌더로 CPU 가 바쁠 때 오디오가 비지 않게(지연은 수십 ms 늘 뿐)
     try { ctx = new AC({ latencyHint: TOUCH ? 'balanced' : 'interactive' }); } catch (e) { ctx = new AC(); }
+    // iOS 16.4+ — 게임 소리는 '주변음'으로: 무음 스위치를 따르고, 듣던 음악을 끊지 않고 섞인다(앱 심사 지침의 게임 오디오 관례)
+    try { if (navigator.audioSession) navigator.audioSession.type = 'ambient'; } catch (e) { /* 무시 */ }
     master = ctx.createGain();
     master.gain.value = masterLevel();
     // 리미터 — 총성 · 폭발 · 비명이 한꺼번에 겹쳐도 찢어지지(클리핑) 않게

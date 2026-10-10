@@ -1,0 +1,1185 @@
+/* ═══════════════════════════════════════════
+   LEFT CITY — 남겨진 도시 : UI 스타일
+   ═══════════════════════════════════════════ */
+/* 글꼴 — Pretendard(SIL OFL 1.1, vendor/fonts/Pretendard-LICENSE.txt). 저자가 배포하는 KS X 1001 부분 집합(한글 2,350자 + 라틴)
+   보통 · 굵게 두 벌. 게임이 쓰는 한글 915자가 모두 들어 있다. 중간 굵기(500 · 600 · 800)는 가까운 벌로 그린다 */
+@font-face{font-family:"Pretendard";font-style:normal;font-weight:100 500;font-display:swap;
+  src:url("../vendor/fonts/Pretendard-Regular.subset.woff2") format("woff2")}
+@font-face{font-family:"Pretendard";font-style:normal;font-weight:600 900;font-display:swap;
+  src:url("../vendor/fonts/Pretendard-Bold.subset.woff2") format("woff2")}
+:root{
+  --ink:#07090c;
+  --fog:#9aa6b2;
+  --bone:#e8e6e0;
+  --blood:#c9352b;
+  --amber:#f0b429;
+  --steel:#3d4855;
+  --font: "Pretendard", -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo",
+          "Noto Sans KR", "Malgun Gothic", system-ui, sans-serif;
+}
+
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden;background:var(--ink)}
+body{
+  font-family:var(--font); color:var(--bone);
+  -webkit-user-select:none; user-select:none;
+  -webkit-tap-highlight-color:transparent;
+  -webkit-touch-callout:none;          /* iOS — 길게 눌러도 복사 · 저장 메뉴가 뜨지 않게 */
+  -webkit-text-size-adjust:100%; text-size-adjust:100%;   /* 가로로 돌렸을 때 iOS 가 글자를 멋대로 키우지 않게 */
+  touch-action:none;
+  /* 한국어는 낱말 중간에서 줄을 바꾸지 않는다('구 / 급 가방' · '빠져나가 / 라'). 너무 긴 낱말만 어쩔 수 없이 끊는다 */
+  word-break:keep-all; overflow-wrap:break-word;
+}
+
+#stage{position:fixed;inset:0;overflow:hidden}
+html.letterbox body{background:#000}
+/* 레터박스 — HUD 는 창 전체를 쓴다: 위 여백에 미션 · 미니맵, 아래 여백에 체력 · 탄약 · 버튼(휴대용 게임기처럼). 게임 화면을 가리지 않는다 */
+html.letterbox #hud{position:fixed}
+#view{display:block;width:100%;height:100%;background:#05070a}
+.hidden{display:none !important}
+
+/* ── HUD ─────────────────────────────────── */
+#hud{position:absolute;inset:0;pointer-events:none;
+     padding:max(14px,env(safe-area-inset-top)) max(14px,env(safe-area-inset-right))
+             max(14px,env(safe-area-inset-bottom)) max(14px,env(safe-area-inset-left));
+     display:flex;flex-direction:column;justify-content:space-between}
+
+.hud__top{display:flex;justify-content:space-between;align-items:flex-start;gap:16px}
+.hud__mission{display:flex;flex-direction:column;gap:3px}
+.hud__chapter{font-size:11px;letter-spacing:.22em;color:var(--fog);opacity:.75}
+.hud__objective{font-size:14px;font-weight:600;letter-spacing:.02em;
+  text-shadow:0 2px 10px rgba(0,0,0,.9)}
+.hud__sub{font-size:12.5px;font-weight:600;color:var(--amber);letter-spacing:.02em;text-shadow:0 2px 10px rgba(0,0,0,.9)}
+.hud__sub[hidden]{display:none}
+/* 지형 표시 — 느려지는 땅 위에 있는 동안 */
+.hud__terr{display:inline-block;margin-top:4px;padding:2px 9px;border-radius:999px;font-size:11.5px;font-weight:700;letter-spacing:.02em;color:#e8e2d4;background:rgba(80,64,40,.75);border:1px solid rgba(255,255,255,.12);animation:terrIn .3s ease-out}
+.hud__terr[data-t="3"]{background:rgba(40,80,100,.78)}
+.hud__terr[data-t="5"]{background:rgba(70,48,28,.82)}
+.hud__terr[hidden]{display:none}
+@keyframes terrIn{from{transform:translateY(-4px);opacity:0}}
+.hud__stats{font-size:12px;color:var(--fog);letter-spacing:.06em;
+  font-variant-numeric:tabular-nums;text-align:right}
+.hud__sep{opacity:.4;margin:0 4px}
+
+/* 목표 방향 나침반 */
+.hud__compass{position:absolute;top:50%;left:50%;
+  transform:translate(-50%,-50%);width:0;height:0;
+  display:flex;align-items:center;justify-content:center}
+.hud__compass svg{position:absolute;width:26px;height:26px;
+  transform-origin:50% 50%;fill:var(--amber);opacity:.5;
+  filter:drop-shadow(0 0 6px rgba(240,180,41,.5))}
+.hud__compass em{display:none}
+/* 목표까지 거리 — 원작처럼 화면 아래 가운데 노란 숫자 */
+.hud__meter{position:absolute;left:50%;bottom:calc(14px + env(safe-area-inset-bottom));transform:translateX(-50%);
+  font:700 24px/1 'Barlow Condensed','Arial Narrow',system-ui,sans-serif;letter-spacing:.02em;
+  color:#e9d36c;text-shadow:0 1px 0 rgba(0,0,0,.7),0 0 12px rgba(0,0,0,.6);font-variant-numeric:tabular-nums;
+  pointer-events:none;transition:opacity .3s}
+.ammo__icon{display:block;width:64px;height:20px;margin:0 0 4px auto;fill:var(--bone);opacity:.85;
+  filter:drop-shadow(0 1px 0 rgba(0,0,0,.6))}
+.ammo__pips{margin:5px 0 0 auto;height:7px;position:relative;
+  background:repeating-linear-gradient(90deg,rgba(220,214,200,.18) 0 calc(var(--pip,4px) - 1.5px),transparent 0 var(--pip,4px))}
+.ammo__pips i{position:absolute;right:0;top:0;bottom:0;display:block;
+  background:repeating-linear-gradient(90deg,var(--bone) 0 calc(var(--pip,4px) - 1.5px),transparent 0 var(--pip,4px));
+  background-position:right}
+.ammo__gun.dry .ammo__pips i{background:repeating-linear-gradient(90deg,var(--blood) 0 calc(var(--pip,4px) - 1.5px),transparent 0 var(--pip,4px))}
+.ammo__nadeIcon{display:block;width:16px;height:19px;margin:0 auto 3px;fill:var(--bone);opacity:.8}
+
+/* 하단 게이지 */
+.hud__bottom{display:flex;align-items:flex-end;gap:14px;flex-wrap:wrap}
+.gauge{width:min(160px,26vw)}
+.gauge__label{font-size:10px;letter-spacing:.18em;color:var(--fog);opacity:.8;margin-bottom:4px;
+  display:flex;justify-content:space-between;align-items:baseline}
+.gauge__label b{font-size:11px;font-weight:600;letter-spacing:.02em;color:var(--bone);opacity:.85;
+  font-variant-numeric:tabular-nums}
+.gauge--health.low .gauge__label b{color:#ff7a6e;opacity:1}
+.gauge__track{height:7px;background:rgba(255,255,255,.08);
+  border:1px solid rgba(255,255,255,.12);overflow:hidden}
+.gauge__track i{display:block;height:100%;transition:width .12s linear}
+.gauge--health i{background:linear-gradient(90deg,#7c1d17,var(--blood))}
+.gauge--battery i{background:linear-gradient(90deg,#6b5310,var(--amber))}
+/* 꺼 두면 충전 — 흐르는 빗금과 번개 표시 */
+.gauge--battery.charging i{background:repeating-linear-gradient(120deg,#8a6a14 0 6px,#f0c040 6px 12px);background-size:28px 100%;animation:charge 0.8s linear infinite}
+.gauge--battery.charging .gauge__label::after{content:" ⚡";color:#ffd860}
+@keyframes charge{to{background-position:28px 0}}
+.gauge--stam i{background:linear-gradient(90deg,#1d4a52,#56b6c2)}
+
+/* ── 그것 체력 바 ───────────────────────────── */
+.boss{position:absolute;top:calc(74px + env(safe-area-inset-top));left:50%;transform:translateX(-50%);
+  width:min(420px,72vw);text-align:center}
+.boss__name{font-size:10px;letter-spacing:.42em;color:var(--blood);opacity:.9;margin-bottom:5px}
+.boss__track{height:5px;background:rgba(255,255,255,.07);
+  border:1px solid rgba(201,53,43,.3);overflow:hidden}
+.boss__track i{display:block;height:100%;transition:width .14s linear;
+  background:linear-gradient(90deg,#5d140f,var(--blood))}
+.boss.winding .boss__track{border-color:rgba(240,180,41,.8);animation:pulse .28s infinite}
+body.touch .boss{top:calc(96px + env(safe-area-inset-top));width:min(300px,62vw)}
+.gauge--health.low i{animation:pulse .6s infinite}
+.gauge--stam.low i{background:linear-gradient(90deg,#5a3a12,#c07a22);animation:pulse .5s infinite}
+@keyframes pulse{50%{opacity:.35}}
+
+.ammo{margin-left:auto;display:flex;gap:18px;align-items:flex-end;text-align:right}
+.ammo__slots{display:flex;flex-direction:column;gap:3px;align-items:flex-end;
+  align-self:flex-end;padding-bottom:2px}
+.ammo__slots span{font-size:10px;letter-spacing:.12em;color:var(--fog);opacity:.4;
+  border-right:2px solid transparent;padding-right:6px;white-space:nowrap}
+.ammo__slots span.on{opacity:1;color:var(--bone);border-right-color:var(--amber)}
+.ammo__gun{position:relative}
+.ammo__rounds{display:flex;align-items:baseline;justify-content:flex-end;gap:5px}
+.ammo__gun em{font-size:12px;font-style:normal;letter-spacing:.06em;color:var(--fog);opacity:.6}
+.ammo__reload{position:absolute;left:0;right:0;bottom:-6px;height:2px;
+  background:rgba(255,255,255,.08);overflow:hidden;opacity:0}
+.ammo__gun.reloading .ammo__reload{opacity:1}
+.ammo__reload i{display:block;height:100%;background:var(--amber)}
+.ammo__gun.reloading b{color:var(--amber);opacity:.55}
+.ammo b{display:block;font-size:26px;line-height:1;font-weight:700;
+  font-variant-numeric:tabular-nums;text-shadow:0 2px 12px rgba(0,0,0,.9)}
+.ammo span{font-size:9px;letter-spacing:.2em;color:var(--fog);opacity:.65}
+.ammo__gun.dry b{color:var(--blood)}
+
+#damageFlash{position:absolute;inset:0;pointer-events:none;opacity:0;
+  background:radial-gradient(ellipse at center,transparent 35%,rgba(150,20,15,.75) 100%);
+  transition:opacity .18s ease-out}
+
+.pause__tools{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin:0 auto 14px}
+.screen .pause__tools .btn{width:auto;margin-top:0;padding:9px 16px;font-size:12px}
+.citycard{position:absolute;left:0;right:0;top:30%;text-align:center;pointer-events:none;opacity:0;transition:opacity 1.2s ease;color:#efe6d4;text-shadow:0 2px 18px rgba(0,0,0,.9)}
+.citycard.show{opacity:1;transition:opacity .6s ease}
+.citycard small{display:block;font-size:calc(11px * var(--hudz,1));letter-spacing:.42em;opacity:.7;margin-bottom:6px}
+.citycard b{display:block;font-size:calc(34px * var(--hudz,1));letter-spacing:.18em;font-weight:800}
+.citycard span{display:block;margin-top:6px;font-size:calc(14px * var(--hudz,1));letter-spacing:.3em;opacity:.8}
+#toast{position:absolute;left:50%;bottom:22%;transform:translateX(-50%);
+  font-size:13px;letter-spacing:.06em;padding:8px 16px;
+  background:rgba(7,9,12,.82);border:1px solid rgba(255,255,255,.12);
+  opacity:0;transition:opacity .25s;white-space:nowrap;max-width:86vw;text-align:center}
+#toast.show{opacity:1}
+
+/* ── 도움말 — 처음 마주칠 때 한 번 ─────────────── */
+#hint{position:absolute;left:50%;top:calc(118px + env(safe-area-inset-top));
+  transform:translate(-50%,-6px);display:flex;align-items:center;gap:10px;
+  width:max-content;max-width:min(560px,calc(100vw - 32px));padding:9px 14px;
+  background:rgba(7,9,12,.8);border:1px solid rgba(240,180,41,.26);border-radius:3px;
+  font-size:12.5px;line-height:1.5;color:var(--bone);
+  opacity:0;transition:opacity .25s ease,transform .25s ease;pointer-events:none}
+#hint.show{opacity:1;transform:translate(-50%,0)}
+
+/* ── 무전 — 미션 줄 아래 자막 ─────────────── */
+.radio{position:absolute;left:calc(16px + env(safe-area-inset-left));top:calc(64px + env(safe-area-inset-top));
+  max-width:min(380px,calc(100vw - 230px));padding:8px 12px 9px;
+  background:linear-gradient(90deg,rgba(7,9,12,.86),rgba(7,9,12,.6));border-left:2px solid rgba(127,209,255,.55);
+  font-size:13px;line-height:1.5;color:var(--bone);opacity:0;transform:translateY(-4px);
+  transition:opacity .25s ease,transform .25s ease;pointer-events:none}
+.radio.show{opacity:1;transform:none}
+.radio b{display:block;font-size:11px;font-weight:600;letter-spacing:.08em;margin-bottom:2px}
+.radio b::before{content:'';display:inline-block;width:6px;height:6px;border-radius:50%;background:currentColor;
+  margin-right:6px;vertical-align:1px;animation:radioBlink 1s steps(2) infinite}
+.radio.note{border-left-color:rgba(232,220,192,.6);font-family:var(--font);color:#e8dcc0}
+.radio.note b{font-family:var(--font);font-style:normal}
+.radio.note b::before{border-radius:1px;animation:none}
+@keyframes radioBlink{50%{opacity:.25}}
+/* 터치: 미니맵이 왼쪽 위에 있으므로 그 오른쪽에. 세로 화면은 탄약 줄 아래로 */
+body.touch .radio{left:calc(max(14px,env(safe-area-inset-left)) + 84px);max-width:min(380px,calc(100vw - 112px));font-size:12.5px}
+@media (orientation:portrait){ body.touch .radio{top:calc(100px + env(safe-area-inset-top))} }
+.radio.show ~ #hint{margin-top:72px}
+body.touch .radio.show ~ #hint{margin-top:66px}
+@media (prefers-reduced-motion:reduce){.radio{transition:opacity .2s;transform:none}}
+
+/* 체크포인트 — 오른쪽 위에 잠깐 */
+#cpMark{position:absolute;right:max(16px,env(safe-area-inset-right));top:calc(136px + env(safe-area-inset-top));
+  font-size:11px;letter-spacing:.16em;color:#9be7a0;padding:4px 9px;border:1px solid rgba(155,231,160,.35);
+  background:rgba(7,9,12,.7);opacity:0;pointer-events:none}
+#cpMark::before{content:'◆ '}
+#cpMark.show{animation:cpFlash 2.6s ease both}
+@keyframes cpFlash{0%{opacity:0;transform:translateY(-4px)}10%,75%{opacity:1;transform:none}100%{opacity:0}}
+body.touch #cpMark{top:calc(40px + env(safe-area-inset-top))}
+@media (orientation:portrait){ body.touch #cpMark{top:calc(178px + env(safe-area-inset-top))} }
+
+/* 도전 과제 — 달성 알림과 목록 */
+#achMark{position:absolute;right:max(16px,env(safe-area-inset-right));top:calc(170px + env(safe-area-inset-top));
+  padding:8px 12px;background:rgba(7,9,12,.88);border:1px solid rgba(240,180,41,.45);opacity:0;pointer-events:none;max-width:260px}
+#achMark b{display:block;font-size:10.5px;letter-spacing:.16em;color:var(--amber);font-weight:600}
+#achMark b::before{content:'★ '}
+#achMark span{font-size:13.5px}
+#achMark.show{animation:cpFlash 4s ease both}
+body.touch #achMark{top:calc(74px + env(safe-area-inset-top))}
+@media (orientation:portrait){ body.touch #achMark{top:calc(210px + env(safe-area-inset-top))} }
+.achs{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px;text-align:left;margin:6px 0 22px}
+.ach{padding:9px 11px;border:1px solid rgba(255,255,255,.07);background:rgba(255,255,255,.02);opacity:.5}
+.ach.on{opacity:1;border-color:rgba(240,180,41,.35);background:rgba(240,180,41,.05)}
+.ach b{display:block;font-size:13px;margin-bottom:2px}
+.ach.on b{color:var(--amber)}
+.ach span{font-size:11.5px;line-height:1.5;color:var(--fog)}
+#scrJournal h2 + .achs + h2{margin-top:4px}
+
+/* 도전 목록 */
+.chals{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:10px;margin:8px 0 18px;text-align:left}
+.chal{position:relative;display:flex;flex-direction:column;gap:5px;padding:13px 14px 12px 46px;cursor:pointer;text-align:left;
+  background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.1);color:var(--bone);font:inherit}
+.chal:hover,.chal:focus-visible,.chal.padfocus{border-color:rgba(240,180,41,.55);background:rgba(240,180,41,.06)}
+.chal b{font-size:15px;letter-spacing:.04em}
+.chal b small{font-size:11px;font-weight:400;opacity:.55;margin-left:8px;letter-spacing:.08em}
+.chal__note{font-size:12px;line-height:1.5;color:var(--fog)}
+.chal__best{font-size:11.5px;letter-spacing:.04em;opacity:.8}
+.chal__medal{position:absolute;left:14px;top:15px;width:20px;height:20px;border-radius:50%;border:1px dashed rgba(255,255,255,.25)}
+.chal__medal.m1{background:radial-gradient(circle at 35% 35%,#e3a873,#8a5328);border:0}
+.chal__medal.m2{background:radial-gradient(circle at 35% 35%,#f2f2f2,#8d949a);border:0}
+.chal__medal.m3{background:radial-gradient(circle at 35% 35%,#ffe28a,#b5841c);border:0;box-shadow:0 0 10px rgba(240,180,41,.45)}
+
+/* ── 이야기 카드 · 기록 보관함 ─────────────── */
+.screen--story{cursor:pointer;background:#030405}
+.screen--story .screen__inner{text-align:center;max-width:640px}
+.story__card{font-size:clamp(18px,3.4vw,26px);line-height:1.7;letter-spacing:.02em;white-space:pre-line;
+  min-height:5.2em;display:flex;align-items:center;justify-content:center;margin:0 auto;
+  animation:storyIn 1.2s ease both}
+.story__card.title{font-size:clamp(34px,8vw,64px);letter-spacing:.24em;font-weight:700}
+.story__map{display:block;width:min(640px,92vw,calc((100vh - 220px) * 1.52));height:auto;margin:0 auto 6px}
+.story__map.hidden{display:none}
+.story__card.small{font-size:clamp(15px,2.4vw,19px);min-height:3.4em}
+.story__tap{font-size:11px;letter-spacing:.2em;color:var(--fog);opacity:.5;margin-top:18px}
+.story__skip{margin-top:22px}
+@keyframes storyIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){.story__card{animation:none}}
+.journal{display:flex;flex-direction:column;gap:12px;text-align:left;margin:8px 0 16px}
+.journal__ch{font-size:11px;letter-spacing:.18em;color:var(--fog);opacity:.8;margin-top:6px}
+.journal__rec{padding:10px 12px;background:rgba(232,226,208,.05);border-left:2px solid rgba(232,226,208,.35)}
+.journal__rec b{display:block;font-size:13px;margin-bottom:3px}
+.journal__rec p{margin:0;font-size:13px;line-height:1.7;font-family:var(--font);color:#e8dcc0;opacity:.9}
+.journal__rec.missing{border-left-color:rgba(255,255,255,.1);opacity:.45}
+.journal__rec.missing p{font-style:normal;font-family:inherit}
+#scrJournal h2 small{font-size:13px;font-weight:400;opacity:.6;margin-left:8px;letter-spacing:.06em}
+.chapter__recs{display:block;font-size:10.5px;letter-spacing:.06em;opacity:.6;margin-top:2px}
+.ending__text p{margin:0 0 12px}
+.ending__credit{font-size:11px;letter-spacing:.24em;opacity:.45;margin-top:10px}
+.city small{display:block;font-size:11px;opacity:.6;margin-top:4px;letter-spacing:.04em}
+#hint b{flex:none;font-size:11px;font-weight:600;letter-spacing:.06em;color:var(--amber);
+  padding:2px 7px;border:1px solid rgba(240,180,41,.45);border-radius:2px;white-space:nowrap}
+#hint span{min-width:0}
+body.touch #hint{top:calc(150px + env(safe-area-inset-top));font-size:12px}
+@media (prefers-reduced-motion:reduce){#hint{transition:opacity .2s;transform:translate(-50%,0)}}
+
+/* ── 터치 컨트롤 ──────────────────────────── */
+#touch{position:fixed;inset:0;pointer-events:none}
+.pad{position:absolute;bottom:calc(16px + env(safe-area-inset-bottom));
+  width:132px;height:132px;border-radius:50%;
+  border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.03);
+  pointer-events:auto;opacity:.5}
+.pad i{position:absolute;top:50%;left:50%;width:52px;height:52px;margin:-26px 0 0 -26px;
+  border-radius:50%;background:rgba(255,255,255,.14);
+  border:1px solid rgba(255,255,255,.2)}
+.pad--move{left:calc(16px + env(safe-area-inset-left))}
+/* 회전 스틱: 좌우로만 움직이는 가로 홈 */
+.pad--axis{border-radius:66px/40px;height:84px;bottom:calc(40px + env(safe-area-inset-bottom))}
+.pad--axis::before,.pad--axis::after{content:"";position:absolute;top:50%;margin-top:-6px;
+  border:6px solid transparent;opacity:.45}
+.pad--axis::before{left:8px;border-right-color:rgba(255,255,255,.6);border-left:0}
+.pad--axis::after{right:8px;border-left-color:rgba(255,255,255,.6);border-right:0}
+.pad--turn{right:calc(16px + env(safe-area-inset-right))}
+.tbtn{position:absolute;pointer-events:auto;border-radius:50%;
+  border:1px solid rgba(255,255,255,.16);background:rgba(255,255,255,.06);
+  color:var(--bone);font-family:var(--font);font-size:11px;letter-spacing:.1em}
+.tbtn--fire{right:calc(24px + env(safe-area-inset-right));bottom:calc(168px + env(safe-area-inset-bottom));
+  width:78px;height:78px}
+.tbtn--nade{right:calc(114px + env(safe-area-inset-right));bottom:calc(180px + env(safe-area-inset-bottom));
+  width:58px;height:58px;font-size:10px}
+.tbtn--swap{right:calc(26px + env(safe-area-inset-right));bottom:calc(258px + env(safe-area-inset-bottom));
+  width:52px;height:52px;font-size:10px}
+.tbtn--melee{right:calc(116px + env(safe-area-inset-right));bottom:calc(262px + env(safe-area-inset-bottom));
+  width:52px;height:52px;font-size:9px}
+/* 회피(rc.40) — 무기 버튼 위. 남은 횟수는 버튼 아래 점 셋 */
+.tbtn--dodge{right:calc(26px + env(safe-area-inset-right));bottom:calc(322px + env(safe-area-inset-bottom));
+  width:52px;height:52px;border-color:rgba(150,200,226,.5)}
+.tbtn__pips{position:absolute;left:50%;bottom:-9px;transform:translateX(-50%);display:flex;gap:3px;pointer-events:none}
+.tbtn__pips i{width:6px;height:6px;border-radius:50%;background:rgba(150,200,226,.9);box-shadow:0 0 0 1px rgba(0,0,0,.5)}
+.tbtn__pips i.used{background:rgba(255,255,255,.14)}
+.tbtn--dodge.dim{opacity:.35}
+#touch #btnDodge.ready{box-shadow:0 0 0 2px rgba(150,200,226,.85),0 0 16px rgba(120,190,226,.55)}
+/* 데스크톱 HUD — 수류탄 옆 회피 점 셋 */
+.ammo__dodge{display:flex;flex-direction:column;align-items:center;gap:3px;font-size:10px;letter-spacing:.14em;color:var(--fog)}
+.ammo__dodge i{width:7px;height:7px;border-radius:50%;background:#96c8e2;display:block}
+.ammo__dodge i.used{background:rgba(255,255,255,.14)}
+body.touch .ammo__dodge{display:none}
+/* 왼쪽 줄: 장전 · 질주 · 손전등. 오른쪽 밀치기 버튼과 360px 폭까지 겹치지 않는다 */
+.tbtn--reload{left:calc(22px + env(safe-area-inset-left));bottom:calc(258px + env(safe-area-inset-bottom));
+  width:48px;height:48px;font-size:10px}
+.tbtn--sprint{left:calc(78px + env(safe-area-inset-left));bottom:calc(258px + env(safe-area-inset-bottom));
+  width:48px;height:48px;font-size:10px}
+.tbtn--light{left:calc(134px + env(safe-area-inset-left));bottom:calc(258px + env(safe-area-inset-bottom));
+  width:48px;height:48px;font-size:9px;letter-spacing:.04em}
+.tbtn:active{background:rgba(255,255,255,.18)}
+/* 켜짐은 색으로, 꺼짐·불가는 흐림으로 — 글자를 바꾸지 않아 엄지 기억이 흔들리지 않게 */
+.tbtn.on{background:rgba(86,182,194,.24);border-color:rgba(86,182,194,.75);color:#bfe8ee}
+.tbtn.dim{opacity:.4}
+.tbtn--light{border-color:rgba(240,180,41,.45)}
+.tbtn--light.off{border-color:rgba(255,255,255,.12);color:var(--fog);opacity:.55}
+@media (max-width:357px){
+  .tbtn--light{left:calc(22px + env(safe-area-inset-left));bottom:calc(316px + env(safe-area-inset-bottom))}
+}
+
+/* ── 미니맵 (원작 1.1) ─────────────────────── */
+.minimap{position:absolute;top:calc(44px + env(safe-area-inset-top));right:max(14px,env(safe-area-inset-right));
+  width:84px;height:84px;border-radius:50%;opacity:.82;
+  border:1px solid rgba(255,255,255,.14);background:rgba(4,6,9,.55)}
+body.touch .minimap{right:auto;left:max(14px,env(safe-area-inset-left));top:calc(62px + env(safe-area-inset-top));
+  width:72px;height:72px}
+@media (orientation:landscape) and (max-height:520px){
+  body.touch .minimap{top:calc(98px + env(safe-area-inset-top));width:64px;height:64px}
+}
+@media (orientation:portrait){
+  body.touch .minimap{top:calc(64px + env(safe-area-inset-top))}
+  /* 세로: 게이지를 왼쪽에 세로로 쌓아 오른쪽 수류탄 버튼 자리를 비운다 */
+  body.touch .hud__bottom{flex-direction:column;align-items:flex-start;gap:4px}
+  body.touch .gauge__label{margin-bottom:2px}
+  body.touch .gauge{width:min(120px,32vw)}
+}
+
+/* 브리핑의 구역 지도 */
+.brief__map{margin:0 auto 18px;width:min(220px,62vw);text-align:center}
+.brief__map canvas{width:100%;height:auto;aspect-ratio:1;border:1px solid rgba(255,255,255,.1);
+  border-radius:4px;background:#07090c}
+.brief__map figcaption{font-size:11px;color:var(--fog);margin-top:6px;letter-spacing:.06em}
+.dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin:0 4px 0 10px;vertical-align:0}
+.dot--start{background:var(--amber)}
+.dot--exit{background:#78dcff}
+.btn[disabled]{opacity:.38;cursor:default;transform:none}
+
+/* ── 서바이벌 도시 선택 ── */
+.cities{display:grid;gap:10px;margin-bottom:20px}
+@media (min-width:640px){.cities{grid-template-columns:1fr 1fr}}
+.city{display:flex;flex-direction:column;align-items:flex-start;gap:4px;padding:14px 16px;cursor:pointer;text-align:left;
+  background:rgba(255,255,255,.035);border:1px solid rgba(255,255,255,.12);color:var(--bone);font-family:var(--font)}
+.city:hover{background:rgba(255,255,255,.09);border-color:rgba(255,255,255,.28)}
+.city b{font-size:16px;letter-spacing:.08em}
+.city span{font-size:11px;color:var(--fog)}
+
+/* ── 무기 고르기 ──────────────────────────── */
+.arms{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:16px;background:rgba(4,6,9,.55);-webkit-backdrop-filter:blur(5px);backdrop-filter:blur(5px);
+  pointer-events:auto;padding:16px}
+.arms__row{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;max-width:min(560px,100%)}
+.arm{width:118px;padding:12px 8px 10px;border-radius:6px;cursor:pointer;
+  border:1px solid rgba(255,255,255,.14);background:rgba(18,22,28,.82);color:var(--bone);
+  font-family:var(--font);display:flex;flex-direction:column;align-items:center;gap:6px}
+.arm svg{width:84px;height:34px;fill:currentColor;opacity:.85}
+.arm b{font-size:12px;letter-spacing:.1em;font-weight:600}
+.arm span{font-size:11px;color:var(--fog);font-variant-numeric:tabular-nums}
+.arm kbd{min-width:0;padding:1px 6px;font-size:10px;opacity:.6}
+.arm.on{border-color:var(--blood);background:rgba(120,24,20,.42);box-shadow:0 0 0 1px var(--blood) inset}
+.arm[disabled]{opacity:.28;cursor:default}
+.arm.empty span{color:var(--blood)}
+.arms__note{font-size:11px;color:var(--fog);letter-spacing:.08em}
+@media (max-width:520px){ .arm{width:calc(50% - 5px)} }
+
+/* ── 스크린 ───────────────────────────────── */
+#screens{position:fixed;inset:0;pointer-events:none}
+.screen{position:absolute;inset:0;display:flex;align-items:flex-start;justify-content:center;
+  pointer-events:auto;padding:24px;overflow-y:auto;overscroll-behavior:contain;
+  padding-top:max(24px,env(safe-area-inset-top));padding-bottom:max(24px,env(safe-area-inset-bottom));
+  background:radial-gradient(ellipse at 50% 40%,rgba(18,22,28,.94),rgba(4,5,8,.985))}
+.screen--title{background:radial-gradient(ellipse at 50% 38%,rgba(10,13,18,.5),rgba(4,5,8,.9))}
+.screen__inner{width:min(560px,100%);text-align:center;margin:auto;
+  animation:rise .5s cubic-bezier(.16,.84,.44,1) both}
+@keyframes rise{from{opacity:0;transform:translateY(14px)}}
+
+.logo{font-size:clamp(42px,11vw,84px);font-weight:800;letter-spacing:.14em;line-height:.95;
+  text-shadow:0 0 42px rgba(201,53,43,.28)}
+.logo em{display:block;font-style:normal;font-size:.19em;letter-spacing:.62em;
+  font-weight:400;color:var(--fog);margin-top:14px;text-indent:.62em}
+.tagline{margin:26px 0 34px;font-size:13.5px;line-height:2;color:var(--fog)}
+
+.screen h2{font-size:22px;letter-spacing:.16em;font-weight:600;margin-bottom:22px}
+
+.menu{display:flex;flex-direction:column;gap:9px;align-items:center}
+.btn{width:min(280px,84vw);padding:13px 20px;font-family:var(--font);font-size:13px;
+  letter-spacing:.16em;color:var(--bone);cursor:pointer;
+  background:rgba(255,255,255,.045);border:1px solid rgba(255,255,255,.14);
+  transition:background .18s,border-color .18s,transform .18s}
+.btn:hover{background:rgba(255,255,255,.1);border-color:rgba(255,255,255,.3);transform:translateY(-1px)}
+.btn--primary{background:rgba(201,53,43,.16);border-color:rgba(201,53,43,.5);color:#ffd9d5}
+.btn--primary:hover{background:rgba(201,53,43,.28);border-color:var(--blood)}
+.btn--ghost{border-color:transparent;color:var(--fog);font-size:12px}
+a.btn{display:inline-block;text-decoration:none;text-align:center}
+.screen .btn{margin-top:9px}
+
+.record{margin-top:30px;font-size:11px;letter-spacing:.16em;color:var(--fog);opacity:.6}
+.record b{color:var(--amber);font-weight:600}
+
+/* 챕터 목록 */
+.chapters{display:grid;gap:8px;margin-bottom:20px;text-align:left}
+.chapter{display:flex;align-items:center;gap:14px;padding:13px 16px;cursor:pointer;
+  background:rgba(255,255,255,.035);border:1px solid rgba(255,255,255,.1);
+  transition:background .18s,border-color .18s}
+.chapter:hover{background:rgba(255,255,255,.09);border-color:rgba(255,255,255,.26)}
+.chapters__part{grid-column:1/-1;margin:10px 0 2px;font-size:12px;letter-spacing:.18em;color:var(--accent,#f0b429);text-transform:uppercase;opacity:.85}
+.chapter--locked{opacity:.34;cursor:not-allowed}
+.chapter--locked:hover{background:rgba(255,255,255,.035);border-color:rgba(255,255,255,.1)}
+.chapter__no{font-size:11px;letter-spacing:.14em;color:var(--fog);min-width:26px}
+.chapter__name{font-size:14px;font-weight:600;flex:1}
+.chapter__goal{font-size:11px;color:var(--fog);opacity:.75}
+.chapter__mark{font-size:11px;color:var(--amber);letter-spacing:.1em;
+  display:flex;flex-direction:column;align-items:flex-end;gap:1px;min-width:34px}
+.chapter__grade{font-size:19px;font-weight:800;line-height:1;letter-spacing:.02em;color:var(--amber)}
+.chapter__grade[data-g=S]{color:#f5d76e}
+.chapter__grade[data-g=C],.chapter__grade[data-g=D]{color:#9aa3ad}
+.chapter__score{font-size:9px;letter-spacing:.14em;color:var(--fog);opacity:.6;
+  font-variant-numeric:tabular-nums}
+.result__grade.best b{animation:pulse 1.1s ease-in-out 3}
+
+/* 조작법 */
+.keys{display:grid;gap:11px;text-align:left;margin-bottom:22px}
+.keys>div{display:flex;align-items:center;gap:7px;font-size:13px;color:var(--fog)}
+.keys span{margin-left:8px;color:var(--bone)}
+kbd{display:inline-block;min-width:30px;padding:5px 9px;font-family:var(--font);font-size:11px;
+  text-align:center;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.18);
+  border-bottom-width:2px;color:var(--bone)}
+.note{font-size:12px;line-height:1.9;color:var(--fog);opacity:.8}
+.note b{color:var(--amber);font-weight:500}
+
+/* 브리핑 */
+.brief__no{font-size:11px;letter-spacing:.28em;color:var(--blood)}
+.screen--brief h2{margin:12px 0 20px;font-size:28px;letter-spacing:.08em}
+.brief__text{font-size:13.5px;line-height:2.1;color:var(--fog);margin-bottom:22px;
+  padding-bottom:22px;border-bottom:1px solid rgba(255,255,255,.09)}
+.brief__goals{list-style:none;display:grid;gap:8px;margin-bottom:26px}
+.brief__goals li{font-size:13px;letter-spacing:.04em}
+.brief__goals li::before{content:"▸ ";color:var(--amber)}
+
+/* 결과 */
+.screen--result h2{font-size:34px;letter-spacing:.2em;margin-bottom:8px}
+.screen--result.fail h2{color:var(--blood)}
+/* ── 설정 ─────────────────────────────────── */
+.set{display:grid;grid-template-columns:minmax(0,1fr);gap:4px;text-align:left;margin-bottom:20px}
+.set__row{display:flex;align-items:center;justify-content:space-between;gap:16px;
+  padding:11px 2px;border-bottom:1px solid rgba(255,255,255,.06)}
+.set__row--stack{border-bottom:none;padding-bottom:6px}
+.set__label{font-size:13px;color:var(--bone);letter-spacing:.04em;white-space:nowrap}
+.set__label b{color:var(--amber);font-variant-numeric:tabular-nums;margin-left:6px}
+/* 추천값 — 누르면 그 값으로. 이미 추천값이면 옅게(✓) */
+.set__rec{margin-left:10px;padding:3px 9px;border-radius:999px;border:1px solid rgba(240,180,41,.55);background:rgba(240,180,41,.1);
+  color:var(--amber);font:600 11px/1.3 var(--font);letter-spacing:.02em;cursor:pointer;vertical-align:1px;white-space:nowrap}
+.set__rec:hover{background:rgba(240,180,41,.2)}
+.set__rec[aria-pressed="true"]{border-color:rgba(255,255,255,.18);background:none;color:rgba(232,226,212,.55);cursor:default}
+.set__rec[aria-pressed="true"]::before{content:"✓ "}
+.set__link{justify-self:start;margin:2px 0 6px;padding:4px 0;background:none;border:none;
+  font-family:var(--font);font-size:11px;letter-spacing:.04em;color:var(--amber);
+  cursor:pointer;text-decoration:underline;text-underline-offset:3px;opacity:.85}
+.set__link:hover{opacity:1}
+.set__link:disabled{color:var(--fog);opacity:.5;cursor:default;text-decoration:none}
+.set__link:focus-visible{outline:1px solid var(--amber);outline-offset:3px}
+.set__note{font-size:11px;line-height:1.8;color:var(--fog);opacity:.7;margin:0 0 8px;
+  border-bottom:1px solid rgba(255,255,255,.06);padding-bottom:11px}
+
+.set input[type=range],.sheet input[type=range]{-webkit-appearance:none;appearance:none;width:min(220px,48vw);height:3px;
+  background:rgba(255,255,255,.14);outline:none;border-radius:2px}
+.set input[type=range]::-webkit-slider-thumb,.sheet input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;
+  width:15px;height:15px;border-radius:50%;background:var(--amber);cursor:pointer;border:none}
+.set input[type=range]::-moz-range-thumb,.sheet input[type=range]::-moz-range-thumb{width:15px;height:15px;border-radius:50%;
+  background:var(--amber);cursor:pointer;border:none}
+
+.seg{display:flex;gap:0;border:1px solid rgba(255,255,255,.14);border-radius:3px;overflow:hidden}
+.seg button{flex:1 1 auto;white-space:nowrap;padding:9px 16px;min-height:40px;background:transparent;border:none;cursor:pointer;
+  color:var(--fog);font-family:var(--font);font-size:12px;letter-spacing:.08em;
+  border-right:1px solid rgba(255,255,255,.1);transition:background .15s,color .15s}
+.seg button:last-child{border-right:none}
+.seg button:hover{background:rgba(255,255,255,.05)}
+.seg button.on{background:rgba(240,180,41,.16);color:var(--amber)}
+
+.tog{width:46px;height:24px;border-radius:12px;cursor:pointer;flex-shrink:0;
+  border:1px solid rgba(255,255,255,.16);background:rgba(255,255,255,.05);
+  position:relative;transition:background .15s,border-color .15s}
+.tog i{position:absolute;top:3px;left:3px;width:16px;height:16px;border-radius:50%;
+  background:var(--fog);opacity:.6;transition:transform .16s,background .16s,opacity .16s}
+.tog[aria-pressed=true]{background:rgba(240,180,41,.2);border-color:rgba(240,180,41,.45)}
+.tog[aria-pressed=true] i{transform:translateX(22px);background:var(--amber);opacity:1}
+
+/* ── 전적 등급 ─────────────────────────────── */
+.result__grade{display:inline-flex;flex-direction:column;align-items:center;gap:2px;margin:6px 0 14px}
+.result__grade b{font-size:52px;line-height:1;font-weight:800;letter-spacing:.04em;
+  color:var(--amber);text-shadow:0 0 30px rgba(240,180,41,.3)}
+.result__grade span{font-size:9px;letter-spacing:.3em;color:var(--fog);opacity:.65}
+.result__grade[data-g=S] b{color:#f5d76e;text-shadow:0 0 36px rgba(245,215,110,.45)}
+.result__grade[data-g=D] b,.result__grade[data-g=C] b{color:#9aa3ad;text-shadow:none}
+.screen--result.fail .result__grade b{color:var(--blood);text-shadow:0 0 30px rgba(201,53,43,.3)}
+
+/* ── 엔딩 ─────────────────────────────────── */
+.screen--ending{background:radial-gradient(ellipse at 50% 42%,rgba(26,12,10,.9),rgba(3,4,6,.985))}
+.ending__kicker{font-size:10px;letter-spacing:.44em;color:var(--blood);opacity:.85;margin-bottom:10px}
+.ending__title{font-size:clamp(28px,7vw,44px);font-weight:800;letter-spacing:.1em;margin-bottom:18px;
+  text-shadow:0 0 38px rgba(201,53,43,.3)}
+.ending__text{font-size:13px;line-height:2.1;color:var(--fog);margin-bottom:26px}
+.pause__where{font-size:12px;letter-spacing:.1em;color:var(--fog);opacity:.8;margin-bottom:20px}
+
+.result__sub{font-size:13px;color:var(--fog);margin-bottom:26px;line-height:1.9}
+.result__stats{display:grid;grid-template-columns:1fr 1fr;gap:10px 22px;
+  margin-bottom:28px;font-size:13px;text-align:left;
+  max-width:340px;margin-left:auto;margin-right:auto}
+.result__stats dt{color:var(--fog);font-size:11px;letter-spacing:.12em}
+.result__stats dd{text-align:right;font-variant-numeric:tabular-nums;font-weight:600}
+.result__stats>div{display:flex;justify-content:space-between;align-items:baseline;
+  gap:12px;padding-bottom:7px;border-bottom:1px solid rgba(255,255,255,.07)}
+
+/* 터치 기기: 게이지와 탄약 표시가 조이스틱과 겹치지 않도록 재배치 */
+body.touch .hud__bottom{margin-bottom:calc(152px + env(safe-area-inset-bottom));gap:10px}
+body.touch .gauge{width:min(112px,27vw)}
+body.touch .ammo{position:absolute;top:calc(46px + env(safe-area-inset-top));
+  right:max(14px,env(safe-area-inset-right));margin:0;gap:14px}
+body.touch .hud__meter{bottom:calc(20px + env(safe-area-inset-bottom))}
+
+@media (max-width:520px){
+  .gauge{width:30vw}
+  .ammo{gap:12px}
+  .ammo b{font-size:21px}
+  .result__stats{grid-template-columns:1fr}
+}
+
+/* 터치 · 가로 화면 — 원작의 화면 방향. 세로 공간이 좁으므로
+   게이지는 왼쪽 위 임무 글 아래, 탄약은 오른쪽 위, 버튼은 모두 아래쪽 띠에 모은다 */
+@media (orientation:landscape) and (max-height:520px){
+  body.touch .hud__bottom{position:absolute;top:calc(60px + env(safe-area-inset-top));
+    left:max(14px,env(safe-area-inset-left));margin:0;flex-wrap:nowrap;gap:10px}
+  body.touch .gauge{width:min(92px,15vw)}
+  body.touch .ammo{position:fixed;top:calc(50px + env(safe-area-inset-top))}
+  body.touch .ammo__icon,body.touch .ammo__pips,body.touch .ammo__nadeIcon{display:none}   /* 낮은 가로 화면 — 근접 버튼과 겹치지 않게 */
+  body.touch .boss{top:calc(100px + env(safe-area-inset-top))}
+  body.touch #hint{top:calc(124px + env(safe-area-inset-top))}
+  .tbtn--nade{right:calc(160px + env(safe-area-inset-right));bottom:calc(18px + env(safe-area-inset-bottom))}
+  .tbtn--swap{right:calc(164px + env(safe-area-inset-right));bottom:calc(84px + env(safe-area-inset-bottom))}
+  .tbtn--melee{right:calc(96px + env(safe-area-inset-right));bottom:calc(156px + env(safe-area-inset-bottom))}
+  .tbtn--dodge{right:calc(162px + env(safe-area-inset-right));bottom:calc(156px + env(safe-area-inset-bottom))}   /* 밀치기 왼쪽 — 낮은 가로 화면에서 탄약 HUD 와 겹치지 않게 */
+  .tbtn--fire{right:calc(26px + env(safe-area-inset-right));bottom:calc(152px + env(safe-area-inset-bottom));
+    width:60px;height:60px}
+  .tbtn--reload{left:calc(160px + env(safe-area-inset-left));bottom:calc(18px + env(safe-area-inset-bottom))}
+  .tbtn--sprint{left:calc(160px + env(safe-area-inset-left));bottom:calc(76px + env(safe-area-inset-bottom))}
+  .tbtn--light{left:calc(160px + env(safe-area-inset-left));bottom:calc(134px + env(safe-area-inset-bottom))}
+}
+
+/* FPS · 해상도 표시 (설정에서 켠다) */
+#fpsMeter {
+  position: absolute; left: 50%; top: calc(6px + env(safe-area-inset-top));
+  transform: translateX(-50%);
+  font: 600 11px/1 var(--font); font-variant-numeric: tabular-nums;
+  color: #9fb0c0; background: rgba(5,7,10,.6);
+  padding: 4px 8px; border-radius: 4px; pointer-events: none; z-index: 5;
+  letter-spacing: .02em;
+}
+
+/* ── 짧은 가로 화면(휴대폰 가로) — 메뉴 화면을 두 단으로: 내용은 왼쪽, 버튼은 오른쪽.
+   세로로 쌓으면 390px 높이에서 '계속하기' · '진입' 이 화면 밖으로 밀려났다 ── */
+.screen__actions{display:flex;flex-direction:column;align-items:center}
+@media (orientation:landscape) and (max-height:520px){
+  .screen{padding:12px max(20px,env(safe-area-inset-right)) 12px max(20px,env(safe-area-inset-left))}
+  .screen--title .screen__inner,.screen--pause .screen__inner,.screen--result .screen__inner,
+  .screen--brief .screen__inner,.screen--ending .screen__inner{
+    width:min(900px,100%);display:grid;grid-template-columns:minmax(0,1fr) 250px;
+    column-gap:36px;align-items:center;text-align:left}
+  .screen__inner>*{grid-column:1}
+  .screen__inner>.screen__side{grid-column:2;grid-row:1 / span 12;align-self:center}
+  .screen__side .btn,.screen__actions .btn{width:100%}
+  .btn{padding:10px 16px}
+  .screen .btn{margin-top:7px}
+  .screen h2{margin-bottom:12px}
+  .logo{font-size:52px}
+  .logo em{text-indent:0;margin-top:10px}
+  .tagline{margin:16px 0 0;line-height:1.8}
+  .record{margin-top:16px}
+  .result__stats{margin:0;max-width:none}
+  .result__grade{margin:0 0 8px;justify-self:start;align-items:flex-start}
+  .result__sub{margin-bottom:14px}
+  .screen--result h2{font-size:28px}
+  .brief__text{line-height:1.75;margin-bottom:12px;padding-bottom:12px}
+  .brief__goals{margin-bottom:0}
+  .screen--brief h2{margin:6px 0 10px;font-size:24px}
+  .brief__map{width:150px;margin-bottom:6px}
+  .pause__where{margin-bottom:12px}
+  .ending__text{margin-bottom:14px}
+  /* 챕터 목록은 두 줄로 */
+  .screen--list .screen__inner{width:min(900px,100%)}
+  .chapters{grid-template-columns:1fr 1fr}
+  .chapter{padding:9px 12px}
+  .keys{grid-template-columns:1fr 1fr;gap:8px 18px}
+  .screen--howto .screen__inner,.screen--settings .screen__inner{width:min(760px,100%)}
+}
+
+/* 챕터의 도시 */
+.chapter__city{display:inline-block;margin-left:8px;padding:1px 6px;border-radius:2px;vertical-align:2px;
+  font-size:9.5px;font-weight:500;letter-spacing:.12em;color:var(--fog);border:1px solid rgba(255,255,255,.14)}
+
+/* ── 키 설정 ── */
+body.touch .desk-only{display:none !important}
+.set__btn{padding:6px 12px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.16);border-radius:3px;
+  color:var(--amber);font-family:var(--font);font-size:12px;letter-spacing:.06em;cursor:pointer}
+.set__btn:hover{background:rgba(240,180,41,.12);border-color:rgba(240,180,41,.45)}
+.screen--keys .screen__inner{width:min(720px,100%)}
+.keymap{display:grid;grid-template-columns:1fr 1fr;gap:6px 18px;margin:18px 0 8px;text-align:left}
+.keymap__row{display:flex;align-items:center;justify-content:space-between;gap:12px;
+  padding:7px 4px 7px 10px;border-bottom:1px solid rgba(255,255,255,.06)}
+.keymap__row span{font-size:13px;color:var(--bone)}
+.keymap__key{min-width:96px;padding:6px 10px;font-family:var(--font);font-size:12px;font-weight:600;letter-spacing:.04em;
+  color:var(--bone);background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.18);border-bottom-width:2px;
+  border-radius:3px;cursor:pointer;text-align:center;transition:background .15s,border-color .15s}
+.keymap__key:hover,.keymap__key:focus-visible{background:rgba(240,180,41,.12);border-color:rgba(240,180,41,.5);outline:none}
+.keymap__key.wait{color:var(--amber);border-color:var(--amber);animation:pulse .9s infinite}
+.keymap__key.changed{border-color:rgba(240,180,41,.55)}
+.keymap__key.flash{background:rgba(240,180,41,.25)}
+.keymap__msg{min-height:20px;font-size:12px;color:var(--amber);margin-bottom:6px}
+@media (max-width:620px){ .keymap{grid-template-columns:1fr} }
+@media (orientation:landscape) and (max-height:520px){ .keymap{grid-template-columns:1fr 1fr 1fr;gap:2px 14px} .keymap__row{padding:4px 2px 4px 6px} }
+
+/* ── 전체 지도 ── */
+.bigmap{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;
+  background:rgba(4,6,9,.72);-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px);pointer-events:auto;padding:16px}
+.bigmap canvas{border:1px solid rgba(255,255,255,.14);border-radius:4px;background:#07090c;max-width:100%;max-height:100%}
+.bigmap__legend{font-size:12px;color:var(--fog);letter-spacing:.06em}
+.bigmap__note{font-size:11px;color:var(--fog);opacity:.7;letter-spacing:.08em}
+.dot--me{background:var(--amber);border-radius:2px;transform:rotate(45deg)}
+.dot--goal{background:#59b7d8}
+body.touch .minimap{pointer-events:auto;cursor:pointer}
+
+/* ── 게임패드 ── */
+.padfocus{outline:2px solid var(--amber) !important;outline-offset:3px;box-shadow:0 0 0 4px rgba(240,180,41,.18)}
+.btn:focus-visible,.chapter:focus-visible,.city:focus-visible,.arm:focus-visible,.seg button:focus-visible,.tog:focus-visible{
+  outline:2px solid var(--amber);outline-offset:3px}
+.padmap{display:grid;grid-template-columns:1fr 1fr;gap:6px 18px;margin:22px 0 10px;text-align:left;
+  padding-top:16px;border-top:1px solid rgba(255,255,255,.08)}
+.padmap h3{grid-column:1 / -1;font-size:12px;letter-spacing:.2em;color:var(--fog);font-weight:600;margin-bottom:2px}
+.padmap div{font-size:12.5px;color:var(--bone);display:flex;gap:10px;align-items:baseline}
+.padmap b{min-width:92px;font-size:11px;font-weight:600;color:var(--amber);letter-spacing:.04em}
+.padmap p{grid-column:1 / -1;font-size:11px;color:var(--fog);opacity:.8;margin-top:4px}
+body.touch .padmap,body.touch #howtoKeymap{display:none}
+
+/* ── 터치 버튼 크기 (설정) — 스틱은 화면 모서리를, 버튼은 제자리 가운데를 기준으로 키운다 ── */
+body:not(.touch) .touch-only{display:none !important}
+#touch{--ts:1}
+body.ts-small #touch{--ts:.86}
+body.ts-large #touch{--ts:1.14}
+#touch .pad--move{transform:scale(var(--ts));transform-origin:left bottom}
+#touch .pad--turn{transform:scale(var(--ts));transform-origin:right bottom}
+#touch .tbtn{transform:scale(var(--ts))}
+#touch .tbtn:active{transform:scale(calc(var(--ts) * .94))}
+@media (orientation:landscape) and (max-height:520px){
+  /* 스틱이 커지면 옆 버튼 줄도 바깥으로 비킨다 */
+  .tbtn--reload,.tbtn--sprint,.tbtn--light{left:calc(132px * var(--ts) + 28px + env(safe-area-inset-left))}
+  .tbtn--nade{right:calc(132px * var(--ts) + 28px + env(safe-area-inset-right))}
+  .tbtn--swap{right:calc(132px * var(--ts) + 32px + env(safe-area-inset-right))}
+}
+/* 아주 낮은 가로 화면에서는 '크게' 를 조금만 키운다 — 스틱이 미니맵에 닿지 않게 */
+@media (orientation:landscape) and (max-height:360px){ body.ts-large #touch{--ts:1.04} }
+
+/* ── 떠 있는 스틱 — 엄지가 닿은 자리에 생긴다 ── */
+#touch .pad.floating{transform-origin:center !important;opacity:.7;transition:none}
+.pad--aim{opacity:.3}
+.pad--aim::after{content:"조준";position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+  font-size:10px;letter-spacing:.14em;color:rgba(255,255,255,.55);pointer-events:none}
+.pad--aim.floating::after{content:none}
+
+/* ── 판 · 정보 ── */
+.version{margin-top:10px;font-size:10.5px;letter-spacing:.1em;color:var(--fog);opacity:.55}
+.linkbtn{background:none;border:none;padding:4px 2px;color:var(--fog);font:inherit;letter-spacing:inherit;
+  text-decoration:underline;text-underline-offset:3px;cursor:pointer}
+.linkbtn:hover,.linkbtn:focus-visible{color:var(--amber);outline:none}
+.about{display:grid;gap:12px;text-align:left;margin:6px 0 18px}
+.about>div{display:grid;grid-template-columns:76px 1fr;gap:12px;padding-bottom:10px;border-bottom:1px solid rgba(255,255,255,.07)}
+.about dt{font-size:11px;letter-spacing:.14em;color:var(--fog)}
+.about dd{font-size:13px;line-height:1.7;color:var(--bone)}
+.about a{color:var(--amber)}
+.about__tools{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+.about__tools .btn{width:auto;flex:1 1 180px}
+.about__msg{min-height:20px;font-size:12px;color:var(--amber);margin:8px 0}
+
+/* 큰 모니터 — 게임 화면을 키운 만큼(ZOOM) HUD 와 메뉴도 키운다 */
+body:not(.touch) #hud{zoom:var(--hudz,1)}
+body:not(.touch) .screen__inner,body:not(.touch) .arms,body:not(.touch) .bigmap__legend,body:not(.touch) .bigmap__note{zoom:var(--hudz,1)}
+
+/* ── 터치 버튼 아이콘 (rc.19) — 글자 대신 그림. 이름은 aria-label 로 ── */
+.tbtn{display:flex;align-items:center;justify-content:center;padding:0}
+.tbtn svg{width:50%;height:50%;display:block;pointer-events:none}
+.tbtn--fire svg{width:44%;height:44%}
+#touch .tbtn.tbtn--free{transform:translate(-50%,-50%) scale(var(--ts))}
+#touch .tbtn.tbtn--free:active{transform:translate(-50%,-50%) scale(calc(var(--ts) * .94))}
+
+/* ── HUD 오른쪽 위 — 일시정지 · 홈 ── */
+.hud__stats{white-space:nowrap}
+.hud__btns{display:inline-flex;gap:6px;margin-left:12px;vertical-align:middle}
+.hudbtn{pointer-events:auto;width:32px;height:32px;border-radius:50%;display:inline-flex;align-items:center;
+  justify-content:center;padding:0;border:1px solid rgba(255,255,255,.16);background:rgba(4,6,9,.5);
+  color:var(--bone);cursor:pointer;touch-action:manipulation}
+.hudbtn svg{width:16px;height:16px}
+.hudbtn:hover{background:rgba(255,255,255,.12)}
+.hudbtn:active{transform:scale(.94)}
+.hudbtn{position:relative}
+.hudbtn::after{content:'';position:absolute;inset:-6px}          /* 보이는 단추는 32px, 누르는 자리는 44px */
+body:not(.touch) .minimap{top:calc(54px + env(safe-area-inset-top))}
+
+/* ── 모달 — 홈으로 ── */
+.modal{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;padding:20px;
+  background:rgba(0,0,0,.55);-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px)}
+.modal__box{width:min(360px,100%);background:rgba(12,15,19,.96);border:1px solid rgba(255,255,255,.12);
+  border-radius:10px;padding:22px 20px 18px;text-align:center}
+.modal__box h3{font-size:17px;margin:0 0 8px;letter-spacing:.04em;font-weight:600}
+.modal__box p{font-size:12.5px;color:var(--fog);line-height:1.7;margin:0 0 18px}
+.modal__acts{display:flex;gap:10px}
+.modal__acts .btn{flex:1;width:auto}
+
+/* ── 시점 거리 — 아래쪽 판만 가리고 위는 실제 3D 화면 ── */
+.sheet{position:fixed;inset:0;pointer-events:none;display:flex;align-items:flex-end;justify-content:center;
+  padding:0 12px max(14px,env(safe-area-inset-bottom))}
+.sheet__panel{pointer-events:auto;width:min(520px,100%);background:rgba(10,13,17,.86);
+  -webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);border:1px solid rgba(255,255,255,.12);
+  border-radius:12px;padding:14px 16px;display:flex;flex-direction:column;gap:12px}
+.sheet__head{display:flex;justify-content:space-between;align-items:baseline}
+.sheet__head b{font-size:14px;letter-spacing:.06em;font-weight:600}
+.sheet__head span{color:var(--amber);font-variant-numeric:tabular-nums;font-size:15px}
+.sheet__range{display:flex;align-items:center;gap:12px;font-size:11px;color:var(--fog);white-space:nowrap}
+.sheet input[type=range]{flex:1;width:auto;height:4px;touch-action:none}
+.sheet input[type=range]::-webkit-slider-thumb{width:24px;height:24px}
+.sheet input[type=range]::-moz-range-thumb{width:24px;height:24px}
+.sheet__presets button{padding:8px 6px;font-size:11px}
+.sheet .btn{width:100%;margin:0}
+
+/* ── 버튼 배치 편집 — 버튼을 끌어 옮긴다 ── */
+.layouted{position:fixed;left:50%;top:max(12px,env(safe-area-inset-top));transform:translateX(-50%);
+  width:min(560px,calc(100% - 24px));pointer-events:none}
+.layouted__bar{pointer-events:auto;background:rgba(10,13,17,.92);border:1px solid rgba(240,180,41,.4);
+  border-radius:10px;padding:10px 12px;display:flex;align-items:center;gap:12px;justify-content:space-between;flex-wrap:wrap}
+.layouted__bar p{font-size:12px;color:var(--bone);margin:0}
+.layouted__acts{display:flex;gap:8px;margin-left:auto}
+.layouted__acts .btn{width:auto;padding:8px 14px;font-size:12px;margin:0}
+body.tl-edit #touch{background:rgba(0,0,0,.4)}
+body.tl-edit #touch .pad{opacity:.12;pointer-events:none}
+body.tl-edit #touch .tbtn{outline:1px dashed rgba(240,180,41,.8);outline-offset:3px;cursor:grab;touch-action:none;
+  background:rgba(255,255,255,.1);opacity:1}
+body.tl-edit #touch .tbtn.dragging{cursor:grabbing;background:rgba(240,180,41,.28)}
+
+/* ── 타이틀 (rc.21) — 글자 대신 아이콘. 넓은 화면은 왼쪽 로고 · 오른쪽 메뉴, 세로 화면은 위아래 ── */
+.screen__inner.title{width:min(940px,100%);display:grid;gap:26px;justify-items:center}
+.title__brand{text-align:center}
+.title__brand .tagline{margin:20px 0 0}
+.title__menu{width:min(400px,100%);display:flex;flex-direction:column;gap:12px}
+.play{display:grid;grid-template-columns:auto 1fr;column-gap:16px;align-items:center;width:100%;
+  padding:16px 22px;border-radius:12px;cursor:pointer;text-align:left;font-family:var(--font);color:#fff;
+  border:1px solid rgba(220,70,58,.75);background:linear-gradient(180deg,#8e2219,#5e140f);
+  box-shadow:0 8px 30px rgba(201,53,43,.18);transition:transform .16s,box-shadow .16s,background .16s}
+.play:hover{transform:translateY(-1px);box-shadow:0 10px 36px rgba(201,53,43,.3);background:linear-gradient(180deg,#a32a20,#6e1812)}
+.play:active{transform:scale(.985)}
+.play svg{grid-row:1 / span 2;width:30px;height:30px;color:#fff}
+.play__t{font-size:19px;font-weight:700;letter-spacing:.12em}
+.play small{font-size:12px;letter-spacing:.08em;color:rgba(255,235,230,.72);margin-top:2px}
+.modes{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}
+.mode{position:relative;display:flex;flex-direction:column;align-items:center;gap:8px;padding:15px 4px 12px;
+  border-radius:12px;border:1px solid rgba(255,255,255,.12);background:rgba(16,19,24,.88);
+  color:var(--bone);cursor:pointer;font-family:var(--font);transition:background .16s,border-color .16s,transform .16s}
+.mode:hover:not([disabled]){background:rgba(34,39,46,.92);border-color:rgba(255,255,255,.28);transform:translateY(-1px)}
+.mode svg{width:26px;height:26px}
+.mode span{font-size:11.5px;letter-spacing:.05em;white-space:nowrap}
+.mode[disabled]{cursor:default;color:rgba(232,230,224,.38);background:rgba(12,14,18,.8)}
+.mode__lock{display:flex;align-items:center;gap:3px;font-style:normal;margin-top:-3px;
+  font-size:9.5px;color:var(--fog);opacity:.85}
+.mode__lock[hidden]{display:none}
+.mode .mode__lock svg{width:10px;height:10px}
+.mode__lock b{font-weight:600;font-variant-numeric:tabular-nums}
+.mode__badge{font-style:normal;font-size:9.5px;color:var(--amber);margin-top:-3px;
+  font-variant-numeric:tabular-nums;opacity:.9}
+.utils{display:flex;justify-content:center;gap:12px;margin-top:4px}
+.util{display:flex;flex-direction:column;align-items:center;gap:6px;width:58px;padding:0;border:0;background:none;
+  color:var(--fog);cursor:pointer;text-decoration:none;font-family:var(--font);font-size:10.5px;letter-spacing:.04em}
+.util svg{width:20px;height:20px;padding:11px;box-sizing:content-box;border-radius:50%;
+  border:1px solid rgba(255,255,255,.14);background:rgba(16,19,24,.88);transition:background .16s,color .16s,border-color .16s}
+.util:hover svg{background:rgba(255,255,255,.1);border-color:rgba(255,255,255,.3);color:#fff}
+.title__foot{display:flex;gap:14px;align-items:center;justify-content:center;font-size:10.5px;color:var(--fog);opacity:.7}
+.title__foot .record{margin:0;display:inline-flex;align-items:center;gap:5px;opacity:1}
+.title__foot .record svg{width:12px;height:12px}
+.title__foot .version{margin:0}
+.play:focus-visible,.mode:focus-visible,.util:focus-visible{outline:2px solid var(--amber);outline-offset:3px}
+.util:focus-visible{outline:none}.util:focus-visible svg{outline:2px solid var(--amber);outline-offset:2px}
+/* 넓은 화면 — 두 단 */
+@media (min-width:760px) and (min-aspect-ratio:5/4){
+  .screen__inner.title{grid-template-columns:1.15fr 1fr;align-items:center;column-gap:56px;justify-items:stretch}
+  .title__brand{text-align:left}
+  .title__brand .logo em{text-indent:0}
+  .title__menu{justify-self:end}
+  .title__foot{grid-column:1 / -1;justify-content:flex-start}
+}
+/* 짧은 가로 화면(휴대폰 가로) — 두 단, 촘촘하게 */
+@media (orientation:landscape) and (max-height:520px){
+  .screen--title .screen__inner.title{display:grid;grid-template-columns:minmax(0,1fr) 330px;column-gap:28px;row-gap:6px}
+  .screen__inner.title>.title__menu{grid-column:2;grid-row:1 / span 2;width:100%}
+  .title__brand{text-align:left}
+  .play{padding:11px 16px}
+  .mode{padding:10px 2px 8px;gap:5px}
+  .mode svg{width:22px;height:22px}
+  .util svg{padding:8px}
+  .title__foot{justify-content:flex-start}
+}
+/* 좁은 세로 화면 — 모드 넷을 둘씩 */
+@media (max-width:360px){ .modes{grid-template-columns:repeat(3,1fr)} }
+/* 짧은 세로 화면(rc.42) — 아이폰 SE 1세대(568) · 작은 안드로이드에서 설정 · 조작 · 정보가 화면 밖으로 밀렸다 */
+@media (orientation:portrait) and (max-height:700px){
+  .screen--title .screen__inner.title{gap:12px}
+  .title__brand .tagline{margin:10px 0 0;font-size:12.5px}
+  .play{padding:11px 18px}
+  .mode{padding:9px 2px 7px;gap:5px}
+  .mode svg{width:22px;height:22px}
+  .title__menu{gap:9px}
+  .util svg{padding:8px}
+}
+@media (orientation:portrait) and (max-height:600px){
+  .title__brand .tagline{display:none}
+}
+
+/* ── 설정 — 3D 판: 오른쪽 판(세로 화면은 아래 판), 나머지는 실제 3D 화면을 그대로 보여 준다 ── */
+.screen--settings.live{background:none;padding:0;justify-content:flex-end;align-items:stretch;overflow:hidden}
+.screen--settings.live>.screen__inner{box-sizing:border-box;width:min(440px,48vw);margin:0;height:100%;overflow-y:auto;overscroll-behavior:contain;
+  padding:max(24px,env(safe-area-inset-top)) max(22px,env(safe-area-inset-right)) max(24px,env(safe-area-inset-bottom)) 22px;
+  background:rgba(7,9,12,.93);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);
+  border-left:1px solid rgba(255,255,255,.08);box-shadow:-20px 0 40px rgba(0,0,0,.35);animation:panelIn .32s cubic-bezier(.16,.84,.44,1) both}
+@keyframes panelIn{from{transform:translateX(40px);opacity:0}}
+.screen--settings.live::before{content:attr(data-preview);position:absolute;top:max(18px,env(safe-area-inset-top));left:max(18px,env(safe-area-inset-left));
+  font-size:10.5px;letter-spacing:.2em;color:rgba(255,255,255,.55);padding:5px 10px;border:1px solid rgba(255,255,255,.14);border-radius:20px;
+  background:rgba(0,0,0,.35);pointer-events:none}
+.screen--settings.live.loading::after{content:'';position:absolute;top:50%;left:calc((100% - min(440px,48vw)) / 2);width:26px;height:26px;margin:-13px;
+  border:2px solid rgba(255,255,255,.18);border-top-color:var(--amber);border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+@media (orientation:portrait),(max-aspect-ratio:1/1){
+  .screen--settings.live{align-items:flex-end}
+  .screen--settings.live>.screen__inner{width:100%;height:58%;border-left:0;border-top:1px solid rgba(255,255,255,.08);
+    border-radius:16px 16px 0 0;box-shadow:0 -20px 40px rgba(0,0,0,.35);animation-name:panelUp;padding-left:max(18px,env(safe-area-inset-left))}
+  .screen--settings.live.loading::after{left:50%;top:21%}
+}
+@keyframes panelUp{from{transform:translateY(40px);opacity:0}}
+/* 시점 거리 — 설정 맨 위, 큰 손잡이 */
+.set__view{gap:10px;flex-wrap:wrap}
+.set__view .viewctl,.set__view .set__viewnote{flex:none;width:100%;box-sizing:border-box}
+.viewctl{display:flex;align-items:center;gap:12px;width:100%;color:var(--fog)}
+.viewctl svg{width:22px;height:22px;flex:none}
+.set .viewctl input[type=range]{flex:1;width:auto;height:4px;touch-action:none}
+.set .viewctl input[type=range]::-webkit-slider-thumb{width:24px;height:24px}
+.set .viewctl input[type=range]::-moz-range-thumb{width:24px;height:24px}
+.set__viewnote{border-bottom:none;margin:0;padding:0}
+.screen--settings:not(.live) .set__viewnote{display:none}
+/* 좁은 화면 · 설정 판 — 고르는 줄은 이름 아래로 내리고, 버튼은 폭을 나눠 가진다(예전엔 오른쪽이 잘렸다) */
+@media (max-width:480px){
+  .set__row--stack{flex-direction:column;align-items:stretch;gap:8px}
+  .set__row--stack .seg button{flex:1 1 0;min-width:0;padding:9px 6px}
+}
+.screen--settings.live .set__row--stack{flex-direction:column;align-items:stretch;gap:8px}
+.screen--settings.live .set__row--stack .seg button{flex:1 1 0;min-width:0;padding:9px 6px}
+
+/* 브리핑 — 이번 장의 변수 */
+.brief__twist{color:var(--amber);list-style:none;margin-top:6px}
+.brief__twist::before{content:'⚠ ';}
+
+/* 화성 특전 무기가 열릴 때 — 화면 가운데 위에 크게 */
+.unlock{position:absolute;left:50%;top:22%;transform:translate(-50%,0);text-align:center;pointer-events:none;opacity:0;z-index:30}
+.unlock small{display:block;font-size:12px;font-weight:700;letter-spacing:.2em;color:#ff9a6a;text-transform:uppercase}
+.unlock b{display:block;font-size:34px;font-weight:800;color:#fff;text-shadow:0 0 24px rgba(255,120,60,.8),0 2px 8px rgba(0,0,0,.8)}
+.unlock.show{animation:unlockIn 3.2s ease-out forwards}
+@keyframes unlockIn{0%{opacity:0;transform:translate(-50%,10px) scale(.9)}10%{opacity:1;transform:translate(-50%,0) scale(1.06)}20%{transform:translate(-50%,0) scale(1)}80%{opacity:1}100%{opacity:0}}
+
+/* 특전 맵 — 붉은 테두리와 표식 */
+.city--bonus{border-color:rgba(232,100,26,.55)!important;background:linear-gradient(135deg,rgba(120,40,16,.35),rgba(20,10,8,.2))!important}
+.city--bonus em{font-style:normal;font-size:11px;font-weight:800;color:#1a0a04;background:#ff8a50;border-radius:4px;padding:1px 6px;margin-left:6px;vertical-align:2px}
+
+/* 터치 — 스틱 끝까지 밀어 질주하는 동안 스틱 둘레가 주황으로 빛난다 */
+#padMove.sprint{box-shadow:0 0 0 3px rgba(255,160,60,.75),0 0 22px rgba(255,140,40,.55)}
+#padMove.sprint i{background:rgba(255,170,80,.9)}
+/* 밀치기 — 손 닿는 거리에 감염체가 있으면 커지고 맥박친다 */
+#touch #btnMelee.ready{transform:scale(calc(var(--ts) * 1.18));box-shadow:0 0 0 2px rgba(255,90,60,.8),0 0 18px rgba(255,80,50,.6);animation:meleeReady .5s ease-in-out infinite alternate}
+#touch #btnMelee.ready.tbtn--free{transform:translate(-50%,-50%) scale(calc(var(--ts) * 1.18))}
+@keyframes meleeReady{to{box-shadow:0 0 0 3px rgba(255,90,60,.95),0 0 26px rgba(255,80,50,.85)}}
+
+/* 무기 고르기 — 화성 특전 무기 칸은 주황 테두리, 잠긴 것은 남은 시간 */
+.arm.arm--special{border-color:rgba(255,138,80,.55)!important}
+.arm.arm--special b{color:#ffb08a}
+.arm.locked{opacity:.55}
+.arm.locked span{color:#ff9a6a;font-weight:700}
+/* 이동 스틱 바깥의 점선 고리 — 엄지를 여기까지 끌어내면 질주 */
+#padMove::after{content:"";position:absolute;inset:-30%;border:1.5px dashed rgba(255,170,80,.32);border-radius:50%;pointer-events:none}
+#padMove.sprint::after{border-style:solid;border-color:rgba(255,160,60,.8)}
+/* 챕터 지도 · 장마다 두 미션(A 진입 · B 본편) */
+.chapmap-wrap{margin:0 0 12px;border-radius:10px;border:1px solid rgba(255,255,255,.08);overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;overscroll-behavior-x:contain;scrollbar-width:none;background:#04070b}
+.chapmap-wrap::-webkit-scrollbar{display:none}
+.chapmap{display:block;width:100%;height:auto;aspect-ratio:960/520;cursor:pointer;background:#04070b}
+/* 좁은 화면 — 지도를 줄여 글자가 5px 이 되던 것을, 읽을 수 있는 크기로 두고 옆으로 밀어 본다(지금 장으로 저절로 맞춘다) */
+@media (max-width:720px){.chapmap{width:720px;max-width:none}}
+.chapter__stages{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.stg{display:inline-flex;align-items:center;gap:6px;padding:4px 9px;border-radius:999px;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.04);color:#cfc9b8;font:inherit;font-size:12px;cursor:pointer;min-height:36px}
+.stg b{display:inline-grid;place-items:center;width:17px;height:17px;border-radius:50%;background:#6e767e;color:#0a0d10;font-size:10px}
+.stg--open{border-color:rgba(240,180,41,.55);color:#f2ede0}.stg--open b{background:#f0b429}
+.stg--done{border-color:rgba(127,224,138,.45)}.stg--done b{background:#7fe08a}
+.stg i{font-style:normal;font-weight:700;color:#f0b429}
+.stg:disabled{opacity:.45;cursor:not-allowed}
+.stg:focus-visible{outline:2px solid #f0b429;outline-offset:2px}
+/* 화면 대비 — 설정값/80 배. 80(기본)이면 필터 없음 */
+body.ct #view,body.ct #view3d{filter:contrast(var(--ct,1))}
+/* 무기 그림 — 부품 경계(어두운 면)와 위쪽 윤곽(밝은 선) */
+.arm svg .d,.ammo__icon .d{fill:#000;opacity:.42}
+.arm svg .h,.ammo__icon .h{fill:#fff;opacity:.35}
+.ammo__icon{width:72px;height:29px}
+/* 좀비 도감 — 그림 + 현장 기록 카드 */
+.codex{display:grid;gap:10px;margin-bottom:18px;text-align:left}
+.cx{display:grid;grid-template-columns:120px 1fr;gap:14px;align-items:start;padding:12px;border:1px solid rgba(255,255,255,.08);border-radius:10px;background:linear-gradient(180deg,rgba(255,255,255,.035),rgba(255,255,255,.015))}
+.cx canvas{width:120px;height:120px;border-radius:8px;background:#0a0c0f}
+.cx h3{margin:0 0 4px;font-size:16px;color:#f2ede0}.cx h3 small{font-size:11px;font-weight:500;color:#a39c88;margin-left:6px;letter-spacing:.02em}
+.cx__threat{font-size:11px;color:#a39c88;margin-bottom:6px}.cx__threat b{color:#e0503a;letter-spacing:2px;font-weight:700}
+.cx p{margin:0 0 6px;font-size:13px;line-height:1.55;color:#d6d0c0}
+.cx dl{display:grid;grid-template-columns:auto 1fr;gap:3px 10px;margin:0 0 6px;font-size:12.5px;line-height:1.5}
+.cx dt{color:#f0b429;font-weight:600}.cx dd{margin:0;color:#cfc9b8}
+.cx__stat{font-size:11px;color:#8e887a}
+.cx--locked{opacity:.7}.cx--locked h3{color:#6e767e}.cx__hint{color:#8e887a !important;font-style:italic}
+
+@media (max-width:480px){.cx{grid-template-columns:84px 1fr;gap:10px}.cx canvas{width:84px;height:84px}}
+/* 생존자 칩 — 타이틀의 큰 버튼 위 한 줄: 레벨 · 경험치 막대 · 남은 특성 점수 */
+.rankchip{display:flex;align-items:center;gap:10px;width:100%;margin:0 0 10px;padding:9px 14px;border-radius:12px;border:1px solid rgba(255,255,255,.12);
+  background:rgba(14,17,21,.82);color:var(--bone,#e8e2d0);font:inherit;cursor:pointer;text-align:left}
+.rankchip:hover{border-color:rgba(255,255,255,.28)}
+.rankchip svg{width:20px;height:20px;flex:none;color:#f0b429}
+.rankchip b{font-size:13px;letter-spacing:.04em;flex:none}
+.rankchip__bar{flex:1;height:6px;border-radius:3px;background:rgba(255,255,255,.1);overflow:hidden}
+.rankchip__bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,#c88a1a,#f0b429);border-radius:3px}
+.rankchip em{font-style:normal;font-size:11px;font-weight:700;color:#0a0d10;background:#f0b429;border-radius:999px;padding:2px 8px;animation:ptsPulse 1.6s ease-in-out infinite}
+.rankchip em[hidden]{display:none}
+@keyframes ptsPulse{50%{box-shadow:0 0 0 4px rgba(240,180,41,.25)}}
+.rankchip:focus-visible{outline:2px solid #f0b429;outline-offset:3px}
+/* 생존자 화면 */
+.rankbar{height:8px;border-radius:4px;background:rgba(255,255,255,.08);overflow:hidden;margin:4px 0 10px}
+.rankbar i{display:block;height:100%;background:linear-gradient(90deg,#c88a1a,#f0b429)}
+.perks{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:8px;margin:0 0 16px;text-align:left}
+.perks__group{grid-column:1/-1;margin:10px 0 0;font-size:12px;letter-spacing:.14em;color:#8d8778;font-weight:700}
+.perk{position:relative;display:flex;flex-direction:column;align-items:flex-start;gap:3px;padding:11px 12px 12px;border:1px solid rgba(255,255,255,.08);border-radius:12px;background:rgba(255,255,255,.025);color:inherit;font:inherit;text-align:left;cursor:pointer;min-height:118px;transition:transform .12s,border-color .2s,background .2s}
+.perk--on{border-color:rgba(240,180,41,.32);background:rgba(240,180,41,.05)}
+.perk--can{border-color:rgba(240,180,41,.75);background:rgba(240,180,41,.1);box-shadow:0 0 0 1px rgba(240,180,41,.25) inset}
+.perk--can:active{transform:scale(.97)}
+.perk--pop{animation:perkPop .5s ease}
+@keyframes perkPop{0%{transform:scale(1)}40%{transform:scale(1.05);box-shadow:0 0 22px rgba(240,180,41,.55)}100%{transform:scale(1)}}
+.perk b{font-size:15px;color:#f2ede0;padding-right:34px}
+.perk__lv{position:absolute;top:10px;right:12px;font-style:normal;font-size:12px;color:#b8b2a2;font-variant-numeric:tabular-nums}
+.perk__now{font-size:12.5px;color:#e6dcc4;line-height:1.4}
+.perk__next{font-size:12px;color:#f0b429;line-height:1.4}
+.perk--max .perk__now{color:#f0b429}
+.perk__pips{font-style:normal;color:#f0b429;letter-spacing:3px;font-size:11px;margin-top:auto}
+.perk__cta{align-self:stretch;margin-top:6px;padding:7px 0;border-radius:8px;text-align:center;font-size:12.5px;font-weight:700;color:#7d848b;border:1px solid rgba(255,255,255,.1)}
+.perk--can .perk__cta{color:#16120a;background:#f0b429;border-color:#f0b429}
+.perk--max .perk__cta{color:#f0b429;border-color:rgba(240,180,41,.35)}
+#rankNote{display:flex;flex-direction:column;align-items:center;gap:6px}
+.rankpts{display:inline-flex;align-items:baseline;gap:8px;padding:8px 16px;border-radius:999px;border:1px solid rgba(255,255,255,.12);color:#b8b2a2;font-size:13px}
+.rankpts b{font-size:22px;color:#e6dcc4}
+.rankpts--on{border-color:#f0b429;background:rgba(240,180,41,.12);color:#f0b429}
+.rankpts--on b{color:#f0b429}
+.rankpts__how{font-size:12.5px;color:#9e988a}
+#mtoast{position:fixed;left:50%;bottom:calc(28px + env(safe-area-inset-bottom,0px));transform:translate(-50%,12px);z-index:60;max-width:calc(100vw - 32px);padding:10px 16px;border-radius:10px;background:rgba(18,19,21,.94);border:1px solid rgba(240,180,41,.45);color:#f2ede0;font-size:13.5px;opacity:0;pointer-events:none;transition:opacity .2s,transform .2s}
+#mtoast.show{opacity:1;transform:translate(-50%,0)}
+.rank__sub{margin:6px 0 6px;font-size:13px;letter-spacing:.08em;color:#a39c88;text-align:left}
+/* 결과 화면의 경험치 */
+.result__xp{margin:0 0 14px;padding:12px 14px;border-radius:10px;border:1px solid rgba(240,180,41,.25);background:rgba(240,180,41,.05);text-align:left}
+.result__xp.up{border-color:rgba(240,180,41,.7);box-shadow:0 0 24px rgba(240,180,41,.18)}
+.xp__head{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px}
+.xp__head b{font-size:18px;color:#f0b429}.xp__head span{font-size:12px;color:#cfc9b8}
+.xp__bar{height:8px;border-radius:4px;background:rgba(255,255,255,.1);overflow:hidden}
+.xp__bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,#c88a1a,#f0b429);transition:width 1.1s cubic-bezier(.2,.8,.2,1)}
+.xp__parts{display:flex;flex-wrap:wrap;gap:4px 12px;margin-top:8px;font-size:11.5px;color:#a39c88}.xp__parts b{color:#e8e2d0;font-weight:600}
+.xp__note{margin:6px 0 0;font-size:12.5px;color:#f2ede0}
+.btn--small{margin-top:8px;padding:6px 14px;font-size:12px}
+/* 오늘의 도시 카드 */
+.city--daily{border-color:rgba(240,180,41,.55) !important;background:linear-gradient(135deg,rgba(240,180,41,.12),rgba(240,180,41,.02)) !important;grid-column:1/-1}
+.city--daily em{display:block;margin-top:4px;font-style:normal;font-size:11.5px;color:#f0b429}
+.cx__medal[data-m="1"]{color:#c88a5a}.cx__medal[data-m="2"]{color:#c9ccd1}.cx__medal[data-m="3"]{color:#f0b429;font-weight:700}
+.cx__stat em{font-style:normal;color:#6e767e}
+
+/* ── rc.31 — 소지품 · 장비 · 동료 · 돌파 경고 ── */
+.brief__side{color:#9fe0a8;list-style:none;margin-top:4px}
+.brief__kitbox{display:flex;flex-direction:column;gap:10px;margin:0 0 14px;text-align:left}
+.brief__kitbox:empty{display:none}
+.kitrow{padding:10px 12px;border:1px solid rgba(255,255,255,.08);border-radius:10px;background:rgba(255,255,255,.025)}
+.kitrow>b{display:block;font-size:13px;color:#f2ede0;margin-bottom:6px}.kitrow>b small{font-weight:500;color:#a39c88;margin-left:6px}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{min-height:36px;padding:6px 12px;border-radius:999px;border:1px solid rgba(255,255,255,.16);background:transparent;color:#a39c88;font:inherit;font-size:12.5px;cursor:pointer}
+.chip--on{border-color:rgba(255,207,90,.7);background:rgba(255,207,90,.12);color:#ffcf5a;font-weight:600}
+.chip:focus-visible{outline:2px solid #f0b429;outline-offset:2px}
+.kitnote{display:block;margin-top:6px;font-size:11.5px;color:#a39c88;line-height:1.45}
+.gears{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:8px;margin:0 0 16px;text-align:left}
+.gearc{position:relative;display:flex;flex-direction:column;gap:4px;padding:10px 12px;border-radius:10px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.025);color:inherit;font:inherit;text-align:left;cursor:pointer;min-height:76px}
+.gearc b{font-size:14px;color:#f2ede0}.gearc span{font-size:12px;color:#b8b2a2;line-height:1.4}
+.gearc i{position:absolute;top:10px;right:10px;font-style:normal;font-size:11px;color:#6e767e}
+.gearc--on{border-color:rgba(255,207,90,.6);background:rgba(255,207,90,.07)}.gearc--on i{color:#ffcf5a;font-weight:700}
+.gearc--lock{opacity:.5;cursor:default}.gearc--lock b{color:#6e767e}
+.modal__box--warn{border-color:rgba(224,80,58,.55)}.modal__box--warn h3{color:#ff7a5a}
+.squad{display:flex;flex-direction:column;gap:3px;margin-top:4px;width:150px;max-width:40vw}
+.squad__m{display:grid;grid-template-columns:42px 1fr;align-items:center;gap:6px;font-size:10.5px;color:#cfe8d2}
+.squad__m i{display:block;height:4px;border-radius:2px;background:rgba(255,255,255,.12);overflow:hidden}
+.squad__m b{display:block;height:100%;background:#7fe08a;transition:width .2s}
+.squad__m.dead{color:#6e767e;text-decoration:line-through}.squad__m.dead b{width:0!important}
+.modal{z-index:40}                                                  /* 브리핑 · 메뉴 화면 위에도 뜨게(돌파 경고) */
+/* 휴대폰 — 무기 칸 목록은 지금 든 것만. 들고 다니는 총이 늘면 목록이 무전 글을 덮었다(바꾸기 단추로 돌린다) */
+body.touch .ammo__slots span:not(.on){display:none}
+
+.gauge--health i.infected{background:linear-gradient(90deg,#3d5a14,#8bbf2f);animation:pulse 1.2s infinite}
+
+/* 소음 게이지 (rc.39) — 지금 내는 소리 · 쌓인 소음 열기(붉은 눈금이 끝에 닿으면 무리가 온다) */
+.gauge--noise[hidden]{display:none}
+.gauge--noise i{background:linear-gradient(90deg,#3a4660,#b8c8ec);transition:width .12s}
+.gauge--noise .gauge__track{position:relative}
+.gauge__heat{position:absolute;top:-3px;bottom:-3px;width:3px;margin-left:-1px;background:#d0402e;border-radius:1px;box-shadow:0 0 4px rgba(208,64,46,.8)}
+.gauge--noise.hot .gauge__label{color:#ff7a6e}
+.gauge--noise.hot .gauge__heat{animation:pulse .5s infinite}
+
+/* 빠른 장전 구간 (rc.39) — 장전 막대의 밝은 띠. 이 구간에서 한 번 더 누르면 바로 끝난다 */
+.ammo__reload{position:relative}
+.reload__sweet{position:absolute;top:-2px;bottom:-2px;left:45%;width:20%;background:rgba(255,226,140,.55);border-radius:1px;opacity:0;transition:opacity .1s}
+.ammo__reload.on .reload__sweet{opacity:1}
+.ammo__reload.tried .reload__sweet{opacity:.15}
+
+.set__link--danger{color:#ff8a7a;margin-top:10px}
+.set__link--danger:hover{color:#ffb0a4}
+/* 세로 터치 화면 — 소음 게이지는 새 줄을 만들지 않고 기력 막대 바로 밑의 얇은 띠로(버튼과 겹치지 않게) */
+@media (orientation:portrait), (min-height:521px){
+  body.touch .hud__bottom .gauge--noise{margin-top:-9px}
+  body.touch .hud__bottom .gauge--noise .gauge__label{display:none}
+  body.touch .hud__bottom .gauge--noise .gauge__track{height:3px}
+}
+
+/* 설정 탭(rc.43) — 기본 · 조작 · 화면 */
+.settabs{position:sticky;top:0;z-index:2;margin-bottom:14px;background:var(--panel,#121315);box-shadow:0 6px 14px rgba(0,0,0,.35)}
+.settabs button{flex:1 1 0;font-weight:700;letter-spacing:.04em}
+.set__tab{display:none}
+#scrSettings[data-tab="basic"] .set__tab[data-tab="basic"],
+#scrSettings[data-tab="ctrl"] .set__tab[data-tab="ctrl"],
+#scrSettings[data-tab="view"] .set__tab[data-tab="view"]{display:block}
+
+/* 정식판 안내(rc.43) */
+.paygate{max-width:520px;text-align:center}
+.paygate__kicker{margin:0 0 6px;font-size:12px;letter-spacing:.2em;color:#f0b429}
+.paygate__title{margin:0 0 14px}
+.paygate__tease{margin:0 auto 18px;max-width:440px;font-size:15px;line-height:1.7;color:#e6dcc4;word-break:keep-all}
+.paygate__list{list-style:none;margin:0 0 20px;padding:0;display:grid;gap:8px;text-align:left}
+.paygate__list li{padding:10px 14px;border:1px solid rgba(255,255,255,.08);border-radius:10px;background:rgba(255,255,255,.025);font-size:12.5px;color:#a8a294;line-height:1.5}
+.paygate__list b{display:block;font-size:14px;color:#f2ede0;margin-bottom:2px}
+.paygate__buy{width:100%;min-height:52px;font-size:16px;font-weight:800;background:#f0b429;border-color:#f0b429;color:#16120a}
+.paygate__buy:hover{background:#ffc845;border-color:#ffc845}
+.paygate__buy:disabled{opacity:.6}
+.paygate__msg{min-height:1.5em;margin:10px 0 4px;font-size:13px;color:#d8cfb8;word-break:keep-all}
+.chapters__paywall{margin:14px 0 6px;padding:8px 12px;border-radius:8px;border:1px dashed rgba(240,180,41,.5);color:#f0b429;font-size:12.5px;text-align:center}
+.chapter--paid .chapter__no::after{content:'★';margin-left:4px;color:#f0b429;font-size:11px}
+.paygate .set__link{display:block;margin:4px auto 12px}
+.paygate>.btn--ghost{display:block;width:100%}
+
+/* ══ rc.43 UI 다듬기 ══ */
+/* 1) 주 버튼은 타이틀의 '시작'과 같은 무게 — 어두운 테두리만 있어 눈에 띄지 않았다 */
+.btn--primary{background:linear-gradient(180deg,#8e2219,#5e140f);border-color:rgba(220,70,58,.75);color:#fff;font-weight:700;
+  box-shadow:0 6px 22px rgba(201,53,43,.2)}
+.btn--primary:hover{background:linear-gradient(180deg,#a32a20,#6e1812);border-color:#dc463a}
+.btn{border-radius:10px}
+.btn--ghost{background:transparent}
+
+/* 2) 브리핑 — 목표를 읽기 쉬운 카드로, '출격'은 늘 화면 안에 */
+.brief__goals{text-align:left;max-width:520px;margin-left:auto;margin-right:auto;padding:12px 14px;gap:7px;
+  border:1px solid rgba(255,255,255,.08);border-radius:12px;background:rgba(255,255,255,.025)}
+.brief__goals li{display:flex;gap:8px;align-items:baseline;line-height:1.55;font-size:13px}
+.brief__goals li::before{content:"";flex:0 0 7px;height:7px;border-radius:2px;background:var(--amber);transform:translateY(-1px)}
+.brief__goals li.brief__twist::before{background:#f0b429;border-radius:50%}
+.brief__goals li.brief__kit::before{background:#8d8778}
+.brief__goals li.brief__kit{color:#b8b2a2;font-size:12.5px}
+.brief__goals li.brief__side::before{background:#7ee08f;border-radius:50%}
+.brief__twist{margin-top:4px;padding-top:7px;border-top:1px dashed rgba(255,255,255,.08)}
+.brief__text{text-align:left;max-width:560px;margin-left:auto;margin-right:auto;line-height:1.85}
+@media not all and (orientation:landscape) and (max-height:520px){
+  .screen--brief .screen__inner{padding-bottom:110px}
+  .screen--brief .screen__actions{position:fixed;left:0;right:0;bottom:0;z-index:5;flex-direction:row;justify-content:center;gap:10px;
+    padding:14px max(16px,env(safe-area-inset-left)) max(14px,env(safe-area-inset-bottom));
+    background:linear-gradient(180deg,rgba(4,5,8,0),rgba(4,5,8,.92) 30%,rgba(4,5,8,.98))}
+  .screen--brief .screen__actions .btn{margin:0;width:auto;flex:0 1 220px;min-height:50px}
+  .screen--brief .screen__actions .btn--primary{flex-basis:260px;font-size:15px;letter-spacing:.2em}
+  .screen--brief .screen__actions .btn--ghost{order:-1;flex:0 0 auto;padding-left:16px;padding-right:16px}
+}
+
+/* 3) 일시정지 · 결과(세로 화면) — 할 일(버튼)을 먼저, 숫자는 아래에 두 줄 칸으로 */
+@media (orientation:portrait){
+  .screen--pause .screen__inner,.screen--result .screen__inner{display:flex;flex-direction:column;align-items:center}
+  .screen--pause .screen__side{order:2;width:100%;align-items:center}
+  .screen--pause .pause__tools{order:3}
+  .screen--pause .result__stats{order:4;margin-top:18px}
+  .screen--pause .screen__actions .btn,.screen--result .screen__actions .btn{width:min(320px,100%)}
+  .screen--pause .screen__actions .btn--primary,.screen--result .screen__actions .btn--primary{min-height:52px;font-size:15px}
+  .screen--result .screen__side{order:3;width:100%;align-items:center;margin-bottom:6px}
+  .screen--result .result__xp{order:4;width:100%}
+  .screen--result .result__stats{order:5}
+  .result__stats{grid-template-columns:1fr 1fr;gap:6px 16px;font-size:12.5px;width:100%}
+  .result__stats>div{padding:6px 0}
+}
+
+/* 4) 무전 자막이 탄약 · 게이지를 가리지 않게 */
+@media (orientation:portrait){ body.touch .radio{top:calc(146px + env(safe-area-inset-top));left:max(14px,env(safe-area-inset-left));max-width:calc(100vw - 28px)} }
+@media (orientation:landscape) and (max-height:520px){ body.touch .radio{top:calc(96px + env(safe-area-inset-top));max-width:min(360px,calc(100vw - 420px))} }
+
+/* 5) 타이틀 — 기록이 없으면 '⏱ —' 대신 비운다 */
+.record.is-empty{visibility:hidden}
+/* 브리핑 안쪽 판은 움직이지 않고 나타나기만 — transform 이 남으면 고정 단추 줄이 화면이 아니라 판에 붙는다 */
+@keyframes briefFade{from{opacity:0}}
+@media not all and (orientation:landscape) and (max-height:520px){ .screen--brief .screen__inner{animation:briefFade .35s ease both;transform:none} }
+@media (orientation:portrait){ body.touch .radio.show ~ #hint{margin-top:84px} }
+/* rc.45 — 설정 탭을 다른 선택 줄(난이도 · 속도)과 확실히 다르게: 위에 붙은 큰 탭 막대 + 밑줄 + 내용 판과 구분 */
+.settabs{display:flex;gap:6px;padding:6px;margin:0 0 18px;border:0;border-radius:14px;background:#0b0d10;
+  box-shadow:inset 0 0 0 1px rgba(240,180,41,.22),0 8px 18px rgba(0,0,0,.45)}
+.settabs button{flex:1 1 0;min-height:46px;border:0 !important;border-radius:10px;background:transparent;color:#9e988a;
+  font-size:15px;font-weight:800;letter-spacing:.12em;position:relative}
+.settabs button::before{content:'';display:inline-block;width:16px;height:16px;margin-right:7px;vertical-align:-3px;background:currentColor;
+  -webkit-mask:var(--ico) center/contain no-repeat;mask:var(--ico) center/contain no-repeat}
+.settabs button[data-tab="basic"]{--ico:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.2' stroke-linecap='round'%3E%3Cpath d='M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0'/%3E%3Ccircle cx='16' cy='6' r='2'/%3E%3Ccircle cx='10' cy='12' r='2'/%3E%3Ccircle cx='18' cy='18' r='2'/%3E%3C/svg%3E")}
+.settabs button[data-tab="ctrl"]{--ico:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.2' stroke-linecap='round'%3E%3Cpath d='M6.5 8h11a4 4 0 0 1 3.9 4.8l-1 4.6a2.4 2.4 0 0 1-4.2 1l-1.9-2.4h-4.6l-1.9 2.4a2.4 2.4 0 0 1-4.2-1l-1-4.6A4 4 0 0 1 6.5 8z'/%3E%3Cpath d='M8 10.8v3.4M6.3 12.5h3.4'/%3E%3C/svg%3E")}
+.settabs button[data-tab="view"]{--ico:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.2'%3E%3Crect x='3' y='5' width='18' height='12' rx='2'/%3E%3Cpath d='M8 21h8M12 17v4'/%3E%3C/svg%3E")}
+.settabs button:hover{background:rgba(255,255,255,.05);color:#e6dcc4}
+.settabs button.on{background:#f0b429;color:#16120a;box-shadow:0 4px 14px rgba(240,180,41,.35)}
+.settabs button.on::after{content:'';position:absolute;left:50%;bottom:-12px;transform:translateX(-50%);border:6px solid transparent;border-top-color:#f0b429}
+.set__tab{padding:4px 2px 0;border-top:2px solid rgba(240,180,41,.35)}
+/* 3x 정식판 표시 */
+.paylock{font-style:normal;color:#f0b429;font-size:11px;margin-left:3px}
+.seg button.locked{opacity:.55}
+/* rc.45 — '돌아가기' · '나중에' · '타이틀로' 같은 보조 단추도 상자로 */
+.btn--ghost{border:1px solid rgba(255,255,255,.22) !important;background:rgba(255,255,255,.04);color:#d8d1c0;font-size:13px}
+.btn--ghost:hover{background:rgba(255,255,255,.1);border-color:rgba(255,255,255,.4) !important}
+.brief__goals li.brief__hp{color:#ff8a7a}.brief__goals li.brief__hp::before{background:#e05a4a}
+/* rc.45 — 네 부: 부 제목 카드 · 4부의 차가운 화면 */
+.story__card.part{font-size:clamp(26px,6vw,46px);letter-spacing:.18em;color:#f0b429}
+.story__card.part4{color:#c8d0d8;text-shadow:0 0 24px rgba(200,40,30,.55)}
+.chapters__part--dark{color:#c8d0d8 !important;border-left:3px solid #b8322a;padding-left:8px}
+body.part4 #view,body.part4 #view3d{filter:saturate(.42) contrast(1.12) brightness(.94) hue-rotate(-6deg)}
+.ending--dark{background:radial-gradient(ellipse at 50% 30%,rgba(30,34,40,.96),rgba(2,3,5,.995))}
+.ending--dark .ending__title{color:#c8d0d8;letter-spacing:.2em}
+.ending--dark .ending__kicker{color:#b8322a}
+
+/* rc.46 — 정식판 안내 닫기 · 설계자 시연 표시 · 결제 창(시연) · 특성 화면의 다음 미션 */
+.paygate{position:relative}
+.paygate__close{position:absolute;top:6px;right:6px;width:44px;height:44px;display:grid;place-items:center;border:1px solid rgba(255,255,255,.22);border-radius:12px;background:rgba(0,0,0,.35);color:#e8e2d2;cursor:pointer}
+.paygate__close svg{width:20px;height:20px}
+.paygate__close:hover{background:rgba(255,255,255,.08)}
+.paygate__dev{display:inline-block;margin:0 0 12px;padding:5px 10px;border:1px dashed rgba(120,190,255,.55);border-radius:8px;font-size:11.5px;color:#9cc8ff;background:rgba(60,120,200,.08)}
+.paygate__dev[hidden]{display:none}
+.chapters__paywall--dev{display:block;width:100%;cursor:pointer;border:1px dashed rgba(120,190,255,.55)!important;color:#9cc8ff!important;background:rgba(60,120,200,.08)!important;font:inherit}
+.storesheet{position:fixed;inset:0;z-index:9000;pointer-events:auto;display:flex;align-items:flex-end;justify-content:center;background:rgba(0,0,0,0);transition:background .2s}
+.storesheet.hidden{display:none}
+.storesheet.show{background:rgba(0,0,0,.6)}
+.storesheet__panel{width:100%;max-width:440px;margin:0 8px 8px;padding:18px 18px calc(16px + env(safe-area-inset-bottom));border-radius:18px;background:#f4f3f0;color:#141414;transform:translateY(105%);transition:transform .22s ease-out;font-size:14px}
+.storesheet.show .storesheet__panel{transform:none}
+.storesheet__os{margin:0 0 12px;font-size:12px;font-weight:700;letter-spacing:.04em;color:#666;text-align:center}
+.storesheet__item{display:flex;align-items:center;gap:12px;padding-bottom:12px;border-bottom:1px solid #ddd}
+.storesheet__icon{flex:none;width:52px;height:52px;border-radius:12px;display:grid;place-items:center;background:#16120a;color:#f0b429;font-style:normal;font-weight:900;letter-spacing:.04em}
+.storesheet__item div{flex:1;min-width:0}
+.storesheet__item b{display:block;font-size:15px}
+.storesheet__item span{display:block;font-size:12px;color:#666}
+.storesheet__item em{font-style:normal;font-weight:800;font-size:15px}
+.storesheet__rows{display:grid;grid-template-columns:auto 1fr;gap:6px 14px;margin:12px 0;font-size:12.5px}
+.storesheet__rows dt{color:#777}
+.storesheet__rows dd{margin:0}
+.storesheet__msg{min-height:1.4em;margin:0 0 10px;text-align:center;font-weight:700;color:#1a7a3a}
+.storesheet__btns{display:grid;gap:8px}
+.storesheet__btns .btn--primary{background:#0a72e8;border-color:#0a72e8;color:#fff;min-height:48px;font-weight:800}
+.storesheet__btns .btn--ghost{color:#0a72e8;border-color:rgba(0,0,0,.15)!important;background:transparent}
+.rank__actions{display:grid;gap:8px;margin-top:18px}
+.rank__actions .hidden{display:none}
+
+/* rc.47 — 목표까지 거리는 위 가운데로(아래 게이지 · 터치 단추와 겹쳤다) */
+.hud__meter{top:calc(12px + env(safe-area-inset-top));bottom:auto;font-size:22px;padding:3px 12px 4px;border-radius:999px;background:rgba(8,9,11,.38)}
+body.touch .hud__meter{top:calc(12px + env(safe-area-inset-top));bottom:auto}
+@media (orientation:portrait){
+  body.touch .hud__meter{top:calc(54px + env(safe-area-inset-top));font-size:20px}
+}
+.stg__map{margin-left:6px;padding:1px 6px;border-radius:999px;font-style:normal;font-size:10.5px;font-weight:700;letter-spacing:.02em;vertical-align:1px}
+.stg__map--subway{background:rgba(120,190,255,.16);color:#9cc8ff;border:1px solid rgba(120,190,255,.4)}
+.stg__map--interior{background:rgba(200,170,120,.14);color:#e2c48e;border:1px solid rgba(200,170,120,.4)}

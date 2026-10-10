@@ -1,0 +1,632 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>LEFT CITY — 남겨진 도시</title>
+<meta name="description" content="도시는 사람을 두고 떠났다. 손전등 하나로 서울에서 싱가포르까지, 남겨진 도시를 가로지르는 톱다운 좀비 서바이벌.">
+<meta name="theme-color" content="#07090c">
+<link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
+<link rel="icon" type="image/png" sizes="64x64" href="icons/favicon-64.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="LEFT CITY">
+<meta property="og:title" content="LEFT CITY — 남겨진 도시">
+<meta property="og:description" content="도시는 사람을 두고 떠났다. 손전등 하나로 서울에서 싱가포르까지, 남겨진 도시를 가로지르는 톱다운 좀비 서바이벌.">
+<meta property="og:image" content="icons/icon-512.png">
+<meta property="og:type" content="website">
+<link rel="stylesheet" href="css/game.css">
+</head>
+<body>
+
+<div id="stage">
+  <canvas id="view"></canvas>
+
+  <!-- ══════════ HUD ══════════ -->
+  <div id="hud" class="hidden">
+    <div class="hud__top">
+      <div class="hud__mission">
+        <span class="hud__chapter" id="hudChapter">CHAPTER 1</span>
+        <span class="hud__objective" id="hudObjective">탈출로를 찾아라</span>
+        <span class="hud__sub" id="hudSub" hidden></span>
+        <span class="hud__terr" id="hudTerr" hidden></span>
+      </div>
+      <div class="hud__stats">
+        <span id="hudKills">0</span> 처치
+        <span class="hud__sep">·</span>
+        <span id="hudClock">00:00</span>
+        <span class="hud__btns">
+          <button type="button" class="hudbtn" id="btnHudPause" aria-label="일시정지"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="4.5" width="4" height="15" rx="1" fill="currentColor" stroke="none"/><rect x="14" y="4.5" width="4" height="15" rx="1" fill="currentColor" stroke="none"/></svg></button>
+          <button type="button" class="hudbtn" id="btnHudHome" aria-label="홈으로"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11.5 12 3.5l9 8"/><path d="M5.5 9.5V20.5h4.5v-6h4v6h4.5V9.5"/></svg></button>
+        </span>
+      </div>
+    </div>
+
+    <div class="boss" id="bossBar" hidden>
+      <div class="boss__name">그것</div>
+      <div class="boss__track"><i id="bossFill" style="width:100%"></i></div>
+    </div>
+
+    <canvas class="minimap" id="minimap" width="168" height="168" aria-hidden="true"></canvas>
+
+    <div class="hud__compass" id="hudCompass" aria-hidden="true">
+      <svg viewBox="0 0 40 40"><path d="M20 4 L30 30 L20 24 L10 30 Z"/></svg>
+      <em id="hudDistance">0m</em>
+    </div>
+    <div class="hud__meter" id="hudMeter" aria-hidden="true">0m</div>
+
+    <div class="hud__bottom">
+      <div class="gauge gauge--health">
+        <div class="gauge__label">체력 <b id="valHealth">100</b></div>
+        <div class="gauge__track"><i id="gaugeHealth" style="width:100%"></i></div>
+      </div>
+      <div class="gauge gauge--battery">
+        <div class="gauge__label">배터리 <b id="valBattery">100</b></div>
+        <div class="gauge__track"><i id="gaugeBattery" style="width:100%"></i></div>
+      </div>
+      <div class="gauge gauge--stam">
+        <div class="gauge__label">기력</div>
+        <div class="gauge__track"><i id="gaugeStam" style="width:100%"></i></div>
+      </div>
+      <div class="gauge gauge--noise" hidden>
+        <div class="gauge__label">소음</div>
+        <div class="gauge__track"><i id="gaugeNoise" style="width:0%"></i><b class="gauge__heat" id="gaugeHeat" title="무리를 부르는 소음"></b></div>
+      </div>
+      <div class="squad hidden" id="hudSquad" aria-label="동료"></div>
+      <div class="ammo">
+        <div class="ammo__slots" id="hudSlots"></div>
+        <div class="ammo__gun">
+          <svg class="ammo__icon" id="hudGunIcon" viewBox="0 0 64 20" aria-hidden="true"><path d=""/></svg>
+          <div class="ammo__rounds"><b id="hudAmmo">30</b><em id="hudReserve">/ 120</em></div>
+          <div class="ammo__pips" aria-hidden="true"><i id="hudPips"></i></div>
+          <span id="hudWeapon">SMG</span>
+          <div class="ammo__reload"><b class="reload__sweet" aria-hidden="true"></b><i id="hudReloadBar" style="width:0%"></i></div>
+        </div>
+        <div class="ammo__nade"><svg class="ammo__nadeIcon" viewBox="0 0 20 24" aria-hidden="true"><path d="M8 2h5v3h3l1 2h-3v1.2A7.5 7.5 0 1 1 6 8.2V7H4l1-2h3z"/></svg><b id="hudNades">3</b><span>수류탄</span></div>
+        <div class="ammo__dodge" id="hudDodge" title="회피 — 판마다 세 번"><i></i><i></i><i></i><span>회피</span></div>
+      </div>
+    </div>
+
+    <div id="damageFlash"></div>
+    <div id="fpsMeter" hidden></div>
+    <div id="cpMark" aria-hidden="true">체크포인트</div>
+    <div id="achMark" role="status" aria-live="polite"><b>도전 과제</b><span></span></div>
+    <div id="toast"></div>
+    <div id="cityCard" class="citycard" aria-hidden="true" data-noi18n><small></small><b></b><span></span></div>
+    <div id="radio" class="radio" role="status" aria-live="polite"><b></b><span></span></div>
+    <div id="hint" role="status" aria-live="polite"><b></b><span></span></div>
+  </div>
+
+  <!-- ══════════ TOUCH CONTROLS ══════════ -->
+  <div id="touch" class="hidden">
+    <div class="pad pad--move" id="padMove"><i></i></div>
+    <div class="pad pad--turn" id="padTurn"><i></i></div>
+    <button class="tbtn tbtn--swap" id="btnSwap" aria-label="무기" data-tb="swap"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 6h17v4.2h-8.2l-.7 1.8a1.5 1.5 0 0 1-1.4 1H8.4L7.2 18.5H3.3L5 10.2H2.5z" fill="currentColor" stroke="none"/><circle cx="11" cy="8" r="0.9" fill="#0d1014" stroke="none"/><path d="M14 17.5h7m-2.2-2.2 2.2 2.2-2.2 2.2"/></svg></button>
+    <button class="tbtn tbtn--melee" id="btnMelee" aria-label="밀치기" data-tb="melee"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 13V6.5a1.5 1.5 0 0 1 3 0V11m0-1V4.5a1.5 1.5 0 0 1 3 0V10m0 0V5.5a1.5 1.5 0 0 1 3 0V11m0 0V8.5a1.5 1.5 0 0 1 3 0V14a7 7 0 0 1-7 7h-.6a6 6 0 0 1-4.7-2.3L3.9 15a1.6 1.6 0 0 1 2.5-2L7 13.6"/></svg></button>
+    <button class="tbtn tbtn--dodge" id="btnDodge" aria-label="회피" data-tb="dodge"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="16.5" cy="4.2" r="2" fill="currentColor" stroke="none"/><path d="M14.5 8.2 10 10l-1.6 3.6M14.5 8.2l-1.2 5 3.4 2.4-1 5M13.3 13.2l-3.6 3.4H6"/><path d="M2 8h4M1 12h3.5M2.5 16H5" stroke-width="1.6"/></svg><span class="tbtn__pips" aria-hidden="true"><i></i><i></i><i></i></span></button>
+    <button class="tbtn tbtn--reload" id="btnReload" aria-label="장전" data-tb="reload"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3"/><path d="M19.5 3.5v4.5H15"/><rect x="10" y="9" width="4" height="6" rx="1" fill="currentColor" stroke="none"/></svg></button>
+    <button class="tbtn tbtn--sprint" id="btnSprint" aria-label="질주" data-tb="sprint"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="15.5" cy="4" r="2.1" fill="currentColor" stroke="none"/><path d="M12.5 8 9 9.5 7 13M12.5 8l-1.8 5.2 3.6 2.6V21M10.7 13.2 8.4 17.2H4.5M12.5 8l2.6 2.8 3.4.4"/></svg></button>
+    <button class="tbtn tbtn--light" id="btnLight" aria-label="손전등" data-tb="light"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2.5h8v3l-2 3V20a2 2 0 0 1-4 0V8.5l-2-3z"/><path d="M12 12.5v2"/></svg></button>
+    <button class="tbtn tbtn--nade" id="btnNade" aria-label="수류탄" data-tb="nade"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="15" rx="5.6" ry="6.4"/><path d="M9.6 8.6V6h4.8v2.6M14.4 6.4h1.4a1.6 1.6 0 0 1 1.6 1.6v4.2"/><circle cx="7.6" cy="5.2" r="1.7"/><path d="M6.8 13h10.4M6.6 17h10.8" stroke-width="1.4"/></svg></button>
+    <button class="tbtn tbtn--fire" id="btnFire" aria-label="사격" data-tb="fire"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="7"/><path d="M12 1.5V6m0 12v4.5M1.5 12H6m12 0h4.5"/><circle cx="12" cy="12" r="1.6" fill="currentColor" stroke="none"/></svg></button>
+  </div>
+
+  <!-- 전체 지도 (원작 1.1): 보는 동안 시간이 멈춘다 -->
+  <div id="bigmap" class="bigmap hidden" role="dialog" aria-label="전체 지도">
+    <canvas id="bigMapCv"></canvas>
+    <p class="bigmap__legend"><i class="dot dot--me"></i>나 <i class="dot dot--goal"></i>보급 상자 <i class="dot dot--exit"></i>집결지</p>
+    <p class="bigmap__note" id="bigMapNote">M 으로 닫기</p>
+  </div>
+
+  <!-- 무기 고르기: 게임이 멈추고 뒤가 흐려진다 -->
+  <div id="arms" class="arms hidden" role="dialog" aria-label="무기 선택">
+    <div class="arms__row" id="armsRow"></div>
+    <p class="arms__note" id="armsNote">무기를 누르면 바로 이어집니다</p>
+  </div>
+
+  <!-- 홈으로 — 임무 중 HUD 의 집 모양 버튼. 게임이 멈춘 채로 묻는다 -->
+  <div id="rushAsk" class="modal hidden" role="dialog" aria-modal="true" aria-label="돌파 난이도">
+    <div class="modal__box modal__box--warn">
+      <h3>돌파 — 부활 없음</h3>
+      <p>체크포인트가 없고, 쓰러지면 처음부터입니다. 지난 장에서 들고 온 소지품도 모두 잃습니다.</p>
+      <div class="modal__acts">
+        <button type="button" class="btn btn--primary" data-act="rushyes">각오하고 시작</button>
+        <button type="button" class="btn" data-act="rushno">돌아가기</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="homeAsk" class="modal hidden" role="dialog" aria-modal="true" aria-label="홈으로">
+    <div class="modal__box">
+      <h3>홈으로 나갈까요?</h3>
+      <p id="homeAskNote">이번 임무의 진행은 저장되지 않습니다. 앞서 마친 장은 그대로 남습니다.</p>
+      <div class="modal__acts">
+        <button type="button" class="btn btn--primary" data-act="homeno">계속하기</button>
+        <button type="button" class="btn" data-act="homeyes">홈으로</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 버튼 배치 — 터치 버튼을 끌어 옮긴다. 가로 · 세로 화면을 따로 기억한다 -->
+  <div id="layoutEd" class="layouted hidden" role="dialog" aria-modal="true" aria-label="버튼 배치">
+    <div class="layouted__bar">
+      <p id="layoutNote">버튼을 끌어 원하는 자리에 놓으세요</p>
+      <div class="layouted__acts">
+        <button type="button" class="btn btn--ghost" data-act="layoutreset">기본 배치</button>
+        <button type="button" class="btn btn--primary" data-act="layoutdone">완료</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="mtoast" role="status" aria-live="polite"></div>
+  <!-- ══════════ SCREENS ══════════ -->
+  <div id="screens">
+
+    <section class="screen screen--title" id="scrTitle">
+      <div class="screen__inner title">
+        <div class="title__brand">
+          <h1 class="logo">LEFT CITY<em>남겨진 도시</em></h1>
+          <p class="tagline">도시는 사람을 두고 떠났다.<br>손전등이 닿는 곳까지만, 세상은 존재한다.</p>
+        </div>
+        <div class="title__menu screen__side">
+          <button type="button" class="rankchip" data-act="rank" id="rankChip" aria-label="생존자"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="7.5" r="3.5"/><path d="M5 20.5c.6-4 3.4-6.5 7-6.5s6.4 2.5 7 6.5"/><path d="M17.5 3.5l1 2 2 .3-1.5 1.4.4 2-1.9-1-1.9 1 .4-2-1.5-1.4 2-.3z" fill="currentColor" stroke="none"/></svg><b id="rankLv" data-noi18n>Lv 1</b><span class="rankchip__bar"><i id="rankFill"></i></span><em id="rankPts" hidden></em></button>
+          <button type="button" class="play" data-act="campaign" id="btnPlay"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4.5v15l12.5-7.5z" fill="currentColor"/></svg><span class="play__t" id="playLabel">시작</span><small id="playSub" data-noi18n></small></button>
+          <div class="modes">
+            <button type="button" class="mode" data-act="chapters" aria-label="챕터 선택"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6.5 9 4l6 2.5L21 4v13.5L15 20l-6-2.5L3 20z"/><path d="M9 4v13.5M15 6.5V20"/></svg><span>챕터</span></button>
+            <button type="button" class="mode" data-act="survival" id="btnSurvival" aria-label="서바이벌"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="13.5" r="7.5"/><path d="M12 13.5V9.5M9.5 2.5h5M12 2.5V6M18.4 6.6l1.6-1.6"/></svg><span>서바이벌</span><i class="mode__lock" id="lockSurvival" hidden><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><rect x="5" y="11" width="14" height="10" rx="2" fill="currentColor" stroke="none"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg><b></b></i></button>
+            <button type="button" class="mode" data-act="challenges" id="btnChallenge" aria-label="도전"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 4h8v5.5a4 4 0 0 1-8 0z"/><path d="M8 6H5.2a3 3 0 0 0 3 4.2M16 6h2.8a3 3 0 0 1-3 4.2M12 13.5V17M8.5 20.5h7M10 17h4v3.5h-4z"/></svg><span>도전</span><i class="mode__lock" id="lockChallenge" hidden><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><rect x="5" y="11" width="14" height="10" rx="2" fill="currentColor" stroke="none"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg><b></b></i></button>
+            <button type="button" class="mode" data-act="journal" id="btnJournal" aria-label="기록 보관함"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4.5A1.5 1.5 0 0 1 6.5 3H19v15H6.5A1.5 1.5 0 0 0 5 19.5z"/><path d="M5 19.5A1.5 1.5 0 0 0 6.5 21H19v-3M9 7.5h6M9 10.5h4"/></svg><span>기록</span><i class="mode__badge" id="journalBadge" data-noi18n></i></button>
+            <button type="button" class="mode" data-act="codex" id="btnCodex" aria-label="좀비 도감"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3c-4.4 0-7.5 3-7.5 7 0 2.4 1.1 4 2.6 5v3.2c0 .9.7 1.6 1.6 1.6h6.6c.9 0 1.6-.7 1.6-1.6V15c1.5-1 2.6-2.6 2.6-5 0-4-3.1-7-7.5-7z"/><circle cx="9.2" cy="10.6" r="1.6"/><circle cx="14.8" cy="10.6" r="1.6"/><path d="M10.5 20v-2.5M13.5 20v-2.5M12 13.2l-.9 1.8h1.8z"/></svg><span>도감</span><i class="mode__badge" id="codexBadge" data-noi18n></i></button>
+          </div>
+          <div class="utils">
+            <button type="button" class="util" data-act="settings" aria-label="설정"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 2.8v2.6M12 18.6v2.6M2.8 12h2.6M18.6 12h2.6M5.5 5.5l1.8 1.8M16.7 16.7l1.8 1.8M5.5 18.5l1.8-1.8M16.7 7.3l1.8-1.8"/><circle cx="12" cy="12" r="6.6"/></svg><span>설정</span></button>
+            <button type="button" class="util" data-act="howto" aria-label="조작법"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 8h11a4 4 0 0 1 3.9 4.8l-1 4.6a2.4 2.4 0 0 1-4.2 1l-1.9-2.4h-4.6l-1.9 2.4a2.4 2.4 0 0 1-4.2-1l-1-4.6A4 4 0 0 1 6.5 8z"/><path d="M8 10.8v3.4M6.3 12.5h3.4"/><circle cx="15.6" cy="11.6" r=".6" fill="currentColor"/><circle cx="17.6" cy="13.6" r=".6" fill="currentColor"/></svg><span>조작</span></button>
+            <button type="button" class="util" data-act="about" aria-label="정보 · 개인정보"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 11v6"/><circle cx="12" cy="7.8" r=".7" fill="currentColor"/></svg><span>정보</span></button>
+          </div>
+        </div>
+        <p class="title__foot"><span class="record" id="recordChip"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="13.5" r="7.5"/><path d="M12 13.5V9.5M9.5 2.5h5M12 2.5V6M18.4 6.6l1.6-1.6"/></svg><b id="bestSurvival">—</b></span><span class="version" id="appVersion"></span></p>
+      </div>
+    </section>
+
+    <section class="screen screen--list hidden" id="scrChapters">
+      <div class="screen__inner">
+        <h2>챕터 선택</h2>
+        <div class="chapmap-wrap" id="chapterMapWrap"><canvas class="chapmap" id="chapterMap" width="960" height="520" aria-label="챕터 지도"></canvas></div>
+        <div class="chapters" id="chapterList"></div>
+        <button class="btn btn--ghost" data-act="back">돌아가기</button>
+      </div>
+    </section>
+
+    <section class="screen screen--howto hidden" id="scrHowto">
+      <div class="screen__inner">
+        <h2>조작법</h2>
+        <div class="keys" id="howtoKeys"></div>
+        <button class="btn" data-act="keymap" id="howtoKeymap">키 바꾸기</button>
+        <div class="padmap">
+          <h3>게임패드</h3>
+          <div><b>왼쪽 스틱</b>이동</div><div><b>오른쪽 스틱</b>손전등 · 조준</div>
+          <div><b>RT</b>사격</div><div><b>LT · L3</b>질주</div>
+          <div><b>RB</b>수류탄</div><div><b>LB</b>밀치기</div>
+          <div><b>X</b>재장전</div><div><b>Y · D-pad →</b>다음 무기</div>
+          <div><b>A</b>손전등</div><div><b>B</b>무기 고르기</div>
+          <div><b>Back · D-pad ↑</b>전체 지도</div><div><b>Start</b>일시정지</div>
+          <p>메뉴에서는 D-pad · 왼쪽 스틱으로 고르고 A 로 누르고 B 로 돌아갑니다.</p>
+        </div>
+        <p class="note" data-i18n="howtoNote">터치 화면에서는 <b>왼쪽 아무 데나</b> 눌러 끌면 걷습니다. 손전등은 가장 가까운 적(없으면 걷는 쪽)을 <b>저절로 비추고</b>, 오른쪽을 끌면 직접 비추며, 톡 치면 가장 가까운 적으로 돌립니다. 다른 방식은 <b>설정</b>에서.<br>
+        사격 버튼은 없습니다 — <b>불빛에 들어온 적은 저절로 쏘고</b>, 총알은 손전등이 비추는 쪽으로만 나갑니다.<br>
+        총은 <b>쓰러뜨린 감염체가 떨어뜨립니다</b> — 빛나는 총을 밟아 줍습니다.<br>
+        <b>뱉는 것</b>은 서 있던 자리로 산을 던집니다 — 초록 고리에서 비키세요.<br>
+        총은 <b>탄창 단위</b>로 작동합니다 — 큰 숫자가 장전된 탄, 작은 숫자가 예비탄입니다.</p>
+        <button class="btn btn--ghost" data-act="setback">돌아가기</button>
+      </div>
+    </section>
+
+    <section class="screen screen--story hidden" id="scrStory" data-act="storynext">
+      <div class="screen__inner">
+        <canvas class="story__map hidden" id="storyMap" width="640" height="420" aria-hidden="true"></canvas>
+        <p class="story__card" id="storyCard"></p>
+        <p class="story__tap" id="storyTap">누르면 넘어갑니다</p>
+        <button class="btn btn--ghost story__skip" data-act="storyskip">건너뛰기</button>
+      </div>
+    </section>
+
+    <section class="screen screen--list hidden" id="scrChallenge">
+      <div class="screen__inner">
+        <h2>도전</h2>
+        <p class="note">짧은 판에서 점수를 겨룬다. 2.5초 안에 이어서 쓰러뜨리면 배수가 오른다(최대 ×3).</p>
+        <div class="chals" id="challengeList"></div>
+        <button class="btn btn--ghost" data-act="back">돌아가기</button>
+      </div>
+    </section>
+
+    <section class="screen screen--list hidden" id="scrRank">
+      <div class="screen__inner">
+        <h2>생존자 <small id="rankHead" data-noi18n></small></h2>
+        <div class="rankbar"><i id="rankBarFill"></i></div>
+        <p class="note" id="rankNote"></p>
+        <div class="perks" id="perkList"></div>
+        <button type="button" class="set__link" data-act="perkreset" id="perkReset">찍은 특성 모두 되돌리기 (무료)</button>
+        <h3 class="rank__sub">장비 <small id="gearCount" data-noi18n></small></h3>
+        <p class="note">정예 감염체 · 그것을 쓰러뜨리면 떨어뜨린다. 두 칸까지 낀다 — 누르면 끼고 뺀다.</p>
+        <div class="gears" id="gearList"></div>
+        <h3 class="rank__sub">평생 기록</h3>
+        <dl class="result__stats lifestats" id="lifeStats"></dl>
+        <div class="screen__actions rank__actions">
+          <button class="btn btn--primary hidden" data-act="next" id="rankNext">다음 미션</button>
+          <button class="btn btn--ghost" data-act="rankback" id="rankBack">돌아가기</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="screen screen--list hidden" id="scrCodex">
+      <div class="screen__inner">
+        <h2>좀비 도감 <small id="codexCount"></small></h2>
+        <p class="note">현장 기록 — 불빛에 비추거나 쓰러뜨린 개체가 여기에 남는다.</p>
+        <div class="codex" id="codexList"></div>
+        <button class="btn btn--ghost" data-act="back">돌아가기</button>
+      </div>
+    </section>
+
+    <section class="screen screen--list hidden" id="scrJournal">
+      <div class="screen__inner">
+        <h2>도전 과제 <small id="achCount"></small></h2>
+        <div class="achs" id="achList"></div>
+        <h2>기록 보관함 <small id="journalCount"></small></h2>
+        <p class="note">길에 떨어진 종이를 밟으면 여기에 남는다. 챕터마다 두 장.</p>
+        <div class="journal" id="journalList"></div>
+        <button class="btn" data-act="prologue">프롤로그 다시 보기</button>
+        <button class="btn btn--ghost" data-act="back">돌아가기</button>
+      </div>
+    </section>
+
+    <section class="screen screen--brief hidden" id="scrBrief">
+      <div class="screen__inner">
+        <span class="brief__no" id="briefNo">CHAPTER 1</span>
+        <h2 id="briefTitle">첫 번째 밤</h2>
+        <p class="brief__text" id="briefText"></p>
+        <ul class="brief__goals" id="briefGoals"></ul>
+        <div class="brief__kitbox" id="briefKit"></div>
+        <div class="screen__side">
+          <figure class="brief__map"><canvas id="briefMap" width="220" height="220" aria-label="구역 지도"></canvas>
+            <figcaption><i class="dot dot--start"></i>진입 <i class="dot dot--exit"></i>집결지</figcaption></figure>
+          <div class="screen__actions">
+            <button class="btn btn--primary" data-act="start">시작</button>
+            <button class="btn btn--ghost" data-act="back">돌아가기</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="screen screen--list screen--unlock hidden" id="scrUnlock">
+      <div class="screen__inner paygate">
+        <button type="button" class="paygate__close" data-act="unlockclose" aria-label="닫기"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+        <p class="paygate__dev" id="unlockDev" hidden>설계자 빌드 — 결제 흐름을 실제 청구 없이 시연한다</p>
+        <p class="paygate__kicker">무료 1부의 끝 · 1–3장</p>
+        <h2 class="paygate__title">이야기는 방콕으로 이어진다</h2>
+        <p class="paygate__tease" id="unlockTease"></p>
+        <ul class="paygate__list">
+          <li><b>2부 · 3부 · 4부 — 9개 챕터 · 18개 미션</b>새벽호(방콕 · 싱가포르), 항해(바라나시 · 카이로 · 베네치아 · 이스탄불), 정화 구역(레이캬비크 · 리우 · 남극)</li>
+          <li><b>세 개의 부 엔딩</b>2부 '새벽호' · 3부 '북쪽 바다' · 4부 '남겨진 사람'</li>
+          <li><b>지하철 · 건물 안 잠입 미션</b>감시등을 피해 지나가는 실내 지도</li>
+          <li><b>게임 속도 3x</b>설계 기준 속도 — 무료판은 2x 까지</li>
+          <li><b>한 번 결제로 끝</b>구독 · 추가 결제 없음 · 진행은 기기 안에 그대로 이어진다</li>
+        </ul>
+        <button type="button" class="btn btn--primary paygate__buy" data-act="buyfull" id="unlockBuy">정식판 열기</button>
+        <p class="paygate__msg" id="unlockMsg" role="status" aria-live="polite"></p>
+        <button type="button" class="set__link" data-act="restorefull">구매 복원</button>
+        <button class="btn btn--ghost" data-act="back">나중에</button>
+      </div>
+    </section>
+
+    <section class="screen screen--city hidden" id="scrCity">
+      <div class="screen__inner">
+        <h2>서바이벌 — 도시 선택</h2>
+        <div class="cities">
+          <button class="city" data-act="survcity" data-city="seoul"><b>서울</b><span>광화문 · 남산타워 · 한강</span></button>
+          <button class="city" data-act="survcity" data-city="tokyo"><b>도쿄</b><span>시부야 스크램블 · 도쿄 타워 · 센소지 · 스미다강</span></button>
+          <button class="city" data-act="survcity" data-city="bangkok"><b>방콕</b><span>왓 아룬 · 민주기념탑 · 야시장 · 짜오프라야강</span></button>
+          <button class="city" data-act="survcity" data-city="singapore"><b>싱가포르</b><span>항만 · 수직 정원 · 호커 센터 · 싱가포르강</span></button>
+          <button class="city" data-act="survcity" data-city="varanasi"><b>바라나시</b><span>계단 연못 · 시카라 사원 · 갠지스강 — 진흙 · 몬순</span></button>
+          <button class="city" data-act="survcity" data-city="cairo"><b>카이로</b><span>기자의 피라미드 · 사원 · 나일강 — 모래 · 모래 폭풍</span></button>
+          <button class="city" data-act="survcity" data-city="venice"><b>베네치아</b><span>산마르코 광장 · 운하 — 침수 · 안개</span></button>
+          <button class="city" data-act="survcity" data-city="reykjavik"><b>레이캬비크</b><span>계단 교회 · 간헐천 — 용암 균열 · 눈</span></button>
+          <button class="city" data-act="survcity" data-city="istanbul"><b>이스탄불</b><span>아야 소피아 · 갈라타 탑 · 보스포루스 — 진흙 · 안개</span></button>
+          <button class="city" data-act="survcity" data-city="rio"><b>리우데자네이루</b><span>구세주상 · 코파카바나 — 모래 · 열대 폭우</span></button>
+          <button class="city" data-act="survcity" data-city="moscow"><b>모스크바</b><span>성 바실리 대성당 — 얼음길 · 눈 · 뱉는 것이 세 배</span></button>
+          <button class="city" data-act="survcity" data-city="nairobi"><b>나이로비</b><span>케냐타 국제회의장 — 붉은 흙 · 먼지 · 덮치는 것 · 들이받는 것</span></button>
+          <button class="city" data-act="survcity" data-city="antarctic"><b>남극 기지</b><span>연구 기지 · 쇄빙선 — 얼음판 · 눈보라</span></button>
+          <button class="city city--bonus" data-act="survcity" data-city="mars"><b>화성 <em>특전</em></b><span>테라포밍한 붉은 벌판 · 크레이터 — 3 · 5 · 10 · 20분에 특전 무기</span></button>
+        </div>
+        <button class="btn btn--ghost" data-act="back">돌아가기</button>
+      </div>
+    </section>
+
+    <section class="screen screen--pause hidden" id="scrPause">
+      <div class="screen__inner">
+        <h2>일시정지</h2>
+        <p class="pause__where" id="pauseWhere"></p>
+        <dl class="result__stats" id="pauseStats"></dl>
+        <div class="pause__tools touch-only">
+          <button type="button" class="btn btn--ghost" data-act="layout">버튼 배치</button>
+        </div>
+        <div class="screen__side screen__actions">
+          <button class="btn btn--primary" data-act="resume">계속하기</button>
+          <button class="btn" data-act="restart">재시작</button>
+          <button class="btn btn--ghost" data-act="settings">설정</button>
+          <button class="btn btn--ghost" data-act="keys">조작법</button>
+          <button class="btn btn--ghost" data-act="quit">타이틀로</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="screen screen--ending hidden" id="scrEnding">
+      <div class="screen__inner">
+        <p class="ending__kicker" id="endingKicker">에필로그</p>
+        <h2 class="ending__title" id="endingTitle">남겨진 도시</h2>
+        <div class="ending__text" id="endingText"></div>
+        <dl class="result__stats" id="endingStats"></dl>
+        <p class="note" id="endingNote"></p>
+        <div class="screen__side screen__actions">
+          <button class="btn btn--primary hidden" data-act="part2" id="btnPart2">2부 — 새벽호의 항해</button>
+          <button class="btn" data-act="survival">서바이벌로</button>
+          <button class="btn btn--ghost" data-act="quit">타이틀로</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="screen screen--settings hidden" id="scrSettings">
+      <div class="screen__inner">
+        <h2>설정</h2>
+        <div class="set">
+          <div class="seg settabs" id="setTabs" role="tablist">
+            <button type="button" data-tab="basic" role="tab">기본</button>
+            <button type="button" data-tab="ctrl" role="tab">조작</button>
+            <button type="button" data-tab="view" role="tab">화면</button>
+          </div>
+          <div class="set__tab" data-tab="basic">
+            <div class="set__row set__row--stack">
+              <div class="set__label">난이도</div>
+              <div class="seg" id="setDiff">
+                <button type="button" data-set="difficulty" data-val="easy">생존자</button>
+                <button type="button" data-set="difficulty" data-val="normal">잔존</button>
+                <button type="button" data-set="difficulty" data-val="hard">절멸</button>
+                <button type="button" data-set="difficulty" data-val="rush">돌파</button>
+              </div>
+            </div>
+            <p class="set__note" id="setDiffNote"></p>
+            <div class="set__row set__row--stack">
+              <div class="set__label">게임 속도</div>
+              <div class="seg" id="setSpeed">
+                <button type="button" data-set="speed" data-val="1">1x</button>
+                <button type="button" data-set="speed" data-val="2">2x</button>
+                <button type="button" data-set="speed" data-val="3">3x <i class="paylock" aria-hidden="true">★</i></button>
+              </div>
+            </div>
+            <p class="set__note">3x 는 정식판에서 열린다. 느릴수록 감염체도, 나도 그만큼 느려진다.</p>
+            <div class="set__row">
+              <div class="set__label">자동 사격</div>
+              <button type="button" class="tog" data-set="autofire" aria-pressed="true"><i></i></button>
+            </div>
+            <p class="set__note">불빛에 들어온, 쫓아오는 감염체만 저절로 쏜다 — 가만히 있는 것은 조용히 지나칠 수 있다. 직접 쏠 때도 겨눈 쪽 가까이의 적에게 총알이 붙는다(조준 보정 — 난이도가 낮을수록 넉넉하게).</p>
+            <div class="set__row">
+              <div class="set__label">음량 <b id="setVolVal">55</b></div>
+              <input type="range" id="setVolume" min="0" max="100" step="5" value="55"
+                     aria-label="음량">
+            </div>
+            <div class="set__row">
+              <div class="set__label">음악</div>
+              <button type="button" class="tog" data-set="music" aria-pressed="true"><i></i></button>
+            </div>
+            <div class="set__row">
+              <div class="set__label">도움말</div>
+              <button type="button" class="tog" data-set="hints" aria-pressed="true"><i></i></button>
+            </div>
+            <button type="button" class="set__link" id="hintsReset" data-act="hintsreset">처음부터 다시 보기</button>
+            <div class="set__row set__row--stack">
+              <div class="set__label" data-noi18n>언어 · Language</div>
+              <div class="seg" id="setLang" data-noi18n>
+                <button type="button" data-set="lang" data-val="auto">Auto</button>
+                <button type="button" data-set="lang" data-val="ko">한국어</button>
+                <button type="button" data-set="lang" data-val="en">English</button>
+              </div>
+            </div>
+          </div>
+          <div class="set__tab" data-tab="ctrl">
+            <div class="set__row set__row--stack touch-only">
+              <div class="set__label">터치 조준</div>
+              <div class="seg" id="setAim">
+                <button type="button" data-set="aim" data-val="auto">자동 조준</button>
+                <button type="button" data-set="aim" data-val="stick">조준 스틱</button>
+                <button type="button" data-set="aim" data-val="turn">회전</button>
+                <button type="button" data-set="aim" data-val="drag">드래그</button>
+              </div>
+            </div>
+            <p class="set__note touch-only" data-i18n="aimNote"><b>자동 조준</b>(기본) — 손전등이 가까운 적을, 없으면 걷는 쪽을 저절로 비춘다. 오른쪽 화면을 끌면 그 방향을 곧바로 비추고, 톡 치면 가장 가까운 적으로 돌린다.
+              <b>조준 스틱</b>은 민 방향을 바로 비추는 트윈 스틱. <b>회전</b>은 좌우로 민 만큼 천천히 돈다(고전 방식).
+              어느 방식이든 왼쪽 화면 아무 데나 누르면 그 자리에 이동 스틱이 생긴다.</p>
+            <div class="set__row set__row--stack desk-only">
+              <div class="set__label">손전등 방향</div>
+              <div class="seg" id="setDeskAim">
+                <button type="button" data-set="deskAim" data-val="mouse">마우스</button>
+                <button type="button" data-set="deskAim" data-val="auto">자동 조준</button>
+              </div>
+            </div>
+            <p class="set__note desk-only">자동 조준은 손전등이 가까운 적, 없으면 걷는 쪽을 저절로 비춘다 — 키보드만으로도 할 수 있다.</p>
+            <div class="set__row desk-only">
+              <div class="set__label">키 설정</div>
+              <button type="button" class="set__btn" data-act="keymap">바꾸기 →</button>
+            </div>
+            <div class="set__row set__row--stack touch-only">
+              <div class="set__label">터치 버튼 크기</div>
+              <div class="seg" id="setTouchSize">
+                <button type="button" data-set="touchSize" data-val="small">작게</button>
+                <button type="button" data-set="touchSize" data-val="normal">보통</button>
+                <button type="button" data-set="touchSize" data-val="large">크게</button>
+              </div>
+            </div>
+            <div class="set__row touch-only">
+              <div class="set__label">버튼 배치</div>
+              <button type="button" class="set__btn" data-act="layout">편집 →</button>
+            </div>
+            <div class="set__row touch-only">
+              <div class="set__label">스틱 밖으로 끌어내면 질주</div>
+              <button type="button" class="tog" data-set="edgeSprint" aria-pressed="true"><i></i></button>
+            </div>
+            <div class="set__row touch-only">
+              <div class="set__label">오른쪽 두 번 톡톡 = 밀치기</div>
+              <button type="button" class="tog" data-set="tapShove" aria-pressed="true"><i></i></button>
+            </div>
+            <div class="set__row touch-only">
+              <div class="set__label">붙잡히면 자동 밀치기</div>
+              <button type="button" class="tog" data-set="autoShove" aria-pressed="true"><i></i></button>
+            </div>
+            <div class="set__row touch-only">
+              <div class="set__label">진동</div>
+              <button type="button" class="tog" data-set="haptics" aria-pressed="true"><i></i></button>
+            </div>
+          </div>
+          <div class="set__tab" data-tab="view">
+            <div class="set__row">
+              <div class="set__label">밝기 <b id="setBrightVal">35</b><button type="button" class="set__rec" data-rec="brightness" data-val="35">추천 35</button></div>
+              <input type="range" id="setBright" min="0" max="100" step="5" value="35"
+                     aria-label="밝기">
+            </div>
+            <p class="set__note">밤의 어둠 농도. 추천값(35)은 손전등 밖이 길 윤곽만 겨우 읽히는 어둠입니다. 화면이 너무 어둡거나 밝은 곳에서 하면 조절하세요.</p>
+            <div class="set__row set__row--stack">
+              <div class="set__label">카메라 거리<button type="button" class="set__rec" data-rec="cam" data-val="near">추천 가까이</button></div>
+              <div class="seg" id="setCam">
+                <button type="button" data-set="cam" data-val="near">가까이</button>
+                <button type="button" data-set="cam" data-val="mid">보통</button>
+                <button type="button" data-set="cam" data-val="far">멀리</button>
+              </div>
+            </div>
+            <div class="set__row set__row--stack">
+              <div class="set__label">화질</div>
+              <div class="seg" id="setQuality">
+                <button type="button" data-set="quality" data-val="auto">자동</button>
+                <button type="button" data-set="quality" data-val="high">선명하게</button>
+                <button type="button" data-set="quality" data-val="low">가볍게</button>
+              </div>
+            </div>
+            <p class="set__note">자동은 프레임이 떨어지면 먼저 바닥 · 벽의 재질 무늬를 끄고, 그래도 버거우면 그리는 해상도를 낮춘다.
+              선명하게는 무늬를 늘 켜 두고, 가볍게는 늘 끈다. 화면이 큰 기기(레티나 모니터·태블릿)에서 끊기면 가볍게로 두세요.</p>
+            <div class="set__row set__row--stack">
+              <div class="set__label">화면 대비 <b id="setContrastVal">80</b></div>
+              <div class="viewctl">
+                <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="8"/><path d="M12 4v16" stroke-width="1.2"/></svg>
+                <input type="range" id="setContrast" min="30" max="100" step="1" value="80" aria-label="화면 대비">
+                <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="8"/><path d="M12 4a8 8 0 0 1 0 16z" fill="currentColor" stroke="none"/></svg>
+              </div>
+            </div>
+            <p class="set__note">80 이 기본 화면입니다. 높이면 밝은 곳과 어두운 곳의 차이가 커지고, 낮추면 부드러워집니다.</p>
+            <div class="set__row">
+              <div class="set__label">화면 흔들림</div>
+              <button type="button" class="tog" data-set="shake" aria-pressed="true"><i></i></button>
+            </div>
+            <div class="set__row">
+              <div class="set__label">섬광 효과</div>
+              <button type="button" class="tog" data-set="flash" aria-pressed="true"><i></i></button>
+            </div>
+            <p class="set__note">섬광을 끄면 피격 플래시와 번개가 크게 약해진다.
+              빛에 민감하다면 꺼 두세요.</p>
+            <div class="set__row">
+              <div class="set__label">FPS 표시</div>
+              <button type="button" class="tog" data-set="fps" aria-pressed="false"><i></i></button>
+            </div>
+          </div>
+        </div>
+        <p class="note" data-i18n="diffNote">난이도는 <b>다음에 시작하는 챕터</b>부터 적용됩니다.</p>
+        <button type="button" class="set__link set__link--danger" data-act="wipeall" title="처음부터 — 인트로 · 진행 · 설정을 지우고 다시 시작">데이터 초기화 — 인트로부터 다시</button>
+        <button class="btn btn--ghost" data-act="setback">돌아가기</button>
+      </div>
+    </section>
+
+    <section class="screen screen--keys hidden" id="scrKeys">
+      <div class="screen__inner">
+        <h2>키 설정</h2>
+        <p class="note">바꿀 행동을 누른 뒤 새 키(또는 마우스 가운데·옆 버튼)를 누르세요. Esc 는 취소.<br>
+          이미 쓰는 키를 주면 두 행동의 키를 맞바꿉니다. 방향키 · 오른쪽 Shift · 우클릭은 늘 함께 동작합니다.</p>
+        <div class="keymap" id="keyList"></div>
+        <p class="keymap__msg" id="keyMsg" role="status" aria-live="polite"></p>
+        <button class="btn" data-act="keyreset" id="keyReset">기본값으로</button>
+        <button class="btn btn--ghost" data-act="keyback">돌아가기</button>
+      </div>
+    </section>
+
+    <section class="screen screen--about hidden" id="scrAbout">
+      <div class="screen__inner">
+        <h2>정보</h2>
+        <dl class="about">
+          <div><dt>판</dt><dd id="aboutVersion"></dd></div>
+          <div><dt>만든 것</dt><dd>도시 · 사운드 · 음악을 코드로 만들었습니다. 외부 음원은 쓰지 않습니다.</dd></div>
+          <div><dt>글꼴</dt><dd>Pretendard — 길형진(orioncactus), SIL Open Font License 1.1</dd></div>
+          <div><dt>영감</dt><dd>Left 4 Dead 2 (Valve, 2009) 의 연출 설계와 특수 감염체 · Darkwood 의 어둠</dd></div>
+          <div><dt>이야기</dt><dd>대피에서 남겨진 야간 배송 기사 도하, 도쿄의 무선사 하루, 방콕의 간호사 녹, 새벽호의 선장 메이 — 모두 지어낸 인물입니다. 랜드마크는 실제 장소를 본뜬 양식화된 모형입니다.</dd></div>
+          <div><dt>개인정보</dt><dd data-i18n="aboutPrivacy">아무것도 수집하거나 보내지 않습니다. 설정과 기록은 이 기기의 브라우저 저장소에만 남습니다. <a href="privacy.html" target="_blank" rel="noopener">개인정보 처리방침</a></dd></div>
+        </dl>
+        <div class="about__tools">
+          <button type="button" class="btn" data-act="copyerrors" id="btnCopyErrors">오류 기록 복사</button>
+          <button type="button" class="btn" data-act="wipe">진행 기록 지우기</button>
+        </div>
+        <p class="about__msg" id="aboutMsg" role="status" aria-live="polite"></p>
+        <button class="btn btn--ghost" data-act="back">돌아가기</button>
+      </div>
+    </section>
+
+    <section class="screen screen--result hidden" id="scrResult">
+      <div class="screen__inner">
+        <h2 id="resultTitle">생존</h2>
+        <div class="result__grade" id="resultGrade" hidden><b></b><span>평가</span></div>
+        <p class="result__sub" id="resultSub"></p>
+        <div class="result__xp" id="resultXp" hidden>
+          <div class="xp__head"><b id="xpGain" data-noi18n></b><span id="xpLv" data-noi18n></span></div>
+          <div class="xp__bar"><i id="xpFill"></i></div>
+          <div class="xp__parts" id="xpParts"></div>
+          <p class="xp__note" id="xpNote"></p>
+          <button class="btn btn--small" data-act="rank" id="xpPerk" hidden>특성 찍기</button>
+        </div>
+        <dl class="result__stats" id="resultStats"></dl>
+        <div class="screen__side screen__actions">
+          <button class="btn btn--primary" data-act="next">계속</button>
+          <button class="btn hidden" data-act="checkpoint">체크포인트부터</button>
+          <button class="btn" data-act="restart">다시 도전</button>
+          <button class="btn hidden" data-act="retryeasy">쉬운 난이도로 다시</button>
+          <button class="btn btn--ghost" data-act="quit">타이틀로</button>
+        </div>
+      </div>
+    </section>
+
+  </div>
+</div>
+
+<script src="js/settings.js"></script>
+<script src="js/i18n.js"></script>
+<script src="js/story.js"></script>
+<script src="js/levels.js"></script>
+<script src="js/audio.js"></script>
+<script src="js/world.js"></script>
+<script src="js/themes.js"></script>
+<script src="js/entities.js"></script>
+<script src="js/models.js"></script>
+<script src="js/game.js"></script>
+<script>
+/* 설치형(PWA) — http(s) 로 열렸을 때만 오프라인 캐시를 건다. 파일로 열거나 다른 페이지에 끼워 넣으면 건너뛴다 */
+if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
+  addEventListener('load', () => { navigator.serviceWorker.register('sw.js').catch(() => {}); });
+}
+</script>
+  <div class="storesheet hidden" id="storeSheet" role="dialog" aria-modal="true" aria-labelledby="storeTitle">
+      <div class="storesheet__panel">
+        <p class="storesheet__os" id="storeOs">스토어 결제</p>
+        <div class="storesheet__item"><i class="storesheet__icon" aria-hidden="true">LC</i><div><b id="storeTitle">LEFT CITY — 정식판</b><span>2‒4부 · 3x 속도 · 한 번 결제</span></div><em id="storePrice">₩6,900</em></div>
+        <dl class="storesheet__rows"><dt>계정</dt><dd>설계자 시연 계정</dd><dt>청구</dt><dd>실제로 청구되지 않는다(시연)</dd></dl>
+        <p class="storesheet__msg" id="storeMsg"></p>
+        <div class="storesheet__btns"><button type="button" class="btn btn--primary" id="storeBuy">구매</button><button type="button" class="btn btn--ghost" id="storeCancel">취소</button></div>
+      </div>
+    </div>
+
+</body>
+</html>

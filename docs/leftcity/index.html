@@ -254,7 +254,10 @@
         <div class="gears" id="gearList"></div>
         <h3 class="rank__sub">평생 기록</h3>
         <dl class="result__stats lifestats" id="lifeStats"></dl>
-        <button class="btn btn--ghost" data-act="back">돌아가기</button>
+        <div class="screen__actions rank__actions">
+          <button class="btn btn--primary hidden" data-act="next" id="rankNext">다음 미션</button>
+          <button class="btn btn--ghost" data-act="rankback" id="rankBack">돌아가기</button>
+        </div>
       </div>
     </section>
 
@@ -290,7 +293,7 @@
           <figure class="brief__map"><canvas id="briefMap" width="220" height="220" aria-label="구역 지도"></canvas>
             <figcaption><i class="dot dot--start"></i>진입 <i class="dot dot--exit"></i>집결지</figcaption></figure>
           <div class="screen__actions">
-            <button class="btn btn--primary" data-act="start">출격</button>
+            <button class="btn btn--primary" data-act="start">시작</button>
             <button class="btn btn--ghost" data-act="back">돌아가기</button>
           </div>
         </div>
@@ -299,14 +302,17 @@
 
     <section class="screen screen--list screen--unlock hidden" id="scrUnlock">
       <div class="screen__inner paygate">
-        <p class="paygate__kicker">체험판의 끝 · 1–3장</p>
+        <button type="button" class="paygate__close" data-act="unlockclose" aria-label="닫기"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+        <p class="paygate__dev" id="unlockDev" hidden>설계자 빌드 — 결제 흐름을 실제 청구 없이 시연한다</p>
+        <p class="paygate__kicker">무료 1부의 끝 · 1–3장</p>
         <h2 class="paygate__title">이야기는 방콕으로 이어진다</h2>
         <p class="paygate__tease" id="unlockTease"></p>
         <ul class="paygate__list">
-          <li><b>9개 챕터 · 18개 미션</b>방콕의 다리, 싱가포르의 새벽호, 그리고 2부 — 바라나시에서 남극까지</li>
-          <li><b>유나를 찾아서</b>1부 엔딩과 2부 엔딩, 두 개의 결말</li>
-          <li><b>서바이벌 13개 도시 + 화성</b>이야기를 마친 뒤의 끝없는 밤</li>
-          <li><b>한 번 결제</b>광고 없음 · 기기 안 진행 그대로 이어서</li>
+          <li><b>2부 · 3부 · 4부 — 9개 챕터 · 18개 미션</b>새벽호(방콕 · 싱가포르), 항해(바라나시 · 카이로 · 베네치아 · 이스탄불), 정화 구역(레이캬비크 · 리우 · 남극)</li>
+          <li><b>세 개의 부 엔딩</b>2부 '새벽호' · 3부 '북쪽 바다' · 4부 '남겨진 사람'</li>
+          <li><b>지하철 · 건물 안 잠입 미션</b>감시등을 피해 지나가는 실내 지도</li>
+          <li><b>게임 속도 3x</b>설계 기준 속도 — 무료판은 2x 까지</li>
+          <li><b>한 번 결제로 끝</b>구독 · 추가 결제 없음 · 진행은 기기 안에 그대로 이어진다</li>
         </ul>
         <button type="button" class="btn btn--primary paygate__buy" data-act="buyfull" id="unlockBuy">정식판 열기</button>
         <p class="paygate__msg" id="unlockMsg" role="status" aria-live="polite"></p>
@@ -314,6 +320,16 @@
         <button class="btn btn--ghost" data-act="back">나중에</button>
       </div>
     </section>
+
+    <div class="storesheet hidden" id="storeSheet" role="dialog" aria-modal="true" aria-labelledby="storeTitle">
+      <div class="storesheet__panel">
+        <p class="storesheet__os" id="storeOs">스토어 결제</p>
+        <div class="storesheet__item"><i class="storesheet__icon" aria-hidden="true">LC</i><div><b id="storeTitle">LEFT CITY — 정식판</b><span>2‒4부 · 3x 속도 · 한 번 결제</span></div><em id="storePrice">₩6,900</em></div>
+        <dl class="storesheet__rows"><dt>계정</dt><dd>설계자 시연 계정</dd><dt>청구</dt><dd>실제로 청구되지 않는다(시연)</dd></dl>
+        <p class="storesheet__msg" id="storeMsg"></p>
+        <div class="storesheet__btns"><button type="button" class="btn btn--primary" id="storeBuy">구매</button><button type="button" class="btn btn--ghost" id="storeCancel">취소</button></div>
+      </div>
+    </div>
 
     <section class="screen screen--city hidden" id="scrCity">
       <div class="screen__inner">

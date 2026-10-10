@@ -1143,3 +1143,33 @@ body.part4 #view,body.part4 #view3d{filter:saturate(.42) contrast(1.12) brightne
 .ending--dark{background:radial-gradient(ellipse at 50% 30%,rgba(30,34,40,.96),rgba(2,3,5,.995))}
 .ending--dark .ending__title{color:#c8d0d8;letter-spacing:.2em}
 .ending--dark .ending__kicker{color:#b8322a}
+
+/* rc.46 — 정식판 안내 닫기 · 설계자 시연 표시 · 결제 창(시연) · 특성 화면의 다음 미션 */
+.paygate{position:relative}
+.paygate__close{position:absolute;top:6px;right:6px;width:44px;height:44px;display:grid;place-items:center;border:1px solid rgba(255,255,255,.22);border-radius:12px;background:rgba(0,0,0,.35);color:#e8e2d2;cursor:pointer}
+.paygate__close svg{width:20px;height:20px}
+.paygate__close:hover{background:rgba(255,255,255,.08)}
+.paygate__dev{display:inline-block;margin:0 0 12px;padding:5px 10px;border:1px dashed rgba(120,190,255,.55);border-radius:8px;font-size:11.5px;color:#9cc8ff;background:rgba(60,120,200,.08)}
+.paygate__dev[hidden]{display:none}
+.chapters__paywall--dev{display:block;width:100%;cursor:pointer;border:1px dashed rgba(120,190,255,.55)!important;color:#9cc8ff!important;background:rgba(60,120,200,.08)!important;font:inherit}
+.storesheet{position:fixed;inset:0;z-index:90;display:flex;align-items:flex-end;justify-content:center;background:rgba(0,0,0,0);transition:background .2s}
+.storesheet.hidden{display:none}
+.storesheet.show{background:rgba(0,0,0,.6)}
+.storesheet__panel{width:100%;max-width:440px;margin:0 8px 8px;padding:18px 18px calc(16px + env(safe-area-inset-bottom));border-radius:18px;background:#f4f3f0;color:#141414;transform:translateY(105%);transition:transform .22s ease-out;font-size:14px}
+.storesheet.show .storesheet__panel{transform:none}
+.storesheet__os{margin:0 0 12px;font-size:12px;font-weight:700;letter-spacing:.04em;color:#666;text-align:center}
+.storesheet__item{display:flex;align-items:center;gap:12px;padding-bottom:12px;border-bottom:1px solid #ddd}
+.storesheet__icon{flex:none;width:52px;height:52px;border-radius:12px;display:grid;place-items:center;background:#16120a;color:#f0b429;font-style:normal;font-weight:900;letter-spacing:.04em}
+.storesheet__item div{flex:1;min-width:0}
+.storesheet__item b{display:block;font-size:15px}
+.storesheet__item span{display:block;font-size:12px;color:#666}
+.storesheet__item em{font-style:normal;font-weight:800;font-size:15px}
+.storesheet__rows{display:grid;grid-template-columns:auto 1fr;gap:6px 14px;margin:12px 0;font-size:12.5px}
+.storesheet__rows dt{color:#777}
+.storesheet__rows dd{margin:0}
+.storesheet__msg{min-height:1.4em;margin:0 0 10px;text-align:center;font-weight:700;color:#1a7a3a}
+.storesheet__btns{display:grid;gap:8px}
+.storesheet__btns .btn--primary{background:#0a72e8;border-color:#0a72e8;color:#fff;min-height:48px;font-weight:800}
+.storesheet__btns .btn--ghost{color:#0a72e8;border-color:rgba(0,0,0,.15)!important;background:transparent}
+.rank__actions{display:grid;gap:8px;margin-top:18px}
+.rank__actions .hidden{display:none}

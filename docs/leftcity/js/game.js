@@ -457,7 +457,7 @@ function autoAimTarget(g, wide) {
   for (const z of g.zombies) {
     if (z.dead || (z.t.weeper && !z.rage)) continue;
     const dx = z.x - p.x, dy = z.y - p.y, d = Math.hypot(dx, dy);
-    if (d > R || (!z.aggro && d > (wide ? 220 : IDLE_NEAR))) continue;   // 가만히 있는 것은 바로 곁이 아니면 겨누지 않는다(톡 쳐서 고를 때만 예외)
+    if (d > R || (!z.aggro && (!wide || d > 220))) continue;   // 가만히 있는 것은 달려오기 전까지 겨누지 않는다(rc.46 — 곁이라도). 톡 쳐서 고를 때만 예외
     const da = Math.abs(Math.atan2(Math.sin(Math.atan2(dy, dx) - p.angle), Math.cos(Math.atan2(dy, dx) - p.angle)));
     const sc = d + da * 70 - (z.aggro ? 60 : 0);
     if (sc < bs && w.los(p.x, p.y, z.x, z.y)) { bs = sc; best = z; }
@@ -1771,12 +1771,13 @@ const Full = {
   async buy() {
     const s = this.store();
     if (s && s.purchase) { try { if (await s.purchase()) { this.grant(); return 'ok'; } return 'cancel'; } catch (e) { return 'error'; } }
-    if (window.LC_DEMO_UNLOCK) { this.grant(); return 'demo'; }
+    if (window.LC_FULL_BUILD || window.LC_DEMO_UNLOCK) { if (!(await UI.storeSheet(false))) return 'cancel'; this.grant(); return 'demo'; }   // 설계자 시연 — 스토어 결제 창을 흉내 낸다(청구 없음)
     return 'web';
   },
   async restore() {
     const s = this.store();
     if (s && s.restore) { try { if (await s.restore()) { this.grant(); return 'ok'; } return 'none'; } catch (e) { return 'error'; } }
+    if (window.LC_FULL_BUILD || window.LC_DEMO_UNLOCK) { if (!(await UI.storeSheet(true))) return 'cancel'; this.grant(); return 'demo'; }
     return this.owned() ? 'ok' : 'web';
   }
 };
@@ -3495,7 +3496,7 @@ const G = {
     for (const z of this.zombies) {
       if (z.t.weeper && !z.rage) continue;          // 우는 것은 자동으로 쏘지 않는다 — 깨울지는 플레이어가 정한다
       const d = Math.hypot(z.x - p.x, z.y - p.y);
-      if (!z.aggro && d > IDLE_NEAR) continue;   // 가만히 있는 것은 쏘지 않는다(rc.43) — 총성이 곁의 것까지 깨운다. 지나칠지 쏠지는 플레이어 몫
+      if (!z.aggro) continue;   // 가만히 있는 것은 달려오기 전까지 쏘지 않는다(rc.46 — 곁이라도). 총성이 곁의 것까지 깨운다. 지나칠지 쏠지는 플레이어 몫
       if (d > range || d > bd) continue;
       const a = Math.atan2(z.y - p.y, z.x - p.x);
       let da = Math.abs(((a - p.angle + Math.PI * 3) % (Math.PI * 2)) - Math.PI);
@@ -3823,7 +3824,7 @@ function render3D(g, p) {
   if (g.lightning > 0.01) { ctx.fillStyle = `rgba(196,208,228,${g.lightning * (SETTINGS.flash ? 0.18 : 0.05)})`; ctx.fillRect(0, 0, W, H); }
   { const [ax] = R3.project(p.x, p.y, 0), [bx] = R3.project(p.x + 100, p.y, 0); drawDodgeFx(g, (x, y, h) => R3.project(x, y, h || 0), (bx - ax) / 100, 0.8); }
   if (!g.rules || g.rules.aids) {
-    { const [ax] = R3.project(p.x, p.y, 0), [bx] = R3.project(p.x + 100, p.y, 0); drawSoundCues(g, p, (x, y) => R3.project(x, y, 0), (bx - ax) / 100, 0.8); }
+    { const [ax] = R3.project(p.x, p.y, 0), [bx] = R3.project(p.x + 100, p.y, 0); drawSoundCues(g, p, (x, y) => R3.project(x, y, 0), (bx - ax) / 100, 0.8, (x, y) => { const q = R3.project(x, y, 54); return [q[0], q[1] - 4]; }); }
     drawHordeCue3D(g, p);
     drawScreamCue3D(g, p);
     drawHitDirs(cam, g, p, g.state === 'play' ? 1 / 60 : 0);
@@ -3832,18 +3833,30 @@ function render3D(g, p) {
 }
 /** 소리 표시(rc.39) — 발밑의 발소리 고리(크기 = 걷는 것이 실제로 깨는 거리)와, 귀를 기울이는 것 머리 위의 '?'.
     proj = 세계 → 화면, s = 화면 배율, ry = 세로 눌림 */
-function drawSoundCues(g, p, proj, s, ry) {
+function drawSoundCues(g, p, proj, s, ry, head) {
   if (p.dead || !g.dormant) return;
   // 발소리 고리는 rc.40 에서 뺐다 — 화면이 어수선했다. 얼마나 시끄러운지는 소음 막대가 알려 준다
-  ctx.font = '700 15px Pretendard, sans-serif'; ctx.textAlign = 'center';
+  // rc.46 — '?'(귀 기울임) → '?!'(거의 깸) → '!'(깨어나 달려온다, 1.3초). 3D 는 머리 높이에 붙인다(head)
+  ctx.textAlign = 'center'; ctx.lineJoin = 'round';
+  const at = (z) => head ? head(z.x, z.y) : (([x, y]) => [x, y - 30 * Math.max(0.7, s) - 4])(proj(z.x, z.y));
   for (const z of g.zombies) {
-    if (z.dead || z.aggro) continue;
-    const a = Math.max(z.sus || 0, (z.litT || 0) / (g.sense ? g.sense.lit : 1.1));
-    if (a < 0.08 || Math.abs(z.x - p.x) > 800 || Math.abs(z.y - p.y) > 800) continue;
-    if (!(z.lit > 0.3) && Math.hypot(z.x - p.x, z.y - p.y) > 200) continue;   // 어둠 속의 것은 드러내지 않는다 — 보이는 것만 '?'
-    const [x, y] = proj(z.x, z.y);
-    ctx.fillStyle = `rgba(${255},${Math.round(210 - 150 * a)},${Math.round(90 - 60 * a)},${0.5 + 0.5 * a})`;
-    ctx.fillText(a > 0.66 ? '?!' : '?', x, y - 30 * Math.max(0.7, s) - 4);
+    if (z.dead || Math.abs(z.x - p.x) > 800 || Math.abs(z.y - p.y) > 800) continue;
+    let txt, a, big = 0;
+    if (z.aggro) {
+      const t = g.time - (z.alertAt === undefined ? -9 : z.alertAt);
+      if (t < 0 || t > 1.3) continue;
+      txt = '!'; a = 1; big = t < 0.18 ? 1 - t / 0.18 : 0;
+    } else {
+      a = Math.max(z.sus || 0, (z.litT || 0) / (g.sense ? g.sense.lit : 1.1));
+      if (a < 0.08) continue;
+      txt = a > 0.66 ? '?!' : '?';
+    }
+    if (!(z.lit > 0.3) && Math.hypot(z.x - p.x, z.y - p.y) > 200) continue;   // 어둠 속의 것은 드러내지 않는다 — 보이는 것만
+    const [x, y] = at(z);
+    ctx.font = `900 ${Math.round((txt === '!' ? 24 : 19) * (1 + big * 0.6))}px Pretendard, sans-serif`;
+    ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(0,0,0,.6)'; ctx.strokeText(txt, x, y);
+    ctx.fillStyle = txt === '!' ? '#ff3b2f' : `rgba(${255},${Math.round(210 - 150 * a)},${Math.round(90 - 60 * a)},${0.5 + 0.5 * a})`;
+    ctx.fillText(txt, x, y);
   }
   ctx.textAlign = 'start';
 }
@@ -6968,7 +6981,7 @@ G.refreshHud = function (force) {
 /* ═══════════ 화면 전환 ═══════════ */
 const UI = {
   screens: ['scrRank', 'scrCodex', 'scrTitle', 'scrChapters', 'scrHowto', 'scrBrief', 'scrCity', 'scrPause', 'scrResult',
-            'scrSettings', 'scrEnding', 'scrKeys', 'scrAbout', 'scrStory', 'scrJournal', 'scrChallenge'],
+            'scrSettings', 'scrEnding', 'scrKeys', 'scrAbout', 'scrStory', 'scrJournal', 'scrChallenge', 'scrUnlock'],
   settingsFrom: 'scrTitle',
   hideScreens() { this.screens.forEach(s => $(s).classList.add('hidden')); },
   show(id) { this.hideScreens(); $(id).classList.remove('hidden'); },
@@ -7095,6 +7108,11 @@ const UI = {
         const pw = document.createElement('div');
         pw.className = 'chapters__paywall'; pw.textContent = T('여기부터 정식판 — 1‒3장은 무료');
         list.appendChild(pw);
+      } else if (i === FREE_CHAPTERS && window.LC_FULL_BUILD) {   // 설계자 빌드 — 무료판 사람이 여기서 보게 될 정식판 안내를 열어 볼 수 있게
+        const pw = document.createElement('button');
+        pw.type = 'button'; pw.className = 'chapters__paywall chapters__paywall--dev'; pw.dataset.act = 'paypreview';
+        pw.textContent = T('여기부터 정식판 — 설계자: 정식판 안내 · 결제 흐름 보기');
+        list.appendChild(pw);
       }
       if (!locked) { el.tabIndex = 0; el.setAttribute('role', 'button'); el.addEventListener('keydown', e => { if (e.code === 'Enter' || e.code === 'Space') { e.preventDefault(); el.click(); } }); }
       const best = grades[i] | 0;
@@ -7192,8 +7210,13 @@ const UI = {
     clearTimeout(this._mtT); this._mtT = setTimeout(() => el.classList.remove('show'), ms);
   },
   /** 생존자 — 레벨 · 특성 아홉 가지(3단계) · 평생 기록 */
-  showRank() {
+  showRank(from) {
     const R = Rank.get(), L = Rank.level(), pts = Rank.points();
+    // rc.46 — 결과 화면에서 특성을 찍으러 왔으면 '다음 미션'으로 곧장 이어 간다(돌아가기는 결과로)
+    if (from !== undefined) this.rankFrom = from;
+    const rn = $('rankNext'), resNext = $('scrResult').querySelector('[data-act="next"]'), viaRes = this.rankFrom === 'result' && resNext && !resNext.classList.contains('hidden');
+    if (rn) { rn.classList.toggle('hidden', !viaRes); if (viaRes) rn.textContent = resNext.textContent; }
+    if ($('rankBack')) $('rankBack').textContent = this.rankFrom === 'result' ? T('결과로') : T('돌아가기');
     $('rankHead').textContent = `Lv ${L.lv}` + (L.need ? ` · ${L.into.toLocaleString()} / ${L.need.toLocaleString()} XP` : ' · MAX');
     $('rankBarFill').style.width = L.need ? `${Math.round(L.into / L.need * 100)}%` : '100%';
     // rc.43 — 쓸 수 있는 점수를 크게, 특성은 무리(생존 · 사격 · 장비)로, 카드마다 '지금 → 다음' 효과와 막힌 이유를 글로
@@ -7315,6 +7338,8 @@ const UI = {
   /** 정식판 안내(rc.43) — 3장 끝의 매달린 이야기를 이어서 보여 주고, 무엇이 더 있는지 · 값 · 구매 · 복원 */
   showUnlock(i) {
     this.unlockAt = i;
+    this.unlockFrom = $('scrChapters').classList.contains('hidden') ? 'menu' : 'chapters';
+    if ($('unlockDev')) $('unlockDev').hidden = !(window.LC_FULL_BUILD || window.LC_DEMO_UNLOCK);
     $('unlockTease').textContent = LT(STORY.paywall.tease);
     $('unlockMsg').textContent = '';
     const b = $('unlockBuy'); b.disabled = false;
@@ -7329,13 +7354,33 @@ const UI = {
     b.disabled = false;
     if (r === 'ok' || r === 'demo') {
       SFX.objective();
-      m.textContent = r === 'demo' ? T('데모 — 결제 없이 정식판을 열었다') : T('정식판이 열렸다. 고맙습니다.');
+      m.textContent = r === 'demo' ? T('시연 — 결제가 끝난 것처럼 정식판이 열렸다. 곧 4장 브리핑으로 넘어간다') : T('정식판이 열렸다. 고맙습니다.');
       const i = this.unlockAt ?? FREE_CHAPTERS;
       setTimeout(() => { if (!$('scrUnlock').classList.contains('hidden')) this.brief(i); }, 900);
     } else m.textContent = {
       cancel: T('결제를 취소했다.'), error: T('스토어에 연결하지 못했다. 잠시 뒤 다시 해 주세요.'), none: T('복원할 구매가 없다.'),
       web: T('웹 체험판입니다 — 앱스토어 · 플레이스토어의 LEFT CITY 에서 정식판을 열 수 있다. 같은 기기라면 진행은 그대로 이어진다.')
     }[r] || '';
+  },
+  /** 결제 창 시연(rc.46, 설계자 빌드) — 앱스토어 · 플레이스토어의 결제 창 모양. 구매 → 처리 중 → 완료, 취소는 그대로 닫힌다.
+      실제 앱에서는 이 자리를 스토어(StoreKit · Play 결제)가 띄운다 — window.LeftCityStore */
+  storeSheet(restore) {
+    const sh = $('storeSheet'); if (!sh) return Promise.resolve(true);
+    const ios = /iPhone|iPad|Mac/.test(navigator.userAgent);
+    $('storeOs').textContent = restore ? T('구매 복원 — 스토어 계정 확인') : ios ? T('App Store 결제 (시연)') : T('Google Play 결제 (시연)');
+    $('storeMsg').textContent = '';
+    const buy = $('storeBuy'), no = $('storeCancel');
+    buy.textContent = restore ? T('복원') : T('구매'); buy.disabled = false; no.disabled = false;
+    sh.classList.remove('hidden'); requestAnimationFrame(() => sh.classList.add('show'));
+    return new Promise(res => {
+      const done = (v) => { buy.onclick = no.onclick = null; sh.classList.remove('show'); setTimeout(() => sh.classList.add('hidden'), 200); res(v); };
+      no.onclick = () => { SFX.click(); done(false); };
+      buy.onclick = () => {
+        SFX.click(); buy.disabled = true; no.disabled = true;
+        $('storeMsg').textContent = T('처리 중…');
+        setTimeout(() => { $('storeMsg').textContent = restore ? T('✓ 구매 기록을 찾았다') : T('✓ 결제 완료'); setTimeout(() => done(true), 650); }, 900);
+      };
+    });
   },
   brief(i, st) {
     if (!Full.open(i)) { this.showUnlock(i); return; }      // 4장부터는 정식판(rc.43)
@@ -7653,7 +7698,8 @@ document.addEventListener('click', e => {
     case 'prologue': UI.prologue(() => UI.showJournal()); break;
     case 'journal': UI.showJournal(); break;
     case 'codex':   UI.showCodex(); break;
-    case 'rank':    UI.showRank(); break;
+    case 'rank':    UI.showRank(btn.id === 'xpPerk' ? 'result' : null); break;
+    case 'rankback': if (UI.rankFrom === 'result') UI.show('scrResult'); else UI.enterMenu(); break;
     case 'perk': {
       const id = btn.dataset.id, k = PERKS.find(q => q.id === id);
       if (Rank.buy(id)) {
@@ -7767,6 +7813,8 @@ document.addEventListener('click', e => {
       break;
     case 'part2': { const P = partInfo((UI.endPart || 2) + 1); if (!P) break; const n = P.from; UI.journeyThen(n, () => UI.brief(n)); break; }
     case 'buyfull': UI.buyFull(false); break;
+    case 'unlockclose': if (UI.unlockFrom === 'chapters') { UI.buildChapters(); UI.show('scrChapters'); } else UI.enterMenu(); break;
+    case 'paypreview': UI.showUnlock(FREE_CHAPTERS); break;
     case 'restorefull': UI.buyFull(true); break;
   }
 });

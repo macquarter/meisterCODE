@@ -322,7 +322,7 @@ const STORY = {
       tip: ['기침 소리가 들리면 옆으로. 감겼다면 당황하지 말고 그것을 쏴라.', 'Hear the cough, step aside. If caught, don\'t panic — shoot it.'] },
     { id: 'riot', n: ['진압 경찰', 'Riot'], cls: ['언커먼 감염체 · 방호', 'Uncommon infected · armored'], threat: 3,
       obs: ['대피를 통제하던 진압 경찰. 방패와 방탄복을 그대로 둘렀다. 앞에서 오는 총알은 거의 다 막는다.', 'Riot police who were managing the evacuation, still in shield and body armor. Stops almost every round from the front.'],
-      weak: ['석궁 · 매그넘 · 경기관총은 방패째 꿰뚫는다. 등과 옆구리, 그리고 폭발.', 'Crossbow, magnum and LMG punch right through the shield. Also its back, flanks — and explosions.'],
+      weak: ['석궁 · 매그넘 · 경기관총은 방패째 꿰뚫는다. 등과 옆구리. 수류탄 한 발이면 방패째 쓰러진다.', 'Crossbow, magnum and LMG punch right through the shield. So do shots to its back and flanks. One grenade drops it, shield and all.'],
       tip: ['관통 무기가 없다면 밀쳐서 돌려세우고 등을 쏴라.', 'No piercing gun? Shove it around and shoot its back.'] },
     { id: 'behemoth', n: ['그것', 'The Behemoth'], cls: ['거대 개체 · 단독', 'Giant · solitary'], threat: 5,
       obs: ['마지막 다리를 막아선 개체. 공원 관리소 무전의 마지막 단어는 "크다"였다. 포효하면 기는 것들이 따라 나오고, 직선으로 돌진한다.', 'The thing guarding the last bridge. The park office radio\'s last word was "big". Its roar brings crawlers, and it charges in straight lines.'],

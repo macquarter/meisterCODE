@@ -503,7 +503,7 @@ class Zombie {
       else if (front) {
         dmg *= ar.mul; this.aggro = true; this.flash = 0.05;
         // 처음 막혔을 때 한 번 — 도움말을 꺼 둔 사람도 이것만은 알아야 한다
-        if (!g.shieldTold && src !== 'melee') { g.shieldTold = true; if (g.toast) g.toast(T('방패에 막혔다 — 밀쳐서 돌려세우고 등을 쏴라'), 3); }
+        if (!g.shieldTold && src !== 'melee') { g.shieldTold = true; if (g.toast) g.toast(T('방패에 막혔다 — 밀쳐서 등을 쏘거나 수류탄'), 3); }
         if (g.spawnSparks) g.spawnSparks(this.x + Math.cos(this.face) * 12, this.y + Math.sin(this.face) * 12, ang);
         SFX.at(this.x, this.y, () => SFX.ric(Math.hypot(this.x - g.player.x, this.y - g.player.y)));
         this.hp -= dmg; if (this.hp > 0) return;
@@ -645,7 +645,7 @@ class Zombie {
   }
   /** 깨어난다 — 비명과 함께 0.5초 몸을 일으키고, 곁에 서 있던 것들도 줄줄이 깬다 */
   wake(g, d, chain) {
-    this.aggro = true; this.wakeHold = 0.5; this.litT = 0; this.sus = 0;
+    this.aggro = true; this.wakeHold = 0.5; this.litT = 0; this.sus = 0; this.alertAt = g.time;   // 머리 위 '!'(rc.46)
     g.woke = (g.woke | 0) + 1;                                               // 장 평가 — 깨운 수
     if (this.type === 'runner' || this.type === 'crawler') SFX.screech(d); else SFX.growl(d);
     if (!chain) return;
@@ -1208,7 +1208,9 @@ class Grenade {
       if (z.dead) continue;
       const d = Math.hypot(z.x - this.x, z.y - this.y);
       if (d > R || !g.world.los(this.x, this.y, z.x, z.y)) continue;
-      z.hurt(200 * (1 - d / R) + 40, Math.atan2(z.y - this.y, z.x - this.x), g, 30 * (1 - d / R), 'blast');
+      let dmg = 200 * (1 - d / R) + 40;
+      if (z.t.armor && !z.t.boss) dmg = Math.max(dmg, z.hp + 1);    // 방패 든 것(진압 경찰)은 폭발 반경 안이면 쓰러진다(rc.46) — 방패는 총알만 막는다
+      z.hurt(dmg, Math.atan2(z.y - this.y, z.x - this.x), g, 30 * (1 - d / R), 'blast');
     }
     if (g.maws && window.LC_PITS) for (const m of g.maws) {
       const d = Math.hypot(m.nx - this.x, m.ny - this.y);

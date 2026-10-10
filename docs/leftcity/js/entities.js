@@ -798,6 +798,8 @@ class Zombie {
         return;
       }
     }
+    if (this.aggro && !this._wasAggro && this.alertAt === undefined) this.alertAt = g.time;   // 어떻게 깨든(비명 · 경보 · 총에 맞음) 머리 위 '!'(rc.48)
+    if (this.aggro !== this._wasAggro) { if (!this.aggro) this.alertAt = undefined; this._wasAggro = this.aggro; }
     if (this.wakeHold > 0) {                              // 깨어나는 순간 — 고개를 돌리고 몸을 일으킨다(0.5초). 그 틈에 쏘거나 물러설 수 있다
       this.wakeHold -= dt; this.face = Math.atan2(dy, dx); this.phase += dt * 4;
       this.lit = Math.max(0, this.lit - dt * 3);
@@ -1219,6 +1221,17 @@ class Grenade {
     const pd = Math.hypot(g.player.x - this.x, g.player.y - this.y);
     if (pd < R * 0.75 && !g.player.dead) g.player.hurt(34 * (1 - pd / (R * 0.75)));
     g.alarmNear(this.x, this.y, R);                               // 폭발은 근처 차 경보를 울린다
+    // 폭음(rc.48) — 수류탄도 시끄럽다. 소음 막대가 가득 차고 무리를 부르는 열기가 크게 오른다.
+    // 폭발 자리에서 520 안의 잠든 것들이 가까운 순서로 깬다(벽 너머는 60%까지)
+    g.blastNoise = 1;
+    if (g.dormant && g.dir) g.dir.heat = (g.dir.heat || 0) + 7;
+    const HR = 520;
+    for (const z of g.zombies) {
+      if (z.dead || z.aggro || !z.dormantKind() || z.chainT > 0) continue;
+      const d = Math.hypot(z.x - this.x, z.y - this.y);
+      if (d > HR || (d > HR * 0.6 && !g.world.los(this.x, this.y, z.x, z.y))) continue;
+      z.chainT = 0.12 + d / HR * 0.9;
+    }
   }
 }
 

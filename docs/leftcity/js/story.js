@@ -150,6 +150,15 @@ const STORY = {
       outro: ['진료소에는 열두 명이 있었다. 침대 머리맡 벽에 연필 글씨가 남아 있었다 — "오빠, 새벽호에서 기다릴게." 녹이 지도를 펼쳤다. 남쪽 끝 싱가포르, 새벽호. 사흘 뒤 마지막으로 떠난다.', 'Twelve people were at the clinic. Above one bed, pencil on the wall: "I\'ll wait for you on the Dawn." Nok spread out a map. The far south: Singapore, the ship Dawn. It leaves for the last time in three days.']
     },
     { // 11 새벽호
+      // A — MRT 환승역 전원 복구(rc.48)
+      radioA: {
+        start: [['may', '환승역 셔터가 내려와 있어요. 전원만 들어오면 올라가요. 역무실 · 승강장 어딘가에 퓨즈가 있을 거예요 — 세 개.', 'The interchange shutter is down. Power brings it up. There should be fuses somewhere — staff rooms, platforms. Three.'],
+                ['nok', '배전반 돌리면 발전기 소리가 엄청 커요. 무리가 다 들어요. 미리 자리 잡아요.', 'When the breaker goes, the generator is loud. Every one of them will hear. Pick your spot first.']],
+        mid: [['doha', '퓨즈 다 모았다. 배전반으로 간다.', 'Got all the fuses. Heading for the breaker.']],
+        mid2: [['may', '발전기 돌아요! 버텨요 — 셔터 올라가는 소리 들리면 바로 뛰어요!', 'Generator\'s running! Hold — the moment you hear the shutter, run!']],
+        done: [['nok', '셔터 올라갔어요! 위로, 위로!', 'Shutter\'s up! Up, up!']]
+      },
+      outroA: ['셔터가 반쯤 올라간 틈으로 바닷바람이 들어왔다. 부두까지는 이제 지상길이었다.', 'Sea air came in under the half-raised shutter. From here to the docks it was street level.'],
       radio: {
         start: [['may', '여기는 새벽호. 하루라는 사람이 며칠째 당신 이야기만 하더군요. 3번 부두로 와요 — 접안 준비 중입니다.', 'This is the Dawn. Someone named Haru has talked about nothing but you for days. Come to Pier 3 — we\'re preparing to dock.']],
         hold: [['may', '보입니다. 접안까지 60초. 갑판에서 보급품을 던질게요. 그 자리를 지켜요.', 'I see you. Sixty seconds to dock. We\'re throwing supplies down from the deck. Hold that position.'],
@@ -178,6 +187,15 @@ const STORY = {
       outro: ['피라미드는 사천오백 년을 버텼다. 하룻밤쯤은 아무것도 아니라는 듯이.', 'The pyramids had stood for four and a half thousand years. One more night was nothing to them.']
     },
     { // 13+ 두 대륙 사이 — 이스탄불
+      // A — 그랜드 바자르, 감시등 끄기(rc.48)
+      radioA: {
+        start: [['nok', '시장 안에 감시등이 돌아요. 누가 저걸 켜 놨을까요… 등마다 배전함이 붙어 있어요. 조용히 내리면 꺼져요.', 'Searchlights sweeping inside the market. Who left those on… Each one has a fuse box beside it. Pull it quietly and it dies.'],
+                ['doha', '빛에 걸리면 끝이다. 어둠으로만 간다.', 'If the light finds me, it\'s over. Dark only.']],
+        mid: [['nok', '하나 꺼졌어요. 남은 등의 빛줄기 박자를 봐요.', 'One down. Watch the timing on the rest.']],
+        mid2: [['nok', '마지막 하나예요. 서두르지 말고요.', 'Last one. Don\'t rush it.']],
+        done: [['may', '시장이 깜깜해졌어요. 지금이에요 — 출구로.', 'The market\'s gone dark. Now — the exit.']]
+      },
+      outroA: ['마지막 등이 꺼지자 시장은 숨을 죽였다. 어둠 속에서 무엇인가가 두리번거렸지만, 도하는 이미 밖이었다.', 'When the last light died the market held its breath. Something in the dark looked around, but Doha was already outside.'],
       radio: {
         start: [['may', '기관이 숨을 몰아쉬어요. 갈라타 정비창에 부품이 있대요 — 세 개면 돼요.', 'The engine is wheezing. There are parts at the Galata yard — three will do.']],
         mid: [['nok', '하나 남았어요! 돌길이 미끄러워요, 진흙 쪽은 피해요.', 'One left! The cobbles are slick — keep off the mud.']],

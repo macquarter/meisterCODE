@@ -450,6 +450,8 @@ addEventListener('touchstart', e => {
 
 /** 가만히 있는(쫓아오지 않는) 감염체를 자동 조준 · 자동 사격이 건드리는 거리 — 이보다 멀면 조용히 지나칠 수 있다 */
 const IDLE_NEAR = 70;
+/** 달려오는 중인가(rc.48) — 깨어 '!'가 뜨고 몸을 일으킨 뒤(wakeHold 끝)부터. 자동 사격 · 자동 조준은 이것만 노린다 */
+const charging = z => z.aggro && !(z.wakeHold > 0);
 /** 자동 조준의 표적 — 불빛을 받으면 깨는 '우는 것'은 일부러 비추지 않는다.
     가까운 순, 지금 보는 쪽이면 조금 더 우선. 벽 너머는 고르지 않는다 */
 function autoAimTarget(g, wide) {
@@ -458,7 +460,7 @@ function autoAimTarget(g, wide) {
   for (const z of g.zombies) {
     if (z.dead || (z.t.weeper && !z.rage)) continue;
     const dx = z.x - p.x, dy = z.y - p.y, d = Math.hypot(dx, dy);
-    if (d > R || (!z.aggro && (!wide || d > 220))) continue;   // 가만히 있는 것은 달려오기 전까지 겨누지 않는다(rc.46 — 곁이라도). 톡 쳐서 고를 때만 예외
+    if (d > R || (!charging(z) && (!wide || z.aggro || d > 220))) continue;   // 가만히 있는 것은 달려오기 전까지 겨누지 않는다(rc.46 — 곁이라도). 톡 쳐서 고를 때만 예외
     const da = Math.abs(Math.atan2(Math.sin(Math.atan2(dy, dx) - p.angle), Math.cos(Math.atan2(dy, dx) - p.angle)));
     const sc = d + da * 70 - (z.aggro ? 60 : 0);
     if (sc < bs && w.los(p.x, p.y, z.x, z.y)) { bs = sc; best = z; }
@@ -477,7 +479,7 @@ function assistTarget(g, ang, cone, aggroOnly) {
   const p = g.player, R = p.fireRange();
   let best = null, bs = Infinity;
   for (const z of g.zombies) {
-    if (z.dead || (z.t.weeper && !z.rage) || (aggroOnly && !z.aggro)) continue;
+    if (z.dead || (z.t.weeper && !z.rage) || (aggroOnly && !charging(z))) continue;
     const dx = z.x - p.x, dy = z.y - p.y, d = Math.hypot(dx, dy);
     if (d > R || d < 1) continue;
     const da = Math.abs(Math.atan2(Math.sin(Math.atan2(dy, dx) - ang), Math.cos(Math.atan2(dy, dx) - ang)));
@@ -1725,7 +1727,8 @@ function screenTransform(c, cam) { c.setTransform(DPR, 0, 0, DPR, -cam.x * DPR, 
 const SPITTER_CAP = 2;
 /* 규칙(rc.38) — 거리 밀도(처음 서 있는 수 · 채워 넣는 상한)와 감각(듣는 거리 · 불빛에 깨는 시간 · 줄줄이 깨는 범위) */
 const DENS_INIT = [1.4, 2, 2.7], DENS_MAX = [1.15, 1.4, 1.75];
-const SENSE = [{ h: 0.7, lit: 1.9, chain: 120 }, { h: 1, lit: 1.1, chain: 170 }, { h: 1.35, lit: 0.6, chain: 240 }];
+// lit — 불빛에 깨기까지(초). rc.48 에서 모두 1.4배(더 오래 비춰야 깬다)
+const SENSE = [{ h: 0.7, lit: 2.66, chain: 120 }, { h: 1, lit: 1.54, chain: 170 }, { h: 1.35, lit: 0.84, chain: 240 }];
 const SURVIVAL_UNLOCK = PART1_END + 1;
 /* 체험판 · 정식판(rc.43) — 1‒3장(여섯 미션)은 무료, 4장 방콕부터는 정식판. 결제는 앱 껍데기(스토어 빌드)가 맡는다:
    window.LeftCityStore = { price(): Promise<string>, purchase(): Promise<boolean>, restore(): Promise<boolean> }
@@ -2029,6 +2032,7 @@ const G = {
     place('nade', L.supplies.nade, 300);
     // 무기는 길에 놓지 않는다 — 쓰러뜨린 감염체가 떨어뜨린다(onKill · dropGun)
     if (ob.type === 'collect') place('goal', ob.count, 420);
+    if (ob.type === 'power') for (let i = 0; i < ob.count; i++) { const q = w.pickPoint(this.player.x, this.player.y, 420, 1e9, rng); this.pickups.push(new Pickup(q.x, q.y, 'goal')); }   // 퓨즈 — 정확히 그 수만(rc.48)
     // 중계기 — 출구로 가는 길을 따라 고르게 (도로 거리 3/4 · 1/2 · 1/4 지점 근처의 트인 칸).
     // 흩어 놓으면 지도를 몇 바퀴씩 돌게 된다 — 길 위에 줄 세워 '지켜 내며 나아가는' 장이 되게 한다
     this.relays = []; this.relayOn = null;
@@ -2049,11 +2053,27 @@ const G = {
       }
       this.goalsTotal = this.goalsLeft = this.relays.length;
     }
+    // 전원 복구(rc.48, L4D 「노 머시」 지하철의 발전기 · TLOU 「레프트 비하인드」의 발전기실) — 퓨즈를 모아 배전반에 끼우고
+    // 전원을 올리면 발전기가 요란하게 돈다. 그 소리에 무리가 몰려오는 동안 버티면 셔터가 열린다
+    this.power = null;
+    if (ob.type === 'power') {
+      const rr = makeRng(L.seed ^ 0x9e3b);
+      const cand = w.reach.filter(i => { const d = w.toExit[i] / w.maxDist; return d > 0.25 && d < 0.5 && w.roadNeighbours(i % w.w, (i / w.w) | 0) >= 5; });
+      const q = w.tileCenter(cand.length ? cand[Math.floor(rr() * cand.length)] : w.reach[(w.reach.length / 3) | 0]);
+      this.relays.push({ x: q.x, y: q.y, prog: 0, done: false, woke: false, beepT: 0, kind: 'breaker', locked: true });
+      this.power = { phase: 'fuse', runLeft: ob.time || 40, topT: 0 };
+    }
     this.holding = false; this.holdT = 0; this.bossCalled = false;
     Twist.setup(this);
     Pits.setup(this);
     // 감시등 — 4부 본편은 셋, 건물 안 잠입 판은 둘(rc.45)
-    Search.setup(this, this.survival || this.challenge || this.levelIndex < 0 ? 0 : (L.map === 'interior' ? 2 : partOf(this.levelIndex) === 4 && this.stage !== 0 ? 3 : 0));
+    Search.setup(this, this.survival || this.challenge || this.levelIndex < 0 ? 0 : ob.type === 'blackout' ? ob.count : (L.map === 'interior' ? 2 : partOf(this.levelIndex) === 4 && this.stage !== 0 ? 3 : 0));
+    // 감시등 끄기(rc.48, 「메트로 2033」의 퓨즈 상자) — 감시등마다 곁에 배전함. 조용히 내리면 그 등이 꺼진다. 다 끄면 출구가 열린다
+    if (ob.type === 'blackout') {
+      const rr = makeRng(L.seed ^ 0x51b0);
+      (this.searchers || []).forEach((sr, si) => { const q = w.pickPoint(sr.x, sr.y, 50, 140, rr) || { x: sr.x, y: sr.y }; this.relays.push({ x: q.x, y: q.y, prog: 0, done: false, woke: true, beepT: 0, kind: 'box', si }); });
+      this.goalsTotal = this.goalsLeft = this.relays.length;
+    }
     if (ob.type === 'finale') this.surviveLeft = ob.time;
     // 기록 — 이 장에 떨어진 종이 두 장. 이미 주운 것도 다시 놓인다 (보관함은 그대로)
     if (!this.survival && this.stage !== 0) {
@@ -2250,7 +2270,8 @@ const G = {
       x: p.x, y: p.y, hp: p.hp, battery: p.battery, nades: p.nades, wpn: p.wpn,
       ammo: Object.assign({}, p.ammo), mag: Object.assign({}, p.mag), owned: [...p.owned],
       goals: this.pickups.filter(k => k.type === 'goal' && !k.dead).map(k => ({ x: k.x, y: k.y })), goalsLeft: this.goalsLeft,
-      relays: (this.relays || []).map(r => ({ x: r.x, y: r.y, done: r.done })),
+      relays: (this.relays || []).map(r => ({ x: r.x, y: r.y, done: r.done, kind: r.kind, si: r.si, locked: r.locked })),
+      power: this.power ? Object.assign({}, this.power) : null, searchers: (this.searchers || []).map(sr => Object.assign({}, sr)),
       bossHp: this.boss && !this.boss.dead ? this.boss.hp : null,
       fired: Object.assign({}, Radio.fired), notesFound: this.notesFound || 0,
       twist: Twist.save(this)
@@ -2273,7 +2294,13 @@ const G = {
     p.wpn = p.owned.has(cp.wpn) ? cp.wpn : 'pistol';
     Object.assign(this, { time: cp.time, kills: cp.kills, score: cp.score, shots: cp.shots, hits: cp.hits, notesFound: cp.notesFound });
     const ob = this.level.objective;
-    if (ob.type === 'collect') {
+    if (ob.type === 'power' || ob.type === 'blackout') {                 // rc.48 — 퓨즈 · 배전반 · 배전함 · 감시등을 그대로
+      this.relays = cp.relays.map(r => ({ x: r.x, y: r.y, done: r.done, prog: r.done ? 1 : 0, woke: true, beepT: 0, kind: r.kind, si: r.si, locked: r.locked }));
+      if (cp.power) { this.power = Object.assign({}, cp.power); if (this.power.phase === 'run') { this.power.phase = 'breaker'; const br = this.relays.find(r => r.kind === 'breaker'); if (br) { br.done = false; br.prog = 0; } } }
+      if (cp.searchers && cp.searchers.length) this.searchers = cp.searchers.map(sr => Object.assign({}, sr));
+      if (ob.type === 'blackout') this.goalsLeft = this.relays.filter(r => !r.done).length;
+    }
+    if (ob.type === 'collect' || ob.type === 'power') {
       this.pickups = this.pickups.filter(k => k.type !== 'goal');
       for (const q of cp.goals) this.pickups.push(new Pickup(q.x, q.y, 'goal'));
       this.goalsLeft = cp.goalsLeft;
@@ -2627,6 +2654,7 @@ const G = {
 
     // 잠든 도시의 소음 — 총성 · 질주 · 밀치기가 쌓인다. 조용하면 천천히 가라앉고, 가득 차면 소리를 들은 무리가 이쪽으로 온다.
     // 한 발에 약 1, 질주 1초에 약 0.5. 문턱은 26(챕터마다 조금씩 낮아진다). 70% 를 넘으면 한 번 경고한다
+    if (this.blastNoise > 0) this.blastNoise = Math.max(0, this.blastNoise - dt * 0.7);
     if (this.dormant) {
       const n = p.noise, cap = Math.max(16, 26 - this.levelIndex * 0.6);
       D.heat = Math.max(0, (D.heat || 0) + (n > 0.3 ? (n - 0.3) * 6 : -0.45) * dt);
@@ -2824,6 +2852,50 @@ const G = {
     if (this.goalsLeft > 0) { this.toast(T('중계기 {n}/{t} 가동', { n, t: this.goalsTotal })); Radio.cue(n === 1 ? 'mid' : 'mid2'); this.makeCheckpoint('중계기 {n}/{t}', { n, t: this.goalsTotal }); }
     else this.openExit(T('중계망 연결 — 집결지로 이동하라'));
   },
+  /** 전원 복구 — 퓨즈(줍기) → 배전반(곁에서 전원 올리기) → 발전기(버티기) → 셔터 */
+  updatePower(dt, ob) {
+    const p = this.player, P = this.power, br = this.relays.find(r => r.kind === 'breaker');
+    if (!P || !br || P.phase === 'fuse' || P.phase === 'done') return;
+    if (P.phase === 'breaker') {
+      const near = !p.dead && Math.hypot(br.x - p.x, br.y - p.y) < 78;
+      this.relayOn = near ? br : null;
+      if (!near) { br.prog = Math.max(0, br.prog - dt * 0.1); return; }
+      br.prog = Math.min(1, br.prog + dt / (ob.hold || 3));
+      br.beepT -= dt; if (br.beepT <= 0) { br.beepT = 0.45; SFX.relay(false); }
+      if (br.prog < 1) return;
+      br.done = true; this.relayOn = null; P.phase = 'run'; P.topT = 14; this.surviveLeft = P.runLeft;
+      this.toast(T('발전기가 돈다 — 그 소리에 무리가 온다! {s}초 버텨라', { s: Math.round(P.runLeft) }), 4);
+      SFX.at(br.x, br.y, () => SFX.alarm(Math.hypot(br.x - p.x, br.y - p.y))); SFX.horn();
+      this.blastNoise = 1; this.stress(16);
+      for (const z of this.zombies) if (!z.dead && !z.t.weeper && Math.hypot(z.x - br.x, z.y - br.y) < 900) z.aggro = true;
+      this.callHorde(this.hordeSize() + 2, { x: br.x, y: br.y });
+      if (this.dir) { this.dir.every = 18; this.dir.mobT = Math.min(this.dir.mobT, 9); }
+      Radio.cue('mid2');
+      return;
+    }
+    // 발전기 가동 — 끝날 때까지 몰려온다. 소음 막대는 내내 높다
+    P.runLeft = Math.max(0, P.runLeft - dt); this.surviveLeft = P.runLeft;
+    this.blastNoise = Math.max(this.blastNoise || 0, 0.6);
+    if ((P.topT -= dt) <= 0) { P.topT = 14; this.callHorde(this.hordeSize(), { x: br.x, y: br.y }); }
+    br.beepT -= dt; if (br.beepT <= 0) { br.beepT = 1.2; SFX.relay(false); }
+    if (P.runLeft <= 0) { P.phase = 'done'; SFX.relay(true); if (this.dir) this.dir.every = 40; this.openExit(T('전원이 들어왔다 — 셔터가 올라간다. 출구로!')); }
+  },
+  /** 감시등 끄기 — 배전함 곁에서 잠시(조용히) 내리면 그 감시등이 꺼진다. 무리는 부르지 않는다 */
+  updateBlackout(dt, ob) {
+    const p = this.player; let on = null;
+    if (!p.dead) for (const r of this.relays) if (!r.done && Math.hypot(r.x - p.x, r.y - p.y) < 72) { on = r; break; }
+    for (const r of this.relays) if (!r.done && r !== on) r.prog = Math.max(0, r.prog - dt * 0.2);
+    this.relayOn = on; if (!on) return;
+    on.prog = Math.min(1, on.prog + dt / (ob.hold || 2.5));
+    on.beepT -= dt; if (on.beepT <= 0) { on.beepT = 0.6; SFX.click(); }
+    if (on.prog < 1) return;
+    on.done = true; this.relayOn = null; this.goalsLeft--; SFX.relay(true);
+    const sr = this.searchers && this.searchers[on.si];
+    if (sr) sr.off = true;                                              // 그 감시등이 꺼진다
+    const n = this.goalsTotal - this.goalsLeft;
+    if (this.goalsLeft > 0) { this.toast(T('배전함 {n}/{t} — 감시등 하나가 꺼졌다', { n, t: this.goalsTotal })); this.makeCheckpoint('배전함 {n}/{t}', { n, t: this.goalsTotal }); Radio.cue(n === 1 ? 'mid' : 'mid2'); }
+    else this.openExit(T('감시등이 모두 꺼졌다 — 어둠을 따라 출구로'));
+  },
   /** 마지막 장: 부두에 닿으면 접안까지 버틴다. 중간에 그것이 온다. 다 버티면 현문이 열린다 */
   updateFinale(dt, ob) {
     const p = this.player, w = this.world;
@@ -2935,6 +3007,14 @@ const G = {
   onGoalItem() {
     this.goalsLeft--;
     SFX.objective();
+    if (this.level.objective.type === 'power' && this.goalsLeft <= 0 && this.power) {   // 퓨즈를 다 모았다 — 배전반이 열린다
+      this.power.phase = 'breaker';
+      const br = this.relays.find(r => r.kind === 'breaker'); if (br) br.locked = false;
+      this.toast(T('퓨즈를 다 모았다 — 배전반에 끼우고 전원을 올려라'), 3);
+      this.makeCheckpoint('{item} {n}/{t}', { item: '퓨즈', n: this.goalsTotal, t: this.goalsTotal });
+      Radio.cue('mid');
+      return;
+    }
     if (this.goalsLeft > 0) {
       this.toast(T('{item} 확보 — {n}개 남음', { item: T(this.level.objective.item || '보급 상자'), n: this.goalsLeft }));
       this.makeCheckpoint('{item} {n}/{t}', { item: this.level.objective.item || '보급 상자', n: this.goalsTotal - this.goalsLeft, t: this.goalsTotal });
@@ -3245,7 +3325,7 @@ const G = {
       // 원작: 불빛을 적에게 비추면 사격은 저절로 된다. 불빛 안의 표적을 향해 쏜다
       let tgt = !manual && SETTINGS.autofire ? this.autoTarget() : null;
       // 조준 보정(rc.43) — 직접 쏠 때도 겨눈 쪽 가까이의 적에게 총알이 붙는다(세기는 난이도). 자동 조준 없이도 맞힌다
-      if (manual && !tgt && p.cool <= 0) tgt = assistTarget(this, p.angle, assistCone(this));
+      if (manual && !tgt && p.cool <= 0) tgt = assistTarget(this, p.angle, assistCone(this), SETTINGS.autofire || autoAimOn());   // 자동 모드에서는 보정도 달려오는 것에만(rc.48)
       if (p.cool <= 0 && (manual || tgt))
         p.fire(this, tgt ? Math.atan2(tgt.y - p.y, tgt.x - p.x) : undefined);
     }
@@ -3454,6 +3534,8 @@ const G = {
       if (this.surviveLeft <= 0) { this.surviveLeft = 0; this.openExit(T('차단문 개방 — 지금이다')); }
     }
     if (ob.type === 'signal' && !this.exitOpen) this.updateRelays(dt, ob);
+    if (ob.type === 'power' && !this.exitOpen) this.updatePower(dt, ob);
+    if (ob.type === 'blackout' && !this.exitOpen) this.updateBlackout(dt, ob);
     if (ob.type === 'finale' && !this.exitOpen) this.updateFinale(dt, ob);
     Twist.update(this, dt);
     Search.update(this, dt);
@@ -3502,7 +3584,7 @@ const G = {
     for (const z of this.zombies) {
       if (z.t.weeper && !z.rage) continue;          // 우는 것은 자동으로 쏘지 않는다 — 깨울지는 플레이어가 정한다
       const d = Math.hypot(z.x - p.x, z.y - p.y);
-      if (!z.aggro) continue;   // 가만히 있는 것은 달려오기 전까지 쏘지 않는다(rc.46 — 곁이라도). 총성이 곁의 것까지 깨운다. 지나칠지 쏠지는 플레이어 몫
+      if (!charging(z)) continue;   // 가만히 있는 것은 달려오기 전까지 쏘지 않는다(rc.46 — 곁이라도, rc.48 — 깨어나 일어서는 0.5초도). 총성이 곁의 것까지 깨운다. 지나칠지 쏠지는 플레이어 몫
       if (d > range || d > bd) continue;
       const a = Math.atan2(z.y - p.y, z.x - p.x);
       let da = Math.abs(((a - p.angle + Math.PI * 3) % (Math.PI * 2)) - Math.PI);
@@ -4192,6 +4274,7 @@ function indoorLights(w) {
     if (zn === 2 && x % 6 === 0) L = ['185,215,255', hs % 5 === 0 ? 0.35 : 1, 120];
     else if (zn === 3 && x % 4 === 1) L = ['240,245,255', hs % 7 === 0 ? 0.35 : 1, 130];
     else if (zn === 5 && hs % 11 === 0) L = ['255,205,140', 1, 110];
+    else if (zn === 7 && y % 3 === 0) L = ['240,245,255', 1, 110];
     else if ((zn === 4 || zn === 6) && (x + y * 3) % 6 === 0) L = [SUB ? '215,235,255' : '255,240,215', hs % 6 === 0 ? 0.35 : 1, 120];
     if (L) out.push({ x: (x + 0.5) * TILE, y: (y + 0.5) * TILE, c: L[0], k: L[1], r: L[2] });
   }
@@ -4201,7 +4284,7 @@ function indoorLights(w) {
 function drawIndoorFloor(cam, w) {
   if (!w.zone) return;
   const x0 = Math.floor(cam.x / TILE), y0 = Math.floor(cam.y / TILE), x1 = Math.ceil((cam.x + W) / TILE), y1 = Math.ceil((cam.y + VH()) / TILE);
-  const rails = new Path2D(), sleep = new Path2D(), yel = new Path2D(), wood = new Path2D(), plank = new Path2D(), plat = new Path2D(), bed = new Path2D();
+  const rails = new Path2D(), sleep = new Path2D(), yel = new Path2D(), wood = new Path2D(), plank = new Path2D(), plat = new Path2D(), bed = new Path2D(), gate = new Path2D();
   const zAt = (x, y) => w.zone[w.idx(x, y)];
   for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
     const i = w.idx(x, y), zn = w.zone[i]; if (!zn || w.grid[i] === T_WALL && zn !== 2) continue;
@@ -4214,6 +4297,8 @@ function drawIndoorFloor(cam, w) {
       if (r1(0, 1)) yel.rect(px, py + TILE - 5, TILE, 5); if (r1(0, -1)) yel.rect(px, py, TILE, 5);
       if (r1(1, 0)) yel.rect(px + TILE - 5, py, 5, TILE); if (r1(-1, 0)) yel.rect(px, py, 5, TILE);
     } else if (zn === 5) { wood.rect(px, py, TILE, TILE); for (let q = 1; q < 6; q++) plank.rect(px, py + q * 8, TILE, 1); }
+    else if (zn === 7) { plat.rect(px, py, TILE, TILE); for (let q = 0; q < 6; q++) { plank.rect(px, py + q * 8, TILE, 1.6); yel.rect(px, py + q * 8 + 1.6, TILE, 1.4); } }   // 계단
+    else if (zn === 8) { gate.rect(px + 2, py + 18, 8, 12); gate.rect(px + TILE - 10, py + 18, 8, 12); }                                             // 개찰구
   }
   ctx.fillStyle = 'rgba(60,54,46,.55)'; ctx.fill(bed);
   ctx.fillStyle = '#2c2218'; ctx.fill(sleep);
@@ -4222,6 +4307,7 @@ function drawIndoorFloor(cam, w) {
   ctx.fillStyle = '#c9a83a'; ctx.fill(yel);
   ctx.fillStyle = 'rgba(122,84,48,.32)'; ctx.fill(wood);
   ctx.fillStyle = 'rgba(0,0,0,.18)'; ctx.fill(plank);
+  ctx.fillStyle = '#7c8086'; ctx.fill(gate);
   // 조명 웅덩이 — 천장 등 아래 바닥이 밝다(어둠 마스크도 같은 자리를 뚫는다)
   ctx.save(); ctx.globalCompositeOperation = 'lighter';
   for (const L of indoorLights(w)) {
@@ -5849,6 +5935,7 @@ const Search = {
   update(g, dt) {
     const p = g.player; if (!g.searchers || !g.searchers.length || p.dead) return;
     for (const s of g.searchers) {
+      if (s.off) continue;                                                // 배전함을 내려 꺼진 등(rc.48)
       s.ph += s.spd * dt; s.a = s.base + Math.sin(s.ph) * s.sw;
       s.cool = Math.max(0, s.cool - dt);
       const dx = p.x - s.x, dy = p.y - s.y, d = Math.hypot(dx, dy);
@@ -5867,7 +5954,7 @@ const Search = {
 window.LC_SEARCH = Search;
 function telegraphs(g) {
   const out = [];
-  if (g.searchers) for (const s of g.searchers) out.push({ x: s.x, y: s.y, dir: s.a, len: s.len, w: s.w, locked: s.cool > 0, search: true });
+  if (g.searchers) for (const s of g.searchers) if (!s.off) out.push({ x: s.x, y: s.y, dir: s.a, len: s.len, w: s.w, locked: s.cool > 0, search: true });
   for (const z of g.zombies) {
     if (z.dead) continue;
     if (z.chargePhase === 'wind') out.push({ x: z.x, y: z.y, dir: z.chargeDir, len: z.t.boss ? 820 : 560, w: z.r * 1.8, locked: !!z.chargeLocked });
@@ -6907,6 +6994,13 @@ G.refreshHud = function (force) {
     : T('중계기 {n}/{t} 가동', { n: this.goalsTotal - this.goalsLeft, t: this.goalsTotal });
   else if (ob.type === 'finale') obj = this.holding ? T(ob.hud || '접안까지 {s}초 — 버텨라', { s: Math.ceil(this.surviveLeft) }) : T(ob.go || '3번 부두로 가라');
   else if (ob.type === 'collect') obj = T('{item} {n}/{t} 확보', { item: T(ob.item || '보급 상자'), n: this.goalsTotal - this.goalsLeft, t: this.goalsTotal });
+  else if (ob.type === 'power' && this.power) {
+    const P = this.power, br = this.relays.find(r => r.kind === 'breaker');
+    obj = P.phase === 'fuse' ? T('퓨즈 {n}/{t} 찾기', { n: this.goalsTotal - this.goalsLeft, t: this.goalsTotal })
+      : P.phase === 'breaker' ? (this.relayOn ? T('전원 올리는 중 {p}%', { p: Math.floor((br ? br.prog : 0) * 100) }) : T('배전반에 퓨즈를 끼우고 전원을 올려라'))
+      : P.phase === 'run' ? T('발전기 가동 — {s}초 버텨라', { s: Math.ceil(P.runLeft) }) : T('셔터가 열렸다 — 출구로');
+  }
+  else if (ob.type === 'blackout') obj = this.relayOn ? T('배전함 내리는 중 {p}%', { p: Math.floor(this.relayOn.prog * 100) }) : T('배전함 {n}/{t} 내리기 — 감시등에 걸리지 마라', { n: this.goalsTotal - this.goalsLeft, t: this.goalsTotal });
   else if (ob.type === 'survive') obj = T('{s}초 버텨라', { s: Math.ceil(this.surviveLeft) });
   else if (ob.type === 'purge') obj = T('감염체 {n}/{t} 소탕', { n: this.kills, t: this.goalsTotal });
   else if (ob.type === 'boss') obj = T('그것을 쓰러뜨려라');
@@ -6935,7 +7029,7 @@ G.refreshHud = function (force) {
       box.hidden = !on;
       if (on) {
         const cap = Math.max(16, 26 - this.levelIndex * 0.6), heat = this.dir ? (this.dir.heat || 0) / cap : 0;
-        gn.style.width = Math.min(100, p.noise * 100) + '%';
+        gn.style.width = Math.min(100, Math.max(p.noise, this.blastNoise || 0) * 100) + '%';   // 수류탄 폭음도 막대에(rc.48)
         $('gaugeHeat').style.left = Math.min(100, heat * 100) + '%';
         box.classList.toggle('hot', heat > 0.7);
       }
@@ -7014,7 +7108,11 @@ G.refreshHud = function (force) {
   else {
     compass.style.display = '';
     if (this.exitOpen || ob.type === 'finale') { tx = this.world.exit.x; ty = this.world.exit.y; }
-    else if (ob.type === 'signal') {
+    else if (ob.type === 'power' && this.power && this.power.phase !== 'fuse') {
+      const br = this.relays.find(r => r.kind === 'breaker');
+      if (this.power.phase === 'breaker' && br) { tx = br.x; ty = br.y; } else { tx = this.world.exit.x; ty = this.world.exit.y; }   // 버티는 동안은 셔터(출구) 쪽
+    }
+    else if (ob.type === 'signal' || ob.type === 'blackout') {
       let bd = 1e9;
       for (const r of this.relays) { if (r.done) continue; const d = Math.hypot(r.x - p.x, r.y - p.y); if (d < bd) { bd = d; tx = r.x; ty = r.y; } }
     }
@@ -7022,11 +7120,11 @@ G.refreshHud = function (force) {
     else {
       let best = null, bd = 1e9;
       for (const pk of this.pickups) {
-        if (ob.type === 'collect' && pk.type !== 'goal') continue;
+        if ((ob.type === 'collect' || ob.type === 'power') && pk.type !== 'goal') continue;
         const d = Math.hypot(pk.x - p.x, pk.y - p.y);
         if (d < bd) { bd = d; best = pk; }
       }
-      if (ob.type === 'collect' && best) { tx = best.x; ty = best.y; }
+      if ((ob.type === 'collect' || ob.type === 'power') && best) { tx = best.x; ty = best.y; }
     }
     // 미션 변주 — 지금 급한 것(크레센도 장치 · 연료통 · 보급)이 있으면 그쪽을 먼저 가리킨다
     const twt = Twist.target(this);
@@ -7535,6 +7633,8 @@ const UI = {
     if (ob.type === 'survive') rows.push([T('남은 시간'), T('{s}초', { s: Math.ceil(G.surviveLeft) })]);
     if (ob.type === 'purge') rows.push([T('소탕'), `${G.kills}/${G.goalsTotal}`]);
     if (ob.type === 'signal') rows.push([T('중계기'), `${G.goalsTotal - G.goalsLeft}/${G.goalsTotal}`]);
+    if (ob.type === 'power') rows.push([T('퓨즈'), `${G.goalsTotal - G.goalsLeft}/${G.goalsTotal}`]);
+    if (ob.type === 'blackout') rows.push([T('배전함'), `${G.goalsTotal - G.goalsLeft}/${G.goalsTotal}`]);
     if (ob.type === 'finale') rows.push([T(ob.row || '접안'), G.exitOpen ? T(ob.rowOpen || '현문 개방') : G.holding ? T('{s}초', { s: Math.ceil(G.surviveLeft) }) : T(ob.rowGo || '부두로 이동 중')]);
     if (ob.type === 'boss') rows.push([T('그것'), G.boss && !G.boss.dead
       ? `${Math.max(0, Math.round(G.boss.hp / G.boss.hpMax * 100))}%` : T('처치')]);

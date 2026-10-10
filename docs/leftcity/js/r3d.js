@@ -721,6 +721,18 @@ function* chunkSteps(w, cx, cy) {
           else if (dx === 1) wallQuad(get('stone'), X1, Z1, X1, Z0, 0, PH, [1, 0, 0], null, 0); else wallQuad(get('stone'), X0, Z0, X0, Z1, 0, PH, [-1, 0, 0], null, 0);
         }
         if (((x % 4) + 4) % 4 === 1) marks.push({ x: X0 + T / 2, y: 50, z: Z0 + T / 2, r: 190, c: [0.95, 0.97, 1], k: hs % 7 === 0 ? 0.5 : 1.7, glow: 12 });
+      } else if (zn === 7) {
+        // 계단(rc.48) — 디딤판 줄무늬와 미끄럼 방지 노란 띠, 양옆 손잡이
+        floorQuad(get('plaza'), X0, Z0, X1, Z1, 0, 160, col('#8c8a84', 1));
+        for (let q = 0; q < 6; q++) { floorQuad(get('fan'), X0, Z0 + q * 8, X1, Z0 + q * 8 + 1.6, 0.35, 100); floorQuad(get('yellow'), X0, Z0 + q * 8 + 1.6, X1, Z0 + q * 8 + 3, 0.35, 100); }
+        if (zAt(-1, 0) !== 7) roofBox(get('metal'), X0 + 1, Z0, 2, T, 14, 2);
+        if (zAt(1, 0) !== 7) roofBox(get('metal'), X1 - 3, Z0, 2, T, 14, 2);
+        if ((y % 3) === 0) marks.push({ x: X0 + T / 2, y: 48, z: Z0 + T / 2, r: 140, c: [0.95, 0.97, 1], k: 1.2, glow: 8 });
+      } else if (zn === 8) {
+        // 개찰구(rc.48) — 낮은 기계 두 대와 그 사이 문(지나갈 수 있다)
+        floorQuad(get('plaza'), X0, Z0, X1, Z1, 0, 160, col('#a4a69c', 1));
+        roofBox(get('rooftop'), X0 + 2, Z0 + 18, 8, 12, 0, 16); roofBox(get('rooftop'), X1 - 10, Z0 + 18, 8, 12, 0, 16);
+        roofBox(get('lensOn'), X0 + 3, Z0 + 18, 6, 1, 16, 1.2); roofBox(get('cross'), X1 - 9, Z0 + 18, 6, 1, 16, 1.2);
       } else if (zn === 5) {
         floorQuad(get('plaza'), X0, Z0, X1, Z1, 0, 120, col(SUB ? '#8a8478' : '#7a5c40', 1));          // 방 — 마루
         if (hs % 11 === 0) marks.push({ x: X0 + T / 2, y: 46, z: Z0 + T / 2, r: 160, c: [1, 0.8, 0.55], k: 1.5, glow: 10 });

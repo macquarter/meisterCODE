@@ -445,33 +445,61 @@ class World {
     const floor = (x, y, w, h, deco, z = 0) => { for (let yy = y; yy < y + h; yy++) for (let xx = x; xx < x + w; xx++) { const i = this.idx(xx, yy); this.grid[i] = T_ROAD; this.deco[i] = deco; if (z) this.zone[i] = z; } };
     let lot = 1;
     if (kind === 'subway') {
-      const n = 3, gap = Math.floor(H / n);
-      const tunnels = [];
-      for (let k = 0; k < n; k++) {
-        const y = k * gap + 4 + Math.floor(rng() * (gap - 12));
-        floor(0, y, W, 3, D_ASPHALT, 1);                    // 선로
-        for (let x = 0; x < W; x++) { this.dirm[this.idx(x, y + 1)] = 2; this.zone[this.idx(x, y + 1)] = 2; }
-        tunnels.push(y);
-        // 승강장 — 터널 한쪽(번갈아 위 · 아래)에 14‒20칸 길이로 두세 곳
-        for (let s0 = Math.floor(rng() * 12); s0 < W - 20; s0 += 30 + Math.floor(rng() * 14)) {
-          const len = 14 + Math.floor(rng() * 7), up = (k + (s0 > W / 2 ? 1 : 0)) % 2 === 0;
-          floor(s0, up ? y - 2 : y + 3, len, 2, D_PLAZA, 3);
-        }
-      }
-      // 환승 통로 — 남북으로 2칸, 대합실(넓은 방)을 지나 위아래 터널을 잇는다
-      for (let x = 6 + Math.floor(rng() * 8); x < W - 6; x += 16 + Math.floor(rng() * 10)) {
-        for (let y = 0; y < H; y++) for (let xx = x; xx < x + 2; xx++) { const i = this.idx(xx, y); if (this.zone[i] === 1 || this.zone[i] === 2) continue; this.grid[i] = T_ROAD; this.deco[i] = D_PLAZA; if (this.zone[i] !== 3) this.zone[i] = 4; }   // 선로는 건너지르되 레일은 그대로
-        if (rng() < 0.6) { const hy = Math.floor(rng() * (H - 12)), hw = 8 + Math.floor(rng() * 5), hh = 6 + Math.floor(rng() * 4); for (let y = hy; y < hy + hh; y++) for (let xx = x - Math.floor(hw / 2); xx < x - Math.floor(hw / 2) + hw; xx++) { const i = this.idx(xx, y); if (this.zone[i] === 1 || this.zone[i] === 2) continue; this.grid[i] = T_ROAD; this.deco[i] = D_PLAZA; if (this.zone[i] !== 3) this.zone[i] = 6; } }
-      }
-      // 멈춘 전동차 — 선로 가운데 줄에 4‒6칸. 양옆 1칸만 남아 비집고 지나가거나 승강장으로 돈다
+      // rc.48 — 미로 같은 터널 대신 '역'. 두 노선(동서)이 지도를 감아 돈다. 선로는 복선(3칸 × 2)이고
+      // 역 구간에는 양쪽 승강장(3칸) · 가운데 기둥 줄, 역과 역 사이는 가운데 벽으로 갈린 단선 터널(12칸마다 연결 통로).
+      // 환승역: 두 노선의 승강장에서 계단(7)이 가운데 대합실(6 · 개찰구 8 · 역무실 5)로 오른다. 작은 역이 노선마다 하나 더(계단 → 대합실 → 출구 통로)
+      const set = (x, y, deco, z) => { const i = this.idx(x, y); this.grid[i] = T_ROAD; this.deco[i] = deco; this.zone[i] = z; };
+      const wall = (x, y) => { const i = this.idx(x, y); this.grid[i] = T_WALL; this.deco[i] = D_BUILDING; this.zone[i] = 0; };
+      const cA = Math.round(H * 0.24), cB = Math.round(H * 0.76);
+      const SX = 4 + Math.floor(rng() * 8), SL = Math.min(36, W - 30);                  // 환승역 구간
+      const lines = [cA, cB];
+      const inSt = (x, a, l) => { const d = ((x - a) % W + W) % W; return d < l; };
+      const small = lines.map((c, k) => ({ x: (SX + SL + 10 + Math.floor(rng() * Math.max(1, W - SL - 34)) + k * 7) % W, l: 20 }));
       this.props = [];
-      for (const y of tunnels) for (let x0 = 8 + Math.floor(rng() * 20); x0 < W - 10; x0 += 26 + Math.floor(rng() * 18)) {
-        const len = 4 + Math.floor(rng() * 3), tiles = [];
-        for (let i = 0; i < len; i++) { const ix = this.idx(x0 + i, y + 1); if (this.grid[ix] !== T_ROAD) { tiles.length = 0; break; } tiles.push([x0 + i, y + 1]); }
-        if (tiles.length < 3) continue;
-        for (const [tx, ty] of tiles) { const i = this.idx(tx, ty); this.grid[i] = T_WALL; this.deco[i] = D_PROP; }
-        this.props.push({ x: (x0 + tiles.length / 2) * TILE, y: (y + 1.5) * TILE, kind: 'wagon', a: 0, tiles, col: ['#5a6a72', '#6a5a4a', '#4a5a6a'][(rng() * 3) | 0], w: tiles.length * TILE - 10, h: 34 });
+      lines.forEach((c, k) => {
+        for (let x = 0; x < W; x++) {
+          const big = inSt(x, SX, SL), sm = inSt(x, small[k].x, small[k].l), st = big || sm;
+          for (const off of [-3, 1]) for (let r = 0; r < 3; r++) set(x, c + off + r, D_ASPHALT, r === 1 ? 2 : 1);   // 북 · 남 선로
+          for (let r = 0; r < 3; r++) this.dirm[this.idx(x, c + (r === 1 ? -2 : 2))] = 2;
+          if (st) {
+            for (let r = 0; r < 3; r++) { set(x, c - 6 + r, D_PLAZA, 3); set(x, c + 4 + r, D_PLAZA, 3); }          // 양쪽 승강장
+            if (((x - SX) % 4 + 4) % 4 === 0) wall(x, c); else set(x, c, D_ASPHALT, 1);                          // 선로 사이 기둥 줄
+          } else if (x % 12 === 0) set(x, c, D_ASPHALT, 1);                                                      // 단선 터널 사이 연결 통로
+          else wall(x, c);
+        }
+      });
+      // 환승 대합실 — 두 노선 사이, 개찰구 줄 · 역무실 · 계단
+      const hy0 = cA + 10, hy1 = cB - 10;
+      for (let y = hy0; y <= hy1; y++) for (let x = SX + 2; x < SX + SL - 2; x++) set(x, y, D_PLAZA, 6);
+      const gy = Math.round((hy0 + hy1) / 2);
+      for (let x = SX + 2; x < SX + SL - 2; x++) if ((x - SX) % 3 !== 0) { const i = this.idx(x, gy); this.zone[i] = 8; }   // 개찰구(지나갈 수 있는 낮은 문 줄)
+      for (const [rx, ry] of [[SX + 3, hy0 + 1], [SX + SL - 9, hy1 - 4]]) {                                      // 역무실 둘 — 벽에 문 하나
+        for (let y = ry - 1; y <= ry + 4; y++) for (let x = rx - 1; x <= rx + 6; x++) wall(x, y);
+        for (let y = ry; y < ry + 4; y++) for (let x = rx; x < rx + 6; x++) set(x, y, D_PLAZA, 5);
+        set(rx + 2, ry === hy0 + 1 ? ry + 4 : ry - 1, D_PLAZA, 5);
       }
+      const stairs = (x, y0, y1) => { for (let y = Math.min(y0, y1); y <= Math.max(y0, y1); y++) for (let dx = 0; dx < 3; dx++) set(x + dx, y, D_PLAZA, 7); };
+      for (const fx of [0.2, 0.5, 0.78]) { const x = SX + Math.floor(SL * fx); stairs(x, cA + 7, hy0 - 1); stairs(x, cB - 7, hy1 + 1); }
+      // 작은 역 — 승강장에서 바깥쪽으로 계단 → 대합실 → 지도를 가로지르는 출구 통로
+      small.forEach((st, k) => {
+        const c = lines[k], dir = k === 0 ? -1 : 1, edge = c + dir * 7, x0 = st.x + 4;
+        stairs(x0, edge, edge + dir * 4); stairs(x0 + 11, edge, edge + dir * 4);
+        const hy = edge + dir * 5;
+        for (let y = 0; y < 6; y++) for (let x = st.x + 1; x < st.x + st.l - 1; x++) set(x, hy + dir * y, D_PLAZA, 6);
+        for (let y = 0; y < 12; y++) for (let dx = 0; dx < 2; dx++) set(st.x + Math.floor(st.l / 2) + dx, hy + dir * (6 + y), D_PLAZA, 4);   // 출구 통로
+      });
+      // 멈춘 전동차 — 환승역 승강장 옆 선로(북쪽 노선 북 선로)에 10칸, 터널마다 몇 대
+      const wagon = (x0, y, len) => {
+        x0 = ((x0 % W) + W) % W; y = ((y % H) + H) % H;
+        if (x0 + len > W - 1) return;                                       // 지도 가장자리(감김)를 넘는 차는 두지 않는다
+        const tiles = [];
+        for (let i = 0; i < len; i++) { const ix = this.idx(x0 + i, y); if (this.grid[ix] !== T_ROAD) { tiles.length = 0; break; } tiles.push([x0 + i, y]); }
+        if (tiles.length < 3) return;
+        for (const [tx, ty] of tiles) { const i = this.idx(tx, ty); this.grid[i] = T_WALL; this.deco[i] = D_PROP; }
+        this.props.push({ x: (x0 + tiles.length / 2) * TILE, y: (y + 0.5) * TILE, kind: 'wagon', a: 0, tiles, col: ['#5a6a72', '#6a5a4a', '#4a5a6a'][(rng() * 3) | 0], w: tiles.length * TILE - 10, h: 34 });
+      };
+      wagon(SX + 6, cA - 2, 10);
+      lines.forEach(c => { for (let x0 = SX + SL + 6 + Math.floor(rng() * 10); x0 < SX + W - 14; x0 += 22 + Math.floor(rng() * 14)) { const xx = x0 % W; if (!inSt(xx, small[lines.indexOf(c)].x - 2, 26) && xx % 12 > 6) wagon(xx, c + (rng() < 0.5 ? -2 : 2), 4 + Math.floor(rng() * 2)); } });
     } else {
       // 복도 격자 — 9‒12칸마다 2칸 복도
       const xs = [], ys = [];

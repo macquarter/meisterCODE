@@ -501,33 +501,40 @@ class World {
       wagon(SX + 6, cA - 2, 10);
       lines.forEach(c => { for (let x0 = SX + SL + 6 + Math.floor(rng() * 10); x0 < SX + W - 14; x0 += 22 + Math.floor(rng() * 14)) { const xx = x0 % W; if (!inSt(xx, small[lines.indexOf(c)].x - 2, 26) && xx % 12 > 6) wagon(xx, c + (rng() < 0.5 ? -2 : 2), 4 + Math.floor(rng() * 2)); } });
     } else {
-      // 복도 격자 — 9‒12칸마다 2칸 복도
+      // 복도 격자 — 13‒16칸마다 2칸 복도(rc.49 — 블록을 사무실 크기 방으로 잘게 나눈다)
       const xs = [], ys = [];
-      for (let x = 1 + Math.floor(rng() * 4); x < W - 4; x += 9 + Math.floor(rng() * 4)) { xs.push(x); floor(x, 0, 2, H, D_PLAZA, 4); }
-      for (let y = 1 + Math.floor(rng() * 4); y < H - 4; y += 9 + Math.floor(rng() * 4)) { ys.push(y); floor(0, y, W, 2, D_PLAZA, 4); }
+      for (let x = 1 + Math.floor(rng() * 4); x < W - 6; x += 13 + Math.floor(rng() * 4)) { xs.push(x); floor(x, 0, 2, H, D_PLAZA, 4); }
+      for (let y = 1 + Math.floor(rng() * 4); y < H - 6; y += 13 + Math.floor(rng() * 4)) { ys.push(y); floor(0, y, W, 2, D_PLAZA, 4); }
       xs.push(W + xs[0]); ys.push(H + ys[0]);
       for (let i = 0; i + 1 < xs.length; i++) for (let j = 0; j + 1 < ys.length; j++) {
         const bx = xs[i] + 2, by = ys[j] + 2, bw = xs[i + 1] - bx, bh = ys[j + 1] - by;
         if (bw < 4 || bh < 4) continue;
         if (rng() < 0.12) { floor(bx, by, bw, bh, D_PLAZA, 6); continue; }          // 홀 · 로비
-        // 방 — 블록을 벽 1칸으로 두세 개로 가르고, 방마다 복도 쪽 문 하나(가끔 둘)
-        const split = bw >= bh ? 'v' : 'h', parts = 1 + Math.floor(rng() * 2);
-        const rooms = [];
-        if (parts === 1) rooms.push([bx + 1, by + 1, bw - 2, bh - 2]);
-        else if (split === 'v') { const c = Math.floor(bw / 2); rooms.push([bx + 1, by + 1, c - 1, bh - 2], [bx + c + 1, by + 1, bw - c - 2, bh - 2]); }
-        else { const c = Math.floor(bh / 2); rooms.push([bx + 1, by + 1, bw - 2, c - 1], [bx + 1, by + c + 1, bw - 2, bh - c - 2]); }
-        for (const [rx, ry, rw, rh] of rooms) {
-          if (rw < 1 || rh < 1) continue;
-          floor(rx, ry, rw, rh, D_PLAZA, 5);
-          const doors = rng() < 0.35 ? 2 : 1;
-          for (let d = 0; d < doors; d++) {
-            const side = (Math.floor(rng() * 4) + d * 2) % 4;
-            if (side === 0) floor(rx + Math.floor(rng() * rw), ry - 1, 1, 1, D_PLAZA, 5);
-            else if (side === 1) floor(rx + Math.floor(rng() * rw), ry + rh, 1, 1, D_PLAZA, 5);
-            else if (side === 2) floor(rx - 1, ry + Math.floor(rng() * rh), 1, 1, D_PLAZA, 5);
-            else floor(rx + rw, ry + Math.floor(rng() * rh), 1, 1, D_PLAZA, 5);
+        // 방(rc.49) — 블록을 칸막이로 잘게 나눈다(방 한 변 3‒6칸 ≈ 사무실 · 회의실 크기). 칸막이마다 문 하나, 블록마다 복도로 난 문 하나 이상
+        const leaves = [];
+        const split = (x, y, ww, hh, depth) => {
+          const canV = ww >= 8, canH = hh >= 8;
+          if ((!canV && !canH) || depth > 5) { leaves.push([x, y, ww, hh]); floor(x, y, ww, hh, D_PLAZA, 5); return; }
+          const vert = canV && (!canH || ww >= hh);
+          const span = vert ? ww : hh, c = 3 + Math.floor(rng() * (span - 6));
+          if (vert) {
+            split(x, y, c, hh, depth + 1); split(x + c + 1, y, ww - c - 1, hh, depth + 1);
+            floor(x + c, y + Math.floor(rng() * hh), 1, 1, D_PLAZA, 5);               // 칸막이 문
+          } else {
+            split(x, y, ww, c, depth + 1); split(x, y + c + 1, ww, hh - c - 1, depth + 1);
+            floor(x + Math.floor(rng() * ww), y + c, 1, 1, D_PLAZA, 5);
           }
-        }
+        };
+        split(bx + 1, by + 1, bw - 2, bh - 2, 0);
+        leaves.forEach(([rx, ry, rw, rh], k) => {
+          if (k > 0 && rng() > 0.45) return;                                        // 복도로 난 문 — 첫 방은 반드시
+          const sides = [];
+          if (ry === by + 1) sides.push(() => floor(rx + Math.floor(rng() * rw), ry - 1, 1, 1, D_PLAZA, 5));
+          if (ry + rh === by + bh - 1) sides.push(() => floor(rx + Math.floor(rng() * rw), ry + rh, 1, 1, D_PLAZA, 5));
+          if (rx === bx + 1) sides.push(() => floor(rx - 1, ry + Math.floor(rng() * rh), 1, 1, D_PLAZA, 5));
+          if (rx + rw === bx + bw - 1) sides.push(() => floor(rx + rw, ry + Math.floor(rng() * rh), 1, 1, D_PLAZA, 5));
+          if (sides.length) sides[Math.floor(rng() * sides.length)]();
+        });
       }
       this.props = [];
     }
@@ -838,11 +845,26 @@ class World {
     // 저장된 모양은 원본 지도 좌표 — 이어 붙은 복사본이면 그만큼 옮긴다
     const ox = (tx - i % this.w) * TILE, oy = (ty - ((i / this.w) | 0)) * TILE;
     if (!ox && !oy) return sp;
+    if (sp.parts) return { parts: sp.parts.map(q => ({ x0: q.x0 + ox, y0: q.y0 + oy, x1: q.x1 + ox, y1: q.y1 + oy })) };
     return sp.r !== undefined ? { cx: sp.cx + ox, cy: sp.cy + oy, r: sp.r }
       : { x0: sp.x0 + ox, y0: sp.y0 + oy, x1: sp.x1 + ox, y1: sp.y1 + oy };
   }
+  /** 건물 안 칸막이(rc.49) — 벽 칸을 통째로 막지 않고 가운데 22 폭 벽과 이웃 벽 쪽으로 뻗은 팔만.
+      한 칸(48)이 사람 키만큼 두꺼워 방 사이 벽이 건물처럼 보였다. 22 = 48 − 반지름 13×2 라 사람의 중심은 벽 칸에 들어가지 않는다
+      (시야 · 손전등 · 길찾기는 그대로 칸 단위) */
+  slabParts(tx, ty) {
+    const T = TILE, X0 = tx * T, Y0 = ty * T, cx = X0 + T / 2, cy = Y0 + T / 2, h = 11;
+    const W = (a, b) => { const i = this.idx(tx + a, ty + b); return this.grid[i] === T_WALL && this.deco[i] === D_BUILDING; };
+    const out = [{ x0: cx - h, y0: cy - h, x1: cx + h, y1: cy + h }];
+    if (W(-1, 0)) out.push({ x0: X0, y0: cy - h, x1: cx, y1: cy + h });
+    if (W(1, 0)) out.push({ x0: cx, y0: cy - h, x1: X0 + T, y1: cy + h });
+    if (W(0, -1)) out.push({ x0: cx - h, y0: Y0, x1: cx + h, y1: cy });
+    if (W(0, 1)) out.push({ x0: cx - h, y0: cy, x1: cx + h, y1: Y0 + T });
+    return out;
+  }
   buildShapes() {
     this.shapes = new Map();
+    if (this.indoor === 'interior') for (let i = 0; i < this.grid.length; i++) if (this.grid[i] === T_WALL && this.deco[i] === D_BUILDING) this.shapes.set(i, { parts: this.slabParts(i % this.w, (i / this.w) | 0) });
     for (const pr of this.props) {
       const c = Math.abs(Math.cos(pr.a)), s = Math.abs(Math.sin(pr.a));
       const hw = (pr.w * c + pr.h * s) / 2 * 0.92, hh = (pr.w * s + pr.h * c) / 2 * 0.92;
@@ -861,8 +883,9 @@ class World {
     const x0 = Math.floor((px - r) / TILE), x1 = Math.floor((px + r) / TILE);
     const y0 = Math.floor((py - r) / TILE), y1 = Math.floor((py + r) / TILE);
     for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
-      const sh = this.shapeAt(x, y);
-      if (!sh) continue;
+      const sh0 = this.shapeAt(x, y);
+      if (!sh0) continue;
+      for (const sh of sh0.parts || [sh0]) {
       let nx, ny, depth;
       if (sh.r !== undefined) {
         const dx = px - sh.cx, dy = py - sh.cy, d = Math.hypot(dx, dy);
@@ -881,6 +904,7 @@ class World {
         }
       }
       if (fn(nx, ny, depth) === true) return true;
+      }
     }
     return false;
   }

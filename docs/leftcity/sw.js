@@ -1,7 +1,7 @@
 /* 오프라인 실행 — 한 번 열면 네트워크 없이도 돈다.
    먼저 캐시로 바로 띄우고, 뒤에서 새 파일을 받아 다음 실행에 쓴다(stale-while-revalidate).
    VERSION 은 settings.js 의 APP.version 과 맞춘다 — 바뀌면 예전 캐시를 지운다. */
-const VERSION = '1.0.0-rc.48';
+const VERSION = '1.0.0-rc.49';
 const CACHE = 'leftcity-' + VERSION;
 const SHELL = [
   './', './index.html', './css/game.css', './manifest.webmanifest',

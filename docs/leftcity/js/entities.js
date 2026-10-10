@@ -800,6 +800,7 @@ class Zombie {
     }
     if (this.aggro && !this._wasAggro && this.alertAt === undefined) this.alertAt = g.time;   // 어떻게 깨든(비명 · 경보 · 총에 맞음) 머리 위 '!'(rc.48)
     if (this.aggro !== this._wasAggro) { if (!this.aggro) this.alertAt = undefined; this._wasAggro = this.aggro; }
+    this.runT = this.aggro && !(this.wakeHold > 0) ? (this.runT || 0) + dt : 0;   // 일어선 뒤 달린 시간(rc.49) — 자동 사격은 0.6초부터
     if (this.wakeHold > 0) {                              // 깨어나는 순간 — 고개를 돌리고 몸을 일으킨다(0.5초). 그 틈에 쏘거나 물러설 수 있다
       this.wakeHold -= dt; this.face = Math.atan2(dy, dx); this.phase += dt * 4;
       this.lit = Math.max(0, this.lit - dt * 3);

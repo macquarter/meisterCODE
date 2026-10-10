@@ -451,7 +451,13 @@ addEventListener('touchstart', e => {
 /** 가만히 있는(쫓아오지 않는) 감염체를 자동 조준 · 자동 사격이 건드리는 거리 — 이보다 멀면 조용히 지나칠 수 있다 */
 const IDLE_NEAR = 70;
 /** 달려오는 중인가(rc.48) — 깨어 '!'가 뜨고 몸을 일으킨 뒤(wakeHold 끝)부터. 자동 사격 · 자동 조준은 이것만 노린다 */
-const charging = z => z.aggro && !(z.wakeHold > 0);
+const charging = z => {
+  if (!z.aggro || z.wakeHold > 0) return false;
+  // rc.49 — 일어선 뒤 0.6초는 실제로 달려와야 '달려오는 것'. 3D 의 넓은 불빛에 깨자마자 서 있는 채로 맞던 것.
+  // 바로 곁(70)에서 덤비는 것은 예외 — 물리기 전에 쏜다
+  if ((z.runT || 0) >= 0.6) return true;
+  const p = G.player; return !!p && Math.hypot(z.x - p.x, z.y - p.y) < 70;
+};
 /** 자동 조준의 표적 — 불빛을 받으면 깨는 '우는 것'은 일부러 비추지 않는다.
     가까운 순, 지금 보는 쪽이면 조금 더 우선. 벽 너머는 고르지 않는다 */
 function autoAimTarget(g, wide) {
@@ -1727,8 +1733,8 @@ function screenTransform(c, cam) { c.setTransform(DPR, 0, 0, DPR, -cam.x * DPR, 
 const SPITTER_CAP = 2;
 /* 규칙(rc.38) — 거리 밀도(처음 서 있는 수 · 채워 넣는 상한)와 감각(듣는 거리 · 불빛에 깨는 시간 · 줄줄이 깨는 범위) */
 const DENS_INIT = [1.4, 2, 2.7], DENS_MAX = [1.15, 1.4, 1.75];
-// lit — 불빛에 깨기까지(초). rc.48 에서 모두 1.4배(더 오래 비춰야 깬다)
-const SENSE = [{ h: 0.7, lit: 2.66, chain: 120 }, { h: 1, lit: 1.54, chain: 170 }, { h: 1.35, lit: 0.84, chain: 240 }];
+// lit — 불빛에 깨기까지(초). rc.49 — 보통 2.3초(쉬움 · 어려움은 같은 비율)
+const SENSE = [{ h: 0.7, lit: 3.97, chain: 120 }, { h: 1, lit: 2.3, chain: 170 }, { h: 1.35, lit: 1.25, chain: 240 }];
 const SURVIVAL_UNLOCK = PART1_END + 1;
 /* 체험판 · 정식판(rc.43) — 1‒3장(여섯 미션)은 무료, 4장 방콕부터는 정식판. 결제는 앱 껍데기(스토어 빌드)가 맡는다:
    window.LeftCityStore = { price(): Promise<string>, purchase(): Promise<boolean>, restore(): Promise<boolean> }
@@ -4347,7 +4353,9 @@ function drawGround(cam, w) {
       const n = ((x * 73856093) ^ (y * 19349663)) & 15;
       const px = x * TILE, py = y * TILE;
       if (w.terr && w.terr[i]) terrT.push(w.terr[i], x, y, n);
-      if (d === D_BUILDING) {
+      if (d === D_BUILDING && w.indoor === 'interior') {
+        ctx.fillStyle = '#3a3026'; ctx.fillRect(px, py, TILE, TILE);         // 칸막이 둘레의 바닥(rc.49)
+      } else if (d === D_BUILDING) {
         ctx.fillStyle = n < 5 ? '#12161d' : n < 11 ? '#0f131a' : '#161b23';
         ctx.fillRect(px, py, TILE, TILE);
       } else if (d === D_WATER) {
@@ -5575,7 +5583,18 @@ const WIN_COLS = [['frame', 'rgba(190,186,170,.30)'], ['lit', 'rgba(201,154,82,.
                   ['under', 'rgba(0,0,0,.3)'], ['band', 'rgba(0,0,0,.28)']];
 /** 건물 한 줄 — 남쪽 벽면(창문·가게 앞) → 지붕(난간·옥상 설비).
     한 줄씩 북쪽부터 그리고 그 사이사이에 서 있는 것들을 끼워 넣어, 남쪽 건물이 북쪽의 사람을 가린다 */
+/** 건물 안 칸막이 한 줄(rc.49) — 얇은 벽의 앞면과 밝은 윗면만 */
+function partitionRow(w, r, x0, x1) {
+  const hh = bldH(w, x0, r) * HSC, face = new Path2D(), top = new Path2D();
+  for (let x = x0; x <= x1; x++) {
+    const i = w.idx(x, r); if (w.grid[i] !== T_WALL || w.deco[i] !== D_BUILDING) continue;
+    for (const q of w.slabParts(x, r)) { face.rect(q.x0, q.y1 - hh, q.x1 - q.x0, hh); top.rect(q.x0, q.y0 - hh, q.x1 - q.x0, q.y1 - q.y0); }
+  }
+  ctx.fillStyle = '#5d564b'; ctx.fill(face);
+  ctx.fillStyle = '#9a9284'; ctx.fill(top);
+}
 function buildingRow(w, r, x0, x1) {
+  if (w.indoor === 'interior') return partitionRow(w, r, x0, x1);
   const isB = (x, y) => w.deco[w.idx(x, y)] === D_BUILDING;
   const roofs = w.theme.roofs, R = roofs.length;
   // 벽면 바탕색 → 재료 결(벽돌 · 미장) → 창. 결은 한 줄의 벽을 한 경로로 모아 한 번에 칠한다 —

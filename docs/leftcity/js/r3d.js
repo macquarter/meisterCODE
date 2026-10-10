@@ -685,6 +685,16 @@ function* chunkSteps(w, cx, cy) {
       if (deco(x - 1, y) === D_WATER) floorQuad(Cp, X0, Z0, X0 + 5, Z1, ey, 100);
       if (deco(x + 1, y) === D_WATER) floorQuad(Cp, X1 - 5, Z0, X1, Z1, ey, 100);
     }
+    if (d === D_BUILDING && w.indoor === 'interior' && w.slabParts) {
+      // 건물 안 칸막이(rc.49) — 칸 전체 덩어리가 아니라 22 폭 벽. 남는 자리는 바닥, 벽 윗면은 밝은 테두리색으로(위에서 방 윤곽이 선처럼 읽힌다)
+      const h = bh(w, x, y), wc = col('#a49a88', 1);
+      floorQuad(get('plaza'), X0, Z0, X1, Z1, 0, 120, col('#7a5c40', 1));
+      for (const q of w.slabParts(x, y)) {
+        roofBox(get('inwall'), q.x0, q.y0, q.x1 - q.x0, q.y1 - q.y0, 0, h, wc);
+        floorQuad(get('inRim'), q.x0, q.y0, q.x1, q.y1, h + 0.25, 100);
+      }
+      continue;
+    }
     if (d === D_BUILDING && w.indoor) {
       // 실내 벽(rc.45) — 간판 · 상점 · 난간 · 옥상 설비 없이 콘크리트(지하철) · 미장(건물) 벽과 어두운 윗면만
       const h = bh(w, x, y), wc = col(w.indoor === 'subway' ? '#8a949a' : '#a49a88', 1), K = 'inwall';

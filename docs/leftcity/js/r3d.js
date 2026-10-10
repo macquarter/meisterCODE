@@ -1782,6 +1782,43 @@ function makeProp(pr) {
     bx(g, mat('#2a2d31', { metalness: 0.6, roughness: 0.4 }), 0, 40, 0, L * 0.7, 8, Wd * 0.4);
     for (const sx of [-1, 1]) bx(g, mat('#8a8e94', { metalness: 0.7, roughness: 0.3 }), sx * L * 0.3, 26, Wd * 0.45, 4, 40, 4);
     bx(g, mat('#1a1c1e'), L * 0.3, 22, Wd * 0.41, 10, 8, 0.6);
+  } else if (k === 'fountain') {
+    // 시장 안뜰 분수(rc.51) — 팔각 수반 · 가운데 기둥
+    const st = mat('#9a9488', { roughness: 0.85 });
+    g.add(part(GEO.cyl, st, 0, 5, 0, L / 2, 10, Wd / 2)); g.add(part(GEO.cyl, mat('#1e2a30', { roughness: 0.15, metalness: 0.3 }), 0, 10.2, 0, L / 2 - 4, 0.4, Wd / 2 - 4));
+    g.add(part(GEO.cyl, st, 0, 14, 0, 4, 28, 4)); g.add(part(GEO.cyl, st, 0, 26, 0, 10, 2, 10));
+  } else if (k === 'turbine') {
+    // 발전소 터빈 · 발전기(rc.51) — 받침대 위 누운 원통 케이싱, 끝에 발전기, 위로 증기관
+    const base = mat('#2e3236', { roughness: 0.7 }), cas = mat(pr.col, { roughness: 0.45, metalness: 0.55 });
+    bx(g, base, 0, 6, 0, L, 12, Wd * 0.9);
+    const c1 = part(GEO.cyl, cas, -L * 0.15, 26, 0, Wd * 0.38, L * 0.62, Wd * 0.38); c1.rotation.z = Math.PI / 2; g.add(c1);
+    const c2 = part(GEO.cyl, mat('#8a5a3a', { roughness: 0.6, metalness: 0.3 }), L * 0.32, 24, 0, Wd * 0.32, L * 0.3, Wd * 0.32); c2.rotation.z = Math.PI / 2; g.add(c2);
+    for (const sx of [-0.35, 0]) g.add(part(GEO.cyl, mat('#8a8e94', { metalness: 0.7, roughness: 0.3 }), sx * L, 42, 0, 3.5, 14, 3.5));
+    bx(g, mat('#c9a227', { roughness: 0.6 }), 0, 12.5, Wd * 0.46, L, 1, 1);
+  } else if (k === 'tank') {
+    // 기수 분리기 탱크(rc.51) — 선 원통 · 둥근 지붕 · 사다리
+    const m = mat(pr.col, { roughness: 0.55, metalness: 0.45 });
+    g.add(part(GEO.cyl, m, 0, 24, 0, L * 0.46, 48, Wd * 0.46)); g.add(part(GEO.cyl, mat('#6a6a66', { metalness: 0.5 }), 0, 49, 0, L * 0.3, 3, Wd * 0.3));
+    for (const y of [12, 26, 40]) g.add(part(GEO.cyl, mat('#5a5a56', { metalness: 0.5 }), 0, y, 0, L * 0.47, 1.2, Wd * 0.47));
+    bx(g, mat('#c9a227'), L * 0.47, 24, 0, 1.2, 48, 5);
+  } else if (k === 'pipes') {
+    // 파이프 랙(rc.51) — 철골 기둥 위 굵은 관 셋
+    const st = mat('#4a4e54', { roughness: 0.6, metalness: 0.5 }), pm = mat('#9aa0a6', { roughness: 0.35, metalness: 0.7 });
+    for (let x = -L / 2 + 3; x <= L / 2 - 3; x += 32) { bx(g, st, x, 16, 0, 3, 32, Wd * 0.9); }
+    bx(g, st, 0, 31, 0, L, 2, Wd * 0.9);
+    for (const z of [-Wd * 0.28, 0, Wd * 0.28]) { const c = part(GEO.cyl, pm, 0, 36, z, 4, L, 4); c.rotation.z = Math.PI / 2; g.add(c); }
+  } else if (k === 'console') {
+    // 통제실 콘솔(rc.51) — 기운 조작판 · 모니터 줄 · 의자
+    bx(g, mat('#3a4048', { roughness: 0.6 }), 0, 9, 0, L, 18, Wd * 0.6);
+    const sc = mat('#1a2a30', { emissive: col('#2a6a7a'), emissiveIntensity: 0.35, roughness: 0.3 });
+    for (let q = 0; q < 3; q++) bx(g, sc, -L / 3 + q * L / 3, 25, -Wd * 0.2, L / 3 - 4, 10, 1.2);
+    for (let q = 0; q < 3; q++) bx(g, mat('#24272c'), -L / 3 + q * L / 3, 9, Wd * 0.55, 8, 10, 8);
+  } else if (k === 'shelf') {
+    // 창고 선반(rc.51) — 철제 기둥 · 판 넷 · 상자
+    const st = mat(pr.col, { roughness: 0.6, metalness: 0.5 });
+    for (const sx of [-1, 1]) for (const sz of [-1, 1]) bx(g, st, sx * (L / 2 - 1), 23, sz * (Wd / 2 - 1), 2, 46, 2);
+    for (const y of [2, 14, 26, 38]) bx(g, mat('#6a5a44', { roughness: 0.8 }), 0, y, 0, L, 1.4, Wd);
+    for (let q = 0; q < Wd / 14; q++) for (const y of [3, 15, 27]) if ((q + y) % 3) bx(g, mat(['#8a6a44', '#6a7a5a', '#5a6a7a'][(q + y) % 3], { roughness: 0.9 }), 0, y + 5, -Wd / 2 + 8 + q * 14, L * 0.8, 9, 11);
   } else if (k === 'wagon') {
     bx(g, mat(pr.col, { roughness: 0.85, metalness: 0.3 }), 0, 22, 0, L, 28, Wd);
     for (let q = 1; q < L / 8; q++) bx(g, mat('#000000', { roughness: 1 }), -L / 2 + q * 8, 22, Wd / 2 + 0.1, 0.8, 26, 0.3);

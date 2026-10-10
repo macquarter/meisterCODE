@@ -23,3 +23,10 @@
 - 모든 페이지 도구는 `pageId`가 필요하다: `new_page`(url) → 결과의 `[selected]` 번호를 `pageId`로 사용
 - 확인 순서: `new_page` → `list_console_messages`(오류) → `take_screenshot` → 모바일은 `emulate`/`resize_page`
 - 클라우드 세션에서는 외부 이미지·폰트가 프록시 인증서 문제로 `ERR_CERT_AUTHORITY_INVALID`가 나며 안 보인다. 사이트 버그가 아니니 무시하고, 로컬 파일(`file:///.../docs/...`)의 레이아웃·스크립트 오류만 판단한다
+
+## 시장 반응 리허설 (MiroFish)
+
+공지문·제안서·서비스 소개가 "어떻게 받아들여질지" 미리 보고 싶다는 요청이면 `tools/mirofish/README.md`를 따른다.
+MiroFish(AGPL-3.0) 코드는 이 저장소에 넣지 않는다. 회사 컴퓨터에 따로 설치해서 쓴다.
+양식은 `tools/mirofish/scenarios/`에 있다. 고객 개인정보는 seed 자료에 넣지 않는다(Gemini·Zep 외부 전송).
+결과 보고서를 받으면 실제로 확인할 만한 주장만 골라 주고, AI 시뮬레이션이라 실제 여론이 아니라는 점을 함께 밝힌다.

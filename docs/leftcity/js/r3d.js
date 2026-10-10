@@ -720,14 +720,14 @@ function* chunkSteps(w, cx, cy) {
           if (dy === 1) wallQuad(get('stone'), X0, Z1, X1, Z1, 0, PH, [0, 0, 1], null, 0); else if (dy === -1) wallQuad(get('stone'), X1, Z0, X0, Z0, 0, PH, [0, 0, -1], null, 0);
           else if (dx === 1) wallQuad(get('stone'), X1, Z1, X1, Z0, 0, PH, [1, 0, 0], null, 0); else wallQuad(get('stone'), X0, Z0, X0, Z1, 0, PH, [-1, 0, 0], null, 0);
         }
-        if (((x % 4) + 4) % 4 === 1) marks.push({ x: X0 + T / 2, y: 50, z: Z0 + T / 2, r: 190, c: [0.95, 0.97, 1], k: hs % 7 === 0 ? 0.5 : 1.7, glow: 12 });
+        if (x % 5 === 1 && [[0, 1], [0, -1]].some(([a, b]) => { const o = zAt(a, b); return o === 1 || o === 2; })) marks.push({ x: X0 + T / 2, y: 50, z: Z0 + T / 2, r: 190, c: [0.95, 0.97, 1], k: hs % 7 === 0 ? 0.5 : 1.7, glow: 12 });
       } else if (zn === 7) {
         // 계단(rc.48) — 디딤판 줄무늬와 미끄럼 방지 노란 띠, 양옆 손잡이
         floorQuad(get('plaza'), X0, Z0, X1, Z1, 0, 160, col('#8c8a84', 1));
         for (let q = 0; q < 6; q++) { floorQuad(get('fan'), X0, Z0 + q * 8, X1, Z0 + q * 8 + 1.6, 0.35, 100); floorQuad(get('yellow'), X0, Z0 + q * 8 + 1.6, X1, Z0 + q * 8 + 3, 0.35, 100); }
         if (zAt(-1, 0) !== 7) roofBox(get('metal'), X0 + 1, Z0, 2, T, 14, 2);
         if (zAt(1, 0) !== 7) roofBox(get('metal'), X1 - 3, Z0, 2, T, 14, 2);
-        if ((y % 3) === 0) marks.push({ x: X0 + T / 2, y: 48, z: Z0 + T / 2, r: 140, c: [0.95, 0.97, 1], k: 1.2, glow: 8 });
+        if ((y % 3) === 0 && zAt(-1, 0) === 7 && zAt(1, 0) === 7) marks.push({ x: X0 + T / 2, y: 48, z: Z0 + T / 2, r: 140, c: [0.95, 0.97, 1], k: 1.2, glow: 8 });
       } else if (zn === 8) {
         // 개찰구(rc.48) — 낮은 기계 두 대와 그 사이 문(지나갈 수 있다)
         floorQuad(get('plaza'), X0, Z0, X1, Z1, 0, 160, col('#a4a69c', 1));
@@ -738,7 +738,7 @@ function* chunkSteps(w, cx, cy) {
         if (hs % 11 === 0) marks.push({ x: X0 + T / 2, y: 46, z: Z0 + T / 2, r: 160, c: [1, 0.8, 0.55], k: 1.5, glow: 10 });
       } else {
         floorQuad(get('plaza'), X0, Z0, X1, Z1, 0, 160, col(SUB ? '#9c9a94' : '#a4a69c', 1));           // 통로 · 복도 · 홀
-        if ((x + y * 3) % 6 === 0) marks.push({ x: X0 + T / 2, y: 48, z: Z0 + T / 2, r: 180, c: SUB ? [0.85, 0.92, 1] : [1, 0.95, 0.85], k: hs % 6 === 0 ? 0.5 : 1.6, glow: 11 });
+        if (zn === 6 ? x % 6 === 0 && y % 6 === 0 : (x + y * 3) % 6 === 0) marks.push({ x: X0 + T / 2, y: 48, z: Z0 + T / 2, r: zn === 6 ? 210 : 180, c: SUB ? [0.85, 0.92, 1] : [1, 0.95, 0.85], k: hs % 6 === 0 ? 0.5 : 1.6, glow: 11 });
         if (hs % 29 === 0 && [[0, 1], [0, -1], [1, 0], [-1, 0]].some(([a, b]) => isB(x + a, y + b))) marks.push({ x: X0 + T / 2, y: 40, z: Z0 + T / 2, r: 90, c: [0.2, 1, 0.45], k: 1.2, glow: 14 });   // 비상구 등
       }
       continue;

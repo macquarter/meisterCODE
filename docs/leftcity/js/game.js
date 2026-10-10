@@ -4262,6 +4262,28 @@ function drawMaws(g) {
     }
   }
 }
+/** 둥근 빛 한 장(rc.48) — 색 · 세기마다 한 번만 그려 두고 drawImage 로 찍는다 */
+const GLOW_SPR = {};
+function glowSprite(c, a) {
+  const k = c + '|' + a; if (GLOW_SPR[k]) return GLOW_SPR[k];
+  const cv = document.createElement('canvas'); cv.width = cv.height = 128; const x = cv.getContext('2d');
+  const gr = x.createRadialGradient(64, 64, 0, 64, 64, 64); gr.addColorStop(0, `rgba(${c},${a})`); gr.addColorStop(1, `rgba(${c},0)`);
+  x.fillStyle = gr; x.fillRect(0, 0, 128, 128);
+  return (GLOW_SPR[k] = cv);
+}
+/** 실내 빛 지도(rc.48) — 등 자리를 어둠 마스크용 검은 원으로 1/8 크기 캔버스에 한 번 구워 둔다. 지도 가장자리는 감아서 */
+function indoorLightMap(w) {
+  if (w._inLM) return w._inLM;
+  const S = 1 / 8, WW = w.w * TILE, HH = w.h * TILE, cv = document.createElement('canvas');
+  cv.width = Math.ceil(WW * S); cv.height = Math.ceil(HH * S);
+  const x = cv.getContext('2d'), spr = glowSprite('0,0,0', 0.62);
+  for (const L of indoorLights(w)) for (const ox of [-WW, 0, WW]) for (const oy of [-HH, 0, HH]) {
+    const cx = (L.x + ox) * S, cy = (L.y + oy) * S, r = L.r * S;
+    if (cx + r < 0 || cy + r < 0 || cx - r > cv.width || cy - r > cv.height) continue;
+    x.globalAlpha = L.k; x.drawImage(spr, cx - r, cy - r, r * 2, r * 2);
+  }
+  return (w._inLM = cv);
+}
 /** 실내 조명 자리(rc.47) — 3D 와 같은 규칙: 터널 형광등 · 승강장 등 · 복도 등 · 방 전등. 일부는 죽어 간다(k 낮음) */
 function indoorLights(w) {
   if (w._inL) return w._inL;
@@ -4271,11 +4293,14 @@ function indoorLights(w) {
     if (!zn || w.grid[i] === T_WALL) continue;
     const hs = (Math.imul(x * 2654435761 ^ y * 40503, 2246822519) >>> 0), SUB = w.indoor === 'subway';
     let L = null;
+    const zr = (a, b) => { const o = w.zone[w.idx(x + a, y + b)]; return o === 1 || o === 2; };
+    // 촘촘하면 2D 가 느려진다(rc.48) — 승강장은 선로 쪽 줄만, 대합실 · 홀은 6칸 격자, 계단은 가운데 줄만. 3D 와 같은 규칙
     if (zn === 2 && x % 6 === 0) L = ['185,215,255', hs % 5 === 0 ? 0.35 : 1, 120];
-    else if (zn === 3 && x % 4 === 1) L = ['240,245,255', hs % 7 === 0 ? 0.35 : 1, 130];
+    else if (zn === 3 && x % 5 === 1 && (zr(0, 1) || zr(0, -1))) L = ['240,245,255', hs % 7 === 0 ? 0.35 : 1, 140];
     else if (zn === 5 && hs % 11 === 0) L = ['255,205,140', 1, 110];
-    else if (zn === 7 && y % 3 === 0) L = ['240,245,255', 1, 110];
-    else if ((zn === 4 || zn === 6) && (x + y * 3) % 6 === 0) L = [SUB ? '215,235,255' : '255,240,215', hs % 6 === 0 ? 0.35 : 1, 120];
+    else if (zn === 7 && y % 3 === 0 && w.zone[w.idx(x - 1, y)] === 7 && w.zone[w.idx(x + 1, y)] === 7) L = ['240,245,255', 1, 110];
+    else if (zn === 6 && x % 6 === 0 && y % 6 === 0) L = [SUB ? '215,235,255' : '255,240,215', hs % 6 === 0 ? 0.35 : 1, 150];
+    else if (zn === 4 && (x + y * 3) % 6 === 0) L = [SUB ? '215,235,255' : '255,240,215', hs % 6 === 0 ? 0.35 : 1, 120];
     if (L) out.push({ x: (x + 0.5) * TILE, y: (y + 0.5) * TILE, c: L[0], k: L[1], r: L[2] });
   }
   return (w._inL = out);
@@ -4308,21 +4333,13 @@ function drawIndoorFloor(cam, w) {
   ctx.fillStyle = 'rgba(122,84,48,.32)'; ctx.fill(wood);
   ctx.fillStyle = 'rgba(0,0,0,.18)'; ctx.fill(plank);
   ctx.fillStyle = '#7c8086'; ctx.fill(gate);
-  // 조명 웅덩이 — 천장 등 아래 바닥이 밝다(어둠 마스크도 같은 자리를 뚫는다)
-  ctx.save(); ctx.globalCompositeOperation = 'lighter';
-  for (const L of indoorLights(w)) {
-    if (L.x < cam.x - 140 || L.x > cam.x + W + 140 || L.y < cam.y - 140 || L.y > cam.y + VH() + 140) continue;
-    const gr = ctx.createRadialGradient(L.x, L.y, 0, L.x, L.y, L.r);
-    gr.addColorStop(0, `rgba(${L.c},${0.16 * L.k})`); gr.addColorStop(1, `rgba(${L.c},0)`);
-    ctx.fillStyle = gr; ctx.fillRect(L.x - L.r, L.y - L.r, L.r * 2, L.r * 2);
-  }
-  ctx.restore();
+  // 조명 — 바닥에 따로 칠하지 않고 어둠 마스크만 등 아래를 옅게 뚫는다(rc.48 — 바닥 웅덩이를 겹쳐 그리면 2D 가 41fps 까지 떨어졌다)
 }
 function drawGround(cam, w) {
   const x0 = Math.floor(cam.x / TILE), y0 = Math.floor(cam.y / TILE);
   const x1 = Math.ceil((cam.x + W) / TILE), y1 = Math.ceil((cam.y + VH()) / TILE);
   const at = (x, y) => w.at(x, y);
-  const road = new Path2D(), side = new Path2D(), detail = [], terrT = [];
+  const road = new Path2D(), side = new Path2D(), detail = [], terrT = [], inA = new Path2D(), inB = new Path2D(), inL = new Path2D();
 
   for (let y = y0; y <= y1; y++) {
     for (let x = x0; x <= x1; x++) {
@@ -4361,6 +4378,10 @@ function drawGround(cam, w) {
         ctx.fillRect(px, py, TILE, TILE);
         ctx.fillStyle = 'rgba(120,150,100,.08)';
         for (let k = 0; k < 4; k++) ctx.fillRect(px + ((n * 7 + k * 13) % 44), py + ((n * 11 + k * 17) % 44), 2, 3);
+      } else if (d === D_PLAZA && w.indoor) {
+        // 실내 바닥(rc.48) — 칸마다 선을 긋지 않고 한 경로에 모아 한 번에(대합실 · 승강장은 거의 다 이 칸이다)
+        (n < 8 ? inA : inB).rect(px, py, TILE, TILE);
+        inL.moveTo(px, py + 24.5); inL.lineTo(px + TILE, py + 24.5); inL.moveTo(px + 24.5, py); inL.lineTo(px + 24.5, py + TILE);
       } else if (d === D_PLAZA || d === D_LANDMARK) {
         // 광장 · 경내 — 포석
         ctx.fillStyle = d === D_LANDMARK ? '#2c2a27' : n < 8 ? '#393a38' : '#363735';
@@ -4383,6 +4404,7 @@ function drawGround(cam, w) {
       }
     }
   }
+  if (w.indoor) { ctx.fillStyle = '#393a38'; ctx.fill(inA); ctx.fillStyle = '#363735'; ctx.fill(inB); ctx.strokeStyle = 'rgba(0,0,0,.22)'; ctx.lineWidth = 1; ctx.stroke(inL); }
   // 차도 · 보도 — 결 무늬로 한 번씩만 칠한다. 칸마다 무늬와 단색을 번갈아 고르면 그때마다 무늬를 새로 준비해
   // 프레임이 크게 떨어진다(쓰레기 조각을 칸마다 그리던 판: 58 → 40fps)
   ctx.imageSmoothingEnabled = false;
@@ -6437,11 +6459,12 @@ function drawDarkness(cam, g, p, w) {
   worldTransform(mctx, cam, MDPR);
 
   // 실내 천장 등(rc.47) — 등 아래는 어둠이 옅다
-  if (w.indoor) for (const L of indoorLights(w)) {
-    if (L.x < cam.x - 140 || L.x > cam.x + W + 140 || L.y < cam.y - 140 || L.y > cam.y + VH() + 140) continue;
-    const gr = mctx.createRadialGradient(L.x, L.y, 0, L.x, L.y, L.r);
-    gr.addColorStop(0, `rgba(0,0,0,${0.55 * L.k})`); gr.addColorStop(1, 'rgba(0,0,0,0)');
-    mctx.fillStyle = gr; mctx.fillRect(L.x - L.r, L.y - L.r, L.r * 2, L.r * 2);
+  if (w.indoor) {                                                       // 미리 구운 빛 지도 한 장(1/8 크기)을 찍는다 — 등마다 그리면 휴대폰이 52fps 까지 떨어졌다(rc.48)
+    const lm = indoorLightMap(w), WW = w.w * TILE, HH = w.h * TILE;
+    for (const ox of [-WW, 0, WW]) for (const oy of [-HH, 0, HH]) {
+      if (ox + WW < cam.x - 200 || ox > cam.x + W + 200 || oy + HH < cam.y - 200 || oy > cam.y + VH() + 200) continue;
+      mctx.drawImage(lm, ox, oy, WW, HH);
+    }
   }
   // 주변 미광 (손전등이 꺼져도 남는 최소 시야)
   const amb = p.lightOn && p.battery > 0 ? 128 : 92;

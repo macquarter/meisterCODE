@@ -503,7 +503,7 @@ class World {
       lines.forEach(c => { for (let x0 = SX + SL + 6 + Math.floor(rng() * 10); x0 < SX + W - 14; x0 += 22 + Math.floor(rng() * 14)) { const xx = x0 % W; if (!inSt(xx, small[lines.indexOf(c)].x - 2, 26) && xx % 12 > 6) wagon(xx, c + (rng() < 0.5 ? -2 : 2), 4 + Math.floor(rng() * 2)); } });
     } else {
       // rc.50 — 건물 한 층(사무실 레퍼런스: 가운데 '코어'(엘리베이터 · 계단 · 화장실) + 둘레 오픈 오피스 · 회의실).
-      // 2칸 복도가 층을 4×4 '임대 구역'으로 나누고, 구역마다 문 둘 이상. 미로 대신 넓은 사무실에 책상 줄 · 회의실 · 탕비실.
+      // 1칸 복도가(rc.52) 층을 4×4 '임대 구역'으로 나누고, 구역마다 문 둘 이상. 미로 대신 넓은 사무실에 책상 줄 · 회의실 · 탕비실.
       // 시장(market)은 같은 뼈대에 좌판, 발전소(plant)는 기계 — 쓰임만 바꾼다
       const V = this.variant, T = TILE;
       this.props = [];
@@ -519,14 +519,14 @@ class World {
       else {
       const n = Math.max(3, Math.round(W / 15)), P = Math.floor(W / n);       // 구역 한 변 약 15칸(≈ 30m) — 사람 키(40) 대비 실제 사무실 크기
       // 복도 — 구역 사이 2칸(남는 칸도 복도)
-      for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (x % P < 2 || y % P < 2 || x >= n * P || y >= n * P) floor(x, y, 1, 1, D_PLAZA, 4);
+      for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (x % P < 1 || y % P < 1 || x >= n * P || y >= n * P) floor(x, y, 1, 1, D_PLAZA, 4);   // rc.52 — 복도 1칸(벽 면 사이 ≈ 3m)
       const core = [Math.floor(n / 2) - (n % 2 ? 0 : 1), Math.floor(n / 2) - (n % 2 ? 0 : 1)];
       for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) {
-        const X = i * P + 3, Y = j * P + 3, IW = P - 4, IH = P - 4;       // 구역 안쪽(둘레 벽 한 칸 안)
-        const door = side => {                                              // 둘레 벽에 2칸 문
+        const X = i * P + 2, Y = j * P + 2, IW = P - 3, IH = P - 3;       // 구역 안쪽(둘레 벽 한 칸 안)
+        const door = side => {                                              // 둘레 벽에 문 한 칸(≈ 2m 양여닫이, rc.52)
           const k = 2 + Math.floor(rng() * Math.max(1, IW - 5));
-          if (side === 0) floor(X + k, Y - 1, 2, 1, D_PLAZA, 4); else if (side === 1) floor(X + k, Y + IH, 2, 1, D_PLAZA, 4);
-          else if (side === 2) floor(X - 1, Y + k, 1, 2, D_PLAZA, 4); else floor(X + IW, Y + k, 1, 2, D_PLAZA, 4);
+          if (side === 0) floor(X + k, Y - 1, 1, 1, D_PLAZA, 4); else if (side === 1) floor(X + k, Y + IH, 1, 1, D_PLAZA, 4);
+          else if (side === 2) floor(X - 1, Y + k, 1, 1, D_PLAZA, 4); else floor(X + IW, Y + k, 1, 1, D_PLAZA, 4);
         };
         const sides = [0, 1, 2, 3].sort(() => rng() - 0.5); door(sides[0]); door(sides[1]); if (rng() < 0.4) door(sides[2]);
         const isCore = i === core[0] && j === core[1];
@@ -567,7 +567,7 @@ class World {
           // 회의 구역 — 가운데 큰 회의실(긴 탁자), 둘레는 카펫 복도
           const cw = Math.min(IW - 4, 6), chh = Math.min(IH - band - 4, 4), cx = X + Math.floor((IW - cw) / 2), cy = oy + 1;
           for (let y = cy - 1; y <= cy + chh; y++) for (let x = cx - 1; x <= cx + cw; x++) { const ii = this.idx(x, y); this.grid[ii] = T_WALL; this.deco[ii] = D_BUILDING; this.zone[ii] = 0; }
-          floor(cx, cy, cw, chh, D_PLAZA, 5); floor(cx + Math.floor(cw / 2), cy - 1, 2, 1, D_PLAZA, 5);
+          floor(cx, cy, cw, chh, D_PLAZA, 5); floor(cx + Math.floor(cw / 2), cy - 1, 1, 1, D_PLAZA, 5);
           prop('table', cx + 1, cy + Math.floor(chh / 2) - 1, cw - 2, 2);
         } else {
           // 탕비실 · 휴게 — 벽 쪽 조리대, 둥근 탁자
@@ -584,7 +584,7 @@ class World {
 
   /**
    * 그랜드 바자르(rc.51) — 지붕 덮인 시장. 레퍼런스: 이스탄불 카팔르차르쉬(골목 60여 개 · 가게 4천 곳 · 한(han) 안뜰 · 가운데 베데스텐).
-   * 동서로 긴 골목 줄(큰길 둘은 3칸)마다 양쪽에 폭 2칸 · 깊이 2칸 가게가 문 없이 골목으로 트여 늘어서고,
+   * 동서로 긴 골목 줄(큰길 둘은 2칸, 골목 1칸)마다 양쪽에 폭 1칸 · 깊이 2칸 가게가 문 없이 골목으로 트여 늘어서고,
    * 남북 샛골목은 줄마다 엇갈려 뚫린다(바둑판이 아니라 엇갈린 시장 골목). 안뜰 둘(기둥 회랑 · 가운데 분수),
    * 가운데 베데스텐(벽 두른 큰 홀 · 기둥 숲 · 좌판). 벽은 모두 한 칸 두께 — 가게 칸막이 · 등벽
    */
@@ -592,10 +592,10 @@ class World {
     const W = this.w, H = this.h;
     const wall = (x, y) => { const i = this.idx(x, y); this.grid[i] = T_WALL; this.deco[i] = D_BUILDING; this.zone[i] = 0; };
     const STALL = ['#b8452d', '#2d6ab8', '#c9a227', '#3a8a5a', '#8a3a7a', '#c86a2a'];
-    const n = Math.max(6, Math.round(H / 7)), rowY = [];
+    const n = Math.max(6, Math.round(H / 6)), rowY = [];               // rc.52 — 골목 1칸(≈ 3m) · 큰길 2칸, 블록 5칸(가게 2 · 등벽 · 가게 2)
     for (let k = 0; k < n; k++) rowY.push(Math.round(k * H / n));
     const mains = new Set([Math.floor(n * 0.25), Math.floor(n * 0.7)]);
-    const laneW = k => mains.has(k) ? 3 : 2;
+    const laneW = k => mains.has(k) ? 2 : 1;
     // 동서 골목
     rowY.forEach((y, k) => floor(0, y, W, laneW(k), D_PLAZA, 4));
     // 줄 사이 블록 — 엇갈린 샛골목 + 양쪽 가게
@@ -603,20 +603,20 @@ class World {
       const top = y + laneW(k), bot = (k + 1 < n ? rowY[k + 1] : H) - 1, bh = bot - top + 1;   // 블록 높이(보통 4‒5)
       if (bh < 3) return;
       const cuts = []; let x = Math.floor(rng() * 8);
-      while (x < W - 6) { cuts.push(x); x += 9 + Math.floor(rng() * 8); }
-      for (const c of cuts) floor(c, top, 2, bh, D_PLAZA, 4);
+      while (x < W - 5) { cuts.push(x); x += 8 + Math.floor(rng() * 7); }
+      for (const c of cuts) floor(c, top, 1, bh, D_PLAZA, 4);
       const dTop = Math.floor((bh - 1) / 2), dBot = bh - 1 - dTop;      // 위 · 아래 가게 깊이, 가운데 등벽 한 줄
-      const segs = cuts.map((c, i) => [c + 2, i + 1 < cuts.length ? cuts[i + 1] : cuts[0] + W]);
+      const segs = cuts.map((c, i) => [c + 1, i + 1 < cuts.length ? cuts[i + 1] : cuts[0] + W]);
       for (const [x0, x1] of segs) {
         for (const [y0, d] of [[top, dTop], [top + dTop + 1, dBot]]) {
           if (d < 1) continue;
           let px = x0;
           while (px < x1) {
-            let w = Math.min(2 + (rng() < 0.25 ? 1 : 0), x1 - px);
-            if (x1 - px - w === 1 || x1 - px - w === 2) w = x1 - px;       // 끝에 한두 칸 남기지 않는다
+            let w = Math.min(1 + (rng() < 0.3 ? 1 : 0), x1 - px);           // 가게 폭 1칸(칸막이 면 사이 ≈ 3m) · 가끔 2칸
+            if (x1 - px - w === 1) w = x1 - px;                              // 끝에 한 칸만 남기지 않는다
             floor(px, y0, w, d, D_PLAZA, 5);
             const front = y0 === top ? y0 : y0 + d - 1, back = y0 === top ? y0 + d - 1 : y0;   // 골목 쪽 · 등벽 쪽
-            if (d >= 2 && w >= 2 && rng() < 0.55) prop('stall', px, back, w, 1, STALL[(rng() * STALL.length) | 0]);
+            if (d >= 2 && rng() < 0.6) prop('stall', px + (w > 1 && rng() < 0.5 ? 1 : 0), back, 1, 1, STALL[(rng() * STALL.length) | 0]);   // 좌판 1칸(≈ 1.6m)
             px += w;
             if (px < x1) { for (let yy = y0; yy < y0 + d; yy++) wall(px, yy); px++; }   // 가게 칸막이
           }
@@ -644,7 +644,7 @@ class World {
     floor(bx, by, bw, bh, D_PLAZA, 9);
     for (let y = by + 2; y < by + bh - 1; y += 4) for (let x = bx + 2; x < bx + bw - 1; x += 4) {
       wall(x, y);                                                         // 기둥
-      if (x + 3 < bx + bw - 1 && x + 1 !== mx && x + 2 !== mx) prop('stall', x + 1, y + 1, 2, 1, STALL[(rng() * STALL.length) | 0]);
+      if (x + 2 < bx + bw - 1 && x + 1 !== mx && x + 1 !== mx + 1) prop('stall', x + 1, y + 1, 1, 1, STALL[(rng() * STALL.length) | 0]);
     }
     this.bazaar = { hans, bedesten: [bx, by, bw, bh] };
   }
@@ -652,7 +652,7 @@ class World {
   /**
    * 지열 발전소(rc.51) — 띠로 쌓인 공장 평면. 레퍼런스: 지열 발전소 배치(생산정 → 기수 분리기 → 터빈 · 발전기 홀 → 복수기 · 냉각 → 재주입)와
    * 통제실이 터빈 홀 옆에 붙는 일반 배치. 북에서 남으로: 정비 복도 · 거대한 터빈 홀(터빈 줄 · 벽 기둥) · 통제동 복도와 방(통제실 콘솔 · 탈의실 · 정비실)
-   * · 배관 회랑(긴 파이프 랙 줄 사이 통로) · 분리기 탱크 마당(세 구획) · 복수기 홀 · 부품 창고(선반 줄). 띠 사이 벽은 한 칸, 문은 3칸 화물문
+   * · 배관 회랑(긴 파이프 랙 줄 사이 통로) · 분리기 탱크 마당(세 구획) · 복수기 홀 · 부품 창고(선반 줄). 띠 사이 벽은 한 칸, 문은 2칸 화물문
    */
   layoutPlant(rng, floor, prop) {
     const W = this.w, H = this.h;
@@ -660,15 +660,15 @@ class World {
     const k = H / 92, band = [];
     let y = 0;
     const add = (name, h) => { band.push({ name, y, h }); y += h + 1; };       // + 1 = 띠 사이 벽
-    add('svc', 2); add('turbine', Math.round(16 * k)); add('corr', 2); add('rooms', 5); add('pipes', Math.round(11 * k)); add('tanks', Math.round(17 * k));
+    add('svc', 1); add('turbine', Math.round(16 * k)); add('corr', 1); add('rooms', 5); add('pipes', Math.round(11 * k)); add('tanks', Math.round(17 * k));
     add('cond', Math.round(14 * k)); add('store', Math.max(6, H - y - 1));
     const B = Object.fromEntries(band.map(b => [b.name, b]));
     // 띠 사이 벽에 화물문(3칸) — 위 · 아래 띠를 잇는다
     band.forEach((b, i) => {
       const wy = b.y + b.h, step = 14 + Math.floor(rng() * 6);
-      for (let x = Math.floor(rng() * step); x < W - 3; x += step + Math.floor(rng() * 5)) if (b.name !== 'corr') floor(x, wy, 3, 1, D_PLAZA, 4);
+      for (let x = Math.floor(rng() * step); x < W - 3; x += step + Math.floor(rng() * 5)) if (b.name !== 'corr') floor(x, wy, 2, 1, D_PLAZA, 4);   // 화물문 2칸(≈ 4m)
     });
-    floor(0, B.svc.y, W, 2, D_PLAZA, 4); floor(0, B.corr.y, W, 2, D_PLAZA, 4);
+    floor(0, B.svc.y, W, B.svc.h, D_PLAZA, 4); floor(0, B.corr.y, W, B.corr.h, D_PLAZA, 4);
     // 터빈 홀 — 탁 트인 큰 홀, 긴 벽을 따라 기둥, 가운데 줄에 터빈 · 발전기(8×3) · 펌프
     const T = B.turbine;
     floor(0, T.y, W, T.h, D_PLAZA, 9);
@@ -676,7 +676,7 @@ class World {
     const ty = T.y + Math.floor(T.h / 2) - 1;
     for (let x = 4; x + 10 < W; x += 15) { prop('turbine', x, ty, 8, 3, '#6a7a72'); if (rng() < 0.7) prop('machine', x + 9, ty + (rng() < 0.5 ? -3 : 4), 2, 2, '#4e5a66'); }
     // 통제동 — 복도 아래 방 줄: 통제실(콘솔 줄) · 탈의실 · 정비실 · 창고. 문은 복도 쪽
-    const R = B.rooms, wy = B.corr.y + 2;                                    // 복도와 방 사이 벽 줄(띠 사이 벽)
+    const R = B.rooms, wy = B.corr.y + B.corr.h;                                    // 복도와 방 사이 벽 줄(띠 사이 벽)
     floor(0, R.y, W, R.h, D_PLAZA, 5);
     const kinds = ['control', 'locker', 'shop', 'store'];
     let rx = 0, ri = 0;
@@ -684,8 +684,8 @@ class World {
       const kind = kinds[ri++ % kinds.length], rw = Math.min(W - rx - 1, kind === 'control' ? 16 : 7 + Math.floor(rng() * 4));
       if (rw < 4) break;
       for (let yy = R.y; yy < R.y + R.h; yy++) wall(rx + rw, yy);
-      floor(rx + 2, wy, 2, 1, D_PLAZA, 5);
-      if (kind === 'control') { floor(rx + rw - 4, wy, 2, 1, D_PLAZA, 5); for (let cx = rx + 1; cx + 3 <= rx + rw - 1; cx += 4) prop('console', cx, R.y + 2, 3, 1, '#2a3036'); }
+      floor(rx + 2, wy, 1, 1, D_PLAZA, 5);
+      if (kind === 'control') { floor(rx + rw - 3, wy, 1, 1, D_PLAZA, 5); for (let cx = rx + 1; cx + 3 <= rx + rw - 1; cx += 4) prop('console', cx, R.y + 2, 3, 1, '#2a3036'); }
       else if (kind === 'shop') prop('machine', rx + 1, R.y + R.h - 2, 2, 2, '#6a6050');
       else if (kind === 'store' && R.h >= 4) for (let cx = rx + 1; cx + 1 < rx + rw; cx += 2) if (rng() < 0.6) prop('counter', cx, R.y + R.h - 1, 1, 1);
       rx += rw + 1;
@@ -695,15 +695,15 @@ class World {
     floor(0, Pp.y, W, Pp.h, D_PLAZA, 4);
     for (let ry = Pp.y + 2; ry < Pp.y + Pp.h - 1; ry += 3) {
       let x = Math.floor(rng() * 6);
-      while (x < W - 4) { const len = Math.min(W - 2 - x, 8 + Math.floor(rng() * 7)); prop('pipes', x, ry, len, 1, '#8a8e94'); x += len + 3; }
+      while (x < W - 4) { const len = Math.min(W - 2 - x, 8 + Math.floor(rng() * 7)); prop('pipes', x, ry, len, 1, '#8a8e94'); x += len + 2; }
     }
     // 분리기 탱크 마당 — 둥근 탱크(3×3)를 엇갈려, 가운데 남북 통로
     const Tk = B.tanks;
     floor(0, Tk.y, W, Tk.h, D_PLAZA, 9);
     const bays = [Math.floor(W / 3), Math.floor(W * 2 / 3), W - 1];           // 칸막이 벽 셋 — 마당을 세 구획으로(문 둘씩)
     for (const bxw of bays) { for (let yy = Tk.y; yy < Tk.y + Tk.h; yy++) wall(bxw, yy); for (const f of [0.25, 0.7]) floor(bxw, Tk.y + Math.floor(Tk.h * f), 1, 3, D_PLAZA, 9); }
-    for (let row = 0, yy = Tk.y + 2; yy + 3 < Tk.y + Tk.h - 1; row++, yy += 6)
-      for (let x = 2 + (row & 1) * 4; x + 3 < W - 1; x += 8) if (rng() < 0.8) prop('tank', x, yy, 3, 3, ['#9a9890', '#8a8a84', '#a09a88'][(rng() * 3) | 0]);
+    for (let row = 0, yy = Tk.y + 2; yy + 2 < Tk.y + Tk.h - 1; row++, yy += 4)
+      for (let x = 2 + (row & 1) * 3; x + 2 < W - 1; x += 6) if (rng() < 0.8) prop('tank', x, yy, 2, 2, ['#9a9890', '#8a8a84', '#a09a88'][(rng() * 3) | 0]);
     // 복수기 홀 — 큰 복수기(4×3) 두 줄, 사이사이 배관
     const C = B.cond;
     floor(0, C.y, W, C.h, D_PLAZA, 6);
@@ -1022,11 +1022,11 @@ class World {
     return sp.r !== undefined ? { cx: sp.cx + ox, cy: sp.cy + oy, r: sp.r }
       : { x0: sp.x0 + ox, y0: sp.y0 + oy, x1: sp.x1 + ox, y1: sp.y1 + oy };
   }
-  /** 건물 안 칸막이(rc.49) — 벽 칸을 통째로 막지 않고 가운데 22 폭 벽과 이웃 벽 쪽으로 뻗은 팔만.
+  /** 건물 안 칸막이(rc.49) — 벽 칸을 통째로 막지 않고 가운데 12 폭 벽(rc.52)과 이웃 벽 쪽으로 뻗은 팔만.
       한 칸(48)이 사람 키만큼 두꺼워 방 사이 벽이 건물처럼 보였다. 22 = 48 − 반지름 13×2 라 사람의 중심은 벽 칸에 들어가지 않는다
       (시야 · 손전등 · 길찾기는 그대로 칸 단위) */
   slabParts(tx, ty) {
-    const T = TILE, X0 = tx * T, Y0 = ty * T, cx = X0 + T / 2, cy = Y0 + T / 2, h = 11;
+    const T = TILE, X0 = tx * T, Y0 = ty * T, cx = X0 + T / 2, cy = Y0 + T / 2, h = 6;   // rc.52 — 벽 두께 12(≈ 0.5m). 22(≈ 1m)는 사람(어깨 폭 기준) 대비 요새 벽처럼 두꺼웠다
     const W = (a, b) => { const i = this.idx(tx + a, ty + b); return this.grid[i] === T_WALL && this.deco[i] === D_BUILDING; };
     const out = [{ x0: cx - h, y0: cy - h, x1: cx + h, y1: cy + h }];
     if (W(-1, 0)) out.push({ x0: X0, y0: cy - h, x1: cx, y1: cy + h });

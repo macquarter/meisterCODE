@@ -686,7 +686,7 @@ function* chunkSteps(w, cx, cy) {
       if (deco(x + 1, y) === D_WATER) floorQuad(Cp, X1 - 5, Z0, X1, Z1, ey, 100);
     }
     if (d === D_BUILDING && w.indoor === 'interior' && w.slabParts) {
-      // 건물 안 칸막이(rc.49) — 칸 전체 덩어리가 아니라 22 폭 벽. 남는 자리는 바닥, 벽 윗면은 밝은 테두리색으로(위에서 방 윤곽이 선처럼 읽힌다)
+      // 건물 안 칸막이(rc.49) — 칸 전체 덩어리가 아니라 12 폭 벽(rc.52). 남는 자리는 바닥, 벽 윗면은 밝은 테두리색으로(위에서 방 윤곽이 선처럼 읽힌다)
       const h = bh(w, x, y), wc = col('#a49a88', 1);
       floorQuad(get('plaza'), X0, Z0, X1, Z1, 0, 120, col('#7a5c40', 1));
       for (const q of w.slabParts(x, y)) {
@@ -1790,17 +1790,18 @@ function makeProp(pr) {
   } else if (k === 'turbine') {
     // 발전소 터빈 · 발전기(rc.51) — 받침대 위 누운 원통 케이싱, 끝에 발전기, 위로 증기관
     const base = mat('#2e3236', { roughness: 0.7 }), cas = mat(pr.col, { roughness: 0.45, metalness: 0.55 });
-    bx(g, base, 0, 6, 0, L, 12, Wd * 0.9);
-    const c1 = part(GEO.cyl, cas, -L * 0.15, 26, 0, Wd * 0.38, L * 0.62, Wd * 0.38); c1.rotation.z = Math.PI / 2; g.add(c1);
-    const c2 = part(GEO.cyl, mat('#8a5a3a', { roughness: 0.6, metalness: 0.3 }), L * 0.32, 24, 0, Wd * 0.32, L * 0.3, Wd * 0.32); c2.rotation.z = Math.PI / 2; g.add(c2);
-    for (const sx of [-0.35, 0]) g.add(part(GEO.cyl, mat('#8a8e94', { metalness: 0.7, roughness: 0.3 }), sx * L, 42, 0, 3.5, 14, 3.5));
+    // rc.52 — 사람(40 ≈ 1.75m) 대비 실제 비율: 받침 0.6m · 케이싱 지름 약 5m(꼭대기 ≈ 2.7m 높이로 눌러 카메라를 가리지 않게)
+    bx(g, base, 0, 7, 0, L, 14, Wd * 0.95);
+    const c1 = part(GEO.cyl, cas, -L * 0.15, 36, 0, Wd * 0.48, L * 0.62, Wd * 0.48); c1.rotation.z = Math.PI / 2; g.add(c1);
+    const c2 = part(GEO.cyl, mat('#8a5a3a', { roughness: 0.6, metalness: 0.3 }), L * 0.32, 32, 0, Wd * 0.4, L * 0.3, Wd * 0.4); c2.rotation.z = Math.PI / 2; g.add(c2);
+    for (const sx of [-0.35, 0]) g.add(part(GEO.cyl, mat('#8a8e94', { metalness: 0.7, roughness: 0.3 }), sx * L, 56, 0, 4, 10, 4));
     bx(g, mat('#c9a227', { roughness: 0.6 }), 0, 12.5, Wd * 0.46, L, 1, 1);
   } else if (k === 'tank') {
     // 기수 분리기 탱크(rc.51) — 선 원통 · 둥근 지붕 · 사다리
     const m = mat(pr.col, { roughness: 0.55, metalness: 0.45 });
-    g.add(part(GEO.cyl, m, 0, 24, 0, L * 0.46, 48, Wd * 0.46)); g.add(part(GEO.cyl, mat('#6a6a66', { metalness: 0.5 }), 0, 49, 0, L * 0.3, 3, Wd * 0.3));
-    for (const y of [12, 26, 40]) g.add(part(GEO.cyl, mat('#5a5a56', { metalness: 0.5 }), 0, y, 0, L * 0.47, 1.2, Wd * 0.47));
-    bx(g, mat('#c9a227'), L * 0.47, 24, 0, 1.2, 48, 5);
+    g.add(part(GEO.cyl, m, 0, 32, 0, L * 0.46, 64, Wd * 0.46)); g.add(part(GEO.cyl, mat('#6a6a66', { metalness: 0.5 }), 0, 65, 0, L * 0.3, 3, Wd * 0.3));   // 지름 ≈ 3.4m · 높이 ≈ 2.8m(rc.52)
+    for (const y of [14, 32, 50]) g.add(part(GEO.cyl, mat('#5a5a56', { metalness: 0.5 }), 0, y, 0, L * 0.47, 1.2, Wd * 0.47));
+    bx(g, mat('#c9a227'), L * 0.47, 32, 0, 1.2, 64, 5);
   } else if (k === 'pipes') {
     // 파이프 랙(rc.51) — 철골 기둥 위 굵은 관 셋
     const st = mat('#4a4e54', { roughness: 0.6, metalness: 0.5 }), pm = mat('#9aa0a6', { roughness: 0.35, metalness: 0.7 });

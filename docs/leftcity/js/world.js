@@ -440,26 +440,28 @@ class World {
    */
   layoutIndoor(rng, blocks, kind) {
     const W = this.w, H = this.h;
-    const floor = (x, y, w, h, deco) => { for (let yy = y; yy < y + h; yy++) for (let xx = x; xx < x + w; xx++) { const i = this.idx(xx, yy); this.grid[i] = T_ROAD; this.deco[i] = deco; } };
+    // zone(rc.47) — 실내 칸의 쓰임: 1 선로 바닥 · 2 선로 가운데(레일) · 3 승강장 · 4 통로 · 복도 · 5 방 · 6 홀 · 대합실. 그림(2D · 3D)이 바닥 · 레일 · 조명을 고른다
+    this.zone = new Uint8Array(W * H);
+    const floor = (x, y, w, h, deco, z = 0) => { for (let yy = y; yy < y + h; yy++) for (let xx = x; xx < x + w; xx++) { const i = this.idx(xx, yy); this.grid[i] = T_ROAD; this.deco[i] = deco; if (z) this.zone[i] = z; } };
     let lot = 1;
     if (kind === 'subway') {
       const n = 3, gap = Math.floor(H / n);
       const tunnels = [];
       for (let k = 0; k < n; k++) {
         const y = k * gap + 4 + Math.floor(rng() * (gap - 12));
-        floor(0, y, W, 3, D_ASPHALT);                       // 선로
-        for (let x = 0; x < W; x++) this.dirm[this.idx(x, y + 1)] = 2;
+        floor(0, y, W, 3, D_ASPHALT, 1);                    // 선로
+        for (let x = 0; x < W; x++) { this.dirm[this.idx(x, y + 1)] = 2; this.zone[this.idx(x, y + 1)] = 2; }
         tunnels.push(y);
         // 승강장 — 터널 한쪽(번갈아 위 · 아래)에 14‒20칸 길이로 두세 곳
         for (let s0 = Math.floor(rng() * 12); s0 < W - 20; s0 += 30 + Math.floor(rng() * 14)) {
           const len = 14 + Math.floor(rng() * 7), up = (k + (s0 > W / 2 ? 1 : 0)) % 2 === 0;
-          floor(s0, up ? y - 2 : y + 3, len, 2, D_PLAZA);
+          floor(s0, up ? y - 2 : y + 3, len, 2, D_PLAZA, 3);
         }
       }
       // 환승 통로 — 남북으로 2칸, 대합실(넓은 방)을 지나 위아래 터널을 잇는다
       for (let x = 6 + Math.floor(rng() * 8); x < W - 6; x += 16 + Math.floor(rng() * 10)) {
-        floor(x, 0, 2, H, D_PLAZA);
-        if (rng() < 0.6) { const hy = Math.floor(rng() * (H - 12)), hw = 8 + Math.floor(rng() * 5), hh = 6 + Math.floor(rng() * 4); floor(x - Math.floor(hw / 2), hy, hw, hh, D_PLAZA); }
+        for (let y = 0; y < H; y++) for (let xx = x; xx < x + 2; xx++) { const i = this.idx(xx, y); if (this.zone[i] === 1 || this.zone[i] === 2) continue; this.grid[i] = T_ROAD; this.deco[i] = D_PLAZA; if (this.zone[i] !== 3) this.zone[i] = 4; }   // 선로는 건너지르되 레일은 그대로
+        if (rng() < 0.6) { const hy = Math.floor(rng() * (H - 12)), hw = 8 + Math.floor(rng() * 5), hh = 6 + Math.floor(rng() * 4); for (let y = hy; y < hy + hh; y++) for (let xx = x - Math.floor(hw / 2); xx < x - Math.floor(hw / 2) + hw; xx++) { const i = this.idx(xx, y); if (this.zone[i] === 1 || this.zone[i] === 2) continue; this.grid[i] = T_ROAD; this.deco[i] = D_PLAZA; if (this.zone[i] !== 3) this.zone[i] = 6; } }
       }
       // 멈춘 전동차 — 선로 가운데 줄에 4‒6칸. 양옆 1칸만 남아 비집고 지나가거나 승강장으로 돈다
       this.props = [];
@@ -473,13 +475,13 @@ class World {
     } else {
       // 복도 격자 — 9‒12칸마다 2칸 복도
       const xs = [], ys = [];
-      for (let x = 1 + Math.floor(rng() * 4); x < W - 4; x += 9 + Math.floor(rng() * 4)) { xs.push(x); floor(x, 0, 2, H, D_PLAZA); }
-      for (let y = 1 + Math.floor(rng() * 4); y < H - 4; y += 9 + Math.floor(rng() * 4)) { ys.push(y); floor(0, y, W, 2, D_PLAZA); }
+      for (let x = 1 + Math.floor(rng() * 4); x < W - 4; x += 9 + Math.floor(rng() * 4)) { xs.push(x); floor(x, 0, 2, H, D_PLAZA, 4); }
+      for (let y = 1 + Math.floor(rng() * 4); y < H - 4; y += 9 + Math.floor(rng() * 4)) { ys.push(y); floor(0, y, W, 2, D_PLAZA, 4); }
       xs.push(W + xs[0]); ys.push(H + ys[0]);
       for (let i = 0; i + 1 < xs.length; i++) for (let j = 0; j + 1 < ys.length; j++) {
         const bx = xs[i] + 2, by = ys[j] + 2, bw = xs[i + 1] - bx, bh = ys[j + 1] - by;
         if (bw < 4 || bh < 4) continue;
-        if (rng() < 0.12) { floor(bx, by, bw, bh, D_PLAZA); continue; }          // 홀 · 로비
+        if (rng() < 0.12) { floor(bx, by, bw, bh, D_PLAZA, 6); continue; }          // 홀 · 로비
         // 방 — 블록을 벽 1칸으로 두세 개로 가르고, 방마다 복도 쪽 문 하나(가끔 둘)
         const split = bw >= bh ? 'v' : 'h', parts = 1 + Math.floor(rng() * 2);
         const rooms = [];
@@ -488,14 +490,14 @@ class World {
         else { const c = Math.floor(bh / 2); rooms.push([bx + 1, by + 1, bw - 2, c - 1], [bx + 1, by + c + 1, bw - 2, bh - c - 2]); }
         for (const [rx, ry, rw, rh] of rooms) {
           if (rw < 1 || rh < 1) continue;
-          floor(rx, ry, rw, rh, D_PLAZA);
+          floor(rx, ry, rw, rh, D_PLAZA, 5);
           const doors = rng() < 0.35 ? 2 : 1;
           for (let d = 0; d < doors; d++) {
             const side = (Math.floor(rng() * 4) + d * 2) % 4;
-            if (side === 0) floor(rx + Math.floor(rng() * rw), ry - 1, 1, 1, D_PLAZA);
-            else if (side === 1) floor(rx + Math.floor(rng() * rw), ry + rh, 1, 1, D_PLAZA);
-            else if (side === 2) floor(rx - 1, ry + Math.floor(rng() * rh), 1, 1, D_PLAZA);
-            else floor(rx + rw, ry + Math.floor(rng() * rh), 1, 1, D_PLAZA);
+            if (side === 0) floor(rx + Math.floor(rng() * rw), ry - 1, 1, 1, D_PLAZA, 5);
+            else if (side === 1) floor(rx + Math.floor(rng() * rw), ry + rh, 1, 1, D_PLAZA, 5);
+            else if (side === 2) floor(rx - 1, ry + Math.floor(rng() * rh), 1, 1, D_PLAZA, 5);
+            else floor(rx + rw, ry + Math.floor(rng() * rh), 1, 1, D_PLAZA, 5);
           }
         }
       }

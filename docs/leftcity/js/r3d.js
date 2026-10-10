@@ -688,11 +688,46 @@ function* chunkSteps(w, cx, cy) {
     if (d === D_BUILDING && w.indoor) {
       // 실내 벽(rc.45) — 간판 · 상점 · 난간 · 옥상 설비 없이 콘크리트(지하철) · 미장(건물) 벽과 어두운 윗면만
       const h = bh(w, x, y), wc = col(w.indoor === 'subway' ? '#8a949a' : '#a49a88', 1), K = 'inwall';
-      floorQuad(get('roof'), X0, Z0, X1, Z1, h, 300, col('#0e1013', 1));
+      floorQuad(get('inTop'), X0, Z0, X1, Z1, h, 300);
       for (const [dx, dy, ax, az, bx, bz, n] of [[0, 1, X0, Z1, X1, Z1, [0, 0, 1]], [0, -1, X1, Z0, X0, Z0, [0, 0, -1]], [1, 0, X1, Z1, X1, Z0, [1, 0, 0]], [-1, 0, X0, Z0, X0, Z1, [-1, 0, 0]]]) {
         if (isB(x + dx, y + dy)) continue;
         const uu = dx === 0 ? (dy > 0 ? X0 : -X1) : (dx > 0 ? -Z1 : Z0);
         wallQuad(get(K), ax, az, bx, bz, 0, h, n, wc, uu);
+        // 벽 윗면 테두리(rc.47) — 위에서 내려다볼 때 검은 덩어리가 아니라 '벽'으로 읽히게
+        const E = dy === 1 ? [X0, Z1 - 4, X1, Z1] : dy === -1 ? [X0, Z0, X1, Z0 + 4] : dx === 1 ? [X1 - 4, Z0, X1, Z1] : [X0, Z0, X0 + 4, Z1];
+        floorQuad(get('inRim'), E[0], E[1], E[2], E[3], h + 0.3, 100);
+      }
+      continue;
+    }
+    if (w.indoor && w.zone && gr !== T_WALL) {
+      // 실내 바닥(rc.47) — 지하철: 자갈 선로 · 레일과 침목 · 높은 승강장과 노란 안전선 · 터널 형광등. 건물: 복도 리놀륨 · 방 마루 · 천장 등 · 초록 비상구
+      const zn = w.zone[i], hs = (Math.imul(x * 2654435761 ^ y * 40503, 2246822519) >>> 0), SUB = w.indoor === 'subway';
+      const zAt = (a, b) => w.zone[w.idx(x + a, y + b)];
+      if (zn === 1 || zn === 2) {
+        floorQuad(get('asphalt'), X0, Z0, X1, Z1, 0, 240, col('#5a554c', 1));
+        if (zn === 2) {
+          for (let q = 0; q < 4; q++) roofBox(get('door'), X0 + q * 12 + 2.5, Z0 + 6, 6, T - 12, 0, 1.4);       // 침목
+          roofBox(get('rooftop'), X0, Z0 + 15, T, 2.4, 0, 3.4); roofBox(get('rooftop'), X0, Z1 - 17.4, T, 2.4, 0, 3.4);   // 레일 두 줄
+          if (((x % 6) + 6) % 6 === 0) marks.push({ x: X0 + T / 2, y: 44, z: Z0 + T / 2, r: 180, c: [0.72, 0.86, 1], k: hs % 5 === 0 ? 0.5 : 1.6, glow: 11 });   // 터널 형광등(가끔 죽어 간다)
+        }
+      } else if (zn === 3) {
+        const PH = 6;
+        floorQuad(get('plaza'), X0, Z0, X1, Z1, PH, 160, col('#a8a49a', 1));
+        for (const [dx, dy] of [[0, 1], [0, -1], [1, 0], [-1, 0]]) {
+          const o = zAt(dx, dy); if (o !== 1 && o !== 2) continue;
+          const E = dy === 1 ? [X0, Z1 - 5, X1, Z1] : dy === -1 ? [X0, Z0, X1, Z0 + 5] : dx === 1 ? [X1 - 5, Z0, X1, Z1] : [X0, Z0, X0 + 5, Z1];
+          floorQuad(get('yellow'), E[0], E[1], E[2], E[3], PH + 0.3, 100);                                // 노란 안전선
+          if (dy === 1) wallQuad(get('stone'), X0, Z1, X1, Z1, 0, PH, [0, 0, 1], null, 0); else if (dy === -1) wallQuad(get('stone'), X1, Z0, X0, Z0, 0, PH, [0, 0, -1], null, 0);
+          else if (dx === 1) wallQuad(get('stone'), X1, Z1, X1, Z0, 0, PH, [1, 0, 0], null, 0); else wallQuad(get('stone'), X0, Z0, X0, Z1, 0, PH, [-1, 0, 0], null, 0);
+        }
+        if (((x % 4) + 4) % 4 === 1) marks.push({ x: X0 + T / 2, y: 50, z: Z0 + T / 2, r: 190, c: [0.95, 0.97, 1], k: hs % 7 === 0 ? 0.5 : 1.7, glow: 12 });
+      } else if (zn === 5) {
+        floorQuad(get('plaza'), X0, Z0, X1, Z1, 0, 120, col(SUB ? '#8a8478' : '#7a5c40', 1));          // 방 — 마루
+        if (hs % 11 === 0) marks.push({ x: X0 + T / 2, y: 46, z: Z0 + T / 2, r: 160, c: [1, 0.8, 0.55], k: 1.5, glow: 10 });
+      } else {
+        floorQuad(get('plaza'), X0, Z0, X1, Z1, 0, 160, col(SUB ? '#9c9a94' : '#a4a69c', 1));           // 통로 · 복도 · 홀
+        if ((x + y * 3) % 6 === 0) marks.push({ x: X0 + T / 2, y: 48, z: Z0 + T / 2, r: 180, c: SUB ? [0.85, 0.92, 1] : [1, 0.95, 0.85], k: hs % 6 === 0 ? 0.5 : 1.6, glow: 11 });
+        if (hs % 29 === 0 && [[0, 1], [0, -1], [1, 0], [-1, 0]].some(([a, b]) => isB(x + a, y + b))) marks.push({ x: X0 + T / 2, y: 40, z: Z0 + T / 2, r: 90, c: [0.2, 1, 0.45], k: 1.2, glow: 14 });   // 비상구 등
       }
       continue;
     }
@@ -956,6 +991,7 @@ const ALIAS = {
   rooftop: ['detail', lin('#8a8e94')], parapet: ['detail', lin('#6a6c70')], curb: ['detail', lin('#8a8a84')], yellow: ['detail', lin('#c9a83a')],
   paint: ['detail', lin('#d8d6cc')], rust: ['detail', lin('#6a4a36')], stone: ['detail', lin('#77736a')], bridge: ['detail', lin('#4a4e54')],
   ledge: ['detail', WHITE], solar: ['detail', lin('#1a2a44')],
+  inTop: ['glow', lin('#15181d')], inRim: ['glow', lin('#4a5058')],   // 실내 벽 윗면 · 테두리(rc.47) — 어둠에 묻히지 않게 스스로 은은히
   lensOn: ['glow', lin('#ffb868', 4)], skyOn: ['glow', lin('#ffc88a', 1.6)], cross: ['glow', lin('#ff2018', 3.2)], lensOff: ['detail', lin('#3a3a38')],
 };
 for (let i = 0; i < 6; i++) ALIAS['awning' + i] = ['awning', null];

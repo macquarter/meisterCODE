@@ -1738,6 +1738,10 @@ const partEnding = i => { const P = partInfo(partOf(i)); return P && P.to === i 
 /* 체력 이어 가기(rc.45) — 같은 나라의 바로 다음 미션(같은 장 A → B, 서울 → 대피 기지)은 끝났을 때의 체력으로 시작한다.
    나라가 바뀌면(배 · 비행으로 건너가면) 회복한 것으로 친다. 다시 해도 같은 체력에서 시작한다 */
 const COUNTRY = { seoul: 'kr', base: 'kr' };
+/** 설계자 빌드(rc.46) — 진행과 상관없이 모든 장 · 두 미션(A · B)을 바로 고를 수 있다. 4부 엔딩까지 곧장 확인하는 용도 */
+const allOpen = () => !!window.LC_FULL_BUILD;
+/** 실내 지도 표시(rc.47) — 장 목록 · 브리핑에 붙는 꼬리표 */
+const MAP_TAG = { subway: '지하철', interior: '건물 안' };
 const HpCarry = {
   KEY: 'aftermath.hpcarry',
   country: L => COUNTRY[L.city] || L.city,
@@ -3591,6 +3595,7 @@ function render() {
   worldTransform(ctx, cam);
 
   drawGround(cam, w);
+  if (w.indoor) drawIndoorFloor(cam, w);
   drawDecorFlat(cam, w);
   drawExit(g, w);
 
@@ -4174,6 +4179,58 @@ function drawMaws(g) {
       }
     }
   }
+}
+/** 실내 조명 자리(rc.47) — 3D 와 같은 규칙: 터널 형광등 · 승강장 등 · 복도 등 · 방 전등. 일부는 죽어 간다(k 낮음) */
+function indoorLights(w) {
+  if (w._inL) return w._inL;
+  const out = [];
+  if (w.indoor && w.zone) for (let y = 0; y < w.h; y++) for (let x = 0; x < w.w; x++) {
+    const i = w.idx(x, y), zn = w.zone[i];
+    if (!zn || w.grid[i] === T_WALL) continue;
+    const hs = (Math.imul(x * 2654435761 ^ y * 40503, 2246822519) >>> 0), SUB = w.indoor === 'subway';
+    let L = null;
+    if (zn === 2 && x % 6 === 0) L = ['185,215,255', hs % 5 === 0 ? 0.35 : 1, 120];
+    else if (zn === 3 && x % 4 === 1) L = ['240,245,255', hs % 7 === 0 ? 0.35 : 1, 130];
+    else if (zn === 5 && hs % 11 === 0) L = ['255,205,140', 1, 110];
+    else if ((zn === 4 || zn === 6) && (x + y * 3) % 6 === 0) L = [SUB ? '215,235,255' : '255,240,215', hs % 6 === 0 ? 0.35 : 1, 120];
+    if (L) out.push({ x: (x + 0.5) * TILE, y: (y + 0.5) * TILE, c: L[0], k: L[1], r: L[2] });
+  }
+  return (w._inL = out);
+}
+/** 실내 바닥(rc.47) — 자갈 선로 · 침목과 레일 · 승강장과 노란 안전선 · 방 마루 · 조명 웅덩이 */
+function drawIndoorFloor(cam, w) {
+  if (!w.zone) return;
+  const x0 = Math.floor(cam.x / TILE), y0 = Math.floor(cam.y / TILE), x1 = Math.ceil((cam.x + W) / TILE), y1 = Math.ceil((cam.y + VH()) / TILE);
+  const rails = new Path2D(), sleep = new Path2D(), yel = new Path2D(), wood = new Path2D(), plank = new Path2D(), plat = new Path2D(), bed = new Path2D();
+  const zAt = (x, y) => w.zone[w.idx(x, y)];
+  for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
+    const i = w.idx(x, y), zn = w.zone[i]; if (!zn || w.grid[i] === T_WALL && zn !== 2) continue;
+    const px = x * TILE, py = y * TILE;
+    if (zn === 1 || zn === 2) bed.rect(px, py, TILE, TILE);
+    if (zn === 2) { for (let q = 0; q < 4; q++) sleep.rect(px + q * 12 + 2.5, py + 6, 6, TILE - 12); rails.rect(px, py + 15, TILE, 2.4); rails.rect(px, py + TILE - 17.4, TILE, 2.4); }
+    else if (zn === 3) {
+      plat.rect(px, py, TILE, TILE);
+      const r1 = (a, b) => { const o = zAt(x + a, y + b); return o === 1 || o === 2; };
+      if (r1(0, 1)) yel.rect(px, py + TILE - 5, TILE, 5); if (r1(0, -1)) yel.rect(px, py, TILE, 5);
+      if (r1(1, 0)) yel.rect(px + TILE - 5, py, 5, TILE); if (r1(-1, 0)) yel.rect(px, py, 5, TILE);
+    } else if (zn === 5) { wood.rect(px, py, TILE, TILE); for (let q = 1; q < 6; q++) plank.rect(px, py + q * 8, TILE, 1); }
+  }
+  ctx.fillStyle = 'rgba(60,54,46,.55)'; ctx.fill(bed);
+  ctx.fillStyle = '#2c2218'; ctx.fill(sleep);
+  ctx.fillStyle = '#8c9298'; ctx.fill(rails);
+  ctx.fillStyle = 'rgba(190,186,176,.16)'; ctx.fill(plat);
+  ctx.fillStyle = '#c9a83a'; ctx.fill(yel);
+  ctx.fillStyle = 'rgba(122,84,48,.32)'; ctx.fill(wood);
+  ctx.fillStyle = 'rgba(0,0,0,.18)'; ctx.fill(plank);
+  // 조명 웅덩이 — 천장 등 아래 바닥이 밝다(어둠 마스크도 같은 자리를 뚫는다)
+  ctx.save(); ctx.globalCompositeOperation = 'lighter';
+  for (const L of indoorLights(w)) {
+    if (L.x < cam.x - 140 || L.x > cam.x + W + 140 || L.y < cam.y - 140 || L.y > cam.y + VH() + 140) continue;
+    const gr = ctx.createRadialGradient(L.x, L.y, 0, L.x, L.y, L.r);
+    gr.addColorStop(0, `rgba(${L.c},${0.16 * L.k})`); gr.addColorStop(1, `rgba(${L.c},0)`);
+    ctx.fillStyle = gr; ctx.fillRect(L.x - L.r, L.y - L.r, L.r * 2, L.r * 2);
+  }
+  ctx.restore();
 }
 function drawGround(cam, w) {
   const x0 = Math.floor(cam.x / TILE), y0 = Math.floor(cam.y / TILE);
@@ -6049,7 +6106,7 @@ function drawChapterMap(cv, unlocked) {
   const hits = [];
   c.textAlign = 'center';
   for (const n of N) {
-    const i = n.i, locked = i > unlocked, aDone = G.stageDone(i), bDone = i < unlocked;
+    const i = n.i, locked = i > unlocked && !allOpen(), aDone = G.stageDone(i), bDone = i < unlocked;
     if (Math.hypot(n.x - n.gx, n.y - n.gy) > 3) { c.strokeStyle = 'rgba(200,200,190,.25)'; c.lineWidth = 1; c.beginPath(); c.moveTo(n.gx, n.gy); c.lineTo(n.x, n.y); c.stroke(); c.fillStyle = 'rgba(200,200,190,.4)'; c.beginPath(); c.arc(n.gx, n.gy, 2, 0, 6.283); c.fill(); }
     // 장 번호 원
     c.fillStyle = locked ? '#1b2128' : bDone ? '#2f4a3a' : '#3a2f14';
@@ -6292,6 +6349,13 @@ function drawDarkness(cam, g, p, w) {
   mctx.save();
   worldTransform(mctx, cam, MDPR);
 
+  // 실내 천장 등(rc.47) — 등 아래는 어둠이 옅다
+  if (w.indoor) for (const L of indoorLights(w)) {
+    if (L.x < cam.x - 140 || L.x > cam.x + W + 140 || L.y < cam.y - 140 || L.y > cam.y + VH() + 140) continue;
+    const gr = mctx.createRadialGradient(L.x, L.y, 0, L.x, L.y, L.r);
+    gr.addColorStop(0, `rgba(0,0,0,${0.55 * L.k})`); gr.addColorStop(1, 'rgba(0,0,0,0)');
+    mctx.fillStyle = gr; mctx.fillRect(L.x - L.r, L.y - L.r, L.r * 2, L.r * 2);
+  }
   // 주변 미광 (손전등이 꺼져도 남는 최소 시야)
   const amb = p.lightOn && p.battery > 0 ? 128 : 92;
   let gr = mctx.createRadialGradient(p.x, p.y, 6, p.x, p.y, amb);
@@ -7096,7 +7160,7 @@ const UI = {
     list.innerHTML = '';
     drawChapterMap($('chapterMap'), unlocked);
     LEVELS.forEach((L, i) => {
-      const locked = i > unlocked;
+      const locked = i > unlocked && !allOpen();
       const PS = STORY.parts.find(P => P.from === i);
       if (PS) {
         const hd = document.createElement('div');
@@ -7125,12 +7189,12 @@ const UI = {
       // 두 미션 — A 진입 · B 본편. 끝낸 것은 초록, 지금 할 것은 노랑, 아직은 회색
       const aDone = G.stageDone(i), gA = grades[i + 'a'] | 0;
       const chip = (st, nm, done, open, gr) => `<button class="stg${done ? ' stg--done' : open ? ' stg--open' : ''}" data-st="${st}"${open ? '' : ' disabled'}>` +
-        `<b>${st ? 'B' : 'A'}</b>${T(nm)}${gr ? ` <i data-g="${UI.letter(gr)}">${UI.letter(gr)}</i>` : ''}</button>`;
+        `<b>${st ? 'B' : 'A'}</b>${T(nm)}${!st && STAGE_A[i].map ? `<em class="stg__map stg__map--${STAGE_A[i].map}">${T(MAP_TAG[STAGE_A[i].map])}</em>` : ''}${gr ? ` <i data-g="${UI.letter(gr)}">${UI.letter(gr)}</i>` : ''}</button>`;
       el.innerHTML =
         `<span class="chapter__no">${String(i + 1).padStart(2, '0')}</span>` +
         `<span class="chapter__name">${T(L.name)}<span class="chapter__city">${T(CITY_NAME[L.city] || '')}</span><br><span class="chapter__goal">${T(L.goals[0])}</span>` +
         (locked ? '' : `<span class="chapter__recs">${T('기록 {n}/{t}', { n: Records.countFor(i), t: STORY.records.filter(r => r.ch === i).length })}</span>`) +
-        (locked ? '' : `<span class="chapter__stages">${chip(0, STAGE_A[i].name, aDone, true, gA)}${chip(1, L.name, i < unlocked, aDone, best)}</span>`) + `</span>` +
+        (locked ? '' : `<span class="chapter__stages">${chip(0, STAGE_A[i].name, aDone, true, gA)}${chip(1, L.name, i < unlocked, aDone || allOpen(), best)}</span>`) + `</span>` +
         `<span class="chapter__mark">${mark}</span>`;
       if (!locked) {
         el.addEventListener('click', () => { SFX.click(); UI.brief(i); });
@@ -7393,10 +7457,10 @@ const UI = {
   brief(i, st) {
     if (!Full.open(i)) { this.showUnlock(i); return; }      // 4장부터는 정식판(rc.43)
     if (st === undefined) st = G.stageDone(i) ? 1 : 0;      // 따로 고르지 않으면 아직 못 끝낸 쪽
-    if (st === 1 && !G.stageDone(i)) st = 0;
+    if (st === 1 && !G.stageDone(i) && !allOpen()) st = 0;
     G.pendingLevel = i; G.pendingStage = st;
     const L = st === 0 ? stageLevel(i) : LEVELS[i];
-    $('briefNo').textContent = `CHAPTER ${i + 1} · ${st === 0 ? 'A ' + T('진입') : 'B ' + T('본편')}`;
+    { const mp = st === 0 && STAGE_A[i] && STAGE_A[i].map; $('briefNo').textContent = `CHAPTER ${i + 1} · ${st === 0 ? 'A ' + T('진입') : 'B ' + T('본편')}` + (mp ? ' · ' + T(MAP_TAG[mp]) : ''); }
     $('briefTitle').textContent = T(L.name);
     $('briefText').textContent = T(L.brief);
     const kit = startKit(L, SETTINGS.difficulty).map(k => T(WEAPONS[k].name)).join(' · ');

@@ -579,7 +579,7 @@ const I18N = (() => {
     '한 번 결제로 끝': 'One payment, that’s it', '구독 · 추가 결제 없음 · 진행은 기기 안에 그대로 이어진다': 'No subscription, no extra purchases · your progress on this device carries on',
     '스토어 결제': 'Store checkout', 'LEFT CITY — 정식판': 'LEFT CITY — Full game', '2‒4부 · 3x 속도 · 한 번 결제': 'Parts 2–4 · 3x speed · one-time purchase',
     '계정': 'Account', '설계자 시연 계정': 'Designer demo account', '청구': 'Charge', '실제로 청구되지 않는다(시연)': 'Nothing is actually charged (demo)',
-    '구매': 'Buy', '복원': 'Restore', '취소': 'Cancel', '닫기': 'Close', '처리 중…': 'Processing…', '✓ 결제 완료': '✓ Payment complete', '✓ 구매 기록을 찾았다': '✓ Purchase found',
+    '지하철': 'Subway', '건물 안': 'Indoors', '구매': 'Buy', '복원': 'Restore', '취소': 'Cancel', '닫기': 'Close', '처리 중…': 'Processing…', '✓ 결제 완료': '✓ Payment complete', '✓ 구매 기록을 찾았다': '✓ Purchase found',
     'App Store 결제 (시연)': 'App Store checkout (demo)', 'Google Play 결제 (시연)': 'Google Play checkout (demo)', '구매 복원 — 스토어 계정 확인': 'Restore purchase — checking store account',
     '시연 — 결제가 끝난 것처럼 정식판이 열렸다. 곧 4장 브리핑으로 넘어간다': 'Demo — unlocked as if paid. Moving on to the chapter 4 briefing',
     '여기부터 정식판 — 설계자: 정식판 안내 · 결제 흐름 보기': 'Full game from here — designer: view the unlock screen and purchase flow',

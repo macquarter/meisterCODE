@@ -1173,3 +1173,13 @@ body.part4 #view,body.part4 #view3d{filter:saturate(.42) contrast(1.12) brightne
 .storesheet__btns .btn--ghost{color:#0a72e8;border-color:rgba(0,0,0,.15)!important;background:transparent}
 .rank__actions{display:grid;gap:8px;margin-top:18px}
 .rank__actions .hidden{display:none}
+
+/* rc.47 — 목표까지 거리는 위 가운데로(아래 게이지 · 터치 단추와 겹쳤다) */
+.hud__meter{top:calc(12px + env(safe-area-inset-top));bottom:auto;font-size:22px;padding:3px 12px 4px;border-radius:999px;background:rgba(8,9,11,.38)}
+body.touch .hud__meter{top:calc(12px + env(safe-area-inset-top));bottom:auto}
+@media (orientation:portrait){
+  body.touch .hud__meter{top:calc(54px + env(safe-area-inset-top));font-size:20px}
+}
+.stg__map{margin-left:6px;padding:1px 6px;border-radius:999px;font-style:normal;font-size:10.5px;font-weight:700;letter-spacing:.02em;vertical-align:1px}
+.stg__map--subway{background:rgba(120,190,255,.16);color:#9cc8ff;border:1px solid rgba(120,190,255,.4)}
+.stg__map--interior{background:rgba(200,170,120,.14);color:#e2c48e;border:1px solid rgba(200,170,120,.4)}

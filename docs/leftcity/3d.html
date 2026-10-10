@@ -327,16 +327,6 @@ html:not(.r3d-off) #view{background:transparent !important}
       </div>
     </section>
 
-    <div class="storesheet hidden" id="storeSheet" role="dialog" aria-modal="true" aria-labelledby="storeTitle">
-      <div class="storesheet__panel">
-        <p class="storesheet__os" id="storeOs">스토어 결제</p>
-        <div class="storesheet__item"><i class="storesheet__icon" aria-hidden="true">LC</i><div><b id="storeTitle">LEFT CITY — 정식판</b><span>2‒4부 · 3x 속도 · 한 번 결제</span></div><em id="storePrice">₩6,900</em></div>
-        <dl class="storesheet__rows"><dt>계정</dt><dd>설계자 시연 계정</dd><dt>청구</dt><dd>실제로 청구되지 않는다(시연)</dd></dl>
-        <p class="storesheet__msg" id="storeMsg"></p>
-        <div class="storesheet__btns"><button type="button" class="btn btn--primary" id="storeBuy">구매</button><button type="button" class="btn btn--ghost" id="storeCancel">취소</button></div>
-      </div>
-    </div>
-
     <section class="screen screen--city hidden" id="scrCity">
       <div class="screen__inner">
         <h2>서바이벌 — 도시 선택</h2>
@@ -660,5 +650,15 @@ if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
   addEventListener('load', () => { navigator.serviceWorker.register('sw.js').catch(() => {}); });
 }
 </script>
+  <div class="storesheet hidden" id="storeSheet" role="dialog" aria-modal="true" aria-labelledby="storeTitle">
+      <div class="storesheet__panel">
+        <p class="storesheet__os" id="storeOs">스토어 결제</p>
+        <div class="storesheet__item"><i class="storesheet__icon" aria-hidden="true">LC</i><div><b id="storeTitle">LEFT CITY — 정식판</b><span>2‒4부 · 3x 속도 · 한 번 결제</span></div><em id="storePrice">₩6,900</em></div>
+        <dl class="storesheet__rows"><dt>계정</dt><dd>설계자 시연 계정</dd><dt>청구</dt><dd>실제로 청구되지 않는다(시연)</dd></dl>
+        <p class="storesheet__msg" id="storeMsg"></p>
+        <div class="storesheet__btns"><button type="button" class="btn btn--primary" id="storeBuy">구매</button><button type="button" class="btn btn--ghost" id="storeCancel">취소</button></div>
+      </div>
+    </div>
+
 </body>
 </html>

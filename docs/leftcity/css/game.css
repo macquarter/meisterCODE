@@ -1152,7 +1152,7 @@ body.part4 #view,body.part4 #view3d{filter:saturate(.42) contrast(1.12) brightne
 .paygate__dev{display:inline-block;margin:0 0 12px;padding:5px 10px;border:1px dashed rgba(120,190,255,.55);border-radius:8px;font-size:11.5px;color:#9cc8ff;background:rgba(60,120,200,.08)}
 .paygate__dev[hidden]{display:none}
 .chapters__paywall--dev{display:block;width:100%;cursor:pointer;border:1px dashed rgba(120,190,255,.55)!important;color:#9cc8ff!important;background:rgba(60,120,200,.08)!important;font:inherit}
-.storesheet{position:fixed;inset:0;z-index:90;display:flex;align-items:flex-end;justify-content:center;background:rgba(0,0,0,0);transition:background .2s}
+.storesheet{position:fixed;inset:0;z-index:9000;pointer-events:auto;display:flex;align-items:flex-end;justify-content:center;background:rgba(0,0,0,0);transition:background .2s}
 .storesheet.hidden{display:none}
 .storesheet.show{background:rgba(0,0,0,.6)}
 .storesheet__panel{width:100%;max-width:440px;margin:0 8px 8px;padding:18px 18px calc(16px + env(safe-area-inset-bottom));border-radius:18px;background:#f4f3f0;color:#141414;transform:translateY(105%);transition:transform .22s ease-out;font-size:14px}

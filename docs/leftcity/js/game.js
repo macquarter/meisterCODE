@@ -196,6 +196,7 @@ function pressAction(act, e) {
 
 addEventListener('keydown', e => {
   if (rebinding) { e.preventDefault(); UI.finishRebind(e.code); return; }
+  if (UI._sheetDone) { if (e.code === 'Escape') { e.preventDefault(); UI._sheetDone(false); } return; }   // 결제 창이 떠 있는 동안 게임 키는 쉰다
   keys[e.code] = true;
   const act = KEYBIND.action(e.code);
   // 브라우저 기본 동작(스크롤 · 포커스 이동)을 막는다 — 게임 키일 때만
@@ -1936,6 +1937,7 @@ const G = {
 
   /* ── 레벨 시작 ── */
   start(index, cp, stage) {
+    UI.closeStoreSheet();
     SFX.init(); SFX.resume();
     const C = typeof index === 'string' && index.startsWith('ch:') ? CHALLENGES.find(c => c.id === index.slice(3)) : null;
     this.challenge = C || null;
@@ -6984,7 +6986,7 @@ const UI = {
             'scrSettings', 'scrEnding', 'scrKeys', 'scrAbout', 'scrStory', 'scrJournal', 'scrChallenge', 'scrUnlock'],
   settingsFrom: 'scrTitle',
   hideScreens() { this.screens.forEach(s => $(s).classList.add('hidden')); },
-  show(id) { this.hideScreens(); $(id).classList.remove('hidden'); },
+  show(id) { this.hideScreens(); $(id).classList.remove('hidden'); const a = document.activeElement; if (a && a !== document.body && a.closest && a.closest('.hidden')) a.blur(); if (id !== 'scrUnlock') this.closeStoreSheet(); },
 
   /** 조작법 — 지금 묶인 키로 그린다 */
   buildHowto() {
@@ -7371,10 +7373,14 @@ const UI = {
     $('storeMsg').textContent = '';
     const buy = $('storeBuy'), no = $('storeCancel');
     buy.textContent = restore ? T('복원') : T('구매'); buy.disabled = false; no.disabled = false;
+    if ($('scrUnlock').classList.contains('hidden')) return Promise.resolve(false);   // 정식판 안내 화면 밖(판 중 등)에서는 띄우지 않는다
+    this.closeStoreSheet();
     sh.classList.remove('hidden'); requestAnimationFrame(() => sh.classList.add('show'));
     return new Promise(res => {
-      const done = (v) => { buy.onclick = no.onclick = null; sh.classList.remove('show'); setTimeout(() => sh.classList.add('hidden'), 200); res(v); };
+      const done = (v) => { if (this._sheetDone !== done) return; this._sheetDone = null; buy.onclick = no.onclick = sh.onclick = null; sh.classList.remove('show'); sh.classList.add('hidden'); res(v); };   // 바로 닫는다 — 늦게 닫히면 다음 누름이 투명한 시트에 걸린다
+      this._sheetDone = done;
       no.onclick = () => { SFX.click(); done(false); };
+      sh.onclick = (e) => { if (e.target === sh && !buy.disabled) done(false); };   // 바깥(어두운 곳)을 누르면 취소
       buy.onclick = () => {
         SFX.click(); buy.disabled = true; no.disabled = true;
         $('storeMsg').textContent = T('처리 중…');
@@ -7382,6 +7388,8 @@ const UI = {
       };
     });
   },
+  /** 결제 창이 떠 있으면 취소로 닫는다 — 화면이 바뀌거나 판이 시작될 때 */
+  closeStoreSheet() { if (this._sheetDone) this._sheetDone(false); else { const sh = $('storeSheet'); if (sh) { sh.classList.remove('show'); sh.classList.add('hidden'); } } },
   brief(i, st) {
     if (!Full.open(i)) { this.showUnlock(i); return; }      // 4장부터는 정식판(rc.43)
     if (st === undefined) st = G.stageDone(i) ? 1 : 0;      // 따로 고르지 않으면 아직 못 끝낸 쪽
@@ -7685,6 +7693,7 @@ const DEATH_TIP = {
 document.addEventListener('click', e => {
   const btn = e.target.closest('[data-act]');
   if (!btn) return;
+  if (btn.closest('.hidden')) { btn.blur(); return; }   // 숨은 화면의 단추가 포커스로 눌리지 않게(rc.46 — 판 중 스페이스가 '구매 복원'을 눌렀다)
   SFX.init(); SFX.resume(); SFX.click();
   if (G.state === 'title' && !SFX.musicOn) SFX.menuMusic(true);   // 첫 클릭 전에는 소리를 낼 수 없다
   const act = btn.dataset.act;

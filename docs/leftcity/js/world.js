@@ -50,7 +50,8 @@ class World {
 
     // 지하철 · 건물 안(rc.45) — 도시 대신 터널 · 승강장 · 대합실, 또는 복도 · 방. 벽은 낮고 비는 내리지 않는다
     this.indoor = opts.map === 'subway' || opts.map === 'interior' ? opts.map : null;
-    this.variant = opts.variant || 'office';             // 건물 안의 쓰임(rc.50) — office 사무실 · market 시장 · plant 발전소
+    this.variant = opts.variant || 'office';
+    this.bodyK = this.indoor ? 1.3 : 1;                  // rc.53 — 실내에서 사람 · 감염체를 1.3배로 그린다(1칸 2.1m → 약 1.6m). 충돌은 그대로             // 건물 안의 쓰임(rc.50) — office 사무실 · market 시장 · plant 발전소
     if (this.indoor) { this.layoutIndoor(rng, blocks, this.indoor); this.pickEndpoints(); this.indexProps(); this.buildShapes(); this.terr = new Uint8Array(this.w * this.h); this.terrain = null; return; }
     this.layout(rng, blocks, opts);
     this.connectLandmarks();

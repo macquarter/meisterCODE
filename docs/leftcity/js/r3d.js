@@ -487,7 +487,7 @@ function seeThrough(m) { enhance(m, true); }
 
 /* ═══════════ 세계 덩어리 — 바닥 · 건물 ═══════════ */
 function bh(w, x, y) {
-  if (w.indoor) return w.indoor === 'subway' ? 64 : 56;    // 실내 벽(rc.45) — 사람 키 넘게만. 카메라가 위에서 방 안을 내려다본다
+  if (w.indoor) return w.indoor === 'subway' ? 78 : 70;    // 실내 벽(rc.45) — 사람 키 넘게만. 카메라가 위에서 방 안을 내려다본다. rc.53 사람 1.3배(52)에 맞춰 약 2.4m
   const i = w.idx(x, y);
   const l = w.lot[i] || (((i % w.w) >> 2) * 31 + ((i / w.w | 0) >> 2) * 17 + 1);
   const base = BLD_H3 * (0.8 + ((Math.imul(l, 2654435761) >>> 0) % 6) * 0.1) * 480 * HMUL;
@@ -2777,6 +2777,7 @@ function applyKit(w) {
   resetRain();
 }
 function resetWorld(w) {
+  CHAR_S = 0.6 * (w.bodyK || 1);
   clearChunks();
   for (const [, h] of dyn.humans) removeHuman(h);
   for (const k of ['props', 'decor', 'signs', 'humans', 'corpses', 'pickups', 'relays', 'tw']) { for (const [, o] of dyn[k]) scene.remove(o); dyn[k].clear(); }
@@ -3055,7 +3056,7 @@ function setFlash(h, on) {
 const CHAR = { ready: false, loading: false, body: {} };
 const MODEL_H = 50;
 /** 사람 · 감염체의 보이는 크기 — 건물 · 차와 비율을 맞춰 0.6 (판정 반지름은 그대로) */
-const CHAR_S = 0.6;
+let CHAR_S = 0.6;                                   // rc.53 — 실내는 world.bodyK(1.3)배
 /** 사람 층 — 화면과 손전등 그림자에만 그린다(달빛 그림자 지도는 멈춘 것만 담아 가끔 다시 그린다) */
 const CHAR_LAYER = 1;
 function charLayer(o) { if (o) o.traverse(c => c.layers.set(CHAR_LAYER)); return o; }

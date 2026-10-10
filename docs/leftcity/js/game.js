@@ -1967,10 +1967,15 @@ const G = {
     // 장마다 두 미션 — A(진입, stage 0) · B(본편, stage 1). 따로 고르지 않았으면 본편
     this.stage = this.survival ? 1 : cp && cp.stage !== undefined ? cp.stage : stage === 0 ? 0 : 1;
     const city = this.survivalCity || 'seoul';
-    const L = C ? Object.assign({}, SURVIVAL, { drops: [] }, C, { objective: { type: 'endless' }, fixedKit: true })
+    let L = C ? Object.assign({}, SURVIVAL, { drops: [] }, C, { objective: { type: 'endless' }, fixedKit: true })
       : this.survival
       ? Object.assign({}, SURVIVAL, { seed: this.daily ? this.daily.seed : (Math.random() * 1e9) | 0, city }, SURVIVAL_CITIES[city])
       : this.stage === 0 ? stageLevel(index) : LEVELS[index];
+    // 실외 → 실내(rc.53) — 바깥 길 끝의 건물 입구에 닿으면 같은 미션이 건물 안 지도로 이어진다. 들고 있던 것 · 시간 · 처치는 그대로
+    const inside = !this.survival && L.inside && (this.insideNext || (cp && cp.phase2)) ? L.inside : null;
+    this.insideNext = false; this.phase2 = !!inside;
+    if (inside) L = Object.assign({}, L, { map: inside.map, variant: inside.variant, seed: (L.seed * 13 + 7) % 99991, blocks: inside.blocks || 8,
+      objective: inside.objective || { type: 'escape' }, goals: inside.goals || ['건물 안을 지나 출구로'], twist: null, landmarks: [], goal: undefined, weepers: 0 });
     this.combo = 0; this.comboMax = 0; this.lastKillT = -9; this.chHordeT = C && C.rules && C.rules.hordeEvery ? 6 : 0;
     this.level = L;
     this.world = new World(L.seed, L.blocks, cityOpts(L));
@@ -1989,6 +1994,11 @@ const G = {
     // 지난 미션에서 들고 온 소지품 — 체크포인트로 이어 받을 때는 그때의 장비가 덮어쓴다(아래)
     this.carried = Kit.load(this);
     this.hpCarried = HpCarry.load(this);   // 같은 나라 안에서는 체력이 이어진다(rc.45)
+    if (inside && this.carryIn) {                                        // 바깥에서 들고 들어온 것(rc.53)
+      const c = this.carryIn, p0 = this.player;
+      Object.assign(p0, { hp: c.hp, battery: c.battery, nades: c.nades, dodges: c.dodges, infect: c.infect, ammo: c.ammo, mag: c.mag, owned: new Set(c.owned) });
+      p0.wpn = p0.owned.has(c.wpn) ? c.wpn : p0.wpn;
+    }
     this.sinceGun = 0; this.lavaKills = 0;
     this.player.angle = openingAngle(w, this.player);
     this.lastHurt = null;
@@ -1997,8 +2007,10 @@ const G = {
     this.spits = []; this.acids = [];
     this.particles = []; this.splashes = []; this.decals = []; this.corpses = []; this.flashes = []; this.noiseRings = []; this.shoves = []; this.dodgeFx = []; this.dodgesUsed = 0; this.dodgeSig = null;
     this.time = 0; this.shake = 0; this.kills = 0; this.score = 0; this.spitGapT = 0; this.fromCheckpoint = false;
+    if (inside && this.carryIn) { const c = this.carryIn; Object.assign(this, { time: c.time, kills: c.kills, score: c.score }); }
     this.nonPistol = false; this.weeperWoke = false; this.screams = 0;
     this.shots = 0; this.hits = 0; this.hitMark = 0;
+    if (inside && this.carryIn) { Object.assign(this, { shots: this.carryIn.shots, hits: this.carryIn.hits }); this.carryIn = null; }
     input.sprintLatch = false; input.idleT = 0; input.turnRate = 0; input.dragTurn = 0;
     Hints.begin(this);
     this.difficulty = SETTINGS.difficulty;   // 진입 시점의 난이도로 전적을 기록한다
@@ -2008,7 +2020,15 @@ const G = {
     // 곁가지 — 초록 신호탄. 닿으면 생존자 셋이 합류하고 무리가 몰려온다(이야기 판은 미션마다 하나, 서바이벌은 100초 뒤부터)
     this.allies = []; this.rally = null; this.rallyT = this.survival && !this.challenge ? 100 : 0;
     // 이야기 판 — 미션이 셋 이상인 나라의 마지막 미션에서만, 집결지 앞의 마지막 이벤트로
-    if (!this.survival && this.stage === 1 && squadFinale(index) && w.exit) this.placeRally(w.exit.x, w.exit.y, 300, 560, makeRng(L.seed ^ 0x2a11ce), true);
+    // rc.53 — 동료 신호탄은 판마다 무작위 자리(가는 길 25‒80% 사이 아무 곳). 마지막 장은 반드시, 다른 이야기 판도 셋에 하나꼴로
+    if (!this.survival && w.exit && (this.stage === 1 && squadFinale(index) || Math.random() < 0.35)) {
+      const cand = w.reach.filter(i => { const d = w.toExit[i] / w.maxDist; return d > 0.2 && d < 0.8 && w.roadNeighbours(i % w.w, (i / w.w) | 0) >= 5; });
+      for (let t = 0; t < 40 && cand.length && !this.rally; t++) {
+        const q = w.tileCenter(cand[(Math.random() * cand.length) | 0]);
+        if (Math.hypot(q.x - w.spawn.x, q.y - w.spawn.y) < 600) continue;
+        this.rally = { x: q.x, y: q.y, used: false };
+      }
+    }
     this.lightningT = 6 + Math.random() * 10;
 
     // 목표 설정
@@ -2018,8 +2038,9 @@ const G = {
     this.goalsTotal = this.goalsLeft = ob.count || 0;
     this.surviveLeft = ob.time || 0;
 
-    // 보급품 배치
-    const rng = makeRng(L.seed ^ 0x5bf03635);
+    // 보급품 배치 — rc.53: 판마다 새 자리(지도는 같아도 보급 · 목표 물건 · 기록 · 지켜진 보급은 매번 다른 곳)
+    this.runSeed = (Math.random() * 1e9) | 0;
+    const rng = makeRng(this.runSeed ^ 0x5bf03635);
     // 지도가 커진 만큼(이어 붙는 지도로 넓힌 3블록) 보급품도 늘린다 — 길 위의 밀도를 예전과 맞춘다
     const spread = Math.sqrt((L.blocks * L.blocks) / ((L.blocks - 3) * (L.blocks - 3)));
     const loot = n => Math.max(1, Math.round(n * SETTINGS.mod.loot * spread * (this.dmod && this.dmod.loot || 1)));
@@ -2037,7 +2058,15 @@ const G = {
     place('battery', L.supplies.battery, 260);
     place('nade', L.supplies.nade, 300);
     // 무기는 길에 놓지 않는다 — 쓰러뜨린 감염체가 떨어뜨린다(onKill · dropGun)
-    if (ob.type === 'collect') place('goal', ob.count, 420);
+    // 목표 물건은 서로 멀리(rc.53) — 시작점 · 이미 놓은 것에서 가장 먼 자리를 골라 지도를 크게 돌게 한다(정확히 그 수만)
+    if (ob.type === 'collect') {
+      const cand = w.reach.filter(i => w.roadNeighbours(i % w.w, (i / w.w) | 0) >= 5), got = [{ x: w.spawn.x, y: w.spawn.y }];
+      for (let k = 0; k < ob.count && cand.length; k++) {
+        let best = null, bd = -1;
+        for (let t = 0; t < 140; t++) { const q = w.tileCenter(cand[Math.floor(rng() * cand.length)]); const d = Math.min(...got.map(o => w.wrapDist(o.x, o.y, q.x, q.y))); if (d > bd) { bd = d; best = q; } }
+        got.push(best); this.pickups.push(new Pickup(best.x, best.y, 'goal'));
+      }
+    }
     if (ob.type === 'power') for (let i = 0; i < ob.count; i++) { const q = w.pickPoint(this.player.x, this.player.y, 420, 1e9, rng); this.pickups.push(new Pickup(q.x, q.y, 'goal')); }   // 퓨즈 — 정확히 그 수만(rc.48)
     // 중계기 — 출구로 가는 길을 따라 고르게 (도로 거리 3/4 · 1/2 · 1/4 지점 근처의 트인 칸).
     // 흩어 놓으면 지도를 몇 바퀴씩 돌게 된다 — 길 위에 줄 세워 '지켜 내며 나아가는' 장이 되게 한다
@@ -2076,14 +2105,14 @@ const G = {
     Search.setup(this, this.survival || this.challenge || this.levelIndex < 0 ? 0 : ob.type === 'blackout' ? ob.count : (L.map === 'interior' ? 2 : partOf(this.levelIndex) === 4 && this.stage !== 0 ? 3 : 0));
     // 감시등 끄기(rc.48, 「메트로 2033」의 퓨즈 상자) — 감시등마다 곁에 배전함. 조용히 내리면 그 등이 꺼진다. 다 끄면 출구가 열린다
     if (ob.type === 'blackout') {
-      const rr = makeRng(L.seed ^ 0x51b0);
+      const rr = makeRng(this.runSeed ^ 0x51b0);
       (this.searchers || []).forEach((sr, si) => { const q = w.pickPoint(sr.x, sr.y, 50, 140, rr) || { x: sr.x, y: sr.y }; this.relays.push({ x: q.x, y: q.y, prog: 0, done: false, woke: true, beepT: 0, kind: 'box', si }); });
       this.goalsTotal = this.goalsLeft = this.relays.length;
     }
     if (ob.type === 'finale') this.surviveLeft = ob.time;
     // 기록 — 이 장에 떨어진 종이 두 장. 이미 주운 것도 다시 놓인다 (보관함은 그대로)
-    if (!this.survival && this.stage !== 0) {
-      const nr = makeRng(L.seed ^ 0x1ea7), got = [];
+    if (!this.survival && this.stage !== 0 && !inside) {
+      const nr = makeRng(this.runSeed ^ 0x1ea7), got = [];
       for (const rec of STORY.records.filter(r => r.ch === index)) {
         let q = null;
         for (let k = 0; k < 40; k++) {
@@ -2095,10 +2124,13 @@ const G = {
       }
     }
     Radio.reset();
+    if (inside) Radio.fired.start = true;                               // 건물 안 — 시작 무전은 이미 들었다
     for (const id of ['cpMark', 'achMark']) { const el = $(id); if (el) el.classList.remove('show'); }
 
     // 초기 좀비
-    const initial = Math.max(2, Math.round(L.spawn.initial * SETTINGS.mod.max * (this.survival ? 1 : DENS_INIT[this.rules.dens - 1])));
+    // rc.53 — 실내(지하철 · 건물 안)는 서 있는 감염체가 바깥의 5배를 기본으로. 난이도 차등은 mod.max(쉬움 0.8 · 보통 1 · 어려움 1.3)가 곱해진다
+    const indoorK = !this.survival && L.map && this.dormant ? 5 : 1;
+    const initial = Math.max(2, Math.round(L.spawn.initial * SETTINGS.mod.max * (this.survival ? 1 : DENS_INIT[this.rules.dens - 1]) * indoorK));
     for (let i = 0; i < initial;) {
       const z = this.spawnZombie(560, 1600); i++;
       // 무리 지어 서 있는 것 — 잠든 도시에서는 열에 넷꼴로 곁에 한둘을 더 세운다(한 마리를 깨우면 줄줄이 깬다)
@@ -2125,7 +2157,7 @@ const G = {
     // 지켜진 보급(rc.39) — 길에서 비켜난 곳에 잠든 무리가 둘러선 보급 상자. 지나쳐도 되고, 욕심내도 된다
     this.stashes = 0; this.stashTotal = 0; this.woke = 0; this.stashSeen = false;
     if (this.dormant && !C) {
-      const sr = makeRng(L.seed ^ 0x5a51 ^ (this.stage | 0)), want = 1 + this.rules.dens;
+      const sr = makeRng(this.runSeed ^ 0x5a51 ^ (this.stage | 0)), want = 1 + this.rules.dens;
       for (let i = 0, tries = 0; i < want && tries < 600; tries++) {
         const idx = w.reach[Math.floor(sr() * w.reach.length)], q = w.tileCenter(idx), tx = idx % w.w, ty = (idx / w.w) | 0;
         const te = w.toExit[idx];
@@ -2271,7 +2303,7 @@ const G = {
     if (this.survival || this.player.dead || this.difficulty === 'rush' || (this.rules && !this.rules.cp)) return;   // 돌파 — 부활 없음 · 체크포인트 없는 규칙
     const p = this.player;
     this.checkpoint = {
-      level: this.levelIndex, stage: this.stage, label: { k, v: v || null },
+      level: this.levelIndex, stage: this.stage, phase2: !!this.phase2, label: { k, v: v || null },
       time: this.time, kills: this.kills, score: this.score, shots: this.shots, hits: this.hits,
       x: p.x, y: p.y, hp: p.hp, battery: p.battery, nades: p.nades, wpn: p.wpn,
       ammo: Object.assign({}, p.ammo), mag: Object.assign({}, p.mag), owned: [...p.owned],
@@ -2380,6 +2412,17 @@ const G = {
     const e = STORY.codex.find(c => c.id === z.type);
     this.toast(T('정예 {n}이(가) 나타났다 — 쓰러뜨리면 장비를 떨어뜨린다', { n: e ? LT(e.n) : '' }), 3.2);
     SFX.roar(900);
+  },
+  /** 건물 안으로(rc.53) — 지금 들고 있는 것을 그대로 안고 같은 미션의 실내 지도로 */
+  enterInside() {
+    const p = this.player;
+    this.carryIn = { hp: p.hp, battery: p.battery, nades: p.nades, dodges: p.dodges, infect: p.infect, wpn: p.wpn, ammo: Object.assign({}, p.ammo), mag: Object.assign({}, p.mag), owned: [...p.owned],
+      time: this.time, kills: this.kills, score: this.score, shots: this.shots, hits: this.hits };
+    this.insideNext = true;
+    SFX.objective && SFX.objective();
+    this.start(this.levelIndex, null, this.stage);
+    this.makeCheckpoint('건물 안');
+    this.toast(T(this.level.inside.enter || '건물 안으로 — 서 있는 것들 사이로 조용히 출구를 찾아라'), 3.6);
   },
   /* ── 곁가지: 생존자 무리 (rc.31) ── */
   placeRally(x, y, minD, maxD, rng, nearExit) {
@@ -3559,6 +3602,7 @@ const G = {
     Radio.update(dt);
     if (this.exitOpen && ob.type !== 'endless' &&
         Math.hypot(p.x - w.exit.x, p.y - w.exit.y) < 44) {
+      if (this.level.inside && !this.phase2) { this.enterInside(); return; }
       this.finish(true); return;
     }
 
@@ -3919,7 +3963,7 @@ function render3D(g, p) {
   if (g.lightning > 0.01) { ctx.fillStyle = `rgba(196,208,228,${g.lightning * (SETTINGS.flash ? 0.18 : 0.05)})`; ctx.fillRect(0, 0, W, H); }
   { const [ax] = R3.project(p.x, p.y, 0), [bx] = R3.project(p.x + 100, p.y, 0); drawDodgeFx(g, (x, y, h) => R3.project(x, y, h || 0), (bx - ax) / 100, 0.8); }
   if (!g.rules || g.rules.aids) {
-    { const [ax] = R3.project(p.x, p.y, 0), [bx] = R3.project(p.x + 100, p.y, 0); drawSoundCues(g, p, (x, y) => R3.project(x, y, 0), (bx - ax) / 100, 0.8, (x, y) => { const q = R3.project(x, y, 54); return [q[0], q[1] - 4]; }); }
+    { const [ax] = R3.project(p.x, p.y, 0), [bx] = R3.project(p.x + 100, p.y, 0); drawSoundCues(g, p, (x, y) => R3.project(x, y, 0), (bx - ax) / 100, 0.8, (x, y) => { const q = R3.project(x, y, 54 * (g.world.bodyK || 1)); return [q[0], q[1] - 4]; }); }
     drawHordeCue3D(g, p);
     drawScreamCue3D(g, p);
     drawHitDirs(cam, g, p, g.state === 'play' ? 1 / 60 : 0);
@@ -3933,9 +3977,18 @@ function drawSoundCues(g, p, proj, s, ry, head) {
   // 발소리 고리는 rc.40 에서 뺐다 — 화면이 어수선했다. 얼마나 시끄러운지는 소음 막대가 알려 준다
   // rc.46 — '?'(귀 기울임) → '?!'(거의 깸) → '!'(깨어나 달려온다, 1.3초). 3D 는 머리 높이에 붙인다(head)
   ctx.textAlign = 'center'; ctx.lineJoin = 'round';
-  const at = (z) => head ? head(z.x, z.y) : (([x, y]) => [x, y - 30 * Math.max(0.7, s) - 4])(proj(z.x, z.y));
+  const at = (z) => head ? head(z.x, z.y) : (([x, y]) => [x, y - 30 * Math.max(0.7, s) * (g.world.bodyK || 1) - 4])(proj(z.x, z.y));
   for (const z of g.zombies) {
     if (z.dead || Math.abs(z.x - p.x) > 800 || Math.abs(z.y - p.y) > 800) continue;
+    // rc.53 — 서 있는 것은 빨간 점(어둠 속에서도 어디쯤 서 있는지 가늠). 깨어 달려들면('!') 점이 사라진다
+    if (!z.aggro && !z.t.boss) {
+      const d = Math.hypot(z.x - p.x, z.y - p.y);
+      if (d < 680) {
+        const [dx, dy] = at(z), fa = Math.min(1, (680 - d) / 160);
+        ctx.fillStyle = `rgba(0,0,0,${0.5 * fa})`; ctx.beginPath(); ctx.arc(dx, dy + 9, 5.5, 0, 6.283); ctx.fill();
+        ctx.fillStyle = `rgba(255,48,36,${0.9 * fa})`; ctx.beginPath(); ctx.arc(dx, dy + 9, 3.6, 0, 6.283); ctx.fill();
+      }
+    }
     let txt, a, big = 0;
     if (z.aggro) {
       const t = g.time - (z.alertAt === undefined ? -9 : z.alertAt);
@@ -5534,7 +5587,7 @@ function liftPoly(poly, w, E) {
 
 /** 필지마다 높이가 다르다 — 2‒4층. 세계마다 한 번 계산해 둔다 */
 function bldH(w, x, y) {
-  if (w.indoor) return BLD_H * 0.32;                         // 실내 벽은 낮게(rc.45)
+  if (w.indoor) return BLD_H * 0.4;                          // 실내 벽은 낮게(rc.45) — rc.53 사람을 1.3배로 그리며 벽도 사람 키 위로(약 2.4m)
   if (!w._bh) {
     w._bh = new Float32Array(w.w * w.h);
     for (let i = 0; i < w._bh.length; i++) {
@@ -5882,11 +5935,13 @@ function drawCity(cam, g, w) {
     if (!L.length) continue;
     L.sort((a, b) => a.y - b.y);
     screenTransform(ctx, cam);
+    const BK = w.bodyK || 1;                                            // 실내는 사람을 1.3배로(rc.53) — 1칸 ≈ 1.6m 로 읽혀 책상 · 문 · 복도가 실제 비율
+    const body = (o, f) => { if (BK === 1) return f(); ctx.save(); ctx.translate(o.x, o.y * TILT); ctx.scale(BK, BK); ctx.translate(-o.x, -o.y * TILT); f(); ctx.restore(); };
     for (const it of L) {
-      if (it.f === 0) drawZombie(it.o);
-      else if (it.f === 1) drawPlayer(it.o);
+      if (it.f === 0) body(it.o, () => drawZombie(it.o));
+      else if (it.f === 1) body(it.o, () => drawPlayer(it.o));
       else if (it.f === 2) MODELS.prop(ctx, it.o);
-      else if (it.f === 4) { MODELS.ally(ctx, it.o); if (it.o.hp < it.o.hpMax) { const a = it.o, wv = 22, y = a.y * TILT - 44; ctx.fillStyle = 'rgba(0,0,0,.55)'; ctx.fillRect(a.x - wv / 2, y, wv, 3); ctx.fillStyle = '#7fe08a'; ctx.fillRect(a.x - wv / 2, y, wv * a.hp / a.hpMax, 3); } }
+      else if (it.f === 4) { body(it.o, () => MODELS.ally(ctx, it.o)); if (it.o.hp < it.o.hpMax) { const a = it.o, wv = 22, y = a.y * TILT - 44; ctx.fillStyle = 'rgba(0,0,0,.55)'; ctx.fillRect(a.x - wv / 2, y, wv, 3); ctx.fillStyle = '#7fe08a'; ctx.fillRect(a.x - wv / 2, y, wv * a.hp / a.hpMax, 3); } }
       else { const d = it.o, o = DECOR_OFF[d.wall] || DECOR_OFF.s; MODELS.decor(ctx, d, d.x + o[0], d.y + o[1]); }
     }
   }
@@ -7034,7 +7089,7 @@ G.refreshHud = function (force) {
   if (this.challenge) obj = T('남은 {s}초 · 점수 {score}', { s: Math.max(0, Math.ceil(this.challenge.time - this.time)), score: this.score.toLocaleString() })
     + (this.combo > 1 ? `  ×${this.comboMul().toFixed(2).replace(/0$/, '')}` : '');
   else if (ob.type === 'endless') obj = T('생존 {s}초 · 점수 {score}', { s: Math.floor(this.time), score: this.score });
-  else if (this.exitOpen) obj = ob.type === 'finale' ? T(ob.board || '현문으로 승선하라') : T('집결지로 이동하라');
+  else if (this.exitOpen) obj = ob.type === 'finale' ? T(ob.board || '현문으로 승선하라') : this.level.inside && !this.phase2 ? T('건물 입구로 이동하라') : this.phase2 ? T('건물 안 — 출구를 찾아라') : T('집결지로 이동하라');
   else if (ob.type === 'signal') obj = this.relayOn ? T('중계기 가동 중 {p}% — 곁을 지켜라', { p: Math.floor(this.relayOn.prog * 100) })
     : T('중계기 {n}/{t} 가동', { n: this.goalsTotal - this.goalsLeft, t: this.goalsTotal });
   else if (ob.type === 'finale') obj = this.holding ? T(ob.hud || '접안까지 {s}초 — 버텨라', { s: Math.ceil(this.surviveLeft) }) : T(ob.go || '3번 부두로 가라');
@@ -7612,7 +7667,7 @@ const UI = {
       (L.twist && L.twist.brief ? `<li class="brief__twist">${T(L.twist.brief)}</li>` : '') +
       (HpCarry.peek(i, st) ? `<li class="brief__hp">${T('체력 이어짐 — 지난 미션을 마친 그대로 {n}%로 시작한다', { n: Math.max(15, Math.round(HpCarry.peek(i, st).frac * 100)) })}</li>` : '') +
       `<li class="brief__kit">${T('시작 무기: {k}', { k: kit })}${pool ? ' — ' + T('{p}은(는) 감염체가 떨어뜨린다', { p: pool }) : ''}</li>` +
-      (st === 1 && squadFinale(i) ? `<li class="brief__side">${T('마지막 이벤트 — 집결지 앞 초록 신호탄: 생존자 셋이 합류하지만, 그만큼 무리가 몰려온다')}</li>` : '');
+      (st === 1 && squadFinale(i) ? `<li class="brief__side">${T('동료 이벤트 — 길 어딘가의 초록 신호탄: 생존자 셋이 합류하지만, 그만큼 무리가 몰려온다')}</li>` : '');
     this.briefKit(i, st);
     drawBriefMap(L);
     this.show('scrBrief');

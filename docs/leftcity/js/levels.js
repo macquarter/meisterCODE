@@ -12,7 +12,7 @@ const LEVELS = [
     brief: '서울. 대피 방송이 끝난 지 아홉 시간. 야간 배송을 마치고 지하에서 올라왔을 때 도시는 이미 떠난 뒤였다. ' +
            '광화문 안뜰이 마지막 구조 집결지라고 했다. 가진 건 권총 한 자루와 손전등뿐이다.',
     goals: ['광화문 안뜰까지 이동', '감염체가 떨어뜨린 무기를 주울 것'],
-    seed: 1042, blocks: 9, city: 'seoul', landmarks: ['gwanghwamun'], goal: 'gwanghwamun',
+    seed: 1042, blocks: 12, city: 'seoul', landmarks: ['gwanghwamun'], goal: 'gwanghwamun',
     objective: { type: 'escape' },
     twist: { type: 'crescendo', name: '지하철 셔터', at: 0.32, time: 25, every: 7, blocked: '지하철 셔터가 내려와 길이 막혔다 — 제어반을 가동하라', start: '셔터가 올라간다 — 경보에 무리가 몰려온다. 버텨라', brief: '변수: 길을 막은 지하철 셔터 — 제어반을 켜면 경보가 울린다. 셔터가 다 올라갈 때까지 버틸 것' },
     spawn: { initial: 6, rate: 0.22, max: 14 },
@@ -41,9 +41,9 @@ const LEVELS = [
     part: 1,
     brief: '출항 전에 할 일이 하나 남았다. 하루의 목소리가 남쪽까지 닿으려면 도쿄 타워에 안테나를 걸어야 한다. ' +
            '공원 관리소 무전의 마지막 단어는 "크다"였다. 탄창 하나로는 멈추지 않는 개체가 이 구역을 돌아다닌다.',
-    goals: ['감염체 30기 소탕', '집결지로 이동'],
+    goals: ['감염체 40기 소탕', '집결지로 이동'],
     seed: 6742, weepers: 1, blocks: 9, city: 'tokyo', landmarks: ['tokyotower', 'scramble'],
-    objective: { type: 'purge', count: 30 },
+    objective: { type: 'purge', count: 40 },
     twist: { type: 'airdrop', at: 40, brief: '변수: 보급 투하 — 붉은 섬광이 떨어진 곳을 60초 안에 열면 장비를 얻는다(선택)' },
     spawn: { initial: 13, rate: 0.52, max: 22 },
     mix: { walker: 0.35, runner: 0.3, brute: 0.13, crawler: 0.12, spitter: 0.1, bloater: 0.08, screamer: 0.05, leaper: 0.05, riot: 0.04 },
@@ -58,7 +58,7 @@ const LEVELS = [
            '그런데 다리 앞에 무언가가 서 있다. 저것은 걷지 않는다 — 기다리고 있다.',
     goals: ['그것을 쓰러뜨리고 다리를 건너라'],
     seed: 8967, weepers: 1, blocks: 10, city: 'bangkok', river: true, landmarks: ['watarun', 'democracy'],
-    approach: 52,                 // 다리 앞 — 넓어진 지도에서 출구 끝까지 걷게 하지 않는다 (98칸 → 약 52칸)
+    approach: 80,                 // rc.53 — 2분 넘게(예전 52칸은 1분 만에 끝났다). 다리 앞 — 넓어진 지도에서 출구 끝까지 걷게 하지 않는다 (98칸 → 약 52칸)
     objective: { type: 'boss' },
     twist: { type: 'crescendo', name: '수문 제어반', at: 0.22, time: 22, every: 7, blocked: '다리가 들려 있다 — 수문 제어반을 가동하라', brief: '변수: 다리를 내리려면 수문 제어반을 가동해 경보를 버텨야 한다' },
     spawn: { initial: 12, rate: 0.62, max: 26 },
@@ -148,9 +148,11 @@ const LEVELS = [
     name: '선별',
     part: 4,
     brief: '레이캬비크. 남극으로 가는 쇄빙선은 떠나기 전 부두에서 "선별"을 한다. 손목에 번호를 쓴 사람들이 줄을 섰다. ' +
-           '유나의 열은 내리지 않았다. 교회 앞까지 — 붉게 빛나는 금은 밟지 말고, 쫓아오는 것들을 그 위로 끌어들이며 건너라.',
-    goals: ['용암 지대를 지나 교회 앞 집결지까지'],
-    seed: 14713, weepers: 1, blocks: 9, city: 'reykjavik', landmarks: ['hallgrim', 'geyser', 'gasstation'], goal: 'hallgrim',
+           '유나의 열은 내리지 않았다. 교회 앞까지 — 붉게 빛나는 금은 밟지 말고, 쫓아오는 것들을 그 위로 끌어들이며 건너라. ' +
+           '용암이 길을 끊은 곳은 지열 펌프장 건물 안으로 돌아가야 한다.',
+    goals: ['용암 지대를 지나 펌프장 입구까지', '펌프장 안을 지나 교회 쪽 출구로'],
+    inside: { map: 'interior', variant: 'plant', blocks: 8, goals: ['펌프장 안을 지나 교회 쪽 출구로'], enter: '지열 펌프장 안 — 기계 사이에 서 있는 것들이다. 교회 쪽 출구를 찾아라' },
+    seed: 14713, weepers: 1, blocks: 12, city: 'reykjavik', landmarks: ['hallgrim', 'geyser', 'gasstation'], goal: 'hallgrim',
     objective: { type: 'escape' },
     twist: { type: 'gauntlet', when: 'half', at: 0.5, msg: '분화 — 교회까지 뛰어라', brief: '변수: 길의 절반에서 화산이 터진다. 그때부터 교회까지 쉼 없이 몰려온다' },
     spawn: { initial: 16, rate: 0.68, max: 28 },
@@ -194,39 +196,41 @@ const LEVELS = [
 /* 장마다 두 미션 — A(진입): 같은 도시의 다른 구역에서 목표가 다른 짧은 판, B(본편): 위의 이야기 미션.
    A 를 마쳐야 B 가 열리고, B 를 마치면 다음 장으로. A 의 지도 · 목표 · 변수는 본편과 겹치지 않게 골랐다 */
 const STAGE_A = [
-  { name: '지하 상가', map: 'subway', brief: '지하에서 올라오기 전에 챙길 것이 있다. 무너진 상가 어딘가에 구급 가방 두 개가 남아 있을 것이다. 휴대폰에는 동생 유나의 음성 메시지가 하나 — 아직 듣지 못했다.',
-    goals: ['구급 가방 2개 확보', '지상 출구로 이동'], objective: { type: 'collect', count: 2, item: '구급 가방' }, blocks: 7, spawnK: 0.7 },
+  { name: '지하 상가', map: 'subway', brief: '지하에서 올라오기 전에 챙길 것이 있다. 무너진 상가 어딘가에 구급 가방 세 개가 남아 있을 것이다. 휴대폰에는 동생 유나의 음성 메시지가 하나 — 아직 듣지 못했다.',
+    goals: ['구급 가방 3개 확보', '지상 출구로 이동'], objective: { type: 'collect', count: 3, item: '구급 가방' }, blocks: 8, spawnK: 0.7 },
   { name: '검문소의 밤', brief: '기지로 가는 길목의 검문소. 유나의 학교 버스도 이 길을 지났을까. 차단기가 올라갈 때까지 초소를 지켜야 한다.',
-    goals: ['75초 버티기', '열린 차단문으로 이동'], objective: { type: 'survive', time: 75 }, blocks: 8 },
-  { name: '시부야 방송국', map: 'interior', variant: 'office', brief: '하루의 방송을 남쪽으로 이으려면 방송국 건물 안 비상 중계기 두 대부터 살려야 한다. 복도마다 잠든 것들 — 감시등에 걸리면 경보가 울린다.',
-    goals: ['중계기 2대 가동', '집결지로 이동'], objective: { type: 'signal', count: 2, hold: 5 }, blocks: 8 },
-  { name: '수상 시장', brief: '배를 띄울 연료가 없다. 물 위 시장의 창고에 연료통이 남아 있다.',
-    goals: ['연료통 3개 확보', '선착장으로 이동'], objective: { type: 'collect', count: 3, item: '연료통' }, blocks: 8,
+    goals: ['100초 버티기', '열린 차단문으로 이동'], objective: { type: 'survive', time: 100 }, blocks: 8 },
+  { name: '시부야 방송국', map: 'interior', variant: 'office', brief: '하루의 방송을 남쪽으로 이으려면 방송국 건물 안 비상 중계기 세 대부터 살려야 한다. 복도마다 잠든 것들 — 감시등에 걸리면 경보가 울린다.',
+    goals: ['중계기 3대 가동', '집결지로 이동'], objective: { type: 'signal', count: 3, hold: 6 }, blocks: 8 },
+  { name: '수상 시장', brief: '배를 띄울 연료가 없다. 물 위 시장의 창고들에 연료통이 흩어져 있다.',
+    goals: ['연료통 4개 확보', '선착장으로 이동'], objective: { type: 'collect', count: 4, item: '연료통' }, blocks: 8,
     twist: { type: 'airdrop', at: 35, brief: '변수: 보급 투하 — 붉은 섬광이 떨어진 곳을 60초 안에 열면 장비를 얻는다(선택)' } },
   { name: 'MRT 터널', map: 'subway', brief: '부두로 가는 지상길은 무리로 막혔다. 환승역의 출구 셔터는 전원이 끊겨 내려와 있다. 역 곳곳에 흩어진 퓨즈를 모아 배전반을 살려라 — 발전기는 시끄럽다.',
     goals: ['퓨즈 3개 찾기', '배전반 전원 올리기 — 발전기가 도는 동안 버티기', '열린 셔터로 이동'], objective: { type: 'power', count: 3, item: '퓨즈', hold: 3, time: 40 }, blocks: 8 },
-  { name: '가트의 계단', brief: '강가의 계단을 따라 약품 창고가 있는 구역까지 내려가야 한다. 연기 너머로 길을 찾을 것.',
-    goals: ['약품 창고 구역으로 탈출'], objective: { type: 'escape' }, blocks: 8 },
-  { name: '칸 엘 칼릴리', brief: '모래 폭풍 전에 물을 챙겨야 한다. 시장 골목에 물통 세 개가 흩어져 있다.',
-    goals: ['물통 3개 확보', '집결지로 이동'], objective: { type: 'collect', count: 3, item: '물통' }, blocks: 8 },
+  { name: '가트의 계단', brief: '강가의 계단을 따라 약품 창고까지 내려가야 한다. 연기 너머 창고 입구를 찾고, 서 있는 것들로 가득한 창고 안을 지나 반대편으로 빠져나갈 것.',
+    goals: ['약품 창고 입구까지 이동', '창고 안을 지나 출구로'], objective: { type: 'escape' }, blocks: 9,
+    inside: { map: 'interior', variant: 'market', blocks: 8, goals: ['창고 안을 지나 출구로'], enter: '약품 창고 안 — 서 있는 것들 사이로 조용히 반대편 출구를 찾아라' } },
+  { name: '칸 엘 칼릴리', brief: '모래 폭풍 전에 물을 챙겨야 한다. 시장 골목에 물통 네 개가 흩어져 있다.',
+    goals: ['물통 4개 확보', '집결지로 이동'], objective: { type: 'collect', count: 4, item: '물통' }, blocks: 8 },
   { name: '그랜드 바자르', map: 'interior', variant: 'market', brief: '지붕 덮인 시장을 누군가 감시등으로 지키고 있다. 무리의 둥지 한가운데를 지나가야 한다 — 감시등마다 붙은 배전함을 조용히 내려 어둠을 만들어라.',
     goals: ['배전함 3개 내리기 — 감시등에 걸리지 말 것', '어둠을 따라 출구로'], objective: { type: 'blackout', count: 3, hold: 2.5 }, blocks: 8,
     twist: { type: 'airdrop', at: 30, brief: '변수: 보급 투하 — 붉은 섬광이 떨어진 곳을 60초 안에 열면 장비를 얻는다(선택)' } },
-  { name: '리알토 다리', brief: '물이 차오르기 전에 다리를 건너 광장 쪽 구역으로 넘어가야 한다.',
-    goals: ['다리 건너 구역으로 탈출'], objective: { type: 'escape' }, blocks: 8 },
-  { name: '지열 발전소', map: 'interior', variant: 'plant', brief: '발전소 안의 중계기 두 대를 살리면 정화 구역의 주파수를 엿들을 수 있다. 통제실 감시등은 아직 돌고 있다.',
-    goals: ['중계기 2대 가동', '집결지로 이동'], objective: { type: 'signal', count: 2, hold: 6 }, blocks: 8 },
-  { name: '언덕의 계단', brief: '언덕 마을의 진료소 세 곳에 구급 가방이 남아 있다. 폭우가 오기 전에.',
-    goals: ['구급 가방 3개 확보', '집결지로 이동'], objective: { type: 'collect', count: 3, item: '구급 가방' }, blocks: 8 },
+  { name: '리알토 다리', brief: '물이 차오르기 전에 다리를 건너 광장 쪽 건물로 들어가야 한다. 건물 안을 지나면 물에 잠기지 않은 뒷길이다.',
+    goals: ['다리 건너 건물 입구까지', '건물 안을 지나 뒷길로'], objective: { type: 'escape' }, blocks: 9,
+    inside: { map: 'interior', variant: 'office', blocks: 8, goals: ['건물 안을 지나 뒷길로'], enter: '건물 안 — 복도마다 서 있는 것들이다. 조용히 뒷길 출구를 찾아라' } },
+  { name: '지열 발전소', map: 'interior', variant: 'plant', brief: '발전소 안의 중계기 세 대를 살리면 정화 구역의 주파수를 엿들을 수 있다. 통제실 감시등은 아직 돌고 있다.',
+    goals: ['중계기 3대 가동', '집결지로 이동'], objective: { type: 'signal', count: 3, hold: 7 }, blocks: 8 },
+  { name: '언덕의 계단', brief: '언덕 마을의 진료소 네 곳에 구급 가방이 남아 있다. 폭우가 오기 전에.',
+    goals: ['구급 가방 4개 확보', '집결지로 이동'], objective: { type: 'collect', count: 4, item: '구급 가방' }, blocks: 8 },
   { name: '빙붕 활주로', brief: '기지로 가는 마지막 관문. 활주로 등이 다시 켜질 때까지 눈보라 속에서 버텨라.',
-    goals: ['80초 버티기', '열린 길로 이동'], objective: { type: 'survive', time: 80 }, blocks: 8 }
+    goals: ['100초 버티기', '열린 길로 이동'], objective: { type: 'survive', time: 100 }, blocks: 8 }
 ];
 /** i 장의 A 미션 — 본편에서 도시 · 무기 · 감염체 구성은 물려받고 지도 · 목표 · 변수는 새로 */
 function stageLevel(i) {
   const L = LEVELS[i], A = STAGE_A[i], k = A.spawnK || 0.85;
   return Object.assign({}, L, {
     name: A.name, brief: A.brief, goals: A.goals, objective: A.objective, twist: A.twist || null,
-    seed: (L.seed * 7 + 101) % 99991, blocks: A.blocks || L.blocks, landmarks: [], goal: undefined, stage: 0, map: A.map || undefined, variant: A.variant || undefined,
+    seed: (L.seed * 7 + 101) % 99991, blocks: A.blocks || L.blocks, landmarks: [], goal: undefined, stage: 0, map: A.map || undefined, variant: A.variant || undefined, inside: A.inside || null,
     spawn: { initial: Math.round(L.spawn.initial * k), rate: L.spawn.rate * k, max: Math.round(L.spawn.max * k) }
   });
 }

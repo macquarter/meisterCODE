@@ -746,6 +746,10 @@ function* chunkSteps(w, cx, cy) {
       } else if (zn === 5) {
         floorQuad(get('plaza'), X0, Z0, X1, Z1, 0, 120, col(SUB ? '#8a8478' : '#7a5c40', 1));          // 방 — 마루
         if (hs % 11 === 0) marks.push({ x: X0 + T / 2, y: 46, z: Z0 + T / 2, r: 160, c: [1, 0.8, 0.55], k: 1.5, glow: 10 });
+      } else if (zn === 9) {
+        // 오픈 오피스 카펫(rc.50) — 짙은 회청색, 천장 패널등 4칸 격자
+        floorQuad(get('plaza'), X0, Z0, X1, Z1, 0, 60, col(w.variant === 'market' ? '#8a7656' : w.variant === 'plant' ? '#7c8084' : '#5a6672', 1));
+        if (((x % 4) + 4) % 4 === 1 && ((y % 4) + 4) % 4 === 1) marks.push({ x: X0 + T / 2, y: 50, z: Z0 + T / 2, r: 200, c: [0.95, 0.97, 1], k: hs % 5 === 0 ? 0.4 : 1.4, glow: 10 });
       } else {
         floorQuad(get('plaza'), X0, Z0, X1, Z1, 0, 160, col(SUB ? '#9c9a94' : '#a4a69c', 1));           // 통로 · 복도 · 홀
         if (zn === 6 ? x % 6 === 0 && y % 6 === 0 : (x + y * 3) % 6 === 0) marks.push({ x: X0 + T / 2, y: 48, z: Z0 + T / 2, r: zn === 6 ? 210 : 180, c: SUB ? [0.85, 0.92, 1] : [1, 0.95, 0.85], k: hs % 6 === 0 ? 0.5 : 1.6, glow: 11 });
@@ -1745,6 +1749,39 @@ function makeProp(pr) {
       bx(g, rib, -L * 0.49 - 0.2, 20, 0, 0.4, 26, 0.6);
     }
     wheelsOn(g, [-L * 0.36, -L * 0.2, L * 0.36], Wd / 2 - 1, 5.8);
+  } else if (k === 'desks') {
+    // 사무실 책상 묶음(rc.50) — 마주 본 책상 넷, 가운데 낮은 칸막이, 모니터 · 의자
+    const top = mat('#b8ad98', { roughness: 0.7 }), leg = mat('#3a3c40'), scr = mat('#56606a', { roughness: 0.9 }), mon = mat('#111214', { roughness: 0.4 }), chair = mat('#24272c', { roughness: 0.8 });
+    for (const sz of [-1, 1]) for (const sx of [-1, 1]) {
+      const cx = sx * L / 4, cz = sz * Wd / 4;
+      bx(g, top, cx, 17, cz, L / 2 - 2, 1.6, Wd / 2 - 3);
+      bx(g, leg, cx, 8, cz + sz * (Wd / 4 - 3), L / 2 - 4, 16, 1);
+      bx(g, mon, cx, 23, cz - sz * 4, 10, 8, 1.2);
+      bx(g, chair, cx, 9, sz * (Wd / 2 + 4), 7, 10, 7);
+    }
+    bx(g, scr, 0, 22, 0, L, 12, 1.4);
+  } else if (k === 'table') {
+    const top = mat('#6a4a32', { roughness: 0.6 }), chair = mat('#24272c');
+    bx(g, top, 0, 17, 0, L, 2, Wd * 0.7); bx(g, mat('#3a2a1e'), 0, 8, 0, L * 0.9, 16, Wd * 0.3);
+    for (let q = 0; q < Math.max(2, Math.floor(L / 20)); q++) { const x = -L / 2 + 10 + q * 20; if (x > L / 2 - 6) break; bx(g, chair, x, 9, Wd * 0.48, 7, 10, 7); bx(g, chair, x, 9, -Wd * 0.48, 7, 10, 7); }
+  } else if (k === 'counter') {
+    bx(g, mat('#8a8a84', { roughness: 0.5 }), 0, 17, 0, L, 2, Wd); bx(g, mat('#5a564e'), 0, 8, 0, L, 16, Wd * 0.9);
+    for (let q = 0; q < L / 40; q++) bx(g, mat('#c8c8c4', { metalness: 0.4, roughness: 0.3 }), -L / 2 + 20 + q * 40, 24, 0, 10, 12, 8);
+  } else if (k === 'cafe') {
+    bx(g, mat('#c8c0b0', { roughness: 0.6 }), 0, 16, 0, L * 0.7, 2, Wd * 0.7); bx(g, mat('#3a3c40'), 0, 8, 0, 3, 16, 3);
+    for (const [x, z] of [[L * 0.42, 0], [-L * 0.42, 0], [0, Wd * 0.42], [0, -Wd * 0.42]]) bx(g, mat('#24272c'), x, 7, z, 6, 8, 6);
+  } else if (k === 'stall') {
+    // 시장 좌판 — 물건 상자 · 천막
+    bx(g, mat('#5a4632', { roughness: 0.9 }), 0, 9, 0, L, 18, Wd * 0.8);
+    for (let q = 0; q < 4; q++) bx(g, mat(['#c9a227', '#b8452d', '#3a8a5a', '#d8d0c0'][q], { roughness: 0.9 }), -L * 0.36 + q * L * 0.24, 21, 0, L * 0.18, 5, Wd * 0.5);
+    bx(g, mat(pr.col, { roughness: 0.9 }), 0, 36, 0, L * 1.05, 1.5, Wd * 1.1);
+    for (const sx of [-1, 1]) bx(g, mat('#3a2a1e'), sx * L * 0.48, 18, -Wd * 0.48, 1.6, 36, 1.6);
+  } else if (k === 'machine') {
+    // 발전소 기계 — 터빈 덩어리 · 배관 · 계기판
+    bx(g, mat(pr.col, { roughness: 0.6, metalness: 0.5 }), 0, 18, 0, L, 36, Wd * 0.8);
+    bx(g, mat('#2a2d31', { metalness: 0.6, roughness: 0.4 }), 0, 40, 0, L * 0.7, 8, Wd * 0.4);
+    for (const sx of [-1, 1]) bx(g, mat('#8a8e94', { metalness: 0.7, roughness: 0.3 }), sx * L * 0.3, 26, Wd * 0.45, 4, 40, 4);
+    bx(g, mat('#1a1c1e'), L * 0.3, 22, Wd * 0.41, 10, 8, 0.6);
   } else if (k === 'wagon') {
     bx(g, mat(pr.col, { roughness: 0.85, metalness: 0.3 }), 0, 22, 0, L, 28, Wd);
     for (let q = 1; q < L / 8; q++) bx(g, mat('#000000', { roughness: 1 }), -L / 2 + q * 8, 22, Wd / 2 + 0.1, 0.8, 26, 0.3);

@@ -1833,7 +1833,7 @@ function openingAngle(w, p) {
 }
 
 /** 레벨 데이터 → 도시 생성 옵션 */
-const cityOpts = L => L.map ? { theme: L.map, map: L.map, landmarks: [] } : ({ theme: L.city, river: !!L.river, landmarks: L.landmarks || [], goal: L.goal, approach: L.approach, terrain: L.terrain });
+const cityOpts = L => L.map ? { theme: L.map, map: L.map, variant: L.variant, landmarks: [] } : ({ theme: L.city, river: !!L.river, landmarks: L.landmarks || [], goal: L.goal, approach: L.approach, terrain: L.terrain });
 
 /* 무기 실루엣 (무기 고르기 화면) */
 const ARM_ICON = {
@@ -4306,6 +4306,7 @@ function indoorLights(w) {
     else if (zn === 5 && hs % 11 === 0) L = ['255,205,140', 1, 110];
     else if (zn === 7 && y % 3 === 0 && w.zone[w.idx(x - 1, y)] === 7 && w.zone[w.idx(x + 1, y)] === 7) L = ['240,245,255', 1, 110];
     else if (zn === 6 && x % 6 === 0 && y % 6 === 0) L = [SUB ? '215,235,255' : '255,240,215', hs % 6 === 0 ? 0.35 : 1, 150];
+    else if (zn === 9 && x % 4 === 1 && y % 4 === 1) L = ['240,245,255', hs % 5 === 0 ? 0.4 : 1, 140];
     else if (zn === 4 && (x + y * 3) % 6 === 0) L = [SUB ? '215,235,255' : '255,240,215', hs % 6 === 0 ? 0.35 : 1, 120];
     if (L) out.push({ x: (x + 0.5) * TILE, y: (y + 0.5) * TILE, c: L[0], k: L[1], r: L[2] });
   }
@@ -4315,7 +4316,7 @@ function indoorLights(w) {
 function drawIndoorFloor(cam, w) {
   if (!w.zone) return;
   const x0 = Math.floor(cam.x / TILE), y0 = Math.floor(cam.y / TILE), x1 = Math.ceil((cam.x + W) / TILE), y1 = Math.ceil((cam.y + VH()) / TILE);
-  const rails = new Path2D(), sleep = new Path2D(), yel = new Path2D(), wood = new Path2D(), plank = new Path2D(), plat = new Path2D(), bed = new Path2D(), gate = new Path2D();
+  const rails = new Path2D(), sleep = new Path2D(), yel = new Path2D(), wood = new Path2D(), plank = new Path2D(), plat = new Path2D(), bed = new Path2D(), gate = new Path2D(), carpet = new Path2D();
   const zAt = (x, y) => w.zone[w.idx(x, y)];
   for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
     const i = w.idx(x, y), zn = w.zone[i]; if (!zn || w.grid[i] === T_WALL && zn !== 2) continue;
@@ -4329,7 +4330,8 @@ function drawIndoorFloor(cam, w) {
       if (r1(1, 0)) yel.rect(px + TILE - 5, py, 5, TILE); if (r1(-1, 0)) yel.rect(px, py, 5, TILE);
     } else if (zn === 5) { wood.rect(px, py, TILE, TILE); for (let q = 1; q < 6; q++) plank.rect(px, py + q * 8, TILE, 1); }
     else if (zn === 7) { plat.rect(px, py, TILE, TILE); for (let q = 0; q < 6; q++) { plank.rect(px, py + q * 8, TILE, 1.6); yel.rect(px, py + q * 8 + 1.6, TILE, 1.4); } }   // 계단
-    else if (zn === 8) { gate.rect(px + 2, py + 18, 8, 12); gate.rect(px + TILE - 10, py + 18, 8, 12); }                                             // 개찰구
+    else if (zn === 8) { gate.rect(px + 2, py + 18, 8, 12); gate.rect(px + TILE - 10, py + 18, 8, 12); }
+    else if (zn === 9) carpet.rect(px, py, TILE, TILE);                                                                                    // 오픈 오피스 카펫(rc.50)                                             // 개찰구
   }
   ctx.fillStyle = 'rgba(60,54,46,.55)'; ctx.fill(bed);
   ctx.fillStyle = '#2c2218'; ctx.fill(sleep);
@@ -4339,6 +4341,7 @@ function drawIndoorFloor(cam, w) {
   ctx.fillStyle = 'rgba(122,84,48,.32)'; ctx.fill(wood);
   ctx.fillStyle = 'rgba(0,0,0,.18)'; ctx.fill(plank);
   ctx.fillStyle = '#7c8086'; ctx.fill(gate);
+  ctx.fillStyle = w.variant === 'market' ? 'rgba(130,100,60,.35)' : w.variant === 'plant' ? 'rgba(90,96,102,.3)' : 'rgba(60,80,104,.42)'; ctx.fill(carpet);
   // 조명 — 바닥에 따로 칠하지 않고 어둠 마스크만 등 아래를 옅게 뚫는다(rc.48 — 바닥 웅덩이를 겹쳐 그리면 2D 가 41fps 까지 떨어졌다)
 }
 function drawGround(cam, w) {

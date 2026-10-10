@@ -198,7 +198,7 @@ const STAGE_A = [
     goals: ['구급 가방 2개 확보', '지상 출구로 이동'], objective: { type: 'collect', count: 2, item: '구급 가방' }, blocks: 7, spawnK: 0.7 },
   { name: '검문소의 밤', brief: '기지로 가는 길목의 검문소. 유나의 학교 버스도 이 길을 지났을까. 차단기가 올라갈 때까지 초소를 지켜야 한다.',
     goals: ['75초 버티기', '열린 차단문으로 이동'], objective: { type: 'survive', time: 75 }, blocks: 8 },
-  { name: '시부야 방송국', map: 'interior', brief: '하루의 방송을 남쪽으로 이으려면 방송국 건물 안 비상 중계기 두 대부터 살려야 한다. 복도마다 잠든 것들 — 감시등에 걸리면 경보가 울린다.',
+  { name: '시부야 방송국', map: 'interior', variant: 'office', brief: '하루의 방송을 남쪽으로 이으려면 방송국 건물 안 비상 중계기 두 대부터 살려야 한다. 복도마다 잠든 것들 — 감시등에 걸리면 경보가 울린다.',
     goals: ['중계기 2대 가동', '집결지로 이동'], objective: { type: 'signal', count: 2, hold: 5 }, blocks: 8 },
   { name: '수상 시장', brief: '배를 띄울 연료가 없다. 물 위 시장의 창고에 연료통이 남아 있다.',
     goals: ['연료통 3개 확보', '선착장으로 이동'], objective: { type: 'collect', count: 3, item: '연료통' }, blocks: 8,
@@ -209,12 +209,12 @@ const STAGE_A = [
     goals: ['약품 창고 구역으로 탈출'], objective: { type: 'escape' }, blocks: 8 },
   { name: '칸 엘 칼릴리', brief: '모래 폭풍 전에 물을 챙겨야 한다. 시장 골목에 물통 세 개가 흩어져 있다.',
     goals: ['물통 3개 확보', '집결지로 이동'], objective: { type: 'collect', count: 3, item: '물통' }, blocks: 8 },
-  { name: '그랜드 바자르', map: 'interior', brief: '지붕 덮인 시장을 누군가 감시등으로 지키고 있다. 무리의 둥지 한가운데를 지나가야 한다 — 감시등마다 붙은 배전함을 조용히 내려 어둠을 만들어라.',
+  { name: '그랜드 바자르', map: 'interior', variant: 'market', brief: '지붕 덮인 시장을 누군가 감시등으로 지키고 있다. 무리의 둥지 한가운데를 지나가야 한다 — 감시등마다 붙은 배전함을 조용히 내려 어둠을 만들어라.',
     goals: ['배전함 3개 내리기 — 감시등에 걸리지 말 것', '어둠을 따라 출구로'], objective: { type: 'blackout', count: 3, hold: 2.5 }, blocks: 8,
     twist: { type: 'airdrop', at: 30, brief: '변수: 보급 투하 — 붉은 섬광이 떨어진 곳을 60초 안에 열면 장비를 얻는다(선택)' } },
   { name: '리알토 다리', brief: '물이 차오르기 전에 다리를 건너 광장 쪽 구역으로 넘어가야 한다.',
     goals: ['다리 건너 구역으로 탈출'], objective: { type: 'escape' }, blocks: 8 },
-  { name: '지열 발전소', map: 'interior', brief: '발전소 안의 중계기 두 대를 살리면 정화 구역의 주파수를 엿들을 수 있다. 통제실 감시등은 아직 돌고 있다.',
+  { name: '지열 발전소', map: 'interior', variant: 'plant', brief: '발전소 안의 중계기 두 대를 살리면 정화 구역의 주파수를 엿들을 수 있다. 통제실 감시등은 아직 돌고 있다.',
     goals: ['중계기 2대 가동', '집결지로 이동'], objective: { type: 'signal', count: 2, hold: 6 }, blocks: 8 },
   { name: '언덕의 계단', brief: '언덕 마을의 진료소 세 곳에 구급 가방이 남아 있다. 폭우가 오기 전에.',
     goals: ['구급 가방 3개 확보', '집결지로 이동'], objective: { type: 'collect', count: 3, item: '구급 가방' }, blocks: 8 },
@@ -226,7 +226,7 @@ function stageLevel(i) {
   const L = LEVELS[i], A = STAGE_A[i], k = A.spawnK || 0.85;
   return Object.assign({}, L, {
     name: A.name, brief: A.brief, goals: A.goals, objective: A.objective, twist: A.twist || null,
-    seed: (L.seed * 7 + 101) % 99991, blocks: A.blocks || L.blocks, landmarks: [], goal: undefined, stage: 0, map: A.map || undefined,
+    seed: (L.seed * 7 + 101) % 99991, blocks: A.blocks || L.blocks, landmarks: [], goal: undefined, stage: 0, map: A.map || undefined, variant: A.variant || undefined,
     spawn: { initial: Math.round(L.spawn.initial * k), rate: L.spawn.rate * k, max: Math.round(L.spawn.max * k) }
   });
 }

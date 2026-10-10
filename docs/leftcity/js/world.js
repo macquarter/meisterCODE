@@ -50,6 +50,7 @@ class World {
 
     // 지하철 · 건물 안(rc.45) — 도시 대신 터널 · 승강장 · 대합실, 또는 복도 · 방. 벽은 낮고 비는 내리지 않는다
     this.indoor = opts.map === 'subway' || opts.map === 'interior' ? opts.map : null;
+    this.variant = opts.variant || 'office';             // 건물 안의 쓰임(rc.50) — office 사무실 · market 시장 · plant 발전소
     if (this.indoor) { this.layoutIndoor(rng, blocks, this.indoor); this.pickEndpoints(); this.indexProps(); this.buildShapes(); this.terr = new Uint8Array(this.w * this.h); this.terrain = null; return; }
     this.layout(rng, blocks, opts);
     this.connectLandmarks();
@@ -501,42 +502,75 @@ class World {
       wagon(SX + 6, cA - 2, 10);
       lines.forEach(c => { for (let x0 = SX + SL + 6 + Math.floor(rng() * 10); x0 < SX + W - 14; x0 += 22 + Math.floor(rng() * 14)) { const xx = x0 % W; if (!inSt(xx, small[lines.indexOf(c)].x - 2, 26) && xx % 12 > 6) wagon(xx, c + (rng() < 0.5 ? -2 : 2), 4 + Math.floor(rng() * 2)); } });
     } else {
-      // 복도 격자 — 13‒16칸마다 2칸 복도(rc.49 — 블록을 사무실 크기 방으로 잘게 나눈다)
-      const xs = [], ys = [];
-      for (let x = 1 + Math.floor(rng() * 4); x < W - 6; x += 13 + Math.floor(rng() * 4)) { xs.push(x); floor(x, 0, 2, H, D_PLAZA, 4); }
-      for (let y = 1 + Math.floor(rng() * 4); y < H - 6; y += 13 + Math.floor(rng() * 4)) { ys.push(y); floor(0, y, W, 2, D_PLAZA, 4); }
-      xs.push(W + xs[0]); ys.push(H + ys[0]);
-      for (let i = 0; i + 1 < xs.length; i++) for (let j = 0; j + 1 < ys.length; j++) {
-        const bx = xs[i] + 2, by = ys[j] + 2, bw = xs[i + 1] - bx, bh = ys[j + 1] - by;
-        if (bw < 4 || bh < 4) continue;
-        if (rng() < 0.12) { floor(bx, by, bw, bh, D_PLAZA, 6); continue; }          // 홀 · 로비
-        // 방(rc.49) — 블록을 칸막이로 잘게 나눈다(방 한 변 3‒6칸 ≈ 사무실 · 회의실 크기). 칸막이마다 문 하나, 블록마다 복도로 난 문 하나 이상
-        const leaves = [];
-        const split = (x, y, ww, hh, depth) => {
-          const canV = ww >= 8, canH = hh >= 8;
-          if ((!canV && !canH) || depth > 5) { leaves.push([x, y, ww, hh]); floor(x, y, ww, hh, D_PLAZA, 5); return; }
-          const vert = canV && (!canH || ww >= hh);
-          const span = vert ? ww : hh, c = 3 + Math.floor(rng() * (span - 6));
-          if (vert) {
-            split(x, y, c, hh, depth + 1); split(x + c + 1, y, ww - c - 1, hh, depth + 1);
-            floor(x + c, y + Math.floor(rng() * hh), 1, 1, D_PLAZA, 5);               // 칸막이 문
-          } else {
-            split(x, y, ww, c, depth + 1); split(x, y + c + 1, ww, hh - c - 1, depth + 1);
-            floor(x + Math.floor(rng() * ww), y + c, 1, 1, D_PLAZA, 5);
-          }
-        };
-        split(bx + 1, by + 1, bw - 2, bh - 2, 0);
-        leaves.forEach(([rx, ry, rw, rh], k) => {
-          if (k > 0 && rng() > 0.45) return;                                        // 복도로 난 문 — 첫 방은 반드시
-          const sides = [];
-          if (ry === by + 1) sides.push(() => floor(rx + Math.floor(rng() * rw), ry - 1, 1, 1, D_PLAZA, 5));
-          if (ry + rh === by + bh - 1) sides.push(() => floor(rx + Math.floor(rng() * rw), ry + rh, 1, 1, D_PLAZA, 5));
-          if (rx === bx + 1) sides.push(() => floor(rx - 1, ry + Math.floor(rng() * rh), 1, 1, D_PLAZA, 5));
-          if (rx + rw === bx + bw - 1) sides.push(() => floor(rx + rw, ry + Math.floor(rng() * rh), 1, 1, D_PLAZA, 5));
-          if (sides.length) sides[Math.floor(rng() * sides.length)]();
-        });
-      }
+      // rc.50 — 건물 한 층(사무실 레퍼런스: 가운데 '코어'(엘리베이터 · 계단 · 화장실) + 둘레 오픈 오피스 · 회의실).
+      // 2칸 복도가 층을 4×4 '임대 구역'으로 나누고, 구역마다 문 둘 이상. 미로 대신 넓은 사무실에 책상 줄 · 회의실 · 탕비실.
+      // 시장(market)은 같은 뼈대에 좌판, 발전소(plant)는 기계 — 쓰임만 바꾼다
+      const V = this.variant, T = TILE;
       this.props = [];
+      const prop = (kind, tx, ty, tw, th, col) => {
+        const tiles = [];
+        for (let y = ty; y < ty + th; y++) for (let x = tx; x < tx + tw; x++) { const i = this.idx(x, y); if (this.grid[i] !== T_ROAD) return; tiles.push([((x % W) + W) % W, ((y % H) + H) % H]); }
+        for (const [x, y] of tiles) { const i = y * W + x; this.grid[i] = T_WALL; this.deco[i] = D_PROP; }
+        this.props.push({ x: (tx + tw / 2) * T, y: (ty + th / 2) * T, kind, a: 0, tiles, col: col || '#6a6258', w: tw * T - 12, h: th * T - 14 });
+      };
+      const n = Math.max(3, Math.round(W / 15)), P = Math.floor(W / n);       // 구역 한 변 약 15칸(≈ 30m) — 사람 키(40) 대비 실제 사무실 크기
+      // 복도 — 구역 사이 2칸(남는 칸도 복도)
+      for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (x % P < 2 || y % P < 2 || x >= n * P || y >= n * P) floor(x, y, 1, 1, D_PLAZA, 4);
+      const core = [Math.floor(n / 2) - (n % 2 ? 0 : 1), Math.floor(n / 2) - (n % 2 ? 0 : 1)];
+      for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) {
+        const X = i * P + 3, Y = j * P + 3, IW = P - 4, IH = P - 4;       // 구역 안쪽(둘레 벽 한 칸 안)
+        const door = side => {                                              // 둘레 벽에 2칸 문
+          const k = 2 + Math.floor(rng() * Math.max(1, IW - 5));
+          if (side === 0) floor(X + k, Y - 1, 2, 1, D_PLAZA, 4); else if (side === 1) floor(X + k, Y + IH, 2, 1, D_PLAZA, 4);
+          else if (side === 2) floor(X - 1, Y + k, 1, 2, D_PLAZA, 4); else floor(X + IW, Y + k, 1, 2, D_PLAZA, 4);
+        };
+        const sides = [0, 1, 2, 3].sort(() => rng() - 0.5); door(sides[0]); door(sides[1]); if (rng() < 0.4) door(sides[2]);
+        const isCore = i === core[0] && j === core[1];
+        const type = isCore ? 'core' : V === 'plant' ? (rng() < 0.7 ? 'hall' : 'open') : rng() < 0.62 ? 'open' : rng() < 0.55 ? 'meet' : 'cafe';
+        if (type === 'core') {
+          // 코어 — 양 끝 계단(7, 3칸), 가운데 엘리베이터 홀(6), 홀 위쪽에 화장실 둘(5, 문은 홀 쪽)
+          floor(X, Y, 3, IH, D_PLAZA, 7); floor(X + IW - 3, Y, 3, IH, D_PLAZA, 7);
+          floor(X + 4, Y + 4, IW - 8, IH - 4, D_PLAZA, 6);
+          const half = Math.floor((IW - 9) / 2);
+          floor(X + 4, Y, half, 3, D_PLAZA, 5); floor(X + 5 + half, Y, IW - 9 - half, 3, D_PLAZA, 5);
+          floor(X + 4 + Math.floor(half / 2), Y + 3, 1, 1, D_PLAZA, 5); floor(X + 5 + half + Math.floor((IW - 9 - half) / 2), Y + 3, 1, 1, D_PLAZA, 5);
+          continue;
+        }
+        if (type === 'hall') {                                              // 발전소 기계실 — 큰 기계(3×2) 줄과 배관 통로
+          floor(X, Y, IW, IH, D_PLAZA, 9);
+          for (let y = Y + 1; y + 2 <= Y + IH - 1; y += 4) for (let x = X + 1; x + 3 <= X + IW - 1; x += 5) prop('machine', x, y, 3, 2, ['#5a6a62', '#6a6050', '#4e5a66'][(rng() * 3) | 0]);
+          continue;
+        }
+        // 가장자리 방 줄 — 한쪽 벽을 따라 개인 사무실 · 회의실(문은 안쪽으로). 시장은 창고
+        const band = 3;                                                     // 방 깊이 2칸(≈ 4m) + 벽
+        floor(X, Y + band, IW, IH - band, D_PLAZA, type === 'cafe' ? 6 : 9);
+        for (let rx = X; rx < X + IW; ) {
+          const rw = Math.min(X + IW - rx, 2 + Math.floor(rng() * 2));       // 방 너비 2‒3칸(≈ 4‒6m)
+          if (rw < 2) { floor(rx, Y, X + IW - rx, band - 1, D_PLAZA, 5); break; }
+          floor(rx, Y, rw, band - 1, D_PLAZA, 5);
+          floor(rx + Math.floor(rw / 2), Y + band - 1, 1, 1, D_PLAZA, 5);       // 방 문
+          rx += rw + 1;                                                      // 방 사이 칸막이 한 칸
+        }
+        const oy = Y + band + 1, ox = X + 1;
+        if (type === 'open') {
+          // 오픈 오피스 — 2×1 책상 묶음(4인)을 가로 3칸 · 세로 3칸 간격으로, 가운데 2칸은 주 통로. 시장은 좌판
+          const mid = X + Math.floor(IW / 2) - 1;
+          for (let y = oy; y + 1 <= Y + IH - 1; y += 3) for (let x = ox; x + 2 <= X + IW - 1; x += 3) {
+            if (IW > 14 && x + 1 >= mid && x <= mid + 1) continue;           // 넓은 구역만 가운데 주 통로
+            prop(V === 'market' ? 'stall' : 'desks', x, y, 2, 1, V === 'market' ? ['#b8452d', '#2d6ab8', '#c9a227', '#3a8a5a'][(rng() * 4) | 0] : undefined);
+          }
+        } else if (type === 'meet') {
+          // 회의 구역 — 가운데 큰 회의실(긴 탁자), 둘레는 카펫 복도
+          const cw = Math.min(IW - 4, 6), chh = Math.min(IH - band - 4, 4), cx = X + Math.floor((IW - cw) / 2), cy = oy + 1;
+          for (let y = cy - 1; y <= cy + chh; y++) for (let x = cx - 1; x <= cx + cw; x++) { const ii = this.idx(x, y); this.grid[ii] = T_WALL; this.deco[ii] = D_BUILDING; this.zone[ii] = 0; }
+          floor(cx, cy, cw, chh, D_PLAZA, 5); floor(cx + Math.floor(cw / 2), cy - 1, 2, 1, D_PLAZA, 5);
+          prop('table', cx + 1, cy + Math.floor(chh / 2) - 1, cw - 2, 2);
+        } else {
+          // 탕비실 · 휴게 — 벽 쪽 조리대, 둥근 탁자
+          prop('counter', X + 1, Y + band, IW - 2, 1);
+          for (let y = oy + 1; y + 1 <= Y + IH - 1; y += 3) for (let x = ox + 1; x + 1 <= X + IW - 1; x += 3) if (rng() < 0.8) prop('cafe', x, y, 1, 1);
+        }
+      }
     }
     // 벽 칸에 필지 번호(벽 색 · 높이 계산용)
     for (let i = 0; i < W * H; i++) if (this.grid[i] === T_WALL && this.deco[i] === D_BUILDING) this.lot[i] = 1 + ((i * 2654435761) >>> 28);

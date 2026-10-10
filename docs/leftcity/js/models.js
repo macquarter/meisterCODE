@@ -673,8 +673,27 @@ const MODELS = (() => {
     });
   }
 
+  /** 실내 가구(rc.50) — 책상 묶음 · 회의 탁자 · 조리대 · 카페 탁자 · 시장 좌판 · 발전소 기계 */
+  function furniture(ctx, pr) {
+    const hx = pr.w / 2, hy = pr.h / 2, k = pr.kind;
+    ctx.fillStyle = 'rgba(0,0,0,.35)'; shadowRect(ctx, pr, hx + 1, hy + 1);
+    if (k === 'desks') {
+      for (const sx of [-1, 1]) for (const sy of [-1, 1]) {
+        const x0 = sx < 0 ? -hx : 1, x1 = sx < 0 ? -1 : hx, y0 = sy < 0 ? -hy : 1, y1 = sy < 0 ? -1 : hy;
+        box(ctx, pr.x, pr.y, 0, x0, x1, y0, y1, 0, 17, '#b8ad98', '#7a7262');
+        box(ctx, pr.x, pr.y, 0, (x0 + x1) / 2 - 5, (x0 + x1) / 2 + 5, sy < 0 ? -2 : 1, sy < 0 ? -1 : 2, 17, 25, '#16181a', '#0e0f10');
+      }
+      box(ctx, pr.x, pr.y, 0, -hx, hx, -0.7, 0.7, 0, 28, '#6a737c', '#4e565e');
+    } else if (k === 'table') box(ctx, pr.x, pr.y, 0, -hx, hx, -hy * 0.7, hy * 0.7, 0, 18, '#6a4a32', '#4a3424');
+    else if (k === 'counter') box(ctx, pr.x, pr.y, 0, -hx, hx, -hy, hy, 0, 18, '#8a8a84', '#5a564e');
+    else if (k === 'cafe') box(ctx, pr.x, pr.y, 0, -hx * 0.7, hx * 0.7, -hy * 0.7, hy * 0.7, 0, 16, '#c8c0b0', '#8a8478');
+    else if (k === 'stall') { box(ctx, pr.x, pr.y, 0, -hx, hx, -hy * 0.8, hy * 0.8, 0, 18, '#7a6044', '#5a4632'); box(ctx, pr.x, pr.y, 0, -hx * 1.05, hx * 1.05, -hy * 1.1, hy * 1.1, 34, 36, pr.col, tone(pr.col, 0.7)); }
+    else box(ctx, pr.x, pr.y, 0, -hx, hx, -hy * 0.8, hy * 0.8, 0, 38, tone(pr.col, 1.15), pr.col);   // machine
+  }
+
   function prop(ctx, pr) {
-    if (pr.kind === 'car') car(ctx, pr);
+    if (pr.kind === 'desks' || pr.kind === 'table' || pr.kind === 'counter' || pr.kind === 'cafe' || pr.kind === 'stall' || pr.kind === 'machine') furniture(ctx, pr);
+    else if (pr.kind === 'car') car(ctx, pr);
     else if (pr.kind === 'mtruck') mtruck(ctx, pr);
     else if (pr.kind === 'wagon') wagon(ctx, pr);
     else if (pr.kind === 'humvee') humvee(ctx, pr);
